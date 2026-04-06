@@ -56,10 +56,14 @@ echo ""
 DIRS="agents skills commands references"
 
 for dir in $DIRS; do
+  # Clean out existing directory first (fresh install every time)
+  if [ -d "$DEST/$dir" ]; then
+    rm -rf "$DEST/$dir"
+  fi
   mkdir -p "$DEST/$dir"
 
   if [ "$METHOD" = "link" ]; then
-    # Remove existing and symlink
+    # Remove and symlink
     rm -rf "$DEST/$dir"
     ln -sf "$SCRIPT_DIR/$dir" "$DEST/$dir"
     echo "  Linked $dir/ → $DEST/$dir/"
@@ -83,22 +87,8 @@ else
   CONFIG_FILE="$GLOBAL_DIR/opencode.json"
 fi
 
-# Check if opencode.json exists and already has context7
-if [ -f "$CONFIG_FILE" ] && grep -q "context7" "$CONFIG_FILE" 2>/dev/null; then
-  echo "  Context7 MCP already configured in $CONFIG_FILE"
-elif [ -f "$CONFIG_FILE" ]; then
-  echo "  opencode.json exists but Context7 not configured."
-  echo "  Add this to your opencode.json under \"mcp\":"
-  echo ""
-  echo '    "context7": {'
-  echo '      "type": "local",'
-  echo '      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],'
-  echo '      "enabled": true'
-  echo '    }'
-  echo ""
-else
-  # No config file — create one with Context7
-  cat > "$CONFIG_FILE" << 'CONFIGEOF'
+# Always write fresh opencode.json with Context7 MCP
+cat > "$CONFIG_FILE" << 'CONFIGEOF'
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
@@ -110,8 +100,7 @@ else
   }
 }
 CONFIGEOF
-  echo "  Created $CONFIG_FILE with Context7 MCP configured"
-fi
+echo "  Written $CONFIG_FILE with Context7 MCP configured"
 
 # --- Semgrep Check ---
 echo ""
