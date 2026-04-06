@@ -58,13 +58,50 @@ Real security experts don't just run checklists — they follow anomalies:
 - When something "feels wrong" (unusual pattern, inconsistency), dig deeper
 - Ask: "If I were an attacker who just found this, what would I try next?"
 
-### Phase 2: Research
-- Run `Bash npm audit` / `cargo audit` / `pip-audit` to check for known CVEs
-- Grep for common vulnerability patterns (hardcoded secrets, eval, exec, SQL concatenation)
+### Phase 2: Automated Scanning (Semgrep + Dependency Audit)
+
+**Step 1: Check tooling availability**
+```
+Bash which semgrep && semgrep --version || echo "SEMGREP NOT INSTALLED — falling back to grep-only mode"
+```
+
+**Step 2: Run Semgrep comprehensive scan (if available)**
+Read `semgrep-guide.md` for full reference. Run the scan:
+```
+Bash mkdir -p docs/security && semgrep scan \
+  --config p/owasp-top-ten \
+  --config p/security-audit \
+  --config p/secrets \
+  --json \
+  -o docs/security/semgrep-results.json \
+  2>&1 | tee docs/security/semgrep-scan.log
+```
+
+If the project is language-specific, ALSO add the language pack:
+- JavaScript/TypeScript: `--config p/javascript`
+- Python: `--config p/python`
+- Go: `--config p/golang`
+- Java: `--config p/java`
+- Rust: `--config p/rust`
+
+**Step 3: Parse Semgrep results**
+```
+Bash cat docs/security/semgrep-results.json | jq '.results | group_by(.extra.severity) | map({severity: .[0].extra.severity, count: length})'
+```
+Group findings by OWASP category:
+```
+Bash cat docs/security/semgrep-results.json | jq '[.results[] | {owasp: (.extra.metadata.owasp[0] // "Uncategorized"), file: .path, line: .start.line, severity: .extra.severity, message: .extra.message}] | group_by(.owasp) | map({category: .[0].owasp, count: length, findings: .})'
+```
+
+**Step 4: Run dependency audit**
+- `Bash npm audit --json 2>/dev/null` / `Bash cargo audit 2>/dev/null` / `Bash pip-audit --format json 2>/dev/null`
 - Check dependency versions against known vulnerability databases
-- Read `owasp-checklist.md` for systematic OWASP Top 10 coverage
-- Use format from `report-template.md` for findings
-- Assess severity using `severity-matrix.md`
+
+**Step 5: Grep-based scanning (supplements Semgrep, or primary if Semgrep unavailable)**
+
+Read `owasp-checklist.md` for systematic OWASP Top 10 coverage.
+Use format from `report-template.md` for findings.
+Assess severity using `severity-matrix.md`.
 
 Search for common vulnerability patterns:
 - SQL injection: `Grep -i "query.*\\$|execute.*\\+|concat.*sql" --type ts`
@@ -75,12 +112,19 @@ Search for common vulnerability patterns:
 - Template literal injection: `` Grep "\\$\\{.*\\}" --type ts `` (check if user input flows in)
 - SSRF: `Grep -i "fetch\\(|axios|request\\(" --type ts` (check URL source)
 
-**IMPORTANT: Grep patterns are initial screening only.**
-- These catch common patterns but NOT all variants
+**IMPORTANT: Both Semgrep and Grep are screening tools, not final verdicts.**
+- Semgrep is AST-based (understands code structure) — far fewer false positives than grep
+- Grep catches patterns Semgrep might miss (custom frameworks, unusual patterns)
 - ORMs (Prisma, TypeORM) abstract SQL — check their query builders separately
-- Template literals without "query" prefix won't match the SQL pattern
-- After grep results, ALWAYS read the actual code for context
-- If a grep returns nothing, do NOT report "No vulnerabilities found" — manually check the top-risk files
+- After automated results, ALWAYS read the actual code for context and verify
+- If automated scanning returns nothing, do NOT report "No vulnerabilities found" — manually check top-risk files
+- Use Semgrep findings to GUIDE your manual review — investigate each finding's surrounding code
+
+**Step 6: Merge automated + manual findings**
+- Semgrep findings go into the report with their rule ID, CWE, and OWASP mapping
+- Grep findings get manually classified with OWASP category and CWE
+- Manual review findings (logic flaws, design issues) are added with evidence
+- ALL findings are verified against actual code before inclusion in the final report
 
 ### Phase 3: Plan the Audit
 - List the specific areas to audit based on the attack surface found in Phase 1
@@ -326,10 +370,13 @@ You MUST write the security audit report to a file. Do NOT just output findings 
    - Path: `docs/security/SECURITY_AUDIT_<YYYY-MM-DD>.md`
    - Use the format from `report-template.md`
    - Include ALL findings with severity, file:line, evidence, remediation
-   - Include a summary table at the top with columns: #, Severity, Finding, Location, OWASP Category, Status
+   - Include a summary table at the top with columns: #, Severity, Finding, Location, OWASP Category, Source (Semgrep/Manual/Grep), Status
+   - Include Semgrep scan summary: total findings, by severity, by OWASP category
+   - Include dependency audit results (npm audit / cargo audit / pip-audit)
    - Include confidence scores per OWASP category (from the Reasoning Loop below)
    - Include the Cross-Module Pattern Analysis section with architectural recommendations
    - Include the STRIDE threat model summary
+   - Reference the raw Semgrep JSON at `docs/security/semgrep-results.json` for full details
 3. Print the file path after writing so the user knows where to find it.
 
 For each finding in the report:
