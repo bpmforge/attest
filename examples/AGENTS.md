@@ -8,10 +8,30 @@ Before writing ANY code:
 
 1. **Read project rules first** — Read this file and any existing coding standards
 2. **Read 2-3 existing files in the same directory** — Match their patterns
-3. **Verify library APIs** — Never write from training data. Check actual exports.
+3. **Verify library APIs via Context7** — NEVER write from training data. Use Context7 MCP to look up current docs:
+   - Call `resolve-library-id` with the library name
+   - Call `get-library-docs` with a relevant topic
+   - Base all code on the returned documentation
+   - If Context7 is unavailable, check `node_modules/` or official docs directly
 4. **Use existing utilities before creating new** — Search for existing helpers first
 5. **Write tests alongside code** — Not after. Each new service gets a test file.
 6. **Run lint + test after each change** — Not just type checking. Full lint and test.
+
+## Context7 MCP Setup
+
+For live library documentation lookup, configure Context7 in your `opencode.json`:
+```json
+{
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],
+      "enabled": true
+    }
+  }
+}
+```
+See `references/context7-mcp.md` for full setup guide including API key and remote HTTP options.
 
 ## Architecture Rules
 

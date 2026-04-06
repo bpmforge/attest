@@ -1,27 +1,11 @@
 {
-  "$schema": "https://opencode.ai/config.schema.json",
-  "// INSTRUCTIONS": "Copy this file to your project root or ~/.config/opencode/ and customize the provider settings.",
-  "// AGENTS": "Agent files are loaded from .opencode/agents/ (project) or ~/.config/opencode/agents/ (global)",
-  "// SKILLS": "Skill files are loaded from .opencode/skills/ (project) or ~/.config/opencode/skills/ (global)",
-  "// COMMANDS": "Command files are loaded from .opencode/commands/ (project) or ~/.config/opencode/commands/ (global)",
+  "$schema": "https://opencode.ai/config.json",
 
-  "provider": {
-    "// NOTE": "Uncomment and configure ONE provider below, or set via environment variables",
-
-    "// ANTHROPIC (Claude)": {
-      "// apiKey": "sk-ant-...",
-      "// model": "claude-sonnet-4-6"
-    },
-
-    "// OPENAI": {
-      "// apiKey": "sk-...",
-      "// model": "gpt-4.1"
-    },
-
-    "// LOCAL (LM Studio / Ollama / any OpenAI-compatible endpoint)": {
-      "// baseURL": "http://localhost:1234/v1",
-      "// apiKey": "lm-studio",
-      "// model": "qwen3-coder-next"
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],
+      "enabled": true
     }
   }
 }
