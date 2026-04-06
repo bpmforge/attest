@@ -60,29 +60,63 @@ Real security experts don't just run checklists — they follow anomalies:
 
 ### Phase 2: Automated Scanning (Semgrep + Dependency Audit)
 
-**Step 1: Check tooling availability**
+**Step 1: Check and install tooling**
 ```
-Bash which semgrep && semgrep --version || echo "SEMGREP NOT INSTALLED — falling back to grep-only mode"
+Bash which semgrep && semgrep --version || echo "SEMGREP_NOT_INSTALLED"
 ```
 
-**Step 2: Run Semgrep comprehensive scan (if available)**
-Read `semgrep-guide.md` for full reference. Run the scan:
+If semgrep is NOT installed, help the user install it:
+1. Detect the platform:
+   - macOS: suggest `brew install semgrep`
+   - Linux/other: suggest `pip install semgrep` (or `pipx install semgrep` if pipx available)
+   - Docker fallback: `docker run --rm -v $(pwd):/src returntocorp/semgrep semgrep scan --config auto`
+2. Ask the user: "Semgrep is not installed. Want me to install it? (brew/pip/docker)"
+3. After installation, verify: `Bash semgrep --version`
+4. If the user declines installation, proceed with grep-only mode but note in the report:
+   "⚠️ Semgrep was not available — scan used grep patterns only. Install semgrep for AST-based analysis."
+
+**Step 2: Run Semgrep comprehensive scan**
+Read `semgrep-guide.md` for full reference.
+
+First, detect the project language to select the right rule packs:
+```
+Bash ls package.json go.mod Cargo.toml requirements.txt pyproject.toml pom.xml composer.json Gemfile 2>/dev/null
+```
+
+Then run the scan with appropriate packs:
+Build the scan command based on detected language:
+
+Base packs (always include):
+- `--config p/owasp-top-ten` — OWASP Top 10 coverage
+- `--config p/security-audit` — Broad security patterns
+- `--config p/secrets` — Hardcoded API keys, passwords, tokens
+
+Add language-specific pack based on what you found:
+- `package.json` or `.ts`/`.js` files → add `--config p/javascript`
+- `requirements.txt` or `pyproject.toml` → add `--config p/python`
+- `go.mod` → add `--config p/golang`
+- `Cargo.toml` → add `--config p/rust`
+- `pom.xml` or `.java` files → add `--config p/java`
+- `composer.json` → add `--config p/php`
+- `Gemfile` → add `--config p/ruby`
+
+Construct and run the full command:
 ```
 Bash mkdir -p docs/security && semgrep scan \
   --config p/owasp-top-ten \
   --config p/security-audit \
   --config p/secrets \
+  --config p/<detected-language-pack> \
   --json \
   -o docs/security/semgrep-results.json \
   2>&1 | tee docs/security/semgrep-scan.log
 ```
 
-If the project is language-specific, ALSO add the language pack:
-- JavaScript/TypeScript: `--config p/javascript`
-- Python: `--config p/python`
-- Go: `--config p/golang`
-- Java: `--config p/java`
-- Rust: `--config p/rust`
+After the scan completes, tell the user:
+- How many findings by severity (parse the JSON)
+- How long the scan took
+- Where the raw results are saved
+- That you will now analyze each finding in detail
 
 **Step 3: Parse Semgrep results**
 ```
