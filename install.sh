@@ -87,8 +87,38 @@ else
   CONFIG_FILE="$GLOBAL_DIR/opencode.json"
 fi
 
-# Always write fresh opencode.json with Context7 MCP
-cat > "$CONFIG_FILE" << 'CONFIGEOF'
+# Merge Context7 MCP into existing opencode.json (or create if missing)
+if [ -f "$CONFIG_FILE" ]; then
+  # Check if jq is available for safe JSON merging
+  if command -v jq &>/dev/null; then
+    # Check if context7 already configured
+    if jq -e '.mcp.context7' "$CONFIG_FILE" &>/dev/null; then
+      echo "  Context7 MCP already configured in $CONFIG_FILE — skipping"
+    else
+      # Merge context7 into existing config, preserving everything else
+      jq '.mcp = (.mcp // {}) + {"context7": {"type": "local", "command": ["npx", "-y", "@upstash/context7-mcp@latest"], "enabled": true}}' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+      echo "  Added Context7 MCP to existing $CONFIG_FILE (other settings preserved)"
+    fi
+  else
+    # No jq — check with grep and warn if can't safely merge
+    if grep -q "context7" "$CONFIG_FILE" 2>/dev/null; then
+      echo "  Context7 MCP already configured in $CONFIG_FILE — skipping"
+    else
+      echo "  ⚠️  opencode.json exists but jq is not installed — cannot safely merge."
+      echo "  Add this manually to your $CONFIG_FILE under \"mcp\":"
+      echo ''
+      echo '    "context7": {'
+      echo '      "type": "local",'
+      echo '      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],'
+      echo '      "enabled": true'
+      echo '    }'
+      echo ''
+      echo "  Or install jq and re-run:  brew install jq"
+    fi
+  fi
+else
+  # No config file — create fresh with Context7
+  cat > "$CONFIG_FILE" << 'CONFIGEOF'
 {
   "$schema": "https://opencode.ai/config.json",
   "mcp": {
@@ -100,7 +130,8 @@ cat > "$CONFIG_FILE" << 'CONFIGEOF'
   }
 }
 CONFIGEOF
-echo "  Written $CONFIG_FILE with Context7 MCP configured"
+  echo "  Created $CONFIG_FILE with Context7 MCP configured"
+fi
 
 # --- Semgrep Check ---
 echo ""
