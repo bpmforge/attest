@@ -72,13 +72,67 @@ for dir in $DIRS; do
 done
 
 echo ""
+
+# --- Context7 MCP Setup ---
+echo "Setting up Context7 MCP (live library documentation lookup)..."
+
+# Determine the config file location
+if [ "$MODE" = "project" ]; then
+  CONFIG_FILE="./opencode.json"
+else
+  CONFIG_FILE="$GLOBAL_DIR/opencode.json"
+fi
+
+# Check if opencode.json exists and already has context7
+if [ -f "$CONFIG_FILE" ] && grep -q "context7" "$CONFIG_FILE" 2>/dev/null; then
+  echo "  Context7 MCP already configured in $CONFIG_FILE"
+elif [ -f "$CONFIG_FILE" ]; then
+  echo "  opencode.json exists but Context7 not configured."
+  echo "  Add this to your opencode.json under \"mcp\":"
+  echo ""
+  echo '    "context7": {'
+  echo '      "type": "local",'
+  echo '      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],'
+  echo '      "enabled": true'
+  echo '    }'
+  echo ""
+else
+  # No config file — create one with Context7
+  cat > "$CONFIG_FILE" << 'CONFIGEOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "context7": {
+      "type": "local",
+      "command": ["npx", "-y", "@upstash/context7-mcp@latest"],
+      "enabled": true
+    }
+  }
+}
+CONFIGEOF
+  echo "  Created $CONFIG_FILE with Context7 MCP configured"
+fi
+
+# --- Semgrep Check ---
+echo ""
+echo "Checking for Semgrep (security scanning)..."
+if command -v semgrep &>/dev/null; then
+  echo "  Semgrep $(semgrep --version 2>/dev/null | head -1) — installed ✓"
+else
+  echo "  Semgrep not installed. The /security agent works best with Semgrep."
+  echo "  Install with:  brew install semgrep  (macOS)"
+  echo "             or:  pip install semgrep   (any platform)"
+  echo "  The agent will offer to install it when you run /security."
+fi
+
+echo ""
 echo "Installation complete!"
 echo ""
 echo "Available commands:"
 echo "  /sdlc init <name> \"<desc>\"  — Start new project"
 echo "  /sdlc onboard               — Understand existing codebase"
 echo "  /sdlc feature \"<desc>\"      — Add feature to existing system"
-echo "  /security                    — OWASP security audit"
+echo "  /security                    — OWASP security audit (with Semgrep)"
 echo "  /research \"<topic>\"          — Deep research"
 echo "  /dba                         — Database architecture"
 echo "  /test-expert                 — Test strategy & coverage"
@@ -91,5 +145,11 @@ echo "  /api-design                  — API design review"
 echo "  /review                      — Multi-pass code review"
 echo "  /gate                        — SDLC gate check"
 echo ""
+echo "MCP Servers configured:"
+echo "  Context7 — Live library documentation lookup (auto-configured)"
+echo ""
 echo "Optional: Copy AGENTS.md to your project root:"
 echo "  cp $SCRIPT_DIR/examples/AGENTS.md ./AGENTS.md"
+echo ""
+echo "Optional: Get a free Context7 API key for higher rate limits:"
+echo "  https://context7.com/dashboard"
