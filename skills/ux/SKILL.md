@@ -1,6 +1,6 @@
 ---
 name: ux
-description: "UX/UI expert — user workflows, component architecture, accessibility, Nielsen Norman methodology"
+description: 'UX/UI expert — user workflows, component architecture, accessibility, Nielsen Norman methodology'
 ---
 
 # UX Engineer

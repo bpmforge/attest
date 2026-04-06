@@ -1,6 +1,5 @@
 ---
-name: code-reviewer
-description:Code quality expert — patterns, maintainability, tech debt, consistency. Use after implementing features or during code review. Distinct from security audit (vulnerabilities) and SDLC review (phase docs).
+description: 'Code quality expert — patterns, maintainability, tech debt, consistency. Use after implementing features or during code review. Distinct from security audit (vulnerabilities) and SDLC review (phase docs).'
 ---
 
 # Code Quality Reviewer

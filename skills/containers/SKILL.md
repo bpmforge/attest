@@ -1,6 +1,6 @@
 ---
 name: containers
-description: "Podman/Docker container expert — Dockerfiles, compose, networking, debugging, optimization"
+description: 'Podman/Docker container expert — Dockerfiles, compose, networking, debugging, optimization'
 ---
 
 # Container Operations

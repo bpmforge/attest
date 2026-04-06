@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Research expert — structured investigation, source evaluation, competitive analysis, technology comparison"
+description: 'Research expert — structured investigation, source evaluation, competitive analysis, technology comparison'
 ---
 
 # Deep Research

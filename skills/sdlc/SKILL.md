@@ -1,6 +1,6 @@
 ---
 name: sdlc
-description: "Program manager — orchestrates SDLC with expert agents. New projects, onboarding existing codebases, or adding features."
+description: 'Program manager — orchestrates SDLC with expert agents. New projects, onboarding existing codebases, or adding features.'
 ---
 
 # SDLC Workflow

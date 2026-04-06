@@ -1,5 +1,4 @@
 ---
-name: sdlc-onboard
 description: "Onboard to an existing codebase — reverse engineer and document"
 ---
 

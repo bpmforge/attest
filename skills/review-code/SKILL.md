@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: "Code quality review — patterns, maintainability, tech debt, consistency"
+description: 'Code quality review — patterns, maintainability, tech debt, consistency'
 ---
 
 # Code Quality Review

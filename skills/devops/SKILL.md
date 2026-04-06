@@ -1,6 +1,6 @@
 ---
 name: devops
-description: "SRE expert — runbooks, CI/CD pipelines, monitoring, incident response, deployment strategies"
+description: 'SRE expert — runbooks, CI/CD pipelines, monitoring, incident response, deployment strategies'
 ---
 
 # SRE Engineer

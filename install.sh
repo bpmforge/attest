@@ -60,17 +60,15 @@ for dir in $DIRS; do
   if [ -d "$DEST/$dir" ]; then
     rm -rf "$DEST/$dir"
   fi
-  mkdir -p "$DEST/$dir"
 
   if [ "$METHOD" = "link" ]; then
-    # Remove and symlink
-    rm -rf "$DEST/$dir"
+    # Symlink entire directory
     ln -sf "$SCRIPT_DIR/$dir" "$DEST/$dir"
     echo "  Linked $dir/ → $DEST/$dir/"
   else
-    # Copy files
-    cp -r "$SCRIPT_DIR/$dir/"* "$DEST/$dir/" 2>/dev/null || true
-    count=$(ls -1 "$SCRIPT_DIR/$dir/"*.md 2>/dev/null | wc -l | tr -d ' ')
+    # Deep copy (handles nested dirs like skills/<name>/SKILL.md)
+    cp -r "$SCRIPT_DIR/$dir" "$DEST/$dir"
+    count=$(find "$DEST/$dir" -name "*.md" | wc -l | tr -d ' ')
     echo "  Copied $dir/ ($count files) → $DEST/$dir/"
   fi
 done

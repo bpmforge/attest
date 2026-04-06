@@ -1,6 +1,5 @@
 ---
-name: performance-engineer
-description:Performance profiling and optimization expert. Use when investigating slowness, optimizing bottlenecks, or establishing performance baselines. Never optimize without measuring first.
+description: 'Performance profiling and optimization expert. Use when investigating slowness, optimizing bottlenecks, or establishing performance baselines. Never optimize without measuring first.'
 ---
 
 # Performance Engineer

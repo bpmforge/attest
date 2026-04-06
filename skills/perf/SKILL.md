@@ -1,6 +1,6 @@
 ---
 name: perf
-description: "Performance profiling, benchmarking, and optimization"
+description: 'Performance profiling, benchmarking, and optimization'
 ---
 
 # Performance Engineer

@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Security expert — OWASP, threat modeling, vulnerability assessment"
+description: 'Security expert — OWASP, threat modeling, vulnerability assessment'
 ---
 
 # Security Audit

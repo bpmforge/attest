@@ -1,10 +1,5 @@
 ---
-name: sdlc-feature
 description: "Add a feature to an existing system with impact analysis"
-arguments:
-  - name: description
-    description: "Feature description"
-    required: true
 ---
 
 Add the following feature to the existing system: "{{description}}"

@@ -1,6 +1,6 @@
 ---
 name: api-design
-description: "API design expert — REST/GraphQL, contracts, versioning, documentation"
+description: 'API design expert — REST/GraphQL, contracts, versioning, documentation'
 ---
 
 # API Designer

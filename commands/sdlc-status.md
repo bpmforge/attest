@@ -1,5 +1,4 @@
 ---
-name: sdlc-status
 description: "Show current SDLC project status"
 ---
 

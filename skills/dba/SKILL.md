@@ -1,6 +1,6 @@
 ---
 name: dba
-description: "Database expert — schema design, migrations, query optimization, indexing, ORM models"
+description: 'Database expert — schema design, migrations, query optimization, indexing, ORM models'
 ---
 
 # Database Architect

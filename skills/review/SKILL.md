@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Multi-pass code review with severity levels"
+description: 'Multi-pass code review with severity levels'
 ---
 
 # Multi-Pass Code Review

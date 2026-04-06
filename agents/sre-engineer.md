@@ -1,6 +1,5 @@
 ---
-name: sre-engineer
-description:Senior SRE — runbooks, CI/CD pipelines, monitoring, incident response, deployment strategies. Use for operational concerns (deploy, monitor, respond to incidents). NOT for container/image building — use container-ops for that.
+description: 'Senior SRE — runbooks, CI/CD pipelines, monitoring, incident response, deployment strategies. Use for operational concerns (deploy, monitor, respond to incidents). NOT for container/image building — use container-ops for that.'
 ---
 
 # Site Reliability Engineer

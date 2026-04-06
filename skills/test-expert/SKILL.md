@@ -1,6 +1,6 @@
 ---
 name: test-expert
-description: "Testing expert — Playwright e2e, vitest/jest unit tests, integration tests, test strategy, coverage"
+description: 'Testing expert — Playwright e2e, vitest/jest unit tests, integration tests, test strategy, coverage'
 ---
 
 # Test Engineer

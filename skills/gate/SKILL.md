@@ -1,6 +1,6 @@
 ---
 name: gate
-description: "Manage SDLC phase gates and approvals"
+description: 'Manage SDLC phase gates and approvals'
 ---
 
 # SDLC Gate Management

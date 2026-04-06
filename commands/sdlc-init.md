@@ -1,13 +1,5 @@
 ---
-name: sdlc-init
 description: "Initialize a new project with SDLC phases"
-arguments:
-  - name: name
-    description: "Project name"
-    required: true
-  - name: description
-    description: "Project description"
-    required: true
 ---
 
 Initialize a new software project called "{{name}}" with description: "{{description}}"

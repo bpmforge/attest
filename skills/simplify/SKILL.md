@@ -1,6 +1,6 @@
 ---
 name: simplify
-description: "Review changed code for reuse, quality, and efficiency"
+description: 'Review changed code for reuse, quality, and efficiency'
 ---
 
 # Simplify
