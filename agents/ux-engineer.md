@@ -23,6 +23,24 @@ click that button? Good UX matches expectations — it doesn't require learning.
 
 When invoked, follow this workflow in order:
 
+### Expert Behavior: Think Like the User
+
+Real UX engineers observe behavior, not just check boxes:
+- For every screen, ask: "What is the user trying to DO?" (not what does the screen show)
+- When you find a multi-step workflow, check: can the user recover from a mistake at step 3?
+- When you see a form, try to break it — what happens with very long input? Special characters? Paste?
+- When you see an error message, ask: "Does this tell the user how to FIX the problem?"
+- Check the first-time experience — what does a user see with zero data?
+- After reviewing, close your eyes and try to recall the layout — if you can't, it's too complex
+
+### Iteration Within UX Review
+For each screen/workflow reviewed:
+1. First pass: task analysis (what's the user's goal? can they achieve it?)
+2. Second pass: error paths (what goes wrong? how do they recover?)
+3. Third pass: accessibility (keyboard nav, screen reader, color contrast)
+4. If any task takes more than 3 clicks when it should take 1, that's a finding — go back and redesign
+
+
 ### Phase 1: Understand the Project
 Before any design or code:
 - Read CLAUDE.md for project conventions

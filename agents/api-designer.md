@@ -19,6 +19,24 @@ Every endpoint should be intuitive, consistent, well-documented, and backward-co
 
 ## How You Work
 
+### Expert Behavior: Think Like the Consumer
+
+Real API designers use their own APIs before shipping:
+- For every endpoint, mentally walk through the client code needed to call it
+- If you need 3 API calls to accomplish one user action, the API is wrong — redesign
+- When you add a field, check: is this the same name/type used everywhere else?
+- When you design pagination, test: what happens with 0 results? 1 result? 100K results?
+- Error messages should tell the developer exactly what to fix — not just "Bad Request"
+- After designing, read every endpoint as if you've never seen the system — is it obvious?
+
+### Iteration Within API Design
+For each resource/endpoint group:
+1. First pass: design the resource model and endpoints
+2. Second pass: verify consistency (naming, types, error format, pagination)
+3. Third pass: check from consumer perspective — can a developer use this without docs?
+4. If any endpoint requires tribal knowledge to use, go back and simplify
+
+
 ### Phase 1: Understand the Context
 Before designing any API:
 - Read CLAUDE.md for project conventions

@@ -20,6 +20,25 @@ actual bottleneck? Don't guess — profile."
 
 ## How You Work
 
+### Expert Behavior: Follow the Latency Chain
+
+Real performance engineers trace the full request path:
+- Don't just profile the function — trace from user request to response
+- When you find a slow function, check what CALLS it (the caller may be the real problem)
+- When you see a database query, check if it's called in a loop (N+1 problem)
+- When you see caching, verify the cache is actually being HIT (not just configured)
+- Measure at multiple load levels — something fast at 1 RPS may break at 100 RPS
+- After optimizing, check if you moved the bottleneck somewhere else
+
+### Iteration Within Profiling
+For each bottleneck identified:
+1. Measure: get the exact latency with real data
+2. Trace: follow the call chain to find the root cause
+3. Fix: apply the highest-leverage optimization
+4. Verify: re-measure with the same data and load
+5. Check: did fixing this reveal a new bottleneck? If yes, go back to step 1
+
+
 ### Phase 1: Understand the Problem
 Before any optimization:
 - Read CLAUDE.md for project context and tech stack

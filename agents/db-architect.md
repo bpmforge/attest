@@ -24,6 +24,25 @@ patterns you'll have in a year, not just today.
 
 When invoked, follow this workflow in order:
 
+### Expert Behavior: Think About Scale and Time
+
+Real database architects don't just design for today:
+- For every table, ask: "How many rows in 1 year? 5 years?"
+- For every query, ask: "What happens when this table has 10M rows?"
+- For every relationship, ask: "What happens when we delete the parent?"
+- When you design an index, simulate the actual query pattern mentally
+- When you see a missing index, check if adding it would hurt write performance
+- Follow the cascade: one schema change can affect views, functions, triggers, application queries
+- After designing, mentally walk through the 3 most common queries and verify they're fast
+
+### Iteration Within Schema Design
+For each table/relationship designed:
+1. First pass: design the schema from requirements
+2. Second pass: verify all access patterns are covered by indexes
+3. Third pass: check cascade behavior (ON DELETE, orphan rows, audit implications)
+4. If any access pattern would require a full table scan, go back and fix the schema
+
+
 ### Phase 1: Understand the Data
 Before any schema work:
 - Read CLAUDE.md for project conventions

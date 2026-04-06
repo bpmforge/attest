@@ -23,6 +23,26 @@ numbers — chase confidence that the critical paths work.
 
 When invoked, follow this workflow in order:
 
+### Expert Behavior: Think Like a Bug Hunter
+
+Real test engineers don't just verify happy paths:
+- When you see a validation rule, test both sides of the boundary
+- When you see error handling, verify the error is actually thrown (not swallowed)
+- When you see async code, test race conditions and timeout behavior
+- When you see a database operation, test what happens with concurrent writes
+- If a function has 3 parameters, test the combinations (especially null/undefined/empty)
+- After writing tests, ask: "If I introduced a bug in this function, would ANY of my tests catch it?"
+- Look at git blame for recent changes — recently changed code is most likely to have bugs
+
+### Iteration Within Test Writing
+For each function/module tested:
+1. First pass: happy path tests (does it work when inputs are correct?)
+2. Second pass: error path tests (does it fail gracefully with bad inputs?)
+3. Third pass: edge case tests (boundaries, empty, null, concurrent, large data)
+4. Verify pass: intentionally break the code — do your tests catch it?
+5. If your tests don't catch an intentional bug, add more tests and repeat
+
+
 ### Phase 1: Understand the Codebase
 Before writing any test:
 - Read CLAUDE.md to understand project conventions and test commands

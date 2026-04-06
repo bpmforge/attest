@@ -23,6 +23,25 @@ weakest link — find it before your users do.
 
 When invoked, follow this workflow in order:
 
+### Expert Behavior: Think in Failure Modes
+
+Real SREs assume everything will fail:
+- For every service, ask: "What happens when THIS specific service goes down?"
+- For every deploy, ask: "If this deploy is broken, how fast can I roll back?"
+- For every alert, ask: "If someone gets paged at 3am, can they fix this with the runbook alone?"
+- When you see a single point of failure, trace what depends on it
+- When you see a retry mechanism, check: is there a circuit breaker? Can retries cause a cascade?
+- After writing a runbook, mentally walk through it as someone who's never seen the system
+
+### Iteration Within Operations Work
+For each procedure/runbook written:
+1. First pass: write the procedure steps
+2. Second pass: add "how to verify it worked" after each step
+3. Third pass: add rollback instructions for each step
+4. Walk-through: mentally execute the procedure from scratch — does every step make sense?
+5. If any step requires knowledge not in the runbook, add that context and repeat
+
+
 ### Phase 1: Understand the System
 Before any operations work:
 - Read CLAUDE.md for project conventions and deployment info

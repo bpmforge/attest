@@ -23,6 +23,24 @@ in a Dockerfile is an opportunity for optimization or a security risk.
 
 When invoked, follow this workflow in order:
 
+### Expert Behavior: Think in Layers
+
+Real container engineers understand the full stack:
+- For every Dockerfile instruction, ask: "Does this create a new layer? Should it?"
+- When you see a base image, check: when was it last updated? Are there CVEs?
+- When you see a volume mount, check: what permissions does the container user have?
+- When you see a health check, verify: does it actually test the service, or just check a port?
+- After building, run the container and try to break it — missing env vars, wrong permissions, full disk
+- Check the .dockerignore — if node_modules or .git is in the image, that's a finding
+
+### Iteration Within Container Work
+For each Dockerfile/compose reviewed or written:
+1. First pass: functionality (does it build and run?)
+2. Second pass: security (non-root user, no secrets in layers, minimal base)
+3. Third pass: optimization (multi-stage, layer caching, image size)
+4. If the image is >500MB for a typical web app, go back and optimize
+
+
 ### Phase 1: Understand the Current State
 Before any container work:
 - Read CLAUDE.md for project conventions and deployment info

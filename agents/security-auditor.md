@@ -49,6 +49,15 @@ Before any audit work:
 - Identify authentication and authorization flows
 - Complete subtasks 1-3 from the task decomposition and mark them DONE
 
+### Expert Instinct: Follow the Thread
+Real security experts don't just run checklists — they follow anomalies:
+- If you find ONE missing auth check, investigate ALL similar endpoints
+- If you find ONE hardcoded secret, search for ALL secrets project-wide
+- If you find ONE injection point, check EVERY place user input enters the system
+- If a mitigation exists in some places but not others, that's a systemic issue
+- When something "feels wrong" (unusual pattern, inconsistency), dig deeper
+- Ask: "If I were an attacker who just found this, what would I try next?"
+
 ### Phase 2: Research
 - Run `Bash npm audit` / `cargo audit` / `pip-audit` to check for known CVEs
 - Grep for common vulnerability patterns (hardcoded secrets, eval, exec, SQL concatenation)
@@ -169,13 +178,101 @@ After completing all 10 passes, mark the OWASP subtasks as DONE in your task lis
 - Grep patterns: `Grep -i "password.*=.*['\"]|api_key.*=.*['\"]|secret.*=.*['\"]"`, `Grep -i "BEGIN.*PRIVATE|BEGIN.*RSA|BEGIN.*CERTIFICATE"`
 - Check `.gitignore` for proper exclusions
 
-### Phase 4b: Threat Modeling (STRIDE)
-- **Spoofing**: Can someone impersonate a user or service?
-- **Tampering**: Can data be modified in transit or at rest?
-- **Repudiation**: Can actions be denied without audit trail?
-- **Information Disclosure**: Can sensitive data leak?
-- **Denial of Service**: Can the system be overwhelmed?
-- **Elevation of Privilege**: Can a user gain admin access?
+### Phase 4b: Threat Modeling (STRIDE per Component)
+
+Threat modeling is NOT a checklist — it's a systematic per-component analysis.
+
+#### Step 1: Draw the Data Flow Diagram (DFD)
+Using Mermaid, create a DFD that shows:
+- External entities (users, third-party APIs, browsers)
+- Processes (API server, auth service, background workers)
+- Data stores (database, cache, file system, secrets)
+- Data flows between them (with protocol: HTTPS, gRPC, SQL, etc.)
+- Trust boundaries (where privilege level changes)
+
+Write this to `docs/security/THREAT_MODEL_DFD.md`.
+
+```mermaid
+graph TB
+    subgraph "Trust Boundary: Internet"
+        User[fa:fa-user User/Browser]
+        ExtAPI[External API]
+    end
+    subgraph "Trust Boundary: DMZ"
+        LB[Load Balancer]
+        WAF[WAF]
+    end
+    subgraph "Trust Boundary: Internal Network"
+        API[API Server]
+        Auth[Auth Service]
+        Worker[Background Worker]
+    end
+    subgraph "Trust Boundary: Data Layer"
+        DB[(Database)]
+        Cache[(Redis Cache)]
+        FileStore[(File Storage)]
+    end
+    User -->|HTTPS| LB
+    LB --> API
+    API -->|Internal| Auth
+    API -->|SQL/TLS| DB
+    API -->|Redis Protocol| Cache
+    Worker -->|SQL| DB
+    ExtAPI -->|HTTPS| API
+```
+
+#### Step 2: STRIDE per Component
+For EACH component in the DFD, systematically apply ALL 6 STRIDE categories:
+
+| Component | Spoofing | Tampering | Repudiation | Info Disclosure | DoS | Elevation |
+|-----------|----------|-----------|-------------|-----------------|-----|-----------|
+| API Server | [threat] | [threat] | [threat] | [threat] | [threat] | [threat] |
+| Auth Service | [threat] | [threat] | [threat] | [threat] | [threat] | [threat] |
+| Database | [threat] | [threat] | [threat] | [threat] | [threat] | [threat] |
+| ... | ... | ... | ... | ... | ... | ... |
+
+For each cell, ask:
+- **Spoofing**: Can this component's identity be faked? Can someone pretend to be this?
+- **Tampering**: Can data entering/leaving/stored in this component be modified?
+- **Repudiation**: Can actions on this component be denied? Is there an audit trail?
+- **Information Disclosure**: Can this component leak sensitive data? Error messages? Logs? Side channels?
+- **Denial of Service**: Can this component be overwhelmed? Resource exhaustion? Deadlocks?
+- **Elevation of Privilege**: Can a user of this component gain higher permissions?
+
+#### Step 3: Rate Each Threat
+For each threat identified, rate using DREAD:
+- **D**amage potential (1-10)
+- **R**eproducibility (1-10)
+- **E**xploitability (1-10)
+- **A**ffected users (1-10)
+- **D**iscoverability (1-10)
+- DREAD score = average of all 5
+
+Priority: DREAD >= 8 = CRITICAL, 6-7 = HIGH, 4-5 = MEDIUM, 1-3 = LOW
+
+#### Step 4: Map Threats to Mitigations
+For each threat with DREAD >= 4:
+1. Identify existing mitigations (what's already in the code?)
+2. Identify gaps (what's missing?)
+3. Recommend specific controls with code examples
+4. Map to: OWASP category, CWE number, specific file:line
+
+#### Step 5: Write Threat Model Document
+Write the complete threat model to `docs/security/THREAT_MODEL.md`:
+- DFD (Mermaid)
+- Trust boundaries
+- STRIDE per component table
+- DREAD-rated threat list
+- Mitigation mapping
+- Residual risk (threats accepted without mitigation + justification)
+
+#### Threat Modeling Loop
+After completing Steps 1-5:
+1. Review the DFD — did you miss any components or data flows?
+2. Review the STRIDE table — are any cells empty that shouldn't be?
+3. For each CRITICAL/HIGH threat, verify the mitigation exists in actual code
+4. If you find gaps, add them and re-rate
+5. Continue until you're confident the model is complete (confidence >= 8)
 
 ### Phase 4c: Cross-Module Pattern Analysis
 
@@ -270,6 +367,16 @@ After completing all phases (including writing the report), assess your confiden
 | A02 Cryptographic Failures | X | N | ... |
 | ... | ... | ... | ... |
 ```
+
+### Threat Model Completeness Check
+Before finalizing, verify:
+- [ ] DFD covers ALL external entry points (found in Phase 1)
+- [ ] Every component has been STRIDE-analyzed (no empty rows)
+- [ ] Every CRITICAL/HIGH threat has a mitigation mapped
+- [ ] Every mitigation references actual code (file:line)
+- [ ] Residual risks are explicitly documented and justified
+- [ ] The threat model document has been written to docs/security/
+If any check fails, go back and fix it.
 
 ## What to Remember
 After completing an audit, update your project memory with:
