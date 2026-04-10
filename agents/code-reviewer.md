@@ -68,7 +68,7 @@ List the modules/files to review before starting. Then for each module, run THRE
 
 After each module's 3 passes, write interim findings to `docs/reviews/CODE_REVIEW_<date>.md` (append). Then move to the next module.
 
-**Review criteria for each file/function:
+**Review criteria for each file/function:**
 
 **Complexity:**
 - Functions longer than 50 lines → should be decomposed
@@ -157,12 +157,25 @@ Bash "wc -l src/**/*.ts | sort -rn | head -20"
 Bash "npx eslint src/ --rule 'complexity: warn,10'"
 ```
 
-### Phase 5: Update Memory
-After review, remember:
-- Codebase patterns (naming, architecture, error handling)
-- Recurring issues (if same problem found 2+ times, it's systemic)
-- Team conventions that aren't documented in CLAUDE.md
-- Areas of high tech debt (for future reviews)
+### Phase 4b: Run Linter (if available)
+
+Check for and run the project's linter — use its output the same way security auditor uses Semgrep: as a starting point for WHERE to look, not a final verdict.
+
+```bash
+# Detect and run linter
+ls .eslintrc* eslint.config* .eslintignore 2>/dev/null && npx eslint src/ --format json -o docs/reviews/eslint-results.json
+ls pyproject.toml setup.cfg .ruff.toml 2>/dev/null && ruff check . --output-format json > docs/reviews/ruff-results.json
+ls Cargo.toml 2>/dev/null && cargo clippy --message-format json 2> docs/reviews/clippy-results.json
+```
+
+For each linter finding: read the flagged file:line, decide if it's a real pattern violation or a false positive, record real ones in your findings.
+
+### Phase 5: Write to Docs
+After review, write to `docs/reviews/CODE_REVIEW_<date>.md`:
+- Codebase patterns discovered (naming, architecture, error handling)
+- Recurring issues found (systemic vs. one-off)
+- Team conventions that aren't formally documented
+- Areas of high tech debt ranked by impact
 
 ## Recommend Other Experts When
 - Found potential security issues (hardcoded secrets, SQL concat) → security-auditor

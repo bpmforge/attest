@@ -41,9 +41,20 @@ Before starting, list numbered subtasks — one per OWASP category (A01-A10), pl
 - Read project docs (README, CLAUDE.md/AGENTS.md) to understand the system
 - Glob to map project structure — services, APIs, endpoints
 - Read entry points (server.ts, main.rs, app.py) to understand architecture
-- Identify the tech stack from package.json / Cargo.toml / requirements.txt
+- Identify the tech stack and **primary language** from package.json / Cargo.toml / requirements.txt / go.mod
 - Map trust boundaries — where does user input enter? Where does data leave?
 - Identify authentication and authorization flows
+- Note the **framework** (Express, Fastify, Django, Spring, Rails, etc.) — used in Phase 1b
+
+**Phase 1b: Fetch current security guidance for detected stack**
+Use WebFetch or WebSearch to get up-to-date security guidance specific to the project's tech:
+- Framework security hardening guide (e.g., "Express.js security best practices site:expressjs.com")
+- Look up any CVEs for major dependencies found in package.json / requirements.txt
+- Search for known vulnerabilities in the detected framework version if version is pinned
+- Query: `"<framework> security checklist" OR "<framework> OWASP"` to get current expert guidance
+
+Record the framework-specific checks you'll apply during the OWASP passes.
+If web access is unavailable, note it and proceed with built-in knowledge.
 
 ### Expert Instinct: Follow the Thread
 Real security experts don't just run checklists — they follow anomalies:
@@ -72,7 +83,6 @@ If semgrep is NOT installed, help the user install it:
    "⚠️ Semgrep was not available — scan used grep patterns only. Install semgrep for AST-based analysis."
 
 **Step 2: Run Semgrep comprehensive scan**
-Read `semgrep-guide.md` for full reference.
 
 First, detect the project language to select the right rule packs:
 ```
@@ -129,11 +139,14 @@ Bash cat docs/security/semgrep-results.json | jq '[.results[] | {owasp: (.extra.
 
 **Step 5: Grep-based scanning (supplements Semgrep, or primary if Semgrep unavailable)**
 
-Read `owasp-checklist.md` for systematic OWASP Top 10 coverage.
-Use format from `report-template.md` for findings.
-Assess severity using `severity-matrix.md`.
+Use the language detected in Phase 1 to pick the right file type flag:
+- TypeScript/JavaScript → `--type ts` or `--type js`
+- Python → `--type py`
+- Go → `--type go`
+- Rust → `--type rust`
+- Java → `--type java`
 
-Search for common vulnerability patterns:
+Search for common vulnerability patterns (adapt file type to detected language):
 - SQL injection: `Grep -i "query.*\\$|execute.*\\+|concat.*sql" --type ts`
 - Command injection: `Grep "exec\\(|spawn\\(|execSync" --type ts`
 - XSS: `Grep "innerHTML|dangerouslySetInnerHTML|document\\.write" --type ts`
@@ -163,15 +176,20 @@ Search for common vulnerability patterns:
 
 ### Phase 4: OWASP Loop (10 Dedicated Passes)
 
+**Before starting each pass:** Check `docs/security/semgrep-results.json` for Semgrep findings already mapped to that OWASP category. Use those findings as your starting point — read each flagged file:line in detail, confirm or dismiss, then continue with manual grep patterns. Semgrep findings prioritize WHERE to look; your manual review confirms WHETHER it's real.
+
 For EACH of the following 10 OWASP categories, perform a dedicated pass. After each pass, record your findings before moving to the next category. Do not skip categories even if you believe they are not applicable — document why they are not applicable instead.
 
 **Pass 1 — A01: Broken Access Control**
+*(Adapt `--type ts` to detected language in all grep patterns below)*
 - Are all endpoints protected with auth checks?
-- Can users access resources they don't own? (IDOR)
-- Are admin functions properly gated?
-- Do API endpoints enforce same permissions as UI?
-- Grep patterns: `Grep -i "isAdmin|isAuth|requireAuth|authorize|permission|role" --type ts`
-- Read every route handler and check for auth middleware
+- Can users access resources they don't own? (IDOR — does any query filter by userId/ownerId?)
+- Are admin functions properly gated? (separate admin routes? role checks?)
+- Do API endpoints enforce same permissions as UI? (UI may hide a button, API must also block it)
+- Grep: `Grep -i "isAdmin|isAuth|requireAuth|authorize|permission|role" --type ts`
+- Grep: `Grep -i "findById|getById|findOne" --type ts` — check if result is filtered by owner
+- For each route handler found: trace the call chain — is auth middleware applied BEFORE the handler?
+- Framework-specific: Express (look for `router.use(authMiddleware)` before routes), Django (`@login_required`), Spring (`@PreAuthorize`)
 - Record findings for A01 before proceeding.
 
 **Pass 2 — A02: Cryptographic Failures**
