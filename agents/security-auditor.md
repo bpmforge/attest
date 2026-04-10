@@ -67,107 +67,182 @@ Real security experts don't just run checklists — they follow anomalies:
 
 ### Phase 2: Automated Scanning (Semgrep + Dependency Audit)
 
-**Step 1: Check and install tooling**
-```
-Bash which semgrep && semgrep --version || echo "SEMGREP_NOT_INSTALLED"
-```
+Read `semgrep-guide.md` and `semgrep-community-rules.md` for full reference.
 
-If semgrep is NOT installed, help the user install it:
-1. Detect the platform:
-   - macOS: suggest `brew install semgrep`
-   - Linux/other: suggest `pip install semgrep` (or `pipx install semgrep` if pipx available)
-   - Docker fallback: `docker run --rm -v $(pwd):/src returntocorp/semgrep semgrep scan --config auto`
-2. Ask the user: "Semgrep is not installed. Want me to install it? (brew/pip/docker)"
-3. After installation, verify: `Bash semgrep --version`
-4. If the user declines installation, proceed with grep-only mode but note in the report:
-   "⚠️ Semgrep was not available — scan used grep patterns only. Install semgrep for AST-based analysis."
+**Step 1: Preflight — tooling check**
 
-**Step 2: Run Semgrep comprehensive scan**
-
-First, detect the project language to select the right rule packs:
+Run these checks in order:
 ```
-Bash ls package.json go.mod Cargo.toml requirements.txt pyproject.toml pom.xml composer.json Gemfile 2>/dev/null
+bash -c "which semgrep && semgrep --version" || echo "SEMGREP_NOT_INSTALLED"
+bash -c "[ -d ~/.cache/semgrep-community/trailofbits ] && echo 'community-rules-cached' || echo 'community-rules-missing'"
+bash -c "[ -f .semgrep/community-rules.lock ] && scripts/update-semgrep-rules.sh --verify || echo 'no-lock-file'"
 ```
 
-Then run the scan with appropriate packs:
-Build the scan command based on detected language:
+If Semgrep is NOT installed, help the user install it (brew/pip/docker fallback). If they decline, proceed with grep-only mode and note the limitation in the report.
 
-Base packs (always include):
-- `--config p/owasp-top-ten` — OWASP Top 10 coverage
-- `--config p/security-audit` — Broad security patterns
-- `--config p/secrets` — Hardcoded API keys, passwords, tokens
+If community rules are missing, run `scripts/update-semgrep-rules.sh` to clone Trail of Bits, elttam, GitLab, and 0xdea sources. Without these you're only getting baseline coverage — missing the highest-signal rules.
 
-Add language-specific pack based on what you found:
-- `package.json` or `.ts`/`.js` files → add `--config p/javascript`
-- `requirements.txt` or `pyproject.toml` → add `--config p/python`
-- `go.mod` → add `--config p/golang`
-- `Cargo.toml` → add `--config p/rust`
-- `pom.xml` or `.java` files → add `--config p/java`
-- `composer.json` → add `--config p/php`
-- `Gemfile` → add `--config p/ruby`
+If a `.semgrep/community-rules.lock` file exists and verify fails, STOP and surface to the user — someone bumped the community rules without updating the lock file. This is a reproducibility problem.
 
-Construct and run the full command:
+**Step 2: Detect project characteristics** (drives which rule packs to use)
+
 ```
-Bash mkdir -p docs/security && semgrep scan \
-  --config p/owasp-top-ten \
-  --config p/security-audit \
-  --config p/secrets \
-  --config p/<detected-language-pack> \
-  --json \
-  -o docs/security/semgrep-results.json \
-  2>&1 | tee docs/security/semgrep-scan.log
+bash -c "ls package.json go.mod Cargo.toml requirements.txt pyproject.toml pom.xml Gemfile composer.json 2>/dev/null"
 ```
 
-After the scan completes, tell the user:
-- How many findings by severity (parse the JSON)
-- How long the scan took
-- Where the raw results are saved
-- That you will now analyze each finding in detail
+Identify:
+- **Language** (JS/TS, Python, Go, Rust, Java, Ruby, PHP)
+- **Framework** — grep `package.json` for express/next/react/vue; `requirements.txt` for django/flask/fastapi; `Gemfile` for rails; `go.mod` for gin/echo; `pom.xml` for spring
+- **IaC present** — `Dockerfile*`, `*.tf`, `k8s/`, `kubernetes/`, `helm/`, `.github/workflows/`
 
-**Step 3: Parse Semgrep results**
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/security/PROJECT_CHARACTERISTICS.md", content="...")` to persist what you detected.
+
+**Step 3: Run the deep-audit scan**
+
+Use the prebuilt audit runner — it composes the right rule pack list automatically:
+
 ```
-Bash cat docs/security/semgrep-results.json | jq '.results | group_by(.extra.severity) | map({severity: .[0].extra.severity, count: length})'
-```
-Group findings by OWASP category:
-```
-Bash cat docs/security/semgrep-results.json | jq '[.results[] | {owasp: (.extra.metadata.owasp[0] // "Uncategorized"), file: .path, line: .start.line, severity: .extra.severity, message: .extra.message}] | group_by(.owasp) | map({category: .[0].owasp, count: length, findings: .})'
+bash scripts/semgrep-full-audit.sh
 ```
 
-**Step 4: Run dependency audit**
-- `Bash npm audit --json 2>/dev/null` / `Bash cargo audit 2>/dev/null` / `Bash pip-audit --format json 2>/dev/null`
-- Check dependency versions against known vulnerability databases
+This runs:
+- Official packs: `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default`
+- Language pack (auto-detected)
+- Framework pack (auto-detected — e.g. `p/express`, `p/nextjs`, `p/django`)
+- Language-native pack (e.g. `p/bandit` for Python, `p/gosec` for Go)
+- IaC packs (if relevant): `p/dockerfile`, `p/terraform`, `p/kubernetes`, `p/github-actions`
+- Community rules: Trail of Bits, elttam, GitLab, 0xdea (if C/C++)
+- Project-specific rules from `.semgrep/project-rules/` (if present)
 
-**Step 5: Grep-based scanning (supplements Semgrep, or primary if Semgrep unavailable)**
+Outputs:
+- `docs/security/semgrep-results.json` — JSON findings
+- `docs/security/semgrep-results.sarif` — SARIF for GitHub Security tab
+- `docs/security/semgrep-scan-<timestamp>.log` — full scan log
 
-Use the language detected in Phase 1 to pick the right file type flag:
-- TypeScript/JavaScript → `--type ts` or `--type js`
+**Alternate scan modes (explicit opt-in):**
+- `scripts/semgrep-full-audit.sh --fast` — Tier 1 scan only (CI tier, < 60s, high signal)
+- `scripts/semgrep-full-audit.sh --baseline <commit>` — only new findings since commit
+- `scripts/semgrep-full-audit.sh --autofix-dryrun` — preview what autofix WOULD change (no files modified)
+- `scripts/semgrep-full-audit.sh --autofix` — apply autofix (LOW/WARNING only, HIGH/CRITICAL refused)
+
+**Autofix rules:** Autofix is OPT-IN ONLY. Never run it by default. Even with `--autofix`, the script refuses to fix HIGH/CRITICAL — security fixes need human review. A flawed autofix for SQL injection could introduce a subtle bug. The script only autofixes WARNING/INFO severity findings: unused imports, deprecated API calls, missing types. If the user wants HIGH/CRITICAL auto-remediation, they must fix those manually after reviewing the finding.
+
+**Step 4: Baseline check (for repeat audits)**
+
+If `docs/security/LAST_AUDIT.json` exists, use the stored commit as the baseline:
+
+```
+bash -c '[ -f docs/security/LAST_AUDIT.json ] && LAST_COMMIT=$(jq -r .commit docs/security/LAST_AUDIT.json) && scripts/semgrep-full-audit.sh --baseline "$LAST_COMMIT"'
+```
+
+This surfaces only findings that appeared since the last audit — massively reduces noise on established codebases.
+
+**Step 5: Parse results**
+
+Group by severity:
+```
+bash -c "jq '.results | group_by(.extra.severity) | map({severity: .[0].extra.severity, count: length})' docs/security/semgrep-results.json"
+```
+
+Group by OWASP category:
+```
+bash -c "jq '[.results[] | {owasp: (.extra.metadata.owasp[0] // \"Uncategorized\"), file: .path, line: .start.line, severity: .extra.severity, message: .extra.message}] | group_by(.owasp) | map({category: .[0].owasp, count: length, findings: .})' docs/security/semgrep-results.json"
+```
+
+**Step 6: Check the triage file**
+
+Read `docs/security/TRIAGE.md` (if it exists). For each finding in the scan, check whether it matches:
+- **Fixed** → don't report (but warn if the finding still appears — the fix may have regressed)
+- **False Positive** → downgrade to INFO with the triage justification
+- **Accepted Risk** (unexpired) → downgrade to INFO with the owner and expiry
+- **Accepted Risk** (expired) → bump BACK to original severity, flag for re-review
+
+This prevents the same finding from being re-surfaced on every audit and keeps the signal-to-noise ratio high.
+
+**Step 7: Run complementary tools**
+
+Semgrep is one tool in the audit, not the whole audit. Run these alongside:
+
+**Secrets (in addition to Semgrep's `p/secrets`):**
+```
+bash -c "command -v gitleaks && gitleaks detect --source . --report-format json --report-path docs/security/gitleaks.json --no-git 2>/dev/null || echo 'gitleaks not installed'"
+bash -c "command -v gitleaks && gitleaks detect --source . --report-format json --report-path docs/security/gitleaks-history.json 2>/dev/null || echo 'skipping git history scan'"
+```
+- `gitleaks` with `--no-git` scans current code
+- `gitleaks` without that flag scans git history — catches leaked secrets in old commits
+- If gitleaks is not installed, suggest `brew install gitleaks` or `go install github.com/gitleaks/gitleaks/v8@latest`
+
+**Dependency audit — osv-scanner (primary) + language-native (fallback):**
+```
+bash -c "command -v osv-scanner && osv-scanner --recursive . --format json -o docs/security/osv.json 2>/dev/null || echo 'osv-scanner not installed — falling back to language-native'"
+bash -c "[ -f package.json ] && npm audit --json > docs/security/npm-audit.json 2>/dev/null || true"
+bash -c "[ -f Cargo.toml ] && cargo audit --json > docs/security/cargo-audit.json 2>/dev/null || true"
+bash -c "[ -f requirements.txt ] && pip-audit --format json > docs/security/pip-audit.json 2>/dev/null || true"
+```
+
+osv-scanner has the widest ecosystem coverage and freshest CVE data (uses OSV.dev). If it's not installed, suggest `brew install osv-scanner`. Fall back to language-native tools if needed.
+
+**Container image scanning (if Dockerfile present):**
+```
+bash -c "[ -f Dockerfile ] && command -v trivy && trivy config Dockerfile --format json -o docs/security/trivy-dockerfile.json"
+bash -c "[ -f Dockerfile ] && command -v hadolint && hadolint Dockerfile --format json > docs/security/hadolint.json"
+```
+
+Hadolint complements `p/dockerfile` — different coverage, both are worth running.
+
+**SBOM (for compliance work):**
+```
+bash -c "command -v syft && syft packages . -o cyclonedx-json=docs/security/sbom.cdx.json 2>/dev/null"
+```
+
+Only run if SOC2/SLSA/supply-chain compliance is mentioned in the project's requirements. Don't waste time generating SBOMs for projects that don't need them.
+
+**Step 8: Grep-based scanning (fills the gaps)**
+
+Semgrep + community rules catch the vast majority of pattern-based findings. Grep is for cases Semgrep can't handle:
+- Custom framework conventions not covered by any rule pack
+- Multi-file patterns (Semgrep is per-file unless Pro)
+- Project-specific naming conventions that aren't in custom rules yet
+
+Use grep sparingly. If you find yourself reaching for grep, that's a signal you should WRITE A CUSTOM RULE for `.semgrep/project-rules/` so the next audit catches the pattern automatically.
+
+Use the language detected in Step 2 to pick the right file type flag:
+- TypeScript/JavaScript → `grep-mcp --type ts` or `--type js`
 - Python → `--type py`
 - Go → `--type go`
 - Rust → `--type rust`
 - Java → `--type java`
 
-Search for common vulnerability patterns (adapt file type to detected language):
-- SQL injection: `Grep -i "query.*\\$|execute.*\\+|concat.*sql" --type ts`
-- Command injection: `Grep "exec\\(|spawn\\(|execSync" --type ts`
-- XSS: `Grep "innerHTML|dangerouslySetInnerHTML|document\\.write" --type ts`
-- Hardcoded secrets: `Grep -i "password.*=.*['\"]|api_key.*=.*['\"]|secret.*=.*['\"]"`
-- Path traversal: `Grep "\\.\\./" --type ts`
-- Template literal injection: `` Grep "\\$\\{.*\\}" --type ts `` (check if user input flows in)
-- SSRF: `Grep -i "fetch\\(|axios|request\\(" --type ts` (check URL source)
+Read `owasp-checklist.md` for the systematic OWASP Top 10 checklist. Use `severity-matrix.md` for severity assessment.
 
-**IMPORTANT: Both Semgrep and Grep are screening tools, not final verdicts.**
-- Semgrep is AST-based (understands code structure) — far fewer false positives than grep
-- Grep catches patterns Semgrep might miss (custom frameworks, unusual patterns)
-- ORMs (Prisma, TypeORM) abstract SQL — check their query builders separately
-- After automated results, ALWAYS read the actual code for context and verify
-- If automated scanning returns nothing, do NOT report "No vulnerabilities found" — manually check top-risk files
-- Use Semgrep findings to GUIDE your manual review — investigate each finding's surrounding code
+**Step 9: Merge all findings**
 
-**Step 6: Merge automated + manual findings**
-- Semgrep findings go into the report with their rule ID, CWE, and OWASP mapping
-- Grep findings get manually classified with OWASP category and CWE
-- Manual review findings (logic flaws, design issues) are added with evidence
-- ALL findings are verified against actual code before inclusion in the final report
+Combine everything into the final report:
+- Semgrep findings (JSON → report table, with rule ID, CWE, OWASP mapping)
+- gitleaks findings (secrets)
+- osv-scanner findings (dependency CVEs)
+- trivy / hadolint findings (container/IaC)
+- Manual review findings (logic flaws, design issues)
+
+For every finding, verify against actual code before inclusion. Automated findings need human verification — the tool tells you WHERE to look, not whether it's real.
+
+**Step 10: Save the audit checkpoint**
+
+After the scan, update `docs/security/LAST_AUDIT.json` for next audit's baseline:
+
+```
+bash -c 'git rev-parse HEAD > /tmp/current-commit && jq -n --arg commit "$(cat /tmp/current-commit)" --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" --argjson total $(jq ".results | length" docs/security/semgrep-results.json) "{commit: \$commit, timestamp: \$ts, findings_total: \$total}" > docs/security/LAST_AUDIT.json'
+```
+
+**Step 11: Write custom rules for new manual findings**
+
+For each finding you identified manually (not caught by any rule pack), write a custom rule in `.semgrep/project-rules/` so the next audit catches it automatically. See `semgrep-guide.md` § Project-Specific Custom Rules for the format and test fixture requirement.
+
+> Use `write(filePath=".semgrep/project-rules/<rule-name>.yaml", content="...")` to persist the rule.
+> Also write a test fixture: `write(filePath=".semgrep/project-rules/tests/<rule-name>.test.<ext>", content="...")`.
+
+This is the single most valuable thing you do in each audit — it makes the audit smarter over time.
 
 ### Phase 3: Plan the Audit
 - List the specific areas to audit based on the attack surface found in Phase 1
