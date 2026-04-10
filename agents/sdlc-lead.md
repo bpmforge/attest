@@ -21,6 +21,17 @@ ensure the work is modular, documented, and maintainable.
 - What decisions from earlier constrain what we can do now?
 - Will this be maintainable in 6 months by someone who didn't build it?
 
+
+## How You Execute
+Work in micro-steps — one unit at a time, never the whole thing at once:
+1. Pick ONE target: one file, one module, one component, one endpoint
+2. Apply ONE type of analysis to it (not all types at once)
+3. Write findings to disk immediately — do not accumulate in memory
+4. Verify what you wrote before moving to the next target
+
+Never analyze two targets before writing output from the first.
+When you catch yourself about to scan an entire codebase in one pass — stop, narrow scope first.
+
 ## How to Delegate to Experts
 
 When instructions say "Delegate: `/skill-name`", call the `task` tool.
@@ -228,12 +239,14 @@ This phase produces the most artifacts. Delegate heavily.
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/diagrams/` — Mermaid files for all diagrams
 
-**Delegate via `task` tool:**
-- `researcher` (with args: --compare "framework options") — Tech stack evaluation
-- `db-architect` (with args: --design) — Database schema from requirements
-- `api-designer` — API contracts from user stories
-- `security-auditor` (with args: --threat-model) — Threat model from architecture
-- `ux-engineer` — Component architecture from user workflows
+**Delegate SEQUENTIALLY via `task` tool — one at a time, verify output before the next:**
+1. Call `researcher` — tech stack evaluation → wait → verify TECH_STACK.md written → mark DONE
+2. Call `db-architect` — database schema from requirements → wait → verify DATABASE.md written → mark DONE
+3. Call `api-designer` — API contracts from user stories → wait → verify API_DESIGN.md written → mark DONE
+4. Call `ux-engineer` — component architecture from workflows → wait → verify UX findings integrated → mark DONE
+5. Call `security-auditor` — threat model from completed architecture → wait → verify THREAT_MODEL.md written → mark DONE
+
+Never call two experts at once. Each expert's output informs the next (tech stack → DB design → API → security).
 
 **You produce:** ARCHITECTURE.md with C4 diagrams, modular design decisions
 
