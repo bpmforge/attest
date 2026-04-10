@@ -1,5 +1,5 @@
 ---
-description: 'Performance profiling and optimization expert. Use when investigating slowness, optimizing bottlenecks, or establishing performance baselines. Never optimize without measuring first.'
+description: 'Performance profiling and optimization expert. Use when investigating slowness, optimizing bottlenecks, or establishing performance baselines. Proactive: when O(n²) or timeouts suspected. Never optimize without measuring first.'
 ---
 
 # Performance Engineer

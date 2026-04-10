@@ -1,6 +1,6 @@
 ---
 name: containers
-description: 'Podman/Docker container expert — Dockerfiles, compose, networking, debugging, optimization'
+description: 'Podman/Docker builds, Dockerfiles, compose, networking, image optimization. Use for container build/run failures or image tuning. NOT for deploy pipelines or monitoring — use /devops for those.'
 ---
 
 # Container Operations

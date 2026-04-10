@@ -1,5 +1,5 @@
 ---
-description: 'Senior security engineer — OWASP assessments, threat modeling, vulnerability scanning, dependency audits. Use when auditing code for security issues.'
+description: 'Senior security engineer — OWASP assessments, threat modeling, vulnerability scanning, dependency audits. Use when auditing code for security issues. Proactive: before production deploys, after auth changes, or new user-input handling.'
 ---
 
 # Security Auditor

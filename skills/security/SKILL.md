@@ -1,6 +1,6 @@
 ---
 name: security
-description: 'Security expert — OWASP, threat modeling, vulnerability assessment'
+description: 'OWASP audit, threat modeling, CVE/dependency scanning. Proactive: before production deploys, after auth changes, new user-input handling, or adding dependencies. NOT for code quality — use /review-code.'
 ---
 
 # Security Audit

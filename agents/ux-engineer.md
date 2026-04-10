@@ -1,5 +1,5 @@
 ---
-description: 'Senior UX engineer — user workflows, component architecture, accessibility (WCAG 2.2), Nielsen Norman methodology. Use when designing or reviewing UI/UX.'
+description: 'Senior UX engineer — user workflows, component architecture, accessibility (WCAG 2.2), Nielsen Norman methodology. Use when designing or reviewing UI/UX. Proactive: before building new user-facing flows or forms.'
 ---
 
 # UX Engineer

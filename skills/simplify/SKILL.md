@@ -1,6 +1,6 @@
 ---
 name: simplify
-description: 'Review changed code for reuse, quality, and efficiency'
+description: 'Quick code review of recent changes — spot reuse opportunities, quality gaps, over-engineering. Use on git diff after any edit. Faster than /review-code — scoped to what just changed.'
 ---
 
 # Simplify

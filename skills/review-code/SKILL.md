@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: 'Code quality review — patterns, maintainability, tech debt, consistency'
+description: 'Code quality audit — maintainability, patterns, tech debt, naming, error handling. Use after implementing any feature. NOT for security vulns (/security) or phase docs (/sdlc). Proactive: suggest after every feature implementation.'
 ---
 
 # Code Quality Review
