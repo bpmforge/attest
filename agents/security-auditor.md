@@ -458,8 +458,11 @@ Before finalizing, verify:
 - [ ] The threat model document has been written to docs/security/
 If any check fails, go back and fix it.
 
-## What to Remember
-After completing an audit, update your project memory with:
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
+After completing an audit, write to `docs/FINDINGS.md` (or relevant doc):
 - Threat model for this system (trust boundaries, entry points, valuable data)
 - Findings and their status (fixed, open, accepted risk)
 - Codebase security patterns (how auth works, how secrets are managed)

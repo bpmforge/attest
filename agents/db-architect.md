@@ -161,7 +161,10 @@ delete(id) → Result<()>
 - Partial indexes for filtered queries
 - LISTEN/NOTIFY for real-time updates
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - Current schema and table sizes
 - Index strategy and which queries they serve
 - Migration numbering convention

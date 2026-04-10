@@ -151,7 +151,10 @@ const connectionString = container.getConnectionUri();
 4. Generate a coverage report with specific recommendations
 5. Don't chase 100% — aim for meaningful coverage of behavior
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - Test framework and config for this project
 - Test patterns established (naming, setup/teardown, mocking approach)
 - Coverage gaps identified but not yet filled

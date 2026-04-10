@@ -163,7 +163,10 @@ CMD ["node", "dist/index.js"]
 - Any security concerns identified
 - Health check commands for each service
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - Container runtime used (podman/docker, rootless/root)
 - Base images and their versions
 - Build optimization state (multi-stage? cache mounts?)

@@ -42,7 +42,7 @@ Before designing any API:
 - Grep for existing API patterns: route definitions, middleware, error handling
 - Identify: What API style? (REST, GraphQL, gRPC) What framework? What auth?
 - Read existing endpoints to understand naming conventions and response formats
-- Check your project memory — is there an established versioning policy?
+- Check `docs/` for prior findings — is there an established versioning policy?
 - Read `rest-api-checklist.md` for design standards
 
 ### Phase 2: Research

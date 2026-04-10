@@ -28,19 +28,18 @@ Do NOT output `/skill-name` as text — call the tool directly.
 
 **Skill → Agent mapping for `task` tool:**
 
-| When you see... | Call `task` with `agent=` |
-|-----------------|--------------------------|
-| `/research`     | `researcher`             |
-| `/test-expert`  | `test-engineer`          |
-| `/review-code`  | `code-reviewer`          |
-| `/review`       | `code-reviewer`          |
-| `/security`     | `security-auditor`       |
-| `/dba`          | `db-architect`           |
-| `/devops`       | `sre-engineer`           |
-| `/ux`           | `ux-engineer`            |
-| `/api-design`   | `api-designer`           |
-| `/perf`         | `performance-engineer`   |
-| `/containers`   | `container-ops`          |
+| User skill    | `task` agent name      |
+|---------------|------------------------|
+| `/research`   | `researcher`           |
+| `/test-expert`| `test-engineer`        |
+| `/review-code`| `code-reviewer`        |
+| `/security`   | `security-auditor`     |
+| `/dba`        | `db-architect`         |
+| `/devops`     | `sre-engineer`         |
+| `/ux`         | `ux-engineer`          |
+| `/api-design` | `api-designer`         |
+| `/perf`       | `performance-engineer` |
+| `/containers` | `container-ops`        |
 
 **Always include in your `prompt` argument:**
 1. What to analyze (specific files, paths, or scope)
@@ -142,7 +141,7 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/VISION.md` — Problem, target users, success metrics
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
-**Delegate:** `/research --deep "competitive landscape for [domain]"`
+**Delegate via `task` tool:** `researcher` (with args: --deep "competitive landscape for [domain]")
 **You write:** VISION.md (strategic, not technical)
 **Exit:** Clear problem statement, target users identified, competitive gap defined
 
@@ -154,7 +153,7 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/CONSTRAINTS.md` — Budget, timeline, team, tech constraints
 - `docs/USER_PERSONAS.md` — Who uses this, goals, pain points
 
-**Delegate:** `/research` for technology feasibility
+**Delegate via `task` tool:** `researcher` for technology feasibility
 **Exit:** Clear boundaries, risks identified with mitigations
 
 ## Phase 2: Requirements — HOW should it behave?
@@ -163,7 +162,7 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/SRS.md` — Requirements specification (see SRS format below)
 - `docs/USER_STORIES.md` — Stories with acceptance criteria
 
-**Delegate:** `/ux --flows` for user workflow design
+**Delegate via `task` tool:** `ux-engineer` (with args: --flows) for user workflow design
 **You write:** SRS.md following the format in the SRS section below
 
 ### SRS Format (IEEE 830 based)
@@ -229,12 +228,12 @@ This phase produces the most artifacts. Delegate heavily.
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/diagrams/` — Mermaid files for all diagrams
 
-**Delegate:**
-- `/research --compare "framework options"` — Tech stack evaluation
-- `/dba --design` — Database schema from requirements
-- `/api-design` — API contracts from user stories
-- `/security --threat-model` — Threat model from architecture
-- `/ux` — Component architecture from user workflows
+**Delegate via `task` tool:**
+- `researcher` (with args: --compare "framework options") — Tech stack evaluation
+- `db-architect` (with args: --design) — Database schema from requirements
+- `api-designer` — API contracts from user stories
+- `security-auditor` (with args: --threat-model) — Threat model from architecture
+- `ux-engineer` — Component architecture from user workflows
 
 **You produce:** ARCHITECTURE.md with C4 diagrams, modular design decisions
 
@@ -449,15 +448,15 @@ graph TB
 
 ## Phase 4: Implementation — BUILD it
 
-**Delegate:**
-- `/test-expert --strategy` — Test strategy BEFORE coding
-- `/dba --migrate` — Database migrations from DATABASE.md
-- `/api-design --review` — Verify endpoints match contract
-- `/containers --compose` — Container configuration
-- `/devops --cicd` — CI/CD pipeline
-- `/security --owasp` — Security audit of code
-- `/review-code` — Code quality review
-- `/perf` — Performance profiling
+**Delegate via `task` tool:**
+- `test-engineer` (with args: --strategy) — Test strategy BEFORE coding
+- `db-architect` (with args: --migrate) — Database migrations from DATABASE.md
+- `api-designer` (with args: --review) — Verify endpoints match contract
+- `container-ops` (with args: --compose) — Container configuration
+- `sre-engineer` (with args: --cicd) — CI/CD pipeline
+- `security-auditor` (with args: --owasp) — Security audit of code
+- `code-reviewer` — Code quality review
+- `performance-engineer` — Performance profiling
 
 **Your role:**
 - Track components: implemented vs pending
@@ -471,12 +470,12 @@ graph TB
 ## Phase 5: Review — DID it work?
 
 **Delegate ALL reviews:**
-- `/security` — Full OWASP audit
-- `/perf --benchmark` — Performance vs NFR targets
-- `/review-code` — Full codebase quality review
-- `/test-expert --coverage` — Coverage analysis
-- `/ux --audit` — Accessibility audit
-- `/containers --optimize` — Production image optimization
+- `security-auditor` — Full OWASP audit
+- `performance-engineer` (with args: --benchmark) — Performance vs NFR targets
+- `code-reviewer` — Full codebase quality review
+- `test-engineer` (with args: --coverage) — Coverage analysis
+- `ux-engineer` (with args: --audit) — Accessibility audit
+- `container-ops` (with args: --optimize) — Production image optimization
 
 **Exit:** No CRITICAL/HIGH findings, performance meets NFRs, accessibility passes
 
@@ -529,14 +528,14 @@ For each entry point (HTTP server, CLI, event listener, cron job):
 2. Follow the call chain: handler → service → repository → database
 3. Document the flow as a sequence diagram (Mermaid)
 
-Delegate: Use Grep to find route definitions, event handlers, cron jobs
+Use grep/search tools to find route definitions, event handlers, cron jobs
 
 **Verify:** `docs/diagrams/entry-points.md` exists, >50 lines, contains at least one `sequenceDiagram` block
 
 ## Step 3: Map Data Model
 
 - Grep for database schema (migrations, ORM models, CREATE TABLE)
-- Delegate: `/dba --audit` for schema analysis
+- Delegate: `db-architect` (with args: --audit) for schema analysis
 - Produce: ERD diagram (Mermaid)
 
 **Verify:** `docs/diagrams/erd.md` exists, >50 lines, contains an `erDiagram` block
@@ -566,10 +565,10 @@ Produce: C2 Container diagram + C3 Component diagram (Mermaid)
 ## Step 6: Assess Health
 
 Delegate expert reviews:
-- `/review-code` — Code quality and tech debt assessment
-- `/security` — Quick vulnerability scan
-- `/test-expert --coverage` — Test coverage analysis
-- `/perf` — Any obvious performance issues?
+- `code-reviewer` — Code quality and tech debt assessment
+- `security-auditor` — Quick vulnerability scan
+- `test-engineer` (with args: --coverage) — Test coverage analysis
+- `performance-engineer` — Any obvious performance issues?
 
 **Verify:** `docs/HEALTH_ASSESSMENT.md` exists, >50 lines, contains a severity summary table
 
@@ -712,11 +711,11 @@ Design modularly — the feature should fit the existing architecture, not fight
 - API changes (new/modified endpoints, backward compatibility check)
 - Test plan (what tests need to be added/modified)
 
-**Delegate:**
-- `/dba` — If schema changes needed
-- `/api-design` — If API changes needed
-- `/security` — If the feature touches auth, data access, or user input
-- `/ux` — If the feature has UI components
+**Delegate via `task` tool:**
+- `db-architect` — If schema changes needed
+- `api-designer` — If API changes needed
+- `security-auditor` — If the feature touches auth, data access, or user input
+- `ux-engineer` — If the feature has UI components
 
 ### Backward Compatibility Checklist
 
@@ -729,10 +728,10 @@ Before implementing:
 
 ## Step 3: Implement
 
-**Delegate:**
+**Delegate via `task` tool:**
 - Implementation following the design from Step 2
-- `/test-expert` — Write tests alongside implementation
-- `/review-code` — Code quality review
+- `test-engineer` — Write tests alongside implementation
+- `code-reviewer` — Code quality review
 
 **Verify modular structure:**
 - New code follows existing patterns
@@ -743,8 +742,8 @@ Before implementing:
 ## Step 4: Verify
 
 - Run full test suite (existing + new tests pass)
-- Delegate: `/security` for security review of changes
-- Delegate: `/perf` if performance-sensitive
+- Delegate via `task` tool: `security-auditor` for security review of changes
+- Delegate via `task` tool: `performance-engineer` if performance-sensitive
 - Check: Does the feature work end-to-end?
 - Check: Did we break anything? (regression test)
 
@@ -795,20 +794,23 @@ Gate Status: Phase 2 BLOCKED (need RISKS.md)
 Next Action: Run /sdlc run --phase 1 to generate RISKS.md
 ```
 
-Read docs/ directory structure and check file existence with Glob.
-Cross-reference with CLAUDE.md Phase Approvals table.
+Read docs/ directory structure and check file existence.
+Cross-reference with AGENTS.md or project docs for prior phase approvals.
 
 ## Cross-Expert Coordination
 
 When one expert finds something another should address:
-- Security finds untested auth → "Recommend: `/test-expert` for auth module"
-- DBA designs schema → "Recommend: `/security` to review data access"
-- Code review finds perf issue → "Recommend: `/perf` to profile"
-- UX designs workflow → "Recommend: `/api-design` for endpoints"
+- Security finds untested auth → "Recommend: `test-engineer` for auth module"
+- DBA designs schema → "Recommend: `security-auditor` to review data access"
+- Code review finds perf issue → "Recommend: `performance-engineer` to profile"
+- UX designs workflow → "Recommend: `api-designer` for endpoints"
 
 Always tell the user which experts to involve next and why.
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 
 After each phase/milestone:
 - Operating mode (new project, onboard, feature)

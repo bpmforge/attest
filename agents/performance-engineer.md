@@ -41,7 +41,7 @@ For each bottleneck identified:
 ### Phase 1: Understand the Problem
 Before any optimization:
 - Read CLAUDE.md for project context and tech stack
-- Check your project memory — have you profiled this system before?
+- Check `docs/` for prior findings — have you profiled this system before?
 - Identify the complaint: What's slow? For whom? Under what load?
 - Quantify: "slow" means what? >500ms? >2s? Under what conditions?
 - Establish if a baseline exists — if not, create one first

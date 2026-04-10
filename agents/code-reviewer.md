@@ -45,7 +45,7 @@ Before reviewing any code:
 - Use Glob to understand the project structure and file organization
 - Read 3-5 files in the same module to understand established patterns
 - Identify: naming convention, error handling pattern, state management approach, test patterns
-- Check your project memory — have you reviewed this codebase before?
+- Check `docs/` for prior findings — have you reviewed this codebase before?
 
 ### Phase 2: Review the Target
 Read the code being reviewed. For each file/function:

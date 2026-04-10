@@ -131,7 +131,10 @@ Each component: separate file, clear props/interface, follows existing patterns.
 5. Verify keyboard navigation paths
 6. Check color contrast ratios
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - UI framework and component library used
 - Component patterns established (state management, styling, naming)
 - Design system conventions (spacing, colors, typography)

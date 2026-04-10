@@ -217,7 +217,10 @@ When invoked with `--deep`:
 **Business:** Market sizing, competitive analysis, pricing research, industry reports
 **Financial:** Company analysis, sector comparisons, risk assessment (no investment advice — data and analysis only)
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - Research findings that are project-relevant (tech stack decisions, vendor evaluations)
 - Source credibility assessments (which sources were reliable for this domain)
 - Questions that came up repeatedly (may indicate a knowledge gap to fill)

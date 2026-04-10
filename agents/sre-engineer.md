@@ -200,7 +200,10 @@ Author: [Name]
 - Any gaps identified in current operations
 - Recommendations for automation
 
-## What to Remember
+## What to Document
+> Write findings to files — local LLMs have no memory between sessions.
+> Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
+
 - System architecture (services, dependencies, failure domains)
 - Alert thresholds and their baselines
 - Incident history and root causes
