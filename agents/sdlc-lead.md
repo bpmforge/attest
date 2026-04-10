@@ -730,7 +730,7 @@ graph TB
 - `container-ops` (with args: --compose) — Container configuration
 - `sre-engineer` (with args: --cicd) — CI/CD pipeline
 - `security-auditor` (with args: --owasp) — Security audit of code
-- `code-reviewer` — Code quality review
+- `code-reviewer` (with args: --review) — Full 7-dimension code-health pass after each feature
 - `performance-engineer` — Performance profiling
 
 **Your role:**
@@ -747,7 +747,9 @@ graph TB
 **Delegate ALL reviews:**
 - `security-auditor` — Full OWASP audit
 - `performance-engineer` (with args: --benchmark) — Performance vs NFR targets
-- `code-reviewer` — Full codebase quality review
+- `code-reviewer` (with args: --review) — Full 7-dimension health pass across the codebase
+- `code-reviewer` (with args: --debt) — Prioritized tech-debt register for post-launch backlog
+- `code-reviewer` (with args: --consolidate) — DRY + error-handling consolidation proposals (run if --review flags duplication or silent-failure patterns)
 - `test-engineer` (with args: --coverage) — Coverage analysis
 - `ux-engineer` (with args: --audit) — Accessibility audit
 - `container-ops` (with args: --optimize) — Production image optimization
@@ -897,7 +899,9 @@ For each major directory/module — ONE AT A TIME. Read it fully, document it, t
 
 Delegate expert reviews SEQUENTIALLY — wait for each to complete and write its output before calling the next:
 
-1. Call `code-reviewer` — Code quality and tech debt assessment → wait → verify findings written to `docs/reviews/` → mark DONE
+1. Call `code-reviewer` with `--review` — Full 7-dimension Health Dashboard → wait → verify report written to `docs/reviews/CODE_REVIEW_<date>.md` → mark DONE
+1b. Call `code-reviewer` with `--debt` — Tech-debt register sorted by leverage → wait → verify `docs/reviews/TECH_DEBT_<date>.md` written → mark DONE
+1c. Call `code-reviewer` with `--patterns` — Cross-codebase pattern drift audit (especially valuable on unfamiliar codebases) → wait → verify `docs/reviews/PATTERNS_<date>.md` written → mark DONE
 2. Call `security-auditor` — Quick OWASP vulnerability scan (auth, access control, secrets, injection) → wait → verify findings written → mark DONE
 3. Call `test-engineer` with `--coverage` — Test coverage analysis, identify untested critical paths → wait → verify coverage report written → mark DONE
 4. Call `performance-engineer` — Identify O(n²) loops, N+1 queries, missing indexes, slow endpoints → wait → verify findings written → mark DONE
@@ -1118,7 +1122,7 @@ After producing the design documents:
 
 **Delegate via `task` tool:**
 - `test-engineer` — Write tests alongside implementation
-- `code-reviewer` — Code quality review
+- `code-reviewer` with `--review` — 7-dimension code-health pass on the new feature
 
 **Verify modular structure:**
 - New code follows existing patterns
