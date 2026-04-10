@@ -1,5 +1,43 @@
+# OS / editor
 .DS_Store
-node_modules/
+Thumbs.db
 *.swp
 *.swo
 *~
+.idea/
+.vscode/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Env / secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+*.p12
+*.pfx
+
+# Local agent state (per-user, not shared)
+.claude/agent-memory/
+
+# Generated expert reports (per-project outputs)
+docs/reviews/
+docs/security/
+docs/git/
+docs/research/
+docs/design/
+docs/perf/
+docs/threat/
+docs/test/
+docs/db/
+
+# Runtime logs
+*.log
+logs/
