@@ -515,7 +515,10 @@ Step N Verification:
   Lines: NNN
   Required sections present: YES/NO (list missing sections if NO)
   Status: PASS / FAIL → REDO
+  Confidence: N/10 (8-10: move on; 5-7: add more detail; <5: redo with different approach)
 ```
+
+Do NOT proceed to the next step until current step Confidence ≥ 7.
 
 ## Step 1: Map the Landscape
 
@@ -536,14 +539,58 @@ Produce initial assessment:
 
 ## Step 2: Trace Entry Points
 
-For each entry point (HTTP server, CLI, event listener, cron job):
-1. Read the file
-2. Follow the call chain: handler → service → repository → database
-3. Document the flow as a sequence diagram (Mermaid)
+Find ALL entry points: HTTP routes, CLI commands, event listeners, cron jobs, webhooks.
+Use Grep to find route definitions. For each entry point — ONE AT A TIME:
+1. Read the handler file
+2. Follow the call chain: handler → middleware → service → repository → database
+3. Note: what data goes in? what comes out? what can fail?
 
-Use grep/search tools to find route definitions, event handlers, cron jobs
+Produce `docs/diagrams/entry-points.md`:
+- One `sequenceDiagram` per entry point showing the request/response path
+- Include the error path for each (what happens when the service or DB fails?)
 
-**Verify:** `docs/diagrams/entry-points.md` exists, >50 lines, contains at least one `sequenceDiagram` block
+**Verify:** `docs/diagrams/entry-points.md` exists, >50 lines, one `sequenceDiagram` per major entry point, each includes an error path
+
+## Step 2b: Sequence Diagrams for Key Operations
+
+Entry points show routing. This step goes deeper — one sequence diagram per key operation type, covering the full system interaction including every service hop and failure mode.
+
+Work through operations ONE AT A TIME. Verify each file before starting the next.
+
+**Required operation categories:**
+
+1. **Authentication flow** — Login, logout, token refresh, session validation. Trace: browser → API → auth service → token store → response. Include: valid credentials path, invalid credentials path, expired token path.
+
+2. **Primary write operation** — The most important create/update in the system (e.g., "create order", "submit form"). Show: input validation → auth check → business logic → DB write → side effects (email, queue, cache invalidation) → response.
+
+3. **Primary read operation** — The most frequent read query (e.g., "list items", "get dashboard"). Show: cache check → DB query → data shaping → response. Include: cache hit path and cache miss path.
+
+4. **Async/background flow** — If the system uses queues, jobs, or events: trigger → enqueue → consumer → processing → side effects. If no async exists, document that explicitly in the file.
+
+5. **Error propagation flow** — Pick one operation and diagram what happens when it fails at each layer: validation error, auth failure, DB error, external service timeout. Show which errors surface to the user vs. are swallowed internally.
+
+6. **Additional key operations** — One diagram per any remaining significant operation (payment, file upload, search, notifications) until all major features are covered.
+
+Produce: `docs/diagrams/sequences/` — one `.md` file per operation (e.g., `auth.md`, `create-order.md`, `list-items.md`, `background-jobs.md`, `error-flows.md`).
+
+Each file uses this pattern:
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as API Server
+    participant SVC as Service Layer
+    participant DB as Database
+    C->>API: POST /resource
+    API->>API: validate input
+    API->>SVC: processRequest(data)
+    SVC->>DB: write query
+    DB-->>SVC: result
+    SVC-->>API: processed result
+    API-->>C: 201 Created
+    Note over API: On DB error: 500 + log. On validation error: 422 + field errors.
+```
+
+**Verify:** `docs/diagrams/sequences/` contains ≥4 `.md` files, each with a `sequenceDiagram` block and at least one error path annotation. Do NOT move to Step 3 until all key operations are diagrammed.
 
 ## Step 3: Map Data Model
 
@@ -555,15 +602,24 @@ Use grep/search tools to find route definitions, event handlers, cron jobs
 
 ## Step 4: Map Components
 
-For each major directory/module:
+For each major directory/module — ONE AT A TIME. Read it fully, document it, then move to the next:
 - What is its responsibility?
-- What does it depend on?
-- What depends on it?
-- What's its public API?
+- What does it depend on? What depends on it?
+- What's its public API (exported functions, types, routes)?
 
-Produce: C2 Container diagram + C3 Component diagram (Mermaid)
+**Produce two files:**
 
-**Verify:** `docs/diagrams/c2-containers.md` and `docs/diagrams/c3-components.md` exist, each >50 lines, each contains a Mermaid `graph` block
+`docs/diagrams/c2-containers.md` — C2 Container diagram:
+- Every deployable component (web app, API server, background worker, DB, cache, queue)
+- Every external system the application integrates with (payment gateway, auth provider, email service)
+- Communication style between each pair (HTTP, gRPC, message queue, direct DB connection)
+
+`docs/diagrams/c3-components.md` — C3 Component diagram(s):
+- Internal modules of the main service and their responsibilities
+- Dependency direction (arrows show who depends on whom — check for circular deps)
+- One C3 per major service if multiple services exist
+
+**Verify:** Both files exist, C2 has a `graph` block showing every deployable service + external system, C3 has a `graph` block showing internal module dependencies with clear direction
 
 ## Step 5: Identify Patterns
 
@@ -577,13 +633,20 @@ Produce: C2 Container diagram + C3 Component diagram (Mermaid)
 
 ## Step 6: Assess Health
 
-Delegate expert reviews:
-- `code-reviewer` — Code quality and tech debt assessment
-- `security-auditor` — Quick vulnerability scan
-- `test-engineer` (with args: --coverage) — Test coverage analysis
-- `performance-engineer` — Any obvious performance issues?
+Delegate expert reviews SEQUENTIALLY — wait for each to complete and write its output before calling the next:
 
-**Verify:** `docs/HEALTH_ASSESSMENT.md` exists, >50 lines, contains a severity summary table
+1. Call `code-reviewer` — Code quality and tech debt assessment → wait → verify findings written to `docs/reviews/` → mark DONE
+2. Call `security-auditor` — Quick OWASP vulnerability scan (auth, access control, secrets, injection) → wait → verify findings written → mark DONE
+3. Call `test-engineer` with `--coverage` — Test coverage analysis, identify untested critical paths → wait → verify coverage report written → mark DONE
+4. Call `performance-engineer` — Identify O(n²) loops, N+1 queries, missing indexes, slow endpoints → wait → verify findings written → mark DONE
+
+After all four complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
+- Overall health score per dimension: Code Quality / Security / Test Coverage / Performance (each 1-10)
+- Top 3 critical issues across all dimensions
+- Severity count table: CRITICAL / HIGH / MEDIUM / LOW per dimension
+- Recommended fix priority order (highest risk first)
+
+**Verify:** `docs/HEALTH_ASSESSMENT.md` exists, >50 lines, contains health scores for all 4 dimensions and a severity count table
 
 ## Mode 2 Deliverables
 
@@ -592,12 +655,13 @@ Each step produces a specific file:
 | Step | Deliverable | Format |
 |------|------------|--------|
 | 1 | `docs/LANDSCAPE.md` | Tech stack, metrics, directory structure |
-| 2 | `docs/diagrams/entry-points.md` | Mermaid sequence diagram per entry point |
+| 2 | `docs/diagrams/entry-points.md` | Mermaid sequence diagram per entry point with error paths |
+| 2b | `docs/diagrams/sequences/*.md` | One file per operation: auth, primary write, primary read, async, error flows |
 | 3 | `docs/diagrams/erd.md` | ERD + table descriptions |
-| 4 | `docs/diagrams/c2-containers.md`, `c3-components.md` | C4 diagrams |
+| 4 | `docs/diagrams/c2-containers.md`, `c3-components.md` | C2 (all services + external) + C3 (internal modules) |
 | 5 | `docs/PATTERNS.md` | Error handling, state, data access, naming |
-| 6 | `docs/HEALTH_ASSESSMENT.md` | Expert review summaries + severity table |
-| 7 | `docs/ARCHITECTURE.md` + `docs/ONBOARDING.md` | Final synthesis |
+| 6 | `docs/HEALTH_ASSESSMENT.md` | Sequential expert reviews + health scores + severity table |
+| 7 | `docs/ARCHITECTURE.md` + `docs/ONBOARDING.md` + `docs/DECISION_LOG.md` | All 6 diagram types required in ARCHITECTURE.md |
 
 ## Step 7: Produce Documentation
 
@@ -607,7 +671,17 @@ Write to `docs/`:
 - `docs/diagrams/` — All Mermaid diagram files
 - `docs/DECISION_LOG.md` — Discovered design decisions with reasoning (from git history, code comments)
 
-**Verify:** `docs/ARCHITECTURE.md` exists, >50 lines, contains Mermaid diagrams (C1, C2, C3). `docs/ONBOARDING.md` exists, >50 lines, contains Quick Start section.
+ARCHITECTURE.md MUST include all 6 diagram types (same requirement as new projects). If any are missing, produce them now from the artifacts already created in prior steps:
+1. **System Context (C1)** — System + all external actors and systems
+2. **Container Diagram (C2)** — All deployable services (from Step 4 `c2-containers.md`)
+3. **Component Diagram (C3)** — Internal modules of the main service (from Step 4 `c3-components.md`)
+4. **Sequence Diagrams** — At least 3 key operation flows (from Step 2b `sequences/`)
+5. **Data Flow Diagram** — How data moves end-to-end through the system
+6. **Deployment Diagram** — Infrastructure topology inferred from docker-compose, CI config, cloud config files found in the repo
+
+If any of these 6 are missing, produce them before marking Step 7 complete.
+
+**Verify:** `docs/ARCHITECTURE.md` exists, >100 lines, contains all 6 diagram types. `docs/ONBOARDING.md` exists, >50 lines, contains Quick Start section. `docs/DECISION_LOG.md` exists with discovered design decisions.
 
 **ONBOARDING.md format:**
 ```markdown
@@ -651,14 +725,16 @@ src/
 
 Before reporting completion, verify ALL of these exist. Use Glob to check each file:
 - [ ] `docs/LANDSCAPE.md` (tech stack, metrics, directory structure)
-- [ ] `docs/diagrams/entry-points.md` (Mermaid sequence diagrams)
+- [ ] `docs/diagrams/entry-points.md` (sequence diagrams per entry point with error paths)
+- [ ] `docs/diagrams/sequences/` — ≥4 operation files (auth, write, read, async/errors)
 - [ ] `docs/diagrams/erd.md` (Mermaid ERD)
-- [ ] `docs/diagrams/c2-containers.md` (Mermaid C2)
-- [ ] `docs/diagrams/c3-components.md` (Mermaid C3)
-- [ ] `docs/PATTERNS.md` (error handling, state, data access)
-- [ ] `docs/HEALTH_ASSESSMENT.md` (expert review summaries)
-- [ ] `docs/ARCHITECTURE.md` (final synthesis with C4 diagrams)
-- [ ] `docs/ONBOARDING.md` (getting started guide)
+- [ ] `docs/diagrams/c2-containers.md` (Mermaid C2 — all services + external systems)
+- [ ] `docs/diagrams/c3-components.md` (Mermaid C3 — internal module dependencies)
+- [ ] `docs/PATTERNS.md` (error handling, state, data access, naming)
+- [ ] `docs/HEALTH_ASSESSMENT.md` (all 4 expert reviews + health scores + severity table)
+- [ ] `docs/ARCHITECTURE.md` (all 6 diagram types: C1, C2, C3, ≥3 sequences, data flow, deployment)
+- [ ] `docs/ONBOARDING.md` (getting started guide with Quick Start)
+- [ ] `docs/DECISION_LOG.md` (design decisions discovered from git history + code comments)
 
 If ANY are missing, go back and create them before reporting done.
 
@@ -667,13 +743,18 @@ Output the final checklist with line counts:
 Mode 2 Completion:
   [x] docs/LANDSCAPE.md (127 lines)
   [x] docs/diagrams/entry-points.md (89 lines)
+  [x] docs/diagrams/sequences/auth.md (45 lines)
+  [x] docs/diagrams/sequences/create-order.md (52 lines)
+  [x] docs/diagrams/sequences/list-items.md (38 lines)
+  [x] docs/diagrams/sequences/error-flows.md (41 lines)
   [x] docs/diagrams/erd.md (64 lines)
   [x] docs/diagrams/c2-containers.md (72 lines)
   [x] docs/diagrams/c3-components.md (95 lines)
   [x] docs/PATTERNS.md (108 lines)
   [x] docs/HEALTH_ASSESSMENT.md (156 lines)
-  [x] docs/ARCHITECTURE.md (203 lines)
+  [x] docs/ARCHITECTURE.md (243 lines) — 6 diagram types verified
   [x] docs/ONBOARDING.md (88 lines)
+  [x] docs/DECISION_LOG.md (74 lines)
   ALL DELIVERABLES VERIFIED — Onboarding complete.
 ```
 
