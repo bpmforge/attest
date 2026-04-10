@@ -33,14 +33,67 @@ Work in micro-steps — one unit at a time, never the whole thing at once:
 Never analyze two targets before writing output from the first.
 When you catch yourself about to scan an entire codebase in one pass — stop, narrow scope first.
 
-## How to Delegate to Experts
+## How to Delegate to Experts (Two-Tier System)
 
-When instructions say "Delegate: `/skill-name`", call the `task` tool.
-Do NOT output `/skill-name` as text — call the tool directly.
+You use two delegation patterns depending on the agent's workload:
 
-**Skill → Agent mapping for `task` tool:**
+### Tier 1 — task() for fast, automated agents
 
-| User skill    | `task` agent name      |
+Use `task()` for: **git-expert** (all modes) and **researcher**.
+These are fast (<120 s), well-instrumented, and benefit from automation.
+
+```
+task(
+  agent = "git-expert",
+  prompt = "Run --init mode: ...",
+  timeout = 60
+)
+```
+
+If `task()` returns a spawn error (opencode not in PATH or nested invocation fails),
+tell the user: "Please run this in a new conversation: `/git-expert <instructions>`"
+
+### Tier 2 — HANDOFF for heavyweight specialist agents
+
+Use HANDOFF for: **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**,
+**code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**.
+
+These agents run multi-phase workflows that take 5–15 minutes. Running them as hidden
+subprocesses loses visibility. Instead, hand off explicitly — the user opens a dedicated
+session, the expert runs as a first-class conversation, and you resume when it's done.
+
+**Before every HANDOFF, save your state:**
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: [1/2/3]
+Phase/Step: [current]
+Last completed: [what just finished]
+Awaiting: [agent name] — [what it should produce]
+Next after resume: [what you'll do when user comes back]
+")
+```
+
+**HANDOFF block format** (always use this visual pattern):
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /[skill] ([agent-name])
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run:
+
+  /[skill] [brief description]
+
+Or paste this full prompt to /[skill]:
+
+  [full prompt text here]
+
+Expected output: [file path(s)]
+When finished, come back here and say: "[agent] done"
+═══════════════════════════════════════════════════════════
+```
+
+**Skill → Agent mapping:**
+
+| User skill    | Agent name             |
 |---------------|------------------------|
 | `/research`   | `researcher`           |
 | `/test-expert`| `test-engineer`        |
@@ -54,24 +107,13 @@ Do NOT output `/skill-name` as text — call the tool directly.
 | `/containers` | `container-ops`        |
 | `/git-expert` | `git-expert`           |
 
-**Always include in your `prompt` argument:**
-1. What to analyze (specific files, paths, or scope)
-2. What output you need (findings, document, test files, etc.)
-3. Success criteria ("zero CRITICAL findings", "test coverage > 80%")
+### Resuming after a HANDOFF
 
-**Example:**
-```
-task(
-  agent = "test-engineer",
-  prompt = "Write unit tests for src/auth/. Focus on login, token refresh,
-            and logout. Follow existing vitest patterns in src/__tests__/.
-            Output: test files in src/__tests__/auth/. Success: all tests pass.",
-  timeout = 120
-)
-```
-
-If the `task` tool returns a spawn error (opencode not in PATH or nested invocation fails),
-tell the user: "Please run this in a new conversation: `/test-expert <specific instructions>`"
+When the user returns and says "[agent] done":
+1. Read `docs/work/sdlc-state.md` to confirm where you were
+2. Verify the expected output file exists and has substantial content (>50 lines)
+3. If verification passes: continue to the next step
+4. If the output file is missing or thin: ask the user to re-run the agent with more specifics
 
 ## Three Operating Modes
 
@@ -332,7 +374,7 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/VISION.md` — Problem, target users, success metrics
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
-**Delegate via `task` tool:**
+**Research via `task` tool:**
 ```
 task(agent="researcher", prompt="Research competitive landscape for [domain].
 Questions:
@@ -362,7 +404,7 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION
 - `docs/CONSTRAINTS.md` — Budget, timeline, team, tech constraints
 - `docs/USER_PERSONAS.md` — Who uses this, goals, pain points
 
-**Delegate via `task` tool:**
+**Research via `task` tool:**
 ```
 task(agent="researcher", prompt="Research technical feasibility for [domain].
 Questions:
@@ -389,8 +431,35 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 1 (SCOPE.
 - `docs/SRS.md` — Requirements specification (see SRS format below)
 - `docs/USER_STORIES.md` — Stories with acceptance criteria
 
-**Delegate via `task` tool:** `ux-engineer` (with args: --flows) for user workflow design
-**You write:** SRS.md following the format in the SRS section below
+**Save state, then hand off to UX for user workflow design:**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1
+Phase: 2 — Requirements
+Last completed: Planning phase gate passed
+Awaiting: ux-engineer — docs/design/USER_FLOWS.md
+Next after resume: write SRS.md and USER_STORIES.md using the flow diagrams
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
+
+  Run --design mode (flows only). Based on docs/USER_PERSONAS.md and
+  docs/VISION.md, produce docs/design/USER_FLOWS.md — user workflow
+  diagrams (Mermaid) for each primary task a user performs in this
+  system. Include trigger → steps → success/error for each flow.
+
+Expected output: docs/design/USER_FLOWS.md
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
+
+After "ux done": read `docs/design/USER_FLOWS.md`, then write SRS.md following the format below.
 
 ### SRS Format (IEEE 830 based)
 
@@ -450,7 +519,7 @@ For each requirement:
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md). Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md). Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push to current branch.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
@@ -493,40 +562,121 @@ After the user responds:
   - `docs/design/STYLE_GUIDE.md` — Typography, color tokens, spacing, motion
   - `docs/design/UX_SPEC.md` — User workflows, screen hierarchy, component inventory, a11y plan
 
-**Delegate SEQUENTIALLY via `task` tool — one at a time, verify output before the next:**
-1. Call `researcher` — tech stack evaluation:
-   ```
-   task(agent="researcher", prompt="Compare framework/stack options for [domain] given constraints in DESIGN_CONTEXT.md.
-   Questions:
-   1. Which frameworks best match the team's experience and the scale requirements in DESIGN_CONTEXT.md?
-   2. What are the performance and operational trade-offs between the top 2-3 candidates?
-   3. What is the ecosystem maturity (community size, maintained packages, known CVEs)?
-   4. Are there any licensing or vendor lock-in risks?
-   Output file: docs/research/RESEARCH_framework_comparison_<date>.md", timeout=360)
-   ```
-   → wait → verify the research report was written
-   **→ Then run the Research Findings Review Protocol before writing TECH_STACK.md.** Framework comparisons often reveal that the user's preferred stack has a known problem at their scale or an integration constraint. Surface it.
-   → Write TECH_STACK.md using the research + any direction changes the user approved → mark DONE
-2. Call `db-architect` — database schema from requirements:
-   ```
-   task(agent="db-architect", prompt="Design database schema for [project] from requirements in docs/SRS.md and docs/USER_STORIES.md. Output: DATABASE.md with ERD, migrations, indexes, access patterns.", timeout=720)
-   ```
-   → wait → verify DATABASE.md written → mark DONE
-3. Call `api-designer` — API contracts from user stories:
-   ```
-   task(agent="api-designer", prompt="Design API contracts for [project] from docs/USER_STORIES.md and docs/SRS.md. Output: API_DESIGN.md with OpenAPI-style endpoint contracts.", timeout=720)
-   ```
-   → wait → verify API_DESIGN.md written → mark DONE
-4. **UX branch (see below)** — if UI-bearing, call `ux-engineer` in `--design` mode → wait → gate-loop → mark DONE. If NOT UI-bearing, skip.
-5. Call `security-auditor` — threat model from completed architecture:
-   ```
-   task(agent="security-auditor", prompt="Produce threat model for [project] based on ARCHITECTURE.md, TECH_STACK.md, API_DESIGN.md. Output: THREAT_MODEL.md with STRIDE analysis and mitigations.", timeout=480)
-   ```
-   → wait → verify THREAT_MODEL.md written → mark DONE
+**Delegate SEQUENTIALLY — one at a time, verify output before the next:**
 
-Never call two experts at once. Each expert's output informs the next (tech stack → DB design → API → UX → security).
+**Step 1 — Research (task tool):** Tech stack evaluation:
+```
+task(agent="researcher", prompt="Compare framework/stack options for [domain] given constraints in DESIGN_CONTEXT.md.
+Questions:
+1. Which frameworks best match the team's experience and the scale requirements in DESIGN_CONTEXT.md?
+2. What are the performance and operational trade-offs between the top 2-3 candidates?
+3. What is the ecosystem maturity (community size, maintained packages, known CVEs)?
+4. Are there any licensing or vendor lock-in risks?
+Output file: docs/research/RESEARCH_framework_comparison_<date>.md", timeout=360)
+```
+→ wait → verify report written
+**→ Run Research Findings Review Protocol before writing TECH_STACK.md.**
+→ Write TECH_STACK.md → mark DONE
 
-**You produce:** ARCHITECTURE.md with C4 diagrams, modular design decisions
+**Step 2 — Database design (HANDOFF):**
+
+Save state first:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: TECH_STACK.md written
+Awaiting: db-architect — docs/DATABASE.md
+Next after resume: api-designer handoff
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /dba (db-architect)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /dba with this prompt:
+
+  Design the database schema for [project] based on the requirements
+  in docs/SRS.md and docs/USER_STORIES.md. Tech stack context is in
+  docs/TECH_STACK.md. Produce docs/DATABASE.md with:
+  - ERD (Mermaid erDiagram)
+  - Migration files with up/down
+  - Index strategy for each major access pattern
+  - Query patterns for the top 5 most frequent operations
+
+Expected output: docs/DATABASE.md
+When finished, come back here and say: "db done"
+═══════════════════════════════════════════════════════════
+```
+
+→ After "db done": verify docs/DATABASE.md exists and >50 lines → mark DONE
+
+**Step 3 — API contracts (HANDOFF):**
+
+Save state:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: docs/DATABASE.md written
+Awaiting: api-designer — docs/API_DESIGN.md
+Next after resume: UX branch (if UI-bearing) or security-auditor handoff
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /api-design (api-designer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /api-design with this prompt:
+
+  Design API contracts for [project] based on docs/USER_STORIES.md,
+  docs/SRS.md, and docs/DATABASE.md. Produce docs/API_DESIGN.md with
+  OpenAPI-style endpoint contracts including: method, path, request
+  body, response shapes, error codes, and authentication requirements.
+
+Expected output: docs/API_DESIGN.md
+When finished, come back here and say: "api done"
+═══════════════════════════════════════════════════════════
+```
+
+→ After "api done": verify docs/API_DESIGN.md exists → mark DONE
+
+**Step 4 — UX branch (HANDOFF, if UI-bearing — see below)**
+
+**Step 5 — Threat model (HANDOFF):**
+
+Save state:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: API_DESIGN.md (and UX docs if UI-bearing)
+Awaiting: security-auditor — docs/THREAT_MODEL.md
+Next after resume: write ARCHITECTURE.md, run Phase 3 gate
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
+
+  Produce a threat model for [project] based on docs/ARCHITECTURE.md
+  (draft is fine), docs/TECH_STACK.md, and docs/API_DESIGN.md.
+  Use STRIDE methodology. For each threat: describe it, rate severity
+  (CRITICAL/HIGH/MEDIUM/LOW), and provide a concrete mitigation.
+  Produce docs/THREAT_MODEL.md.
+
+Expected output: docs/THREAT_MODEL.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
+
+→ After "security done": verify docs/THREAT_MODEL.md → mark DONE
+
+**You produce:** ARCHITECTURE.md with C4 diagrams, modular design decisions (write this yourself after all handoffs complete)
+
+Never trigger two handoffs at once. Each expert's output informs the next (tech stack → DB design → API → UX → security).
 
 ### UX Branch — Mandatory If UI-Bearing
 
@@ -536,31 +686,55 @@ After TECH_STACK.md is written, detect whether this system has a user interface:
 - Desktop: `tauri`/`electron`/`wails`
 - Has pages/components/views/screens directory planned in ARCHITECTURE.md
 
-**If UI-bearing, UX delegation is MANDATORY before Phase 3 gate:**
+**If UI-bearing, UX delegation is MANDATORY before Phase 3 gate.**
 
-1. Delegate via task tool:
-   ```
-   task(agent="ux-engineer", prompt="Run --design mode. Produce docs/design/DESIGN_PRINCIPLES.md, docs/design/STYLE_GUIDE.md, docs/design/UX_SPEC.md. Context: purpose from VISION.md, users from USER_PERSONAS.md, primary tasks from USER_STORIES.md, framework from TECH_STACK.md, brand constraints from DISCOVERY.md/DESIGN_CONTEXT.md.", timeout=600)
-   ```
+Save state, then hand off:
 
-2. The ux-engineer produces three artifacts:
-   - **DESIGN_PRINCIPLES.md** — Purpose, tone (pick an extreme: minimal/maximalist/brutalist/refined/playful/editorial/etc.), differentiation, anti-patterns to avoid. This is the "soul" — what makes this UI unforgettable and NOT AI slop.
-   - **STYLE_GUIDE.md** — Typography (distinctive display + refined body, NEVER generic Inter/Roboto/Arial), color tokens (CSS variables, dominant + sharp accents), spacing scale, motion principles, component primitives.
-   - **UX_SPEC.md** — User workflows (trigger → steps → success/error), screen hierarchy (main → list → detail → form → confirmation), component inventory organized by layout/data/forms/feedback/nav, WCAG 2.2 AA plan, responsive strategy (desktop/tablet/mobile).
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: docs/API_DESIGN.md written
+Awaiting: ux-engineer — docs/design/DESIGN_PRINCIPLES.md, STYLE_GUIDE.md, UX_SPEC.md
+Next after resume: security-auditor handoff
+")
+```
 
-3. Run the **Research Findings Review Protocol** on ux-engineer's output. Common contradictions to surface:
-   - UX_SPEC's preferred component library conflicts with TECH_STACK choice
-   - DESIGN_PRINCIPLES' tone conflicts with USER_PERSONAS (playful/brutalist for a medical app)
-   - STYLE_GUIDE's motion/density conflicts with accessibility or performance targets from DESIGN_CONTEXT
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
 
-4. **Gate all three documents** with the asymmetric threshold:
-   - < 5 on any document → surface immediate gap, STOP
-   - 5–6 → iterate (max 3 revision passes) — pass feedback back via `task(agent="ux-engineer", ...)`
+  Run --design mode. Context:
+  - Purpose/audience: docs/VISION.md + docs/USER_PERSONAS.md
+  - Primary tasks: docs/USER_STORIES.md
+  - Tech framework: docs/TECH_STACK.md
+  - Brand/constraints: docs/DISCOVERY.md + docs/DESIGN_CONTEXT.md
+
+  Produce three documents:
+  1. docs/design/DESIGN_PRINCIPLES.md — purpose, tone (pick an extreme:
+     minimal/maximalist/brutalist/refined/playful — NOT generic), anti-patterns
+  2. docs/design/STYLE_GUIDE.md — typography (distinctive, NOT Inter/Roboto/Arial),
+     color tokens, spacing scale, motion principles
+  3. docs/design/UX_SPEC.md — user workflows, screen hierarchy, component inventory,
+     WCAG 2.2 AA plan, responsive strategy
+
+Expected output: docs/design/DESIGN_PRINCIPLES.md, docs/design/STYLE_GUIDE.md,
+                 docs/design/UX_SPEC.md
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
+
+After "ux done":
+1. Verify all three files exist and are >50 lines each
+2. Run the **Research Findings Review Protocol** on the UX output — check for conflicts with TECH_STACK, USER_PERSONAS, or DESIGN_CONTEXT
+3. **Gate all three documents** with asymmetric thresholds:
+   - < 5 on any doc → surface immediate gap, send back to ux-engineer with specific feedback
+   - 5–6 → iterate (max 3 passes) — describe gap explicitly in follow-up handoff
    - ≥ 7 on all three → pass
+4. Run Inter-Phase Check-In Protocol for the UX deliverables specifically before proceeding
 
-5. After UX gate passes, run the **Inter-Phase Check-In Protocol** for the UX deliverables specifically before proceeding to Phase 4.
-
-**If NOT UI-bearing** (pure backend API, CLI tool, library, data pipeline): skip the UX branch entirely. Note "No UI — UX branch not applicable" in ARCHITECTURE.md § Logical View.
+**If NOT UI-bearing** (pure backend API, CLI tool, library, data pipeline): skip the UX branch. Note "No UI — UX branch not applicable" in ARCHITECTURE.md § Logical View.
 
 ### High-Level Architecture (HLA)
 
@@ -786,35 +960,171 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHIT
 
 ## Phase 4: Implementation — BUILD it
 
-**Delegate via `task` tool — use explicit calls with timeouts, one at a time:**
+Delegate implementation work via HANDOFF — one specialist at a time, verify output before the next.
+
+**1. Test strategy first — before any code:**
 
 ```
-# Test strategy first — before any code
-task(agent="test-engineer", prompt="--strategy: produce test plan for [project] from SRS.md and USER_STORIES.md. Output: docs/TEST_STRATEGY.md", timeout=480)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4 — Implementation
+Last completed: Phase 3 gate passed
+Awaiting: test-engineer — docs/TEST_STRATEGY.md
+Next after resume: db-architect migrations handoff
+")
+```
 
-# DB migrations
-task(agent="db-architect", prompt="Run migrations from DATABASE.md for [project]. Output: migration files + verification report.", timeout=720)
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /test-expert with this prompt:
 
-# API contract verification
-task(agent="api-designer", prompt="Verify implemented endpoints match API_DESIGN.md contracts. Flag any drift. Output: docs/reviews/API_CONTRACT_REVIEW_<date>.md", timeout=480)
+  --strategy: Produce a test plan for [project] from docs/SRS.md and
+  docs/USER_STORIES.md. Cover: test types needed (unit/integration/e2e),
+  framework selection, coverage targets per module, critical paths that
+  must have 100% coverage, and test data strategy.
+  Output: docs/TEST_STRATEGY.md
 
-# Container config
-task(agent="container-ops", prompt="Write Dockerfile + compose config for [project] per ARCHITECTURE.md. Output: Dockerfile, docker-compose.yml, .dockerignore", timeout=480)
+Expected output: docs/TEST_STRATEGY.md
+When finished, come back here and say: "test-strategy done"
+═══════════════════════════════════════════════════════════
+```
 
-# CI/CD pipeline
-task(agent="sre-engineer", prompt="Write CI/CD pipeline for [project] per TECH_STACK.md and deployment targets in ARCHITECTURE.md. Output: .github/workflows/ or .gitea/workflows/ pipeline files.", timeout=480)
+**2. DB migrations:**
 
-# Security audit (after each significant feature)
-task(agent="security-auditor", prompt="OWASP audit of [feature/module]. Focus: auth, input validation, data access. Output: docs/reviews/SECURITY_<feature>_<date>.md", timeout=480)
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4
+Last completed: docs/TEST_STRATEGY.md
+Awaiting: db-architect — migration files
+Next after resume: api-designer contract verification
+")
+```
 
-# Code review (after each feature)
-task(agent="code-reviewer", prompt="--review: full 7-dimension health pass on [feature/module]. Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md", timeout=480)
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /dba (db-architect)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /dba with this prompt:
 
-# Git: feature branch + commits + PR (see Mode 3 Step 3 for full pattern)
+  Run --migrate mode. Generate migration files from the schema in
+  docs/DATABASE.md for [project]. Each migration must have an up and
+  down. Verify migrations run cleanly. Output migration files to
+  db/migrations/ and a verification report to
+  docs/reviews/DB_MIGRATION_<date>.md.
+
+Expected output: db/migrations/ + docs/reviews/DB_MIGRATION_<date>.md
+When finished, come back here and say: "db done"
+═══════════════════════════════════════════════════════════
+```
+
+**3. API contract verification:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /api-design (api-designer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /api-design with this prompt:
+
+  Verify that implemented endpoints match the contracts in
+  docs/API_DESIGN.md. Flag any drift (missing endpoints, changed
+  response shapes, undocumented parameters).
+  Output: docs/reviews/API_CONTRACT_REVIEW_<date>.md
+
+Expected output: docs/reviews/API_CONTRACT_REVIEW_<date>.md
+When finished, come back here and say: "api done"
+═══════════════════════════════════════════════════════════
+```
+
+**4. Container config:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /containers (container-ops)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /containers with this prompt:
+
+  Write Dockerfile + docker-compose (or podman-compose) config for
+  [project] per the architecture in docs/ARCHITECTURE.md.
+  Produce: Dockerfile, docker-compose.yml, .dockerignore.
+  Follow multi-stage build pattern. Include health checks.
+
+Expected output: Dockerfile, docker-compose.yml, .dockerignore
+When finished, come back here and say: "containers done"
+═══════════════════════════════════════════════════════════
+```
+
+**5. CI/CD pipeline:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /devops (sre-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /devops with this prompt:
+
+  --cicd: Write CI/CD pipeline for [project] per docs/TECH_STACK.md
+  and deployment targets in docs/ARCHITECTURE.md. Include: lint,
+  test, build, security scan, and deploy stages.
+  Output pipeline files to .github/workflows/ or .gitea/workflows/.
+
+Expected output: CI/CD pipeline files
+When finished, come back here and say: "devops done"
+═══════════════════════════════════════════════════════════
+```
+
+**6. Security audit (after each significant feature):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
+
+  OWASP audit of [feature/module]. Focus on auth, input validation,
+  and data access. Output findings with SEVERITY, file:line reference,
+  and fix recommendation to docs/reviews/SECURITY_<feature>_<date>.md.
+
+Expected output: docs/reviews/SECURITY_<feature>_<date>.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
+
+**7. Code review (after each feature):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --review: Full 7-dimension health pass on [feature/module].
+  Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+
+Expected output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+When finished, come back here and say: "review done"
+═══════════════════════════════════════════════════════════
+```
+
+**8. Git: feature branch + commits + PR (task tool — fast):**
+```
 task(agent="git-expert", prompt="--feature: [action — create branch / commit / PR]", timeout=120)
+```
 
-# Performance (only if NFRs flag perf requirements)
-task(agent="performance-engineer", prompt="Profile [specific endpoint/query] against NFR targets in SRS.md. Output: docs/reviews/PERF_<date>.md", timeout=480)
+**9. Performance (only if NFRs flag perf requirements):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /perf (performance-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /perf with this prompt:
+
+  Profile [specific endpoint/query] against the NFR targets in
+  docs/SRS.md. Measure first, optimize second. Output:
+  docs/reviews/PERF_<date>.md with before/after measurements.
+
+Expected output: docs/reviews/PERF_<date>.md
+When finished, come back here and say: "perf done"
+═══════════════════════════════════════════════════════════
 ```
 
 **Your role:**
@@ -828,24 +1138,134 @@ task(agent="performance-engineer", prompt="Profile [specific endpoint/query] aga
 
 ## Phase 5: Review — DID it work?
 
-**Delegate ALL reviews — sequentially, one at a time, each with explicit timeout:**
+Run all review handoffs sequentially. Update state before each one.
+
+**1. Security final:**
 
 ```
-task(agent="security-auditor", prompt="Full OWASP audit of entire codebase. Output: docs/reviews/SECURITY_FINAL_<date>.md", timeout=480)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 5 — Review
+Last completed: Phase 4 gate passed
+Awaiting: security-auditor — docs/reviews/SECURITY_FINAL_<date>.md
+Next after resume: performance benchmark handoff
+")
+```
 
-task(agent="performance-engineer", prompt="--benchmark: verify all NFR performance targets from SRS.md are met. Output: docs/reviews/PERF_FINAL_<date>.md", timeout=480)
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
 
-task(agent="code-reviewer", prompt="--review: full 7-dimension health pass across entire codebase. Output: docs/reviews/CODE_REVIEW_FINAL_<date>.md", timeout=480)
+  Full OWASP Top 10 audit of the entire codebase.
+  Output: docs/reviews/SECURITY_FINAL_<date>.md
+  Criteria: zero CRITICAL findings before release.
 
-task(agent="code-reviewer", prompt="--debt: prioritized tech-debt register for post-launch backlog. Output: docs/reviews/TECH_DEBT_<date>.md", timeout=480)
+Expected output: docs/reviews/SECURITY_FINAL_<date>.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
 
-task(agent="test-engineer", prompt="--coverage: coverage analysis, identify untested critical paths. Output: docs/reviews/COVERAGE_<date>.md", timeout=480)
+**2. Performance benchmark:**
 
-task(agent="ux-engineer", prompt="--audit: WCAG 2.2 AA accessibility audit. Output: docs/reviews/UX_AUDIT_<date>.md", timeout=300)
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /perf (performance-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /perf with this prompt:
 
-task(agent="container-ops", prompt="--optimize: production image optimization — layer sizes, security scan, multi-stage builds. Output: docs/reviews/CONTAINER_AUDIT_<date>.md", timeout=480)
+  --benchmark: Verify all NFR performance targets from docs/SRS.md
+  are met. Test each target with real load. Output:
+  docs/reviews/PERF_FINAL_<date>.md with pass/fail per NFR.
 
-# Only after ALL above pass:
+Expected output: docs/reviews/PERF_FINAL_<date>.md
+When finished, come back here and say: "perf done"
+═══════════════════════════════════════════════════════════
+```
+
+**3. Code review final:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --review: Full 7-dimension health pass across the entire codebase.
+  Output: docs/reviews/CODE_REVIEW_FINAL_<date>.md
+
+Expected output: docs/reviews/CODE_REVIEW_FINAL_<date>.md
+When finished, come back here and say: "review done"
+═══════════════════════════════════════════════════════════
+```
+
+**4. Tech debt register:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --debt: Produce a prioritized tech-debt register for the post-launch
+  backlog. Sort by leverage (highest ROI fixes first).
+  Output: docs/reviews/TECH_DEBT_<date>.md
+
+Expected output: docs/reviews/TECH_DEBT_<date>.md
+When finished, come back here and say: "debt done"
+═══════════════════════════════════════════════════════════
+```
+
+**5. Test coverage:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /test-expert with this prompt:
+
+  --coverage: Coverage analysis. Identify untested critical paths
+  and paths with coverage < 80%. Output: docs/reviews/COVERAGE_<date>.md
+
+Expected output: docs/reviews/COVERAGE_<date>.md
+When finished, come back here and say: "test done"
+═══════════════════════════════════════════════════════════
+```
+
+**6. Accessibility audit (if UI-bearing):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
+
+  --audit: WCAG 2.2 AA accessibility audit of the entire UI.
+  Output: docs/reviews/UX_AUDIT_<date>.md with findings by severity.
+
+Expected output: docs/reviews/UX_AUDIT_<date>.md
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
+
+**7. Container optimization:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /containers (container-ops)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /containers with this prompt:
+
+  --optimize: Production image optimization — layer sizes, security
+  scan, multi-stage builds. Output: docs/reviews/CONTAINER_AUDIT_<date>.md
+
+Expected output: docs/reviews/CONTAINER_AUDIT_<date>.md
+When finished, come back here and say: "containers done"
+═══════════════════════════════════════════════════════════
+```
+
+**8. Release — only after ALL above pass (task tool — fast):**
+```
 task(agent="git-expert", prompt="--release: compute next semver from conventional commits, generate CHANGELOG entry, create signed annotated tag, push to all remotes, draft GitHub + Gitea releases.", timeout=120)
 ```
 
@@ -975,10 +1395,38 @@ sequenceDiagram
 ## Step 3: Map Data Model
 
 - Grep for database schema (migrations, ORM models, CREATE TABLE)
-- Delegate: `db-architect` (with args: --audit) for schema analysis
-- Produce: ERD diagram (Mermaid)
 
-**Verify:** `docs/diagrams/erd.md` exists, >50 lines, contains an `erDiagram` block
+**Delegate to db-architect for schema analysis:**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 2 — Onboard
+Step: 3 — Data Model
+Last completed: Entry point diagrams
+Awaiting: db-architect — docs/diagrams/erd.md
+Next after resume: Step 4 Map Components
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /dba (db-architect)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /dba with this prompt:
+
+  --review: Audit the existing database schema in this codebase.
+  Find migrations, ORM models, or CREATE TABLE statements.
+  Produce docs/diagrams/erd.md with:
+  - Mermaid erDiagram of all tables and relationships
+  - Brief description of each table's purpose
+  - Any schema issues (missing indexes, poor naming, normalization problems)
+
+Expected output: docs/diagrams/erd.md
+When finished, come back here and say: "db done"
+═══════════════════════════════════════════════════════════
+```
+
+→ After "db done": Verify `docs/diagrams/erd.md` exists, >50 lines, contains `erDiagram` block
 
 ## Step 4: Map Components
 
@@ -1013,24 +1461,136 @@ For each major directory/module — ONE AT A TIME. Read it fully, document it, t
 
 ## Step 6: Assess Health
 
-Delegate expert reviews SEQUENTIALLY — wait for each to complete and write its output before calling the next:
+Delegate expert reviews via HANDOFF — wait for each to return and verify output before calling the next.
 
-1. Call `code-reviewer` with `--review` — Full 7-dimension Health Dashboard → wait → verify report written to `docs/reviews/CODE_REVIEW_<date>.md` → mark DONE
-1b. Call `code-reviewer` with `--debt` — Tech-debt register sorted by leverage → wait → verify `docs/reviews/TECH_DEBT_<date>.md` written → mark DONE
-1c. Call `code-reviewer` with `--patterns` — Cross-codebase pattern drift audit (especially valuable on unfamiliar codebases) → wait → verify `docs/reviews/PATTERNS_<date>.md` written → mark DONE
-2. Call `security-auditor` — Quick OWASP vulnerability scan (auth, access control, secrets, injection) → wait → verify findings written → mark DONE
-3. Call `test-engineer` with `--coverage` — Test coverage analysis, identify untested critical paths → wait → verify coverage report written → mark DONE
-4. Call `performance-engineer` — Identify O(n²) loops, N+1 queries, missing indexes, slow endpoints → wait → verify findings written → mark DONE
-5. **If UI-bearing (from Step 1 detection):** Call `ux-engineer` with `--audit` — accessibility audit, component consistency, UX anti-patterns → wait → verify `docs/reviews/UX_AUDIT_<date>.md` written → mark DONE
-   ```
-   task(agent="ux-engineer", prompt="Run --audit mode. Audit the UI in this codebase for:
-   1. WCAG 2.2 AA accessibility violations (missing alt text, keyboard traps, contrast)
-   2. Component consistency (are patterns reused or duplicated?)
-   3. UX anti-patterns (confusing flows, dead ends, broken affordances)
-   4. Responsive design gaps
-   Produce docs/reviews/UX_AUDIT_<date>.md with findings by severity (CRITICAL/HIGH/MEDIUM/LOW).", timeout=300)
-   ```
-   Include UX score in HEALTH_ASSESSMENT.md if UI-bearing.
+Save state:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 2 — Onboard
+Step: 6 — Health Assessment
+Last completed: docs/PATTERNS.md
+Awaiting: code-reviewer — CODE_REVIEW, TECH_DEBT, PATTERNS reviews
+Next after resume: security-auditor handoff
+")
+```
+
+**1a. Code health:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer) — full health
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --review: Full 7-dimension health pass on the entire codebase.
+  Output: docs/reviews/CODE_REVIEW_<date>.md
+
+Expected output: docs/reviews/CODE_REVIEW_<date>.md
+When finished, come back here and say: "review done"
+═══════════════════════════════════════════════════════════
+```
+
+**1b. Tech debt:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer) — debt
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --debt: Leverage-sorted tech-debt register.
+  Output: docs/reviews/TECH_DEBT_<date>.md
+
+Expected output: docs/reviews/TECH_DEBT_<date>.md
+When finished, come back here and say: "debt done"
+═══════════════════════════════════════════════════════════
+```
+
+**1c. Pattern drift:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer) — patterns
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --patterns: Cross-codebase pattern drift audit.
+  Output: docs/reviews/PATTERNS_<date>.md
+
+Expected output: docs/reviews/PATTERNS_<date>.md
+When finished, come back here and say: "patterns done"
+═══════════════════════════════════════════════════════════
+```
+
+**2. Security scan:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
+
+  Quick OWASP vulnerability scan — auth, access control, secrets,
+  injection. Output: docs/reviews/SECURITY_SCAN_<date>.md
+
+Expected output: docs/reviews/SECURITY_SCAN_<date>.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
+
+**3. Test coverage:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /test-expert with this prompt:
+
+  --coverage: Test coverage analysis. Identify untested critical paths.
+  Output: docs/reviews/COVERAGE_<date>.md
+
+Expected output: docs/reviews/COVERAGE_<date>.md
+When finished, come back here and say: "test done"
+═══════════════════════════════════════════════════════════
+```
+
+**4. Performance scan:**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /perf (performance-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /perf with this prompt:
+
+  Identify O(n²) loops, N+1 queries, missing indexes, and slow endpoints
+  without profiling (static analysis pass). Output:
+  docs/reviews/PERF_SCAN_<date>.md
+
+Expected output: docs/reviews/PERF_SCAN_<date>.md
+When finished, come back here and say: "perf done"
+═══════════════════════════════════════════════════════════
+```
+
+**5. UX audit (if UI-bearing from Step 1):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
+
+  --audit: Audit the UI for:
+  1. WCAG 2.2 AA violations (missing alt text, keyboard traps, contrast)
+  2. Component consistency (patterns reused or duplicated?)
+  3. UX anti-patterns (confusing flows, dead ends, broken affordances)
+  4. Responsive design gaps
+  Output: docs/reviews/UX_AUDIT_<date>.md with findings by severity
+  (CRITICAL/HIGH/MEDIUM/LOW).
+
+Expected output: docs/reviews/UX_AUDIT_<date>.md
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
 
 After all reviews complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
 - Overall health score per dimension: Code Quality / Security / Test Coverage / Performance (each 1-10)
@@ -1180,26 +1740,6 @@ After drafting the impact analysis:
 3. Re-rate until >= 7 or 3 passes done
 4. If still uncertain: ask the user "I found X but I'm not sure about Y — does this feature also touch [area]?"
 
-## Delegation Protocol
-
-When delegating to an expert, call the `task` tool. ALWAYS include:
-1. **Specific scope** — "Review these 5 auth endpoints" not "check security"
-2. **Context** — Impact analysis summary or relevant code paths
-3. **Expected output** — "Findings with SEVERITY, file:line, recommendation"
-4. **Success criteria** — "Zero CRITICAL findings" or "Report with risk scores"
-
-Example:
-```
-task(
-  agent = "security-auditor",
-  prompt = "Audit src/api/auth/ and src/middleware/auth.ts.
-            Focus: OWASP A01 (Broken Access Control), A07 (Auth Failures).
-            Output: findings list with SEVERITY, file:line, and fix recommendation.
-            Success criteria: zero CRITICAL findings, all HIGH have planned mitigations.",
-  timeout = 120
-)
-```
-
 ## Step 2: Design the Feature
 
 ### Design Clarification Questions (If Not Already Answered)
@@ -1226,11 +1766,71 @@ Design modularly — the feature should fit the existing architecture, not fight
 - API changes (new/modified endpoints, backward compatibility check)
 - Test plan (what tests need to be added/modified)
 
-**Delegate via `task` tool:**
-- `db-architect` — If schema changes needed
-- `api-designer` — If API changes needed
-- `security-auditor` — If the feature touches auth, data access, or user input
-- `ux-engineer` — If the feature has UI components
+**Delegate via HANDOFF as needed:**
+
+If schema changes needed:
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 3 — Feature: [name]
+Step: 2 — Design
+Last completed: impact analysis
+Awaiting: db-architect — schema design for this feature
+Next after resume: api-designer handoff (if API changes needed)
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /dba (db-architect)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /dba with this prompt:
+
+  Design schema changes for [feature name]. Existing schema: docs/DATABASE.md.
+  Changes needed: [describe from impact analysis].
+  Produce: migration files with up/down, updated ERD section,
+  and index strategy for new access patterns.
+
+Expected output: migration files + updated docs/DATABASE.md section
+When finished, come back here and say: "db done"
+═══════════════════════════════════════════════════════════
+```
+
+If API changes needed:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /api-design (api-designer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /api-design with this prompt:
+
+  Design API changes for [feature name]. Existing contracts: docs/API_DESIGN.md.
+  Changes needed: [describe from impact analysis].
+  Ensure backward compatibility. Produce updated endpoint contracts
+  and add them to docs/API_DESIGN.md.
+
+Expected output: updated docs/API_DESIGN.md
+When finished, come back here and say: "api done"
+═══════════════════════════════════════════════════════════
+```
+
+If the feature touches auth, data access, or user input:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
+
+  Review the design for [feature name] for security issues before
+  implementation. Files affected: [list from impact analysis].
+  Focus: OWASP A01 (Broken Access Control), A03 (Injection),
+  A07 (Auth Failures). Output: docs/reviews/SECURITY_DESIGN_<feature>_<date>.md
+
+Expected output: docs/reviews/SECURITY_DESIGN_<feature>_<date>.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
 
 ### Backward Compatibility Checklist
 
@@ -1251,32 +1851,82 @@ After producing the design documents:
 
 ## Step 3: Implement
 
-**Delegate via `task` tool — in this order:**
+**1. Create the feature branch FIRST (task tool — fast):**
+```
+task(agent="git-expert", prompt="Run --feature mode: create a feature branch for '[feature name]' with semantic prefix (feat/, fix/, chore/, etc). Use conventional branch naming: feat/[slug]. Report the branch name.", timeout=60)
+```
 
-1. `git-expert` with `--feature` — **Create the feature branch FIRST**, before any code is written:
-   ```
-   task(agent="git-expert", prompt="Run --feature mode: create a feature branch for '[feature name]' with semantic prefix (feat/, fix/, chore/, etc). Use conventional branch naming: feat/[slug]. Report the branch name.", timeout=60)
-   ```
+**2. Write tests (HANDOFF):**
 
-2. `test-engineer` — Write tests alongside implementation (not after)
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 3 — Feature: [name]
+Step: 3 — Implement
+Last completed: feature branch created
+Awaiting: test-engineer — test files for this feature
+Next after resume: code-reviewer handoff
+")
+```
 
-3. `code-reviewer` with `--review` — 7-dimension code-health pass on the new feature
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /test-expert with this prompt:
 
-4. **If feature has UI components:** call `ux-engineer` with `--review` to verify the UI implementation matches UX_SPEC and design principles:
-   ```
-   task(agent="ux-engineer", prompt="Run --review mode on the UI changes for this feature. Check:
-   1. Do the components match the patterns in docs/design/STYLE_GUIDE.md?
-   2. Are WCAG 2.2 AA requirements met (keyboard navigation, alt text, contrast)?
-   3. Does the flow match the UX_SPEC.md workflow for this feature?
-   4. Any accessibility regressions introduced?
-   Report findings with file:line references and severity (CRITICAL/HIGH/MEDIUM/LOW).", timeout=180)
-   ```
-   If ux-engineer reports CRITICAL or HIGH findings, fix them before proceeding to the PR.
+  Write tests for [feature name] alongside the implementation.
+  Context: docs/FEATURE_CONTEXT.md, test strategy in docs/TEST_STRATEGY.md.
+  Follow existing test patterns in [test directory].
+  Cover: happy path, error cases, edge cases identified in design.
 
-5. `git-expert` with `--feature` (commit + PR phase) — Atomic commit split, conventional-commit messages, draft PR on gitea + github once all reviews pass:
-   ```
-   task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, any UX changes made.", timeout=120)
-   ```
+Expected output: test files in the appropriate test directory
+When finished, come back here and say: "tests done"
+═══════════════════════════════════════════════════════════
+```
+
+**3. Code review (HANDOFF):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /review-code with this prompt:
+
+  --review: 7-dimension code-health pass on the [feature name] changes.
+  Files changed: [list from impact analysis].
+  Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+
+Expected output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+When finished, come back here and say: "review done"
+═══════════════════════════════════════════════════════════
+```
+
+**4. UX review (HANDOFF, if feature has UI components):**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
+
+  --review: Review the UI changes for [feature name]. Check:
+  1. Do components match patterns in docs/design/STYLE_GUIDE.md?
+  2. Are WCAG 2.2 AA requirements met (keyboard nav, alt text, contrast)?
+  3. Does the flow match docs/design/UX_SPEC.md for this feature?
+  4. Any accessibility regressions?
+  Output: findings with file:line and severity (CRITICAL/HIGH/MEDIUM/LOW).
+
+Expected output: UX review findings
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
+
+If ux-engineer reports CRITICAL or HIGH findings, fix them before proceeding to the PR.
+
+**5. Git commit + PR (task tool — fast):**
+```
+task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, any UX changes made.", timeout=120)
+```
 
 **Verify modular structure:**
 - New code follows existing patterns
@@ -1287,9 +1937,57 @@ After producing the design documents:
 ## Step 4: Verify
 
 - Run full test suite (existing + new tests pass)
-- Delegate via `task` tool: `security-auditor` for security review of changes
-- Delegate via `task` tool: `performance-engineer` if performance-sensitive
-- **If UI feature:** delegate via `task` tool: `ux-engineer` with `--audit` for a final accessibility check
+
+If security-sensitive:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /security (security-auditor)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /security with this prompt:
+
+  Security review of [feature name] changes in [file list].
+  Focus: auth, data access, user input handling.
+  Output: docs/reviews/SECURITY_<feature>_<date>.md
+
+Expected output: docs/reviews/SECURITY_<feature>_<date>.md
+When finished, come back here and say: "security done"
+═══════════════════════════════════════════════════════════
+```
+
+If performance-sensitive:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /perf (performance-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /perf with this prompt:
+
+  Profile [specific endpoint/query changed by this feature].
+  Measure before and after. Verify meets NFR targets in docs/SRS.md.
+  Output: docs/reviews/PERF_<feature>_<date>.md
+
+Expected output: docs/reviews/PERF_<feature>_<date>.md
+When finished, come back here and say: "perf done"
+═══════════════════════════════════════════════════════════
+```
+
+If UI feature, final accessibility check:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /ux (ux-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and run /ux with this prompt:
+
+  --audit: Final accessibility check on [feature name] UI changes.
+  WCAG 2.2 AA. Output findings by severity.
+
+Expected output: accessibility audit findings
+When finished, come back here and say: "ux done"
+═══════════════════════════════════════════════════════════
+```
+
 - Check: Does the feature work end-to-end?
 - Check: Did we break anything? (regression test)
 
@@ -1302,7 +2000,7 @@ Update existing docs to reflect the new feature:
 - **If UI feature:** update `docs/design/UX_SPEC.md` to include the new workflow and any new components added
 - Update ONBOARDING.md "How to Add a Feature" if patterns changed
 
-**Commit updated docs:**
+**Commit updated docs (task tool — fast):**
 ```
 task(agent="git-expert", prompt="Commit any updated docs/ files from this feature (ARCHITECTURE.md, API docs, sequence diagrams, UX_SPEC.md if changed). Conventional commit: 'docs(feature/[name]): update architecture and UX docs to reflect [feature name]'. Push to the feature branch.", timeout=60)
 ```
@@ -1347,6 +2045,7 @@ Next Action: Run /sdlc run --phase 1 to generate RISKS.md
 ```
 
 Read docs/ directory structure and check file existence.
+Check docs/work/sdlc-state.md if present — it shows where we left off after the last HANDOFF.
 Cross-reference with AGENTS.md or project docs for prior phase approvals.
 
 ## Cross-Expert Coordination
@@ -1387,3 +2086,4 @@ After each phase/milestone:
 - Always decompose work into subtasks before starting
 - Always verify deliverables exist and have substance before moving on
 - Always run the Confidence-Based Gate Loop at phase transitions — not a one-shot check
+- Save state to docs/work/sdlc-state.md before every HANDOFF so sessions can resume
