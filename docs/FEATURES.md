@@ -15,69 +15,85 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Agents
 
-Every agent lives in `agents/<name>.md`. They all share a common shape: frontmatter (description, tools, model), "how you think" section, micro-step execution, phase-by-phase workflow, confidence gate-loop, reader-simulation pass, and a verifier-isolation clause.
+Every agent lives in `agents/<name>.md`. All agents share: frontmatter (`description`, `mode`), "how you think" section, progress announcements, micro-step execution, phase-by-phase workflow, orchestrator + `--phase` sub-task mode, confidence gate-loop, reader-simulation pass, and verifier-isolation clause.
 
-### `sdlc-lead` — Program manager & lead architect
-Orchestrates the full software development lifecycle across 3 operating modes:
+### Multi-agent execution model
 
-- **Mode 1 (`init`)** — new project from scratch, Phase 0 → Phase 5 with discovery interview first
-- **Mode 2 (`onboard`)** — understand an existing unfamiliar codebase, produce HLA + sequence diagrams + onboarding docs
-- **Mode 3 (`feature`)** — add a feature to an existing project, discovery interview → design → implement → verify
+All long-running agents support two execution modes that prevent timeouts and silent hangs:
 
-Delegates to every other expert at the appropriate phase. Enforces confidence-based gates (asymmetric < 5 fail, 5-6 revise max 3x, ≥ 7 pass) at every phase boundary plus an Inter-Phase Check-In protocol that prevents auto-advance.
+- **Orchestrator mode (default)** — agent announces its phase plan upfront, then spawns one `task(agent=self, prompt="--phase: N name ...")` sub-task per phase. Each sub-task writes findings to `docs/work/<agent>/<slug>/phaseN.md` and returns in under 90 s. The orchestrator prints `✓ Phase N: [finding]` after each returns. Total work is visible as a sequence of fast completions.
+- **`--phase: N name` mode** — runs exactly one named phase, reads the previous phase's output file as context, writes its own output file, returns a one-line summary. No sub-spawning. Used by the orchestrator to parallelise sequential work.
 
-### `git-expert` — Git & forge operations
-Six modes for the full git lifecycle:
+Progress is shown in the `task` tool label in real time: `task: db-architect — 45s — ✓ Phase 2 complete: PostgreSQL best practices identified`.
 
-- **`--init`** — bootstrap a new repo (`git init`, language-aware `.gitignore`, remotes, hooks, branch protection proposal)
-- **`--feature`** — daily flow (branch creation, atomic commit splitting, conventional commits, draft PR on Gitea + GitHub)
-- **`--release`** — cut a release (semver bump from commit log, Keep-a-Changelog entry, signed tag, GitHub + Gitea releases)
-- **`--recover`** — reflog-based rescue of lost work (bad reset, rebase, detached HEAD, deleted branch, force-push overwrite)
-- **`--inspect`** — history forensics (log presets, blame with rename tracking, pickaxe, bisect, divergence)
-- **`--sync`** — multi-remote maintenance (fetch all + prune, clean gone branches, mirror Gitea → GitHub)
+### `sdlc-lead` — Program manager & lead architect (`mode: primary`)
 
-Never force-pushes protected branches, never `--no-verify`, scans staged files for secrets before every commit, saves reflog backup before destructive ops.
+Orchestrates the full SDLC across 3 operating modes. Delegates every technical task to specialist agents via `task()` with explicit timeouts — never does technical work itself.
 
-### `security-auditor` — Security assessments
-OWASP Top 10 coverage, threat modeling, Semgrep deep scans (community rules, framework auto-detect, two-tier), dependency audits. Produces skeleton-first security reports with verbatim code quotes and concrete exploitation walkthroughs.
+- **Mode 1 (`/sdlc init`)** — new project from scratch, Phases 0–5. Discovery interview → competitive research → planning → requirements → design → implementation → review. Git checkpoints after every phase — nothing advances uncommitted.
+- **Mode 2 (`/sdlc onboard`)** — understand an existing codebase. Starts with `git-expert --inspect` (hot files, history). Detects UI-bearing status. Produces full architecture + onboarding docs. Calls `ux-engineer --audit` if UI-bearing. Commits all docs at end.
+- **Mode 3 (`/sdlc feature`)** — add a feature. Discovery interview → impact analysis → design (calls `ux-engineer --review` for UI features) → implement (branch-first, UX review before PR) → verify → document (updates `UX_SPEC.md`, commits docs).
 
-### `code-reviewer` — Code health review
-Four modes:
+Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
 
-- **`--review`** — 7-dimension code health pass (Complexity, Duplication/DRY, Error Handling, Type Safety, Pattern Consistency, Naming, Comment Accuracy) with Health Dashboard + verdict
-- **`--debt`** — leverage-sorted tech-debt catalog (`blocked_work × priority / cost_to_fix`)
-- **`--consolidate`** — DRY + error-handling consolidation proposals using the Consolidation Catalog (central error boundary, Result types, middleware, custom error classes, decorators, defer/finally)
-- **`--patterns`** — cross-codebase pattern drift audit (systemic drift only, confidence ≥ 85)
+### `git-expert` — Git & forge operations (`mode: subagent`)
 
-Hunts silent failures — every `try`/`catch` is a suspect.
+Called by `sdlc-lead` at every phase boundary to commit docs, create branches, cut releases, and inspect history. Six modes:
 
-### `ux-engineer` — UX design & accessibility
-Three modes:
+- **`--init`** — bootstrap repo, `.gitignore`, remotes, hooks, branch protection
+- **`--feature`** — branch creation, atomic commits, conventional-commit messages, draft PR on Gitea + GitHub
+- **`--release`** — semver bump, Keep-a-Changelog, signed tag, GitHub + Gitea releases
+- **`--recover`** — reflog-based rescue (bad reset, detached HEAD, deleted branch)
+- **`--inspect`** — history forensics (blame, pickaxe, bisect, hot-file detection)
+- **`--sync`** — multi-remote prune + mirror
 
-- **`--design`** — new component or workflow design with Nielsen Norman heuristics, WCAG 2.2 AA baseline, keyboard + screen reader considerations
-- **`--review`** — heuristic review of existing UX, hierarchy/consistency/error prevention checks
-- **`--audit`** — full WCAG accessibility audit with live-environment methodology (real browser, real assistive tech)
+Never force-pushes protected branches, never `--no-verify`, scans for secrets before every commit.
 
-### `researcher` — Professional research analyst
-Structured investigation, source evaluation (credibility + recency + bias), competitive analysis, technology comparison. Writes research reports to `docs/research/`.
+### `researcher` — Professional research analyst (`mode: subagent`)
 
-### `test-engineer` — Test strategy & implementation
-Playwright e2e, vitest/jest unit tests, integration tests, test strategy, coverage analysis. Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`.
+Three execution modes:
 
-### `performance-engineer` — Performance profiling
-Profile first, optimize second. Establishes baselines, identifies bottlenecks via flame graphs + tracing, measures impact. Never optimizes without measurement. Modes: `--profile`, `--benchmark`, `--optimize`.
+- **Orchestrator (default)** — breaks multi-question tasks into sub-tasks, announces plan, spawns `--single` per question, reports each finding as it returns
+- **`--single: <question>`** — researches exactly one question (30–60 s), appends finding to output file, no sub-spawning
+- **`--plan: <topic>`** — returns a numbered question list only, no searching
 
-### `db-architect` — Database design
-Schema design, migrations, query optimization, indexing strategy, ORM models. Modes: `--design`, `--migrate`, `--tune`, `--review`.
+### `security-auditor` — Security assessments (`mode: subagent`)
 
-### `api-designer` — API design
-REST + GraphQL, contracts, versioning, documentation, pagination, error shapes. Modes: `--design`, `--review`, `--version`, `--document`.
+OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 4-phase orchestrator: understand → automated scan → OWASP + STRIDE manual → verify + report.
 
-### `container-ops` — Container operations
-Podman/Docker, Dockerfiles, compose, networking, debugging, image optimization. Modes: `--build`, `--compose`, `--debug`, `--optimize`.
+### `code-reviewer` — Code health review (`mode: subagent`)
 
-### `sre-engineer` — Site reliability
-CI/CD pipelines, monitoring, incident response, runbooks, deployment strategies. Modes: `--cicd`, `--monitor`, `--runbook`, `--incident`.
+Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
+
+### `ux-engineer` — UX design & accessibility (`mode: subagent`)
+
+- **`--design`** — greenfield component/workflow design, WCAG 2.2 AA, style guide, UX spec
+- **`--review`** — heuristic review of existing UI, called by `sdlc-lead` after code review on UI features
+- **`--audit`** — WCAG accessibility audit, called by `sdlc-lead` in Mode 2 (if UI-bearing) and Mode 3 verify
+
+### `test-engineer` — Test strategy & implementation (`mode: subagent`)
+
+Runs as 6-phase orchestrator: understand → research → plan → write tests → verify → report. Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`.
+
+### `performance-engineer` — Performance profiling (`mode: subagent`)
+
+Profile first, optimize second. 6-phase orchestrator: understand → profile → identify hotspot → fix → verify → document. Never optimizes without measurement.
+
+### `db-architect` — Database design (`mode: subagent`)
+
+6-phase orchestrator: understand data → research → plan → design + implement → verify → report. Modes: `--design`, `--migrate`, `--tune`, `--review`.
+
+### `api-designer` — API design (`mode: subagent`)
+
+6-phase orchestrator: understand → research → design → document → verify → write docs. REST + GraphQL, contracts, versioning, pagination, error shapes.
+
+### `container-ops` — Container operations (`mode: subagent`)
+
+6-phase orchestrator: understand → research → plan → execute → verify → report. Podman/Docker, Dockerfiles, compose, networking, image optimization.
+
+### `sre-engineer` — Site reliability (`mode: subagent`)
+
+6-phase orchestrator: understand → research → plan → execute → verify → report. CI/CD pipelines, monitoring, incident response, runbooks.
 
 ---
 

@@ -2,6 +2,41 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-04-10
+
+Multi-agent orchestration, real-time progress feedback, phase-splitting for long-running agents, full git and UX wiring throughout the SDLC, and a comprehensive test suite.
+
+### Added
+
+- **Researcher orchestrator + `--single` + `--plan` modes** — The `researcher` agent no longer runs as one silent multi-minute block. In orchestrator mode (default) it announces its plan, spawns a `--single` sub-task per question via the `task` tool, and reports each finding as it completes (`✓ Q1: ...`). `--single` researches exactly one question in 30–60 s. `--plan` returns a question list only.
+- **Orchestrator + `--phase: N` mode on all 8 long-running agents** — `db-architect`, `test-engineer`, `sre-engineer`, `container-ops`, `performance-engineer`, `api-designer`, `security-auditor`, `code-reviewer` all gained the same two-mode pattern. Orchestrator announces a phase plan, spawns one sub-task per phase (each writes to `docs/work/<agent>/<slug>/phaseN.md`), reports `✓ Phase N: [finding]` after each. `--phase: N name` runs only that phase in under 90 s.
+- **Progress announcements mandatory on all 10 agents** — Every agent now has a `## Progress Announcements` section requiring `▶ Phase N: [name]...` at start and `✓ Phase N complete: [summary]` at end of every phase. These surface in the `task` tool's UI label via `context.metadata`.
+- **Real-time metadata on every assistant message** — `task.ts` fires `context.metadata` on every JSON event from stdout, not just on the 5 s heartbeat.
+- **`scripts/test.ts`** — Comprehensive test suite replacing `validate-tools.js`. Three passes: (1) dynamically imports each `.ts` tool via Node 24 native TS, validates runtime shape; (2) parses skill frontmatter, validates name/description/agent cross-references; (3) checks agent content length and role/identity.
+- **`scripts/add-orchestrator.mjs`** — Script to insert the orchestrator + phase-mode block into new agents.
+- **`mode: "subagent"` frontmatter on all 11 specialist agents** — Correct classification for OpenCode native task tool when custom agent support ships. `sdlc-lead` gets `mode: "primary"`.
+- **`sdlc-lead` Mode 2: git history inspection (Step 0)** — `git-expert --inspect` runs before any code is read; hot files and recent activity focus landscape mapping.
+- **`sdlc-lead` Mode 2: UI detection** — Step 1 detects UI frameworks/directories, records `UI-bearing: YES/NO`.
+- **`sdlc-lead` Mode 2: UX audit** — If UI-bearing, Step 6 calls `ux-engineer --audit`.
+- **`sdlc-lead` Mode 2: docs commit** — Step 7 calls `git-expert` to commit all produced onboarding docs.
+- **`sdlc-lead` Mode 1: git checkpoints after phases 0–3** — `git-expert` commits phase docs after each gate. Nothing advances uncommitted.
+- **`sdlc-lead` Mode 3: UX review in implementation** — Step 3 calls `ux-engineer --review` after code review for UI features; CRITICAL/HIGH block the PR. Step 4 adds accessibility audit. Step 5 updates `UX_SPEC.md` and commits docs.
+- **`sdlc-lead` Phase 3/4/5: explicit `task()` calls with timeouts** — All delegations now have concrete `task(agent=..., prompt=..., timeout=...)` blocks sized for orchestrator depth (480–720 s).
+
+### Changed
+
+- **`task.ts` max timeout 600 s → 900 s** — 6 phases × 120 s = 720 s; new cap provides headroom.
+- **`task.ts` default timeout 120 s → 180 s**.
+- **`tools/grep-mcp.ts`** — Fixed `require('child_process')` in ESM module; replaced with `import { exec as execCb }`.
+- **`package.json`** — `"type": "module"`, test script uses `node --experimental-strip-types`.
+- **`sdlc-lead` researcher calls include numbered questions** — All three research delegations provide explicit questions so orchestrator mode activates without a planning round-trip.
+
+### Architecture note
+
+The `task` tool spawns `opencode run --agent X --format json` as a subprocess — the correct workaround for the current OpenCode limitation where the built-in task tool only supports `general` and `explore` (custom agents not yet supported: [anomalyco/opencode#20059](https://github.com/anomalyco/opencode/issues/20059)). When OpenCode ships full custom agent support, switching to the native task tool will give proper child-session visibility in the TUI sidebar without needing `context.metadata` hacks.
+
+---
+
 ## [0.3.0] — 2026-04-10
 
 Major upgrade wave: new `git-expert` agent, three-mode `code-reviewer` rewrite, three-mode `ux-engineer` rewrite, deeper `security-auditor`, sdlc-lead discovery interviews, asymmetric confidence gates applied across every agent. Repository cleanup + new documentation.
@@ -58,6 +93,7 @@ Initial public release of the BPM OpenCode Expert system.
 - **Full documentation**: expert guide, SDLC guide, contributing guide.
 - **Interoperable** with the sibling `claude-experts` project for Claude Code — works with any LLM backend (Claude, OpenAI, Gemini, Ollama, LM Studio, 75+ providers).
 
+[0.4.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bpmforge/bpm-opencode-experts/releases/tag/v0.1.0

@@ -51,6 +51,30 @@ Uninstall with `./uninstall.sh`.
 
 When you type `/review-code --debt` into OpenCode, the skill dispatcher looks up `skills/review-code/SKILL.md`, reads the `agent: code-reviewer` field, and invokes the `code-reviewer` agent with `--debt` as an argument.
 
+### Multi-agent execution model
+
+Long-running agents (all 10 specialists + `sdlc-lead`) use a two-mode execution pattern to prevent timeouts and silent hangs:
+
+**Orchestrator mode (default)** — the agent announces its phase plan upfront, then spawns one sub-task per phase using the `task` tool. Each sub-task runs in under 90 seconds, writes its findings to `docs/work/<agent>/<slug>/phaseN.md`, and returns. The orchestrator prints `✓ Phase N: [finding]` after each completes. You see work as a sequence of fast completions, never a silent 5-minute block.
+
+```
+▶ Phase 1: Understanding codebase...
+✓ Phase 1 complete: 3 services identified, PostgreSQL 15, REST API with 24 endpoints
+
+▶ Phase 2: Researching best practices...
+✓ Phase 2 complete: Found 3 relevant patterns for event sourcing
+...
+```
+
+**`--phase: N name` mode** — runs exactly one named phase, reads the previous phase's output file, writes its own, and returns a one-line summary. This is how the orchestrator parallelizes sequential work — you don't invoke this directly.
+
+**Progress in the UI** — the `task` tool updates its label in real time:
+```
+task: db-architect — 45s — ✓ Phase 2 complete: PostgreSQL best practices identified
+```
+
+If you see a task label ticking up but no output yet, the agent is working — it will announce results phase by phase.
+
 ### Modes
 
 Most experts take a `--mode` flag that selects which pass to run. Modes are cheap to add — they share the agent's reference checklist and reporting templates but differ in emphasis and output file. See each expert's section below.
@@ -90,19 +114,19 @@ When an expert says "gate failed", it's telling you the report isn't ready. Ask 
 ```
 /sdlc init my-app "Short description of what it is"
 ```
-`sdlc-lead` will run a discovery interview, bootstrap the repo via `git-expert --init`, then walk you through Phase 0 (Vision) → Phase 5 (Review) with gates between every phase.
+`sdlc-lead` runs a discovery interview, calls `git-expert --init` to bootstrap the repo, then walks through Phase 0 (Vision) → Phase 5 (Review) with git checkpoints after every phase — nothing advances uncommitted. Expect 6–8 agent delegations across the full run.
 
 ### Existing codebase you don't understand
 ```
 /sdlc onboard
 ```
-`sdlc-lead` will produce a high-level architecture document, operation sequence diagrams, and an onboarding guide. It also calls `code-reviewer --review`, `code-reviewer --debt`, and `code-reviewer --patterns` to surface health issues.
+`sdlc-lead` runs `git-expert --inspect` first (hot files, commit history), detects if the project has a UI, then produces architecture docs and an onboarding guide. If the project has UI, `ux-engineer --audit` runs automatically. All produced docs are committed at the end.
 
 ### Add a feature to an existing project
 ```
 /sdlc feature "OAuth refresh token support"
 ```
-`sdlc-lead` runs a feature discovery interview → design → `git-expert --feature` (branch) → implement → `test-engineer` → `code-reviewer --review` → `git-expert --feature` (commit + draft PR).
+`sdlc-lead` runs a discovery interview → design → `git-expert --feature` (branch) → implement → `test-engineer` → `code-reviewer --review` → `ux-engineer --review` (if UI) → `git-expert --feature` (commit + draft PR). A CRITICAL or HIGH UX finding blocks the PR.
 
 ### Cut a release
 ```
@@ -203,6 +227,18 @@ Modes: `--quick`, `--deep`, `--compare`
 /research --compare "Postgres vs MySQL for event sourcing"
 ```
 
+The researcher uses **orchestrator mode** by default — it announces a question-by-question plan, researches each question as a sub-task, and prints a one-line finding after each:
+
+```
+Research plan for [topic]:
+  Q1: Market size and top players
+  Q2: Pricing models
+  Q3: API quality
+Starting Q1...
+✓ Q1 complete: Market is $2.4B, dominated by GitHub Copilot (40%). [source]
+Starting Q2...
+```
+
 Produces a report with source evaluation (credibility + recency + bias), cross-references, and a final recommendation. Output: `docs/research/`.
 
 ### `/test-expert`
@@ -292,3 +328,6 @@ Modes: `--cicd`, `--monitor`, `--runbook`, `--incident`
 - **Confidence gates exist to protect you.** A failed gate means the report isn't trustworthy yet. Read the specific gap the expert surfaces and resolve it before using the report.
 - **Expert output dirs are gitignored** — they are per-project generated reports, not shared source. Commit them yourself only if you want to.
 - **For destructive git operations, read the whole confirmation prompt.** `git-expert` prints the recovery command before every destructive op — save that command before confirming.
+- **If a task looks frozen, check the label.** The `task` tool updates its title in real time — `task: db-architect — 45s — ▶ Phase 3...` means it's alive and working. True hangs show no elapsed time increase.
+- **`sdlc-lead` delegates everything.** It never writes code itself — it orchestrates. When it says "delegating to `test-engineer`", expect a `task:` label to appear and resolve in under 2 minutes per phase.
+- **Phase files accumulate in `docs/work/`.** Each `--phase: N` sub-task writes its findings to `docs/work/<agent>/<slug>/phaseN.md`. If an agent stops early, the phase files show you exactly where it got to.
