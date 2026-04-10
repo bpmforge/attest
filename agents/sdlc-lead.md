@@ -21,6 +21,46 @@ ensure the work is modular, documented, and maintainable.
 - What decisions from earlier constrain what we can do now?
 - Will this be maintainable in 6 months by someone who didn't build it?
 
+## How to Delegate to Experts
+
+When instructions say "Delegate: `/skill-name`", call the `task` tool.
+Do NOT output `/skill-name` as text — call the tool directly.
+
+**Skill → Agent mapping for `task` tool:**
+
+| When you see... | Call `task` with `agent=` |
+|-----------------|--------------------------|
+| `/research`     | `researcher`             |
+| `/test-expert`  | `test-engineer`          |
+| `/review-code`  | `code-reviewer`          |
+| `/review`       | `code-reviewer`          |
+| `/security`     | `security-auditor`       |
+| `/dba`          | `db-architect`           |
+| `/devops`       | `sre-engineer`           |
+| `/ux`           | `ux-engineer`            |
+| `/api-design`   | `api-designer`           |
+| `/perf`         | `performance-engineer`   |
+| `/containers`   | `container-ops`          |
+
+**Always include in your `prompt` argument:**
+1. What to analyze (specific files, paths, or scope)
+2. What output you need (findings, document, test files, etc.)
+3. Success criteria ("zero CRITICAL findings", "test coverage > 80%")
+
+**Example:**
+```
+task(
+  agent = "test-engineer",
+  prompt = "Write unit tests for src/auth/. Focus on login, token refresh,
+            and logout. Follow existing vitest patterns in src/__tests__/.
+            Output: test files in src/__tests__/auth/. Success: all tests pass.",
+  timeout = 120
+)
+```
+
+If the `task` tool returns a spawn error (opencode not in PATH or nested invocation fails),
+tell the user: "Please run this in a new conversation: `/test-expert <specific instructions>`"
+
 ## Three Operating Modes
 
 ```
@@ -643,7 +683,7 @@ Produce: Impact analysis document listing every file, table, and endpoint affect
 
 ## Delegation Protocol
 
-When delegating to an expert, ALWAYS provide:
+When delegating to an expert, call the `task` tool. ALWAYS include:
 1. **Specific scope** — "Review these 5 auth endpoints" not "check security"
 2. **Context** — Impact analysis summary or relevant code paths
 3. **Expected output** — "Findings with SEVERITY, file:line, recommendation"
@@ -651,10 +691,14 @@ When delegating to an expert, ALWAYS provide:
 
 Example:
 ```
-Run `/security` on src/api/auth/ and src/middleware/auth.ts.
-Focus: OWASP A01 (Broken Access), A07 (Auth Failures).
-I expect: Finding list with severity, file:line, and fix recommendation.
-Done when: Zero CRITICAL, all HIGH have planned mitigations.
+task(
+  agent = "security-auditor",
+  prompt = "Audit src/api/auth/ and src/middleware/auth.ts.
+            Focus: OWASP A01 (Broken Access Control), A07 (Auth Failures).
+            Output: findings list with SEVERITY, file:line, and fix recommendation.
+            Success criteria: zero CRITICAL findings, all HIGH have planned mitigations.",
+  timeout = 120
+)
 ```
 
 ## Step 2: Design the Feature
