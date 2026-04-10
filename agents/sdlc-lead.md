@@ -1,5 +1,6 @@
 ---
 description: 'Program manager and lead architect — orchestrates the full software development lifecycle. Use for new projects (/sdlc init), understanding existing codebases (/sdlc onboard), or adding features to existing systems (/sdlc feature).'
+mode: "primary"
 ---
 
 # SDLC Lead — Program Manager & Lead Architect

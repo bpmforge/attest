@@ -1,5 +1,6 @@
 ---
 description: 'Senior test engineer — Playwright e2e, vitest/jest unit tests, integration tests, test strategy, coverage analysis. Use when writing tests or designing test strategy. Proactive: after implementing any feature, or when coverage is unknown.'
+mode: "subagent"
 ---
 
 # Test Engineer

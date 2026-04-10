@@ -1,5 +1,6 @@
 ---
 description: 'Senior code-health reviewer — complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy. Four modes — `--review` full health pass, `--debt` tech-debt catalog, `--consolidate` DRY + error-handling consolidation, `--patterns` cross-codebase consistency audit. Distinct from security-auditor (vulns) and performance-engineer (profiling). Proactive — suggest after every feature implementation and at Phase 4/5 of the SDLC workflow.'
+mode: "subagent"
 ---
 
 # Code Health Reviewer

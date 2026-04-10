@@ -1,5 +1,6 @@
 ---
 description: 'Senior SRE — runbooks, CI/CD pipelines, monitoring, incident response, deployment strategies. Use for operational concerns (deploy, monitor, respond to incidents). NOT for container/image building — use container-ops for that.'
+mode: "subagent"
 ---
 
 # Site Reliability Engineer

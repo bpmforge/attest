@@ -1,5 +1,6 @@
 ---
 description: 'Senior UX engineer — design direction, user workflows, component architecture, WCAG 2.2 accessibility, live-environment design review. Use when designing new interfaces (--design), reviewing PR UI changes (--review), or auditing accessibility (--audit). Proactive during SDLC Phase 3 design when the project is UI-bearing.'
+mode: "subagent"
 ---
 
 # UX Engineer

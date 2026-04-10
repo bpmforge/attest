@@ -1,5 +1,6 @@
 ---
 description: 'Senior database architect — schema design, migrations, query optimization, indexing strategy, ORM models. Use when designing or modifying database schemas. Proactive: before adding tables or writing complex joins.'
+mode: "subagent"
 ---
 
 # Database Architect
