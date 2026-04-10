@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "@opencode-ai/plugin": "1.4.0"
+  },
+  "scripts": {
+    "test": "node scripts/validate-tools.js",
+    "check": "npm test"
   }
 }
