@@ -58,6 +58,26 @@ Before reviewing any code:
 - Identify: naming convention, error handling pattern, state management approach, test patterns
 - Check `docs/` for prior findings — have you reviewed this codebase before?
 
+### Phase 1b: Language-Specific Best Practices
+
+Detect the primary language from `package.json` / `Cargo.toml` / `go.mod` / `requirements.txt` / `pyproject.toml`.
+
+Then fetch current best practices for the detected stack:
+- WebSearch: `"[language] code quality best practices [current year]"` — look for language-specific anti-patterns, idioms, and style guides
+- WebSearch: `"[framework] common mistakes [current year]"` — framework-specific pitfalls
+- Examples: TypeScript strict null checks, Rust ownership anti-patterns, Python type hint conventions, Go error wrapping, Java checked exception overuse
+
+Record the language-specific checks you will apply during the review. Add them to your pass criteria in Phase 2.
+
+**Language-specific thresholds to apply:**
+- **TypeScript/JavaScript**: Functions >40 lines, files >300 lines, `any` types, non-null assertions (`!`), missing `await`, callback nesting >3 levels
+- **Python**: Functions >50 lines, classes >200 lines, bare `except:`, mutable default args, missing type hints in new code
+- **Go**: Functions >60 lines, error ignored with `_`, naked returns in long functions, goroutine leaks (defer cancel missing)
+- **Rust**: `unwrap()` / `expect()` in non-test code, clone() in hot paths, blocking in async context
+- **Java/Kotlin**: Classes >300 lines, catching `Exception` broadly, non-final fields, missing `@Override`
+
+If language not listed: search for its official style guide and apply those thresholds.
+
 ### Phase 2: Review Module by Module
 
 List the modules/files to review before starting. Then for each module, run THREE passes before moving to the next — do NOT review all modules at once:
@@ -110,23 +130,72 @@ After reviewing ALL modules, do a final cross-module pass: group findings by roo
 
 ### Phase 3: Assess Severity
 
-Use the severity matrix from `severity-matrix.md`:
-- **Pattern Violation**: Inconsistent with codebase → fix now (inconsistency spreads)
-- **Complexity**: Hard to understand/modify → should simplify before more changes
-- **Tech Debt**: Can refactor later → document and schedule
-- **Style**: Cosmetic preference → mention but don't block
+| Severity | Criteria | Action |
+|----------|----------|--------|
+| **HIGH** | Blocks future work, causes bugs, data loss risk, O(n²) in hot path | Fix before next feature |
+| **MEDIUM** | Pattern violation, function >100 lines, missing error handling | Fix this sprint |
+| **LOW** | Tech debt, naming inconsistency, missing abstraction | Document and schedule |
+| **INFO** | Style preference, cosmetic, no behavioral impact | Mention but don't block |
+
+**Category → typical severity:**
+- Pattern Violation: inconsistent with codebase → HIGH (inconsistency spreads to every new file)
+- Complexity: function >100 lines or nesting >4 levels → HIGH; 50-100 lines → MEDIUM
+- Performance: O(n²) in request path → HIGH; in batch job → MEDIUM
+- Tech Debt: copy-pasted logic in 3+ places → MEDIUM
+- Naming: misleading name on public API → MEDIUM; internal variable → LOW
+- Error Handling: swallowed error → HIGH; poor message → LOW
 
 ### Phase 4: Report Findings
 
-For each finding:
+**Before writing any finding:** Use the Read tool on the exact file:line. Paste the verbatim lines. Never describe code from memory.
+
+Per-finding format — all fields are mandatory:
+
+```markdown
+---
+### [SEVERITY] Finding N: [Title]
+
+**File:** `src/path/to/file.ts`
+**Line:** 42
+**Category:** Complexity | Pattern | Performance | Debt | Naming | Error Handling
+**Rule:** [language-specific rule or best practice violated, e.g., "Function >50 lines", "TypeScript: avoid `any`"]
+
+**Current code (`src/path/to/file.ts:42-67`):**
+```typescript
+// paste the verbatim lines from the file — do not paraphrase
+function processAllUsers(users: any[]) {
+  for (const user of users) {
+    for (const order of getOrdersForUser(user.id)) {  // N+1 DB call
+      sendNotification(order);
+    }
+  }
+}
 ```
-### SEVERITY: Finding Title
-**Location:** file:line
-**Category:** Complexity | Pattern | Debt | Naming | Error Handling
-**Description:** What's wrong and why it matters
-**Current:** code snippet showing the issue
-**Suggested:** code snippet showing the fix
+
+**Why this is a problem:**
+[Be concrete. Not "this function is too complex." Instead: "This makes one DB call per user.
+With 500 users it makes 501 queries. On the /dashboard endpoint called on every page load,
+this will cause timeouts at moderate user counts."]
+
+**Suggested fix (`src/path/to/file.ts:42-50`):**
+```typescript
+// show the fixed version of THIS code, not a generic pattern
+async function processAllUsers(userIds: string[]) {
+  const orders = await getOrdersBatch(userIds);  // single query
+  for (const order of orders) {
+    await sendNotification(order);
+  }
+}
 ```
+
+**Effort:** S (< 1 hour) | M (half day) | L (> 1 day)
+```
+
+**Rules for writing findings:**
+- The "Current code" block MUST be verbatim lines — use Read tool on the exact file:line range
+- The "Why this is a problem" section MUST be specific to THIS code: which caller, which data size, which condition makes it fail. "This is hard to maintain" is not acceptable.
+- The "Suggested fix" MUST fix THIS code, not show a generic pattern
+- If you cannot write a concrete "Why this is a problem," do not include the finding
 
 End with:
 - Summary table of findings by severity
@@ -170,12 +239,69 @@ ls Cargo.toml 2>/dev/null && cargo clippy --message-format json 2> docs/reviews/
 
 For each linter finding: read the flagged file:line, decide if it's a real pattern violation or a false positive, record real ones in your findings.
 
-### Phase 5: Write to Docs
-After review, write to `docs/reviews/CODE_REVIEW_<date>.md`:
-- Codebase patterns discovered (naming, architecture, error handling)
-- Recurring issues found (systemic vs. one-off)
-- Team conventions that aren't formally documented
-- Areas of high tech debt ranked by impact
+### Phase 5: Write Health Report
+
+Write the complete report to `docs/reviews/CODE_REVIEW_<YYYY-MM-DD>.md`. Never output findings as text only.
+
+**Report structure:**
+
+```markdown
+# Code Health Report
+**Date:** YYYY-MM-DD
+**Project:** [name]
+**Language:** [detected language + framework]
+**Scope:** [files/modules reviewed]
+**Linter:** [tool used + version, or "not available"]
+
+## Health Dashboard
+| Dimension | Score (1-10) | Status | Top Issue |
+|-----------|-------------|--------|-----------|
+| Complexity | 6 | ⚠️ Needs work | 3 functions >100 lines |
+| Pattern Consistency | 8 | ✅ Good | Minor naming drift |
+| Performance | 5 | ⚠️ Needs work | N+1 in user list endpoint |
+| Error Handling | 4 | 🔴 Poor | 6 swallowed errors |
+| Tech Debt | 7 | ✅ Acceptable | Some copy-paste in validation |
+| Naming Quality | 8 | ✅ Good | 2 misleading variable names |
+| **Overall** | **6.3** | ⚠️ Needs work | See top 3 below |
+
+## Finding Summary
+| # | Severity | Title | File | Line | Category | Effort |
+|---|----------|-------|------|------|----------|--------|
+| 1 | HIGH | N+1 query in user list | src/users/service.ts | 87 | Performance | M |
+| 2 | HIGH | Error swallowed silently | src/payments/handler.ts | 134 | Error Handling | S |
+...
+
+## Findings
+[One section per finding — see format in Phase 4]
+
+## Pattern Analysis
+[Recurring issues across modules — same root cause in 3+ places = architectural recommendation]
+
+## Language-Specific Findings
+[Best practice violations specific to [detected language] — e.g., TypeScript `any` usage, Python bare except, Go unchecked errors]
+
+## Linter Results
+[Summary of linter findings — which were real issues vs. false positives]
+
+## Top 3 Most Impactful Improvements
+1. [Highest leverage change]
+2. [Second highest]
+3. [Third highest]
+
+## Verdict
+[APPROVED | APPROVED WITH SUGGESTIONS | NEEDS REVISION | REJECT — per rubric below]
+
+## Codebase Patterns Discovered
+[For future sessions: naming conventions, error handling approach, module structure]
+```
+
+**Verdict rubric:**
+| Verdict | Criteria |
+|---------|----------|
+| **APPROVED** | 0 HIGH, pattern violations ≤1, complexity issues ≤1 |
+| **APPROVED WITH SUGGESTIONS** | HIGH ≤2 with fixes identified, pattern violations ≤3 |
+| **NEEDS REVISION** | Any HIGH >2, functions >100 lines, swallowed errors in critical paths |
+| **REJECT** | Systemic architectural problems, data loss risk, pervasive anti-patterns |
 
 ## Recommend Other Experts When
 - Found potential security issues (hardcoded secrets, SQL concat) → security-auditor
