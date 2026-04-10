@@ -1,9 +1,10 @@
 {
+  "type": "module",
   "dependencies": {
     "@opencode-ai/plugin": "1.4.0"
   },
   "scripts": {
-    "test": "node scripts/validate-tools.js",
+    "test": "node --experimental-strip-types scripts/test.ts",
     "check": "npm test"
   }
 }

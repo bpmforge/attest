@@ -331,13 +331,27 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/VISION.md` — Problem, target users, success metrics
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
-**Delegate via `task` tool:** `task(agent="researcher", prompt="Deep research on competitive landscape for [domain]. Write report to docs/research/RESEARCH_competitive_<date>.md", timeout=300)`
+**Delegate via `task` tool:**
+```
+task(agent="researcher", prompt="Research competitive landscape for [domain].
+Questions:
+1. Who are the main existing competitors and what do they offer?
+2. What are their pricing models and target customers?
+3. What technical gaps or underserved segments exist?
+4. What differentiates the strongest players?
+Output file: docs/research/RESEARCH_competitive_<date>.md", timeout=360)
+```
+The researcher will announce its plan, spawn one sub-task per question, and report each finding as it completes — you will see progress in real time.
 **Then:** Run the **Research Findings Review Protocol** — read the report, cross-reference with DISCOVERY.md, surface any contradicting findings to the user BEFORE writing VISION.md.
 **You write:** VISION.md (strategic, not technical) using answers from DISCOVERY.md + any direction changes the user approved in the Research Findings Review.
 **Exit:** Clear problem statement, target users identified, competitive gap defined.
 
 **Gate Loop:** Rate VISION.md and COMPETITIVE_ANALYSIS.md per the Confidence-Based Gates section. Minimum score 7 before Phase 1.
-**Inter-Phase Check-In:** After the gate passes, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Git checkpoint — commit Phase 0 docs before advancing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION.md, COMPETITIVE_ANALYSIS.md, any research files). Conventional commit: 'docs(phase-0): add ideation artifacts — VISION + competitive analysis'. Push to current branch.", timeout=60)
+```
+**Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
 ## Phase 1: Planning — WHAT are we building?
 
@@ -347,12 +361,26 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/CONSTRAINTS.md` — Budget, timeline, team, tech constraints
 - `docs/USER_PERSONAS.md` — Who uses this, goals, pain points
 
-**Delegate via `task` tool:** `task(agent="researcher", prompt="Technology feasibility research for [domain] — libraries, licensing, known constraints. Write to docs/research/RESEARCH_feasibility_<date>.md", timeout=240)`
+**Delegate via `task` tool:**
+```
+task(agent="researcher", prompt="Research technical feasibility for [domain].
+Questions:
+1. What libraries and frameworks exist for [key technical requirement]?
+2. Are there licensing constraints that affect commercial use?
+3. What are known limitations, breaking issues, or scale ceilings?
+4. Are there open-source alternatives covering the core requirements?
+Output file: docs/research/RESEARCH_feasibility_<date>.md", timeout=300)
+```
+The researcher will announce its plan, spawn one sub-task per question, and report each finding as it completes.
 **Then:** Run the **Research Findings Review Protocol** — if the feasibility research flags a showstopper (unavailable library, licensing conflict, capacity limit), surface it before writing SCOPE.md.
 **Exit:** Clear boundaries, risks identified with mitigations.
 
 **Gate Loop:** Rate all 4 deliverables. If RISKS.md scores < 7 (too vague), expand mitigations and re-rate.
-**Inter-Phase Check-In:** After the gate passes, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Git checkpoint — commit Phase 1 docs before advancing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 1 (SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md). Conventional commit: 'docs(phase-1): add planning artifacts — scope, risks, constraints, personas'. Push to current branch.", timeout=60)
+```
+**Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
 ## Phase 2: Requirements — HOW should it behave?
 
@@ -419,7 +447,11 @@ For each requirement:
 - Every NFR has a measurable metric (not "should be fast" — "< 200ms at P95")
 - If any FR/NFR is vague, revise before advancing
 
-**Inter-Phase Check-In:** After the gate passes, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Git checkpoint — commit Phase 2 docs before advancing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md). Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push to current branch.", timeout=60)
+```
+**Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
 ## Phase 3: Design — HOW do we build it?
 
@@ -461,7 +493,17 @@ After the user responds:
   - `docs/design/UX_SPEC.md` — User workflows, screen hierarchy, component inventory, a11y plan
 
 **Delegate SEQUENTIALLY via `task` tool — one at a time, verify output before the next:**
-1. Call `researcher` — tech stack evaluation (`task(agent="researcher", prompt="Compare framework options for [domain] given constraints in DESIGN_CONTEXT.md. Write to docs/research/RESEARCH_framework_comparison_<date>.md", timeout=300)`) → wait → verify the research report was written
+1. Call `researcher` — tech stack evaluation:
+   ```
+   task(agent="researcher", prompt="Compare framework/stack options for [domain] given constraints in DESIGN_CONTEXT.md.
+   Questions:
+   1. Which frameworks best match the team's experience and the scale requirements in DESIGN_CONTEXT.md?
+   2. What are the performance and operational trade-offs between the top 2-3 candidates?
+   3. What is the ecosystem maturity (community size, maintained packages, known CVEs)?
+   4. Are there any licensing or vendor lock-in risks?
+   Output file: docs/research/RESEARCH_framework_comparison_<date>.md", timeout=360)
+   ```
+   → wait → verify the research report was written
    **→ Then run the Research Findings Review Protocol before writing TECH_STACK.md.** Framework comparisons often reveal that the user's preferred stack has a known problem at their scale or an integration constraint. Surface it.
    → Write TECH_STACK.md using the research + any direction changes the user approved → mark DONE
 2. Call `db-architect` — database schema from requirements → wait → verify DATABASE.md written → mark DONE
@@ -723,7 +765,11 @@ graph TB
 - THREAT_MODEL.md has mitigations, not just threats listed
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, and `docs/design/UX_SPEC.md` MUST all exist and have passed the UX gate-loop (asymmetric thresholds, each document ≥ 7). If missing, the Phase 3 gate CANNOT pass. If NOT UI-bearing, ARCHITECTURE.md § Logical View must explicitly say "No UI — UX branch not applicable".
 
-**Inter-Phase Check-In:** After the gate passes, run the Inter-Phase Check-In Protocol. Do NOT auto-advance to Phase 4 — architecture decisions have the biggest downstream impact, so user confirmation here is especially important.
+**Git checkpoint — commit Phase 3 docs before advancing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing). Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, threat model'. Push to current branch.", timeout=60)
+```
+**Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance to Phase 4 — architecture decisions have the biggest downstream impact, so user confirmation here is especially important.
 
 ## Phase 4: Implementation — BUILD it
 
@@ -790,6 +836,22 @@ Step N Verification:
 
 Do NOT proceed to the next step until current step Confidence ≥ 7.
 
+## Step 0: Git History Inspection (Run First)
+
+Before reading any code, understand the project's history:
+
+```
+task(agent="git-expert", prompt="Run --inspect mode on this repo. Answer:
+1. How long has it been active? Who are the main contributors?
+2. What areas of the codebase change most frequently (hot files)?
+3. What do recent commits tell us about current focus / active work?
+4. Any large commits suggesting major refactors or incidents?
+5. Any pattern of reverts, fixes, or hotfixes on specific modules?
+Write findings to docs/git/HISTORY_INSPECTION_<date>.md", timeout=120)
+```
+
+Use these findings to focus your landscape mapping — hot files deserve closer attention.
+
 ## Step 1: Map the Landscape
 
 ```
@@ -804,8 +866,13 @@ Produce initial assessment:
 - Project size (files, lines)
 - Directory structure pattern (feature-sliced? layered? mixed?)
 - Test framework and coverage
+- **UI detection:** Does this codebase have a user interface?
+  - Check package.json for: `react`, `vue`, `svelte`, `next`, `nuxt`, `remix`, `astro`, `angular`
+  - Check for directories: `pages/`, `components/`, `views/`, `screens/`, `app/` (Next.js style)
+  - Check for mobile: `react-native`, `expo`, `flutter`
+  - Record result as: `UI-bearing: YES/NO — [evidence]`
 
-**Verify:** `docs/LANDSCAPE.md` exists, >50 lines, contains sections: Tech Stack, Project Metrics, Directory Structure
+**Verify:** `docs/LANDSCAPE.md` exists, >50 lines, contains sections: Tech Stack, Project Metrics, Directory Structure, UI Detection result
 
 ## Step 2: Trace Entry Points
 
@@ -911,8 +978,18 @@ Delegate expert reviews SEQUENTIALLY — wait for each to complete and write its
 2. Call `security-auditor` — Quick OWASP vulnerability scan (auth, access control, secrets, injection) → wait → verify findings written → mark DONE
 3. Call `test-engineer` with `--coverage` — Test coverage analysis, identify untested critical paths → wait → verify coverage report written → mark DONE
 4. Call `performance-engineer` — Identify O(n²) loops, N+1 queries, missing indexes, slow endpoints → wait → verify findings written → mark DONE
+5. **If UI-bearing (from Step 1 detection):** Call `ux-engineer` with `--audit` — accessibility audit, component consistency, UX anti-patterns → wait → verify `docs/reviews/UX_AUDIT_<date>.md` written → mark DONE
+   ```
+   task(agent="ux-engineer", prompt="Run --audit mode. Audit the UI in this codebase for:
+   1. WCAG 2.2 AA accessibility violations (missing alt text, keyboard traps, contrast)
+   2. Component consistency (are patterns reused or duplicated?)
+   3. UX anti-patterns (confusing flows, dead ends, broken affordances)
+   4. Responsive design gaps
+   Produce docs/reviews/UX_AUDIT_<date>.md with findings by severity (CRITICAL/HIGH/MEDIUM/LOW).", timeout=300)
+   ```
+   Include UX score in HEALTH_ASSESSMENT.md if UI-bearing.
 
-After all four complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
+After all reviews complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
 - Overall health score per dimension: Code Quality / Security / Test Coverage / Performance (each 1-10)
 - Top 3 critical issues across all dimensions
 - Severity count table: CRITICAL / HIGH / MEDIUM / LOW per dimension
@@ -954,6 +1031,11 @@ ARCHITECTURE.md MUST include all 6 diagram types (same requirement as new projec
 If any of these 6 are missing, produce them before marking Step 7 complete.
 
 **Verify:** `docs/ARCHITECTURE.md` exists, >100 lines, contains all 6 diagram types. `docs/ONBOARDING.md` exists, >50 lines, contains Quick Start section. `docs/DECISION_LOG.md` exists with discovered design decisions.
+
+**Commit the onboarding docs:**
+```
+task(agent="git-expert", prompt="Run --feature mode: commit all new files in docs/ as a single atomic commit with message 'docs: add onboarding documentation from /sdlc onboard'. Push to current branch. Do not create a PR — this is documentation, not a feature.", timeout=60)
+```
 
 **ONBOARDING.md format:**
 ```markdown
@@ -1126,11 +1208,32 @@ After producing the design documents:
 
 ## Step 3: Implement
 
-**Delegate via `task` tool:**
-- `git-expert` with `--feature` — Create feature branch with semantic prefix BEFORE any code is written
-- `test-engineer` — Write tests alongside implementation
-- `code-reviewer` with `--review` — 7-dimension code-health pass on the new feature
-- `git-expert` with `--feature` (commit + PR phase) — Atomic commit split, conventional-commit messages, draft PR on gitea + github once review passes
+**Delegate via `task` tool — in this order:**
+
+1. `git-expert` with `--feature` — **Create the feature branch FIRST**, before any code is written:
+   ```
+   task(agent="git-expert", prompt="Run --feature mode: create a feature branch for '[feature name]' with semantic prefix (feat/, fix/, chore/, etc). Use conventional branch naming: feat/[slug]. Report the branch name.", timeout=60)
+   ```
+
+2. `test-engineer` — Write tests alongside implementation (not after)
+
+3. `code-reviewer` with `--review` — 7-dimension code-health pass on the new feature
+
+4. **If feature has UI components:** call `ux-engineer` with `--review` to verify the UI implementation matches UX_SPEC and design principles:
+   ```
+   task(agent="ux-engineer", prompt="Run --review mode on the UI changes for this feature. Check:
+   1. Do the components match the patterns in docs/design/STYLE_GUIDE.md?
+   2. Are WCAG 2.2 AA requirements met (keyboard navigation, alt text, contrast)?
+   3. Does the flow match the UX_SPEC.md workflow for this feature?
+   4. Any accessibility regressions introduced?
+   Report findings with file:line references and severity (CRITICAL/HIGH/MEDIUM/LOW).", timeout=180)
+   ```
+   If ux-engineer reports CRITICAL or HIGH findings, fix them before proceeding to the PR.
+
+5. `git-expert` with `--feature` (commit + PR phase) — Atomic commit split, conventional-commit messages, draft PR on gitea + github once all reviews pass:
+   ```
+   task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, any UX changes made.", timeout=120)
+   ```
 
 **Verify modular structure:**
 - New code follows existing patterns
@@ -1143,6 +1246,7 @@ After producing the design documents:
 - Run full test suite (existing + new tests pass)
 - Delegate via `task` tool: `security-auditor` for security review of changes
 - Delegate via `task` tool: `performance-engineer` if performance-sensitive
+- **If UI feature:** delegate via `task` tool: `ux-engineer` with `--audit` for a final accessibility check
 - Check: Does the feature work end-to-end?
 - Check: Did we break anything? (regression test)
 
@@ -1152,7 +1256,13 @@ Update existing docs to reflect the new feature:
 - Update ARCHITECTURE.md if component structure changed
 - Update API docs if endpoints changed
 - Add sequence diagram for the new flow
+- **If UI feature:** update `docs/design/UX_SPEC.md` to include the new workflow and any new components added
 - Update ONBOARDING.md "How to Add a Feature" if patterns changed
+
+**Commit updated docs:**
+```
+task(agent="git-expert", prompt="Commit any updated docs/ files from this feature (ARCHITECTURE.md, API docs, sequence diagrams, UX_SPEC.md if changed). Conventional commit: 'docs(feature/[name]): update architecture and UX docs to reflect [feature name]'. Push to the feature branch.", timeout=60)
+```
 
 
 # Gate Management

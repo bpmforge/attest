@@ -50,13 +50,17 @@ export default tool({
       ),
     timeout: tool.schema
       .number()
-      .max(300)
-      .default(120)
-      .describe("Timeout in seconds (default 120, max 300)"),
+      .max(600)
+      .default(180)
+      .describe("Timeout in seconds (default 180, max 600)"),
   },
   async execute(args, context) {
     const { agent, prompt, timeout } = args;
-    const timeoutMs = Math.min(timeout * 1000, 300_000);
+    const timeoutMs = Math.min(timeout * 1000, 600_000);
+    const startMs = Date.now();
+
+    // Show immediately so the user knows the task has started
+    context.metadata({ title: `task: ${agent} — starting...` });
 
     return new Promise<string>((resolve) => {
       const proc = spawn(
@@ -71,12 +75,84 @@ export default tool({
 
       const chunks: string[] = [];
       const errChunks: string[] = [];
+      // Partial line buffer for real-time JSON parsing
+      let lineBuffer = "";
+      // Last short snippet from the agent's output (for progress title)
+      let lastSnippet = "working...";
 
-      proc.stdout.on("data", (data: Buffer) => chunks.push(data.toString()));
+      // Heartbeat: update title every 5s so user can see it's alive
+      const heartbeat = setInterval(() => {
+        const elapsed = Math.round((Date.now() - startMs) / 1000);
+        const snippet = lastSnippet.slice(0, 60).replace(/\n/g, " ");
+        context.metadata({
+          title: `task: ${agent} — ${elapsed}s — ${snippet}`,
+        });
+      }, 5_000);
+
+      // Parse a single JSON line from the event stream and extract text.
+      // Also fires context.metadata immediately on every new assistant message
+      // so the user sees real-time progress rather than waiting for the heartbeat.
+      function processLine(line: string) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("{")) return;
+        try {
+          const ev = JSON.parse(trimmed) as Record<string, unknown>;
+          if (ev.type === "message") {
+            const msg = ev.message as Record<string, unknown> | undefined;
+            if (msg?.role === "assistant") {
+              const content = msg.content;
+              if (typeof content === "string" && content.trim()) {
+                lastSnippet = content.trim();
+                const elapsed = Math.round((Date.now() - startMs) / 1000);
+                context.metadata({
+                  title: `task: ${agent} — ${elapsed}s — ${lastSnippet.slice(0, 60).replace(/\n/g, " ")}`,
+                });
+              } else if (Array.isArray(content)) {
+                for (const block of content) {
+                  const b = block as Record<string, unknown>;
+                  if (
+                    b.type === "text" &&
+                    typeof b.text === "string" &&
+                    (b.text as string).trim()
+                  ) {
+                    lastSnippet = (b.text as string).trim();
+                    const elapsed = Math.round((Date.now() - startMs) / 1000);
+                    context.metadata({
+                      title: `task: ${agent} — ${elapsed}s — ${lastSnippet.slice(0, 60).replace(/\n/g, " ")}`,
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // skip malformed JSON
+        }
+      }
+
+      proc.stdout.on("data", (data: Buffer) => {
+        const chunk = data.toString();
+        chunks.push(chunk);
+
+        // Process complete lines in real time for progress updates
+        lineBuffer += chunk;
+        const lines = lineBuffer.split("\n");
+        // Keep the last partial line in the buffer
+        lineBuffer = lines.pop() ?? "";
+        for (const line of lines) {
+          processLine(line);
+        }
+      });
+
       proc.stderr.on("data", (data: Buffer) => errChunks.push(data.toString()));
 
       const timer = setTimeout(() => {
+        clearInterval(heartbeat);
         proc.kill("SIGTERM");
+        const elapsed = Math.round((Date.now() - startMs) / 1000);
+        context.metadata({
+          title: `task: ${agent} — TIMED OUT after ${elapsed}s`,
+        });
         resolve(
           `[task: TIMEOUT] Agent '${agent}' timed out after ${timeout}s. ` +
             `Partial output:\n${extractText(chunks.join(""))}`,
@@ -85,16 +161,21 @@ export default tool({
 
       proc.on("close", (code) => {
         clearTimeout(timer);
+        clearInterval(heartbeat);
+        const elapsed = Math.round((Date.now() - startMs) / 1000);
         const raw = chunks.join("");
         const errRaw = errChunks.join("").trim();
 
         if (code === 0) {
           const text = extractText(raw);
+          context.metadata({ title: `task: ${agent} — done in ${elapsed}s` });
           resolve(text || "Agent completed (no text output captured).");
         } else {
-          // Still try to extract useful text even on failure
           const text = extractText(raw);
           const hint = errRaw ? `\nstderr: ${errRaw.slice(0, 400)}` : "";
+          context.metadata({
+            title: `task: ${agent} — exit ${code} after ${elapsed}s`,
+          });
           resolve(
             `[task: exit ${code}] Agent '${agent}' exited with error.` +
               (text ? `\nPartial output:\n${text}` : "") +
@@ -105,6 +186,8 @@ export default tool({
 
       proc.on("error", (err: Error) => {
         clearTimeout(timer);
+        clearInterval(heartbeat);
+        context.metadata({ title: `task: ${agent} — spawn error` });
         resolve(
           `[task: spawn error] Could not start opencode: ${err.message}\n` +
             `Make sure 'opencode' is in your PATH. Fallback: ask the user to run ` +
