@@ -53,9 +53,14 @@ echo "Installing BPM OpenCode Experts to $DEST/"
 echo "Method: $METHOD"
 echo ""
 
-DIRS="agents skills commands references"
+DIRS="agents skills commands references tools hooks"
 
 for dir in $DIRS; do
+  # Skip tools/hooks for project-level installs (they're global-only)
+  if [ "$MODE" = "project" ] && { [ "$dir" = "tools" ] || [ "$dir" = "hooks" ]; }; then
+    continue
+  fi
+
   # Clean out existing directory first (fresh install every time)
   if [ -d "$DEST/$dir" ]; then
     rm -rf "$DEST/$dir"
@@ -68,10 +73,27 @@ for dir in $DIRS; do
   else
     # Deep copy (handles nested dirs like skills/<name>/SKILL.md)
     cp -r "$SCRIPT_DIR/$dir" "$DEST/$dir"
-    count=$(find "$DEST/$dir" -name "*.md" | wc -l | tr -d ' ')
+    if [ "$dir" = "tools" ] || [ "$dir" = "hooks" ]; then
+      count=$(find "$DEST/$dir" -type f | wc -l | tr -d ' ')
+    else
+      count=$(find "$DEST/$dir" -name "*.md" | wc -l | tr -d ' ')
+    fi
     echo "  Copied $dir/ ($count files) → $DEST/$dir/"
   fi
 done
+
+# Install package.json for tools (needed for @opencode-ai/plugin)
+if [ "$MODE" = "global" ] && [ "$METHOD" != "link" ]; then
+  if [ -f "$SCRIPT_DIR/package.json" ] && [ ! -f "$DEST/package.json" ]; then
+    cp "$SCRIPT_DIR/package.json" "$DEST/package.json"
+    echo "  Copied package.json → $DEST/package.json"
+  fi
+  # Install tool dependencies if npm is available
+  if command -v npm &>/dev/null && [ -f "$DEST/package.json" ]; then
+    echo "  Installing tool dependencies (npm install)..."
+    (cd "$DEST" && npm install --silent 2>/dev/null) && echo "  Dependencies installed ✓" || echo "  ⚠️ npm install failed — run manually: cd $DEST && npm install"
+  fi
+fi
 
 echo ""
 
@@ -162,6 +184,16 @@ echo "  /perf                        — Performance profiling"
 echo "  /api-design                  — API design review"
 echo "  /review                      — Multi-pass code review"
 echo "  /gate                        — SDLC gate check"
+echo ""
+echo "Custom Tools (local LLM support):"
+echo "  write, append, update, file-info — file operation fixes for LM Studio"
+echo "  bash/run — shell execution with proper timeout"
+echo "  grep-mcp — enhanced search with regex and context"
+echo "  loop-detector — prevent infinite retry loops"
+echo "  test-runner, playwright-test — testing automation"
+echo "  semgrep-scan, semgrep-rule — security scanning"
+echo "  deploy, log-parser, pomodoro, task — productivity"
+echo "  See tools/CUSTOM_TOOLS_GUIDE.md for LM Studio setup"
 echo ""
 echo "MCP Servers configured:"
 echo "  Context7 — Live library documentation lookup (auto-configured)"

@@ -29,7 +29,7 @@ Real code reviewers don't just scan files — they think about the FUTURE:
 - Follow the dependency chain — if module A depends on B, review B's contract too
 - If something is hard to understand, it's a finding — even if it's technically correct
 - After each file, ask: "Would a new hire understand this without asking someone?"
-- When you find a good pattern, note it — inconsistency with GOOD patterns is also a finding
+- When you find a good pattern, note it — inconsistency with good patterns is also a finding
 
 ### Iteration Within Review
 For each module/file reviewed:
@@ -98,12 +98,12 @@ Use the severity matrix from `severity-matrix.md`:
 
 For each finding:
 ```
-### [SEVERITY] Finding Title
+### SEVERITY: Finding Title
 **Location:** file:line
 **Category:** Complexity | Pattern | Debt | Naming | Error Handling
 **Description:** What's wrong and why it matters
-**Current:** [code snippet showing the issue]
-**Suggested:** [code snippet showing the fix]
+**Current:** code snippet showing the issue
+**Suggested:** code snippet showing the fix
 ```
 
 End with:
@@ -132,7 +132,7 @@ Grep "^(export )?(async )?function " src/ -n  # then count lines to next functio
 Bash "wc -l src/**/*.ts | sort -rn | head -20"
 
 # Cyclomatic complexity (if available)
-Bash "npx eslint src/ --rule 'complexity: [warn, 10]'"
+Bash "npx eslint src/ --rule 'complexity: warn,10'"
 ```
 
 ### Phase 5: Update Memory
@@ -154,7 +154,7 @@ After review, remember:
 
 Before starting work, break it into numbered subtasks:
 1. List all deliverables this task requires
-2. Number each as a subtask: `[1] Description — PENDING`
+2. Number each as a subtask: item 1, item 2, item 3, etc. — PENDING
 3. Work through subtasks sequentially, updating status: PENDING → IN_PROGRESS → DONE
 4. After completing each subtask, verify the output before moving on
 5. Only produce the final report/deliverable when ALL subtasks are DONE

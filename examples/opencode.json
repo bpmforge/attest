@@ -7,5 +7,44 @@
       "command": ["npx", "-y", "@upstash/context7-mcp@latest"],
       "enabled": true
     }
+  },
+
+  "provider": {
+    "_comment": "Uncomment the provider block you want to use. Remove this comment field.",
+
+    "lmstudio": {
+      "_comment": "Local LLM via LM Studio — set baseURL to match your LM Studio server",
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "LM Studio (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:1234/v1",
+        "apiKey": "lm-studio"
+      },
+      "models": {
+        "qwen/qwen3-coder-next": {
+          "name": "Qwen3 Coder (recommended for code)"
+        },
+        "google/gemma-3-27b": {
+          "name": "Gemma 3 27B (general use)"
+        },
+        "nvidia/nemotron-3-super": {
+          "name": "Nemotron Super (heavy reasoning)"
+        }
+      }
+    },
+
+    "ollama": {
+      "_comment": "Local LLM via Ollama — uncomment to use instead of LM Studio",
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Ollama (local)",
+      "options": {
+        "baseURL": "http://localhost:11434/v1",
+        "apiKey": "ollama"
+      },
+      "models": {
+        "qwen2.5-coder:32b": { "name": "Qwen2.5 Coder 32B" },
+        "llama3.2:latest":    { "name": "Llama 3.2 (general)" }
+      }
+    }
   }
 }

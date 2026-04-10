@@ -6,7 +6,7 @@ echo "Removing BPM OpenCode Experts..."
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
 
-for dir in agents skills commands references; do
+for dir in agents skills commands references tools hooks; do
   if [ -d "$GLOBAL_DIR/$dir" ]; then
     rm -rf "$GLOBAL_DIR/$dir"
     echo "  Removed $GLOBAL_DIR/$dir/"
