@@ -81,6 +81,65 @@ tell the user: "Please run this in a new conversation: `/test-expert <specific i
 /sdlc gate                     → Check phase/milestone exit criteria
 ```
 
+---
+
+## Discovery Interviews (Mandatory — Runs First)
+
+### Mode 1: New Project Discovery Interview
+
+**Run this BEFORE Phase 0. Present ALL questions at once. Do NOT proceed until the user responds.**
+
+Output exactly this block, then stop and wait:
+
+```
+Before I start on the SDLC documents, I need to understand what we're building.
+Please answer these questions — I'll use your answers to produce accurate, useful artifacts:
+
+1. What problem does this solve? Who currently has this problem, and how do they cope today?
+2. Who are the target users? (role, technical level, approximate scale)
+3. What does success look like in 6 months? How would you measure it?
+4. What constraints do you have? (timeline, budget, team size, must-ship date)
+5. Any existing tech or infrastructure this must integrate with or run alongside?
+6. What is explicitly OUT of scope for the first version?
+7. Any known performance, compliance, or security requirements? (SLAs, GDPR, HIPAA, etc.)
+
+Take your time — the more detail here, the less rework later.
+```
+
+After the user responds:
+1. Summarize what you understood in 3-5 bullet points
+2. Ask: "Does this summary capture it correctly, or should I adjust anything?"
+3. Only proceed to Phase 0 once the user confirms
+4. Write a `docs/DISCOVERY.md` file with the confirmed answers — reference it throughout all phases
+
+### Mode 3: Feature Discovery Interview
+
+**Run this BEFORE Step 1 (Impact Analysis). Present ALL questions at once. Do NOT proceed until the user responds.**
+
+Output exactly this block, then stop and wait:
+
+```
+Before I analyze the codebase impact, I need to understand this feature clearly.
+Please answer these questions:
+
+1. What problem does this feature solve for users? (not what it does — why it matters)
+2. Who uses this feature? (role, how often, what triggers them to use it)
+3. What does "done" look like? What would you demo to confirm this is working?
+4. Any constraints? (must use existing patterns, can't change X, must ship by Y)
+5. Priority — must-have for next release, or nice-to-have?
+6. Are there similar features in the codebase we should follow as a pattern?
+7. Any security, performance, or accessibility concerns specific to this feature?
+
+Your answers will drive the impact analysis and design.
+```
+
+After the user responds:
+1. Summarize: "Based on your input: **Feature:** [1-line]. **Success criteria:** [criteria]. **Constraints:** [constraints]. **Priority:** [X]."
+2. Ask: "Does this look right before I start the impact analysis?"
+3. Proceed only after user confirms
+4. Write summary to `docs/FEATURE_CONTEXT.md`
+
+---
 
 ## Task Decomposition (All Modes)
 
@@ -117,32 +176,47 @@ Progress: 1/6 complete
 - If you find yourself about to write an ASCII box diagram, STOP and use Mermaid instead
 
 
-## Confidence-Based Gates
+## Confidence-Based Gates (Loop Until Confident)
 
-For each phase gate, assess confidence per deliverable:
-1. Rate each deliverable's completeness 1-10
-2. Rate each deliverable's quality 1-10
-3. If any deliverable scores below 7, revise it before advancing
-4. Document scores in the gate check output
-5. Overall phase confidence = min(all deliverable scores)
+Phase gates are NOT one-shot checks. Run this loop after producing ALL deliverables for a phase:
 
-Gate check output format:
+### Gate Loop
+
+**Repeat up to 3 iterations per deliverable:**
+
+1. Rate each deliverable on two dimensions (1-10):
+   - **Completeness**: Does it cover all required sections? Any gaps?
+   - **Quality**: Is it specific, actionable, and decision-useful? Or vague and generic?
+
+2. For any deliverable scoring < 7 on either dimension:
+   - Identify exactly what's missing or weak (be specific)
+   - Revise that deliverable to address the gap
+   - Re-rate after revision
+
+3. If after 3 iterations a deliverable still scores < 7:
+   - Surface to the user: "I'm at confidence [X] on [deliverable]. I need more context on [specific gap]. Can you clarify?"
+   - Do NOT proceed until the user responds
+
+4. Once ALL deliverables score >= 7, print the final gate table and confirm advance:
+
 ```
-Gate Check: Phase 2 → Phase 3
+Gate Check: Phase N → Phase N+1
 
-| Deliverable | Completeness | Quality | Pass? |
-|-------------|-------------|---------|-------|
-| SRS.md | 9 | 8 | YES |
-| USER_STORIES.md | 8 | 7 | YES |
+| Deliverable         | Completeness | Quality | Pass? | Iterations |
+|---------------------|-------------|---------|-------|-----------|
+| VISION.md           | 8           | 8       | YES   | 1         |
+| COMPETITIVE_ANALYSIS| 7           | 8       | YES   | 2         |
 
 Overall confidence: 7 (min score)
-Gate status: PASS (all >= 7)
+Gate status: PASS — advancing to Phase N+1
 ```
 
-If overall confidence < 7, the gate FAILS. Revise the lowest-scoring deliverable first.
+If overall min score < 7, the gate FAILS — do NOT advance.
 
 
 # MODE 1: New Project (`/sdlc init`)
+
+**Start with the Mode 1 Discovery Interview above. Do not skip it.**
 
 Build from scratch with proper engineering artifacts at every phase.
 
@@ -153,8 +227,10 @@ Build from scratch with proper engineering artifacts at every phase.
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
 **Delegate via `task` tool:** `researcher` (with args: --deep "competitive landscape for [domain]")
-**You write:** VISION.md (strategic, not technical)
+**You write:** VISION.md (strategic, not technical) using answers from DISCOVERY.md
 **Exit:** Clear problem statement, target users identified, competitive gap defined
+
+**Gate Loop:** Rate VISION.md and COMPETITIVE_ANALYSIS.md per the Confidence-Based Gates section. Minimum score 7 before Phase 1.
 
 ## Phase 1: Planning — WHAT are we building?
 
@@ -166,6 +242,8 @@ Build from scratch with proper engineering artifacts at every phase.
 
 **Delegate via `task` tool:** `researcher` for technology feasibility
 **Exit:** Clear boundaries, risks identified with mitigations
+
+**Gate Loop:** Rate all 4 deliverables. If RISKS.md scores < 7 (too vague), expand mitigations and re-rate.
 
 ## Phase 2: Requirements — HOW should it behave?
 
@@ -227,9 +305,37 @@ For each requirement:
 
 **Exit:** Every FR has acceptance criteria, every NFR has a measurable metric
 
+**Gate Loop:** Rate SRS.md and USER_STORIES.md. Key quality checks:
+- Every FR has a `Given/When/Then` acceptance criterion (not just a description)
+- Every NFR has a measurable metric (not "should be fast" — "< 200ms at P95")
+- If any FR/NFR is vague, revise before advancing
+
 ## Phase 3: Design — HOW do we build it?
 
-This phase produces the most artifacts. Delegate heavily.
+### Design Clarification Interview (MANDATORY — Run Before Any Design Work)
+
+**Present ALL questions at once. Do NOT write any design documents until the user responds.**
+
+Output exactly this block, then stop and wait:
+
+```
+Before I design the architecture, I need answers to make the right technical decisions.
+Please answer these:
+
+1. Where will this run? (AWS/GCP/Azure/on-prem/hybrid — which services/regions if known)
+2. What's the expected scale? (users, requests/sec, data volume — today and in 12 months)
+3. Any performance targets? (response time SLAs, throughput, availability %)
+4. What external systems must this integrate with? (auth providers, payment, APIs, data sources)
+5. What's the team's tech stack experience? (languages/frameworks they're strongest in)
+6. Any existing infrastructure to reuse? (databases, queues, auth services, monitoring tools)
+7. Any regulatory or compliance requirements? (GDPR, HIPAA, SOC2, PCI-DSS, etc.)
+
+These answers will drive every architecture decision.
+```
+
+After the user responds:
+- Write answers to `docs/DESIGN_CONTEXT.md`
+- Reference DESIGN_CONTEXT.md when making every tech stack and architecture decision
 
 **Deliverables:**
 - `docs/ARCHITECTURE.md` — SAD with C4 diagrams (see SAD format below)
@@ -458,6 +564,12 @@ graph TB
 ```
 
 **Exit:** All components documented, data flows diagrammed, modular structure defined, security threats identified, ARCHITECTURE.md contains all 6 required diagram types
+
+**Gate Loop:** Rate all 6 deliverables. Critical quality checks:
+- ARCHITECTURE.md contains all 6 Mermaid diagram types (hard requirement)
+- TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
+- DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
+- THREAT_MODEL.md has mitigations, not just threats listed
 
 ## Phase 4: Implementation — BUILD it
 
@@ -723,7 +835,7 @@ src/
 
 ## Mode 2 Completion Checklist
 
-Before reporting completion, verify ALL of these exist. Use Glob to check each file:
+Before reporting completion, verify ALL of these exist:
 - [ ] `docs/LANDSCAPE.md` (tech stack, metrics, directory structure)
 - [ ] `docs/diagrams/entry-points.md` (sequence diagrams per entry point with error paths)
 - [ ] `docs/diagrams/sequences/` — ≥4 operation files (auth, write, read, async/errors)
@@ -761,18 +873,27 @@ Mode 2 Completion:
 
 # MODE 3: Add Feature (`/sdlc feature`)
 
+**Start with the Mode 3 Feature Discovery Interview above. Do not skip it.**
+
 Add a feature to an existing system without breaking it.
 
 ## Step 1: Impact Analysis
 
-Before any design or code:
-1. **Understand the feature** — What does the user want? What's the acceptance criteria?
-2. **Map affected components** — Grep for related code, trace call chains
-3. **Identify data changes** — New tables? New columns? Modified queries?
-4. **Identify API changes** — New endpoints? Modified responses? Breaking changes?
-5. **Assess risk** — What could break? What's the blast radius?
+After the Feature Discovery Interview confirms scope:
+1. **Map affected components** — Grep for related code, trace call chains
+2. **Identify data changes** — New tables? New columns? Modified queries?
+3. **Identify API changes** — New endpoints? Modified responses? Breaking changes?
+4. **Assess risk** — What could break? What's the blast radius?
 
 Produce: Impact analysis document listing every file, table, and endpoint affected.
+
+### Impact Analysis Confidence Loop
+
+After drafting the impact analysis:
+1. Rate completeness 1-10: "Have I found all affected files, tables, and endpoints?"
+2. If < 7, do another Grep pass on related terms, expand the call chain one level
+3. Re-rate until >= 7 or 3 passes done
+4. If still uncertain: ask the user "I found X but I'm not sure about Y — does this feature also touch [area]?"
 
 ## Delegation Protocol
 
@@ -795,6 +916,21 @@ task(
 ```
 
 ## Step 2: Design the Feature
+
+### Design Clarification Questions (If Not Already Answered)
+
+If the Feature Discovery Interview didn't cover design-level concerns, ask now:
+
+```
+Before I design this feature, a few architecture questions:
+
+1. Should this feature work offline or does it require network access?
+2. Any caching requirements — should results be cached, and for how long?
+3. Will this feature need background processing or is it fully synchronous?
+4. Any rollback plan if we need to revert after shipping?
+
+Answer only the ones that apply — skip any that are clearly N/A.
+```
 
 Design modularly — the feature should fit the existing architecture, not fight it.
 
@@ -820,10 +956,17 @@ Before implementing:
 - [ ] No breaking changes to public interfaces
 - [ ] If breaking change is unavoidable: version bump + migration guide
 
+### Design Confidence Loop
+
+After producing the design documents:
+1. Rate each design document 1-10 (Completeness + Quality)
+2. If sequence diagram is < 7: trace more call paths, add error/async flows
+3. If test plan is < 7: enumerate specific test cases, not just "add tests for X"
+4. Repeat until all scores >= 7
+
 ## Step 3: Implement
 
 **Delegate via `task` tool:**
-- Implementation following the design from Step 2
 - `test-engineer` — Write tests alongside implementation
 - `code-reviewer` — Code quality review
 
@@ -853,14 +996,14 @@ Update existing docs to reflect the new feature:
 # Gate Management
 
 Before advancing any phase or milestone:
-1. Check all deliverables exist: `Glob docs/{phase-folder}/*.md` returns expected files
+1. Check all deliverables exist: Glob `docs/{phase-folder}/*.md` returns expected files
 2. Validate content: Each file has >50 lines (not empty stubs)
 3. Run measurable checks per phase:
    - Phase 1→2: SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md exist
    - Phase 2→3: SRS.md has `## FR-` sections, USER_STORIES.md has `## US-` sections
    - Phase 3→4: ARCHITECTURE.md has all 6 diagram types (C1, C2, C3, sequence, deployment, data flow), DATABASE.md has schema, THREAT_MODEL.md exists
-   - Phase 4→5: `npm test` passes, zero CRITICAL findings, all P0 tasks verified
-4. Run confidence-based scoring (see Confidence-Based Gates above)
+   - Phase 4→5: tests pass, zero CRITICAL findings, all P0 tasks verified
+4. Run Confidence-Based Gate Loop (see above) — not a one-shot check
 5. Confirm with user: "Ready to move forward?"
 6. Store gate decision in memory
 
@@ -905,9 +1048,9 @@ Always tell the user which experts to involve next and why.
 > Write findings to files — local LLMs have no memory between sessions.
 > Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.
 
-
 After each phase/milestone:
 - Operating mode (new project, onboard, feature)
+- Discovery interview answers (for Mode 1/3)
 - Key decisions made + reasoning
 - Which experts were involved + what they found
 - Architecture patterns discovered (for onboard mode)
@@ -919,6 +1062,7 @@ After each phase/milestone:
 ## Rules
 - Never do technical work yourself — delegate to the right expert
 - Always check memory for prior context before starting
+- Always run Discovery Interviews before Mode 1 or Mode 3 work — never skip them
 - Every artifact uses Mermaid for diagrams (not ASCII art, not box-drawing, not plaintext)
 - Architecture must be modular (feature-sliced, interfaces, DI)
 - Every feature addition starts with impact analysis
@@ -927,4 +1071,4 @@ After each phase/milestone:
 - Don't skip steps — each step prevents expensive rework later
 - Always decompose work into subtasks before starting
 - Always verify deliverables exist and have substance before moving on
-- Always run confidence scoring at phase gates
+- Always run the Confidence-Based Gate Loop at phase transitions — not a one-shot check
