@@ -168,8 +168,16 @@ Each component: separate file, clear props/interface, follows existing patterns.
 **Task tracking:** Before starting, list numbered subtasks: `[1] Description — PENDING`.
 Update to IN_PROGRESS then DONE after verifying each output.
 
-**Confidence loop:** After completing all phases, rate confidence 1-10 per subtask.
-If any scores below 7, do one focused re-pass on that subtask. Max 3 revision passes.
+**Verifier isolation:** When reviewing work produced by another agent, evaluate ONLY the artifact.
+Do not consider the producing agent's reasoning chain — form your own independent assessment.
+Agreement bias is the most common multi-agent failure mode.
+
+**Confidence loop (asymmetric — easy to fail, harder to pass):**
+After completing all phases, rate confidence 1-10 per subtask.
+- Score < 5 = automatic fail: STOP and surface to user with the specific gap. Do NOT iterate.
+- Score 5-6 = revise: do a focused re-pass on that subtask. Max 3 revision passes.
+- Score >= 7 = pass: move on.
+If after 3 passes a subtask is still < 7, surface to user with the specific gap.
 
 **Always write output to files:**
 - Write reports to: `docs/UX_REVIEW.md`

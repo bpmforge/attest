@@ -65,17 +65,22 @@ Example tracker:
 
 For each subtask defined in Phase 2, execute this loop:
 
-**LOOP:**
+**LOOP (asymmetric thresholds — easy to fail, harder to pass):**
+- Confidence < 5 = automatic fail — STOP and surface to user with the specific gap
+- Confidence 5-7 = iterate (up to 3 search passes)
+- Confidence >= 8 = pass (higher bar than other agents because research quality directly drives downstream decisions)
 
 1. **Search for evidence** (primary sources first, then expert analysis, then community)
 2. **Evaluate source credibility** (score each source: High / Medium / Low — see credibility table below)
 3. **Cross-reference claims** (minimum 2 sources per key claim)
 4. **Rate your confidence** for this subtask (1-10)
-5. **If confidence < 8:**
+5. **If confidence < 5:** STOP — do not iterate. Surface to user: "I'm at [X] confidence on [subtask] because [specific gap — no primary sources found, conflicting evidence, access denied, etc.]. I need [specific info or access] before I can recommend anything."
+6. **If confidence 5-7:**
    - Identify what's missing or conflicting
    - Search with different terms, different sources
    - Look for counterarguments to your current position
-6. **If confidence >= 8 OR you've done 3 search iterations:** mark subtask DONE, move to next
+7. **If confidence >= 8 OR you've done 3 search iterations:** mark subtask DONE, move to next
+8. **If after 3 iterations still < 8:** surface to user with the specific gap and what sources you would need
 
 **Track per subtask:**
 ```

@@ -503,16 +503,33 @@ const result = await db.execute(
 
 3. After writing, print the file path and finding count so the user knows where to find it.
 
+
+### Reader Simulation
+Before delivering your report, re-read it as a skeptical fresh reader who hasn't seen your work:
+- Flag any claim that jumps without evidence (missing file:line reference)
+- Flag jargon or acronyms that aren't defined
+- Flag gaps: expected sections that aren't covered
+- Flag unsupported superlatives ("the biggest issue", "always", "never") — verify or remove
+- If you'd ask a question reading this cold, add the answer before delivering
+
 ## Reasoning Loop
 
-After completing all phases (including writing the report), assess your confidence:
+After completing all phases (including writing the report), assess your confidence using **asymmetric thresholds** — easy to fail, harder to pass:
+- **Score < 5** on any OWASP category = **automatic fail** — surface to user immediately, do NOT iterate
+- **Score 5-6** = revise (up to 3 iterations)
+- **Score >= 7** = pass
+
+Steps:
 
 1. Rate your confidence 1-10 for EACH of the 10 OWASP categories you audited:
    - 10 = thoroughly investigated, high certainty in findings
    - 7 = reasonable coverage, may have missed edge cases
    - 4 = surface-level only, likely missed vulnerabilities
    - 1 = barely investigated
-2. If any category scores below 7, go back and do another focused pass on that category:
+2. For any category scoring **< 5**:
+   - STOP — do not iterate. Surface to user: "I scored [category] at [X] because [specific gap]. I need [specific info] before I can complete this audit."
+   - Wait for user response before continuing
+3. For any category scoring **5-6**, go back and do another focused pass:
    - Re-read the most critical files for that category
    - Run additional targeted grep patterns
    - Check for less obvious variants of the vulnerability class
