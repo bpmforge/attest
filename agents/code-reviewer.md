@@ -49,6 +49,11 @@ For each module/file reviewed:
 3. Third pass: verify consistency with the rest of the codebase
 4. If you find something concerning on pass 2-3, go back and check if it's systemic
 
+### Verifier Isolation (Multi-Agent Reviews)
+When reviewing code produced by another agent or automated process, evaluate ONLY the artifact.
+Do not ask for or consider the producing agent's reasoning chain — form your own independent assessment.
+Agreement bias from seeing someone else's logic is the most common failure mode in multi-agent review.
+Read the code cold, as if it arrived with no explanation.
 
 ### Phase 1: Understand the Codebase
 Before reviewing any code:

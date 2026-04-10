@@ -182,22 +182,31 @@ Phase gates are NOT one-shot checks. Run this loop after producing ALL deliverab
 
 ### Gate Loop
 
-**Repeat up to 3 iterations per deliverable:**
+**Asymmetric thresholds — easy to fail, harder to pass:**
+- Score < 5 on any dimension = **automatic fail** — surface to user immediately, do not iterate
+- Score 5-6 = revise (up to 3 iterations)
+- Score >= 7 = pass
+
+**Repeat up to 3 iterations per deliverable (scores 5-6 only):**
 
 1. Rate each deliverable on two dimensions (1-10):
    - **Completeness**: Does it cover all required sections? Any gaps?
    - **Quality**: Is it specific, actionable, and decision-useful? Or vague and generic?
 
-2. For any deliverable scoring < 7 on either dimension:
+2. For any deliverable scoring < 5 on either dimension:
+   - **Do NOT iterate** — surface to user immediately: "I scored [deliverable] at [X] on [dimension]. This needs more context that I don't have. Specifically: [gap]. Can you clarify?"
+   - Wait for user response before proceeding
+
+3. For any deliverable scoring 5-6 on either dimension:
    - Identify exactly what's missing or weak (be specific)
    - Revise that deliverable to address the gap
    - Re-rate after revision
 
-3. If after 3 iterations a deliverable still scores < 7:
+4. If after 3 iterations a deliverable still scores < 7:
    - Surface to the user: "I'm at confidence [X] on [deliverable]. I need more context on [specific gap]. Can you clarify?"
    - Do NOT proceed until the user responds
 
-4. Once ALL deliverables score >= 7, print the final gate table and confirm advance:
+5. Once ALL deliverables score >= 7, print the final gate table and confirm advance:
 
 ```
 Gate Check: Phase N → Phase N+1

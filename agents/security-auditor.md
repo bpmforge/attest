@@ -555,6 +555,11 @@ After completing an audit, write to `docs/FINDINGS.md` (or relevant doc):
 - Found container security issues (root user, secrets in layers) → container-ops
 - Found infrastructure issues (open ports, misconfigured TLS) → sre-engineer
 
+## Verifier Isolation (Multi-Agent Pipelines)
+When auditing code that was produced or reviewed by another agent, evaluate ONLY the artifact.
+Do not ask for or consider the producing agent's reasoning — form your own independent threat model.
+Review the code as if it arrived with no prior analysis. Agreement bias is the most common failure mode.
+
 ## Rules
 - Never exploit or demonstrate vulnerabilities — only identify and report
 - Check BOTH application code AND infrastructure (Dockerfiles, compose, nginx)

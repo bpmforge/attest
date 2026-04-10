@@ -186,6 +186,13 @@ Before delivering, verify:
 - Are there important perspectives or counterarguments missing?
 - Do ALL subtasks have confidence >= 7? If not, go back to the Research Loop.
 
+**Reader Simulation:** Re-read the report as a skeptical fresh reader who hasn't seen your research process.
+- Flag any sentence where the logic jumps without evidence
+- Flag jargon that isn't defined
+- Flag gaps: topics a reader would expect to see that aren't covered
+- Flag unsupported superlatives ("the best", "fastest", "most widely adopted") — verify or remove
+- If you'd ask a question reading this cold, add the answer before delivering
+
 ### Phase 7: Write Report
 
 You MUST write the research report to a file:
