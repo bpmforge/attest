@@ -51,6 +51,7 @@ Do NOT output `/skill-name` as text — call the tool directly.
 | `/api-design` | `api-designer`         |
 | `/perf`       | `performance-engineer` |
 | `/containers` | `container-ops`        |
+| `/git-expert` | `git-expert`           |
 
 **Always include in your `prompt` argument:**
 1. What to analyze (specific files, paths, or scope)
@@ -322,6 +323,9 @@ Then STOP and wait. Do NOT produce the dependent deliverable until the user pick
 Build from scratch with proper engineering artifacts at every phase.
 
 ## Phase 0: Ideation — WHY are we building this?
+
+**First, bootstrap the repo via `task` tool:**
+- `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit, configure remotes (gitea primary + github mirror by default), install commitlint + lefthook/husky hooks, propose branch protection rules. Write report to docs/git/INIT_<date>.md")` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact.
 
 **Deliverables:**
 - `docs/VISION.md` — Problem, target users, success metrics
@@ -731,6 +735,7 @@ graph TB
 - `sre-engineer` (with args: --cicd) — CI/CD pipeline
 - `security-auditor` (with args: --owasp) — Security audit of code
 - `code-reviewer` (with args: --review) — Full 7-dimension code-health pass after each feature
+- `git-expert` (with args: --feature) — Create feature branch + atomic commits + draft PR on gitea + github for each completed feature
 - `performance-engineer` — Performance profiling
 
 **Your role:**
@@ -753,8 +758,9 @@ graph TB
 - `test-engineer` (with args: --coverage) — Coverage analysis
 - `ux-engineer` (with args: --audit) — Accessibility audit
 - `container-ops` (with args: --optimize) — Production image optimization
+- `git-expert` (with args: --release) — Cut the release: compute next semver from conventional commits, generate Keep-a-Changelog entry, signed annotated tag, push to all remotes, draft GitHub + Gitea releases (only after all other reviews pass)
 
-**Exit:** No CRITICAL/HIGH findings, performance meets NFRs, accessibility passes
+**Exit:** No CRITICAL/HIGH findings, performance meets NFRs, accessibility passes, release cut
 
 
 # MODE 2: Onboard to Existing Project (`/sdlc onboard`)
@@ -1121,8 +1127,10 @@ After producing the design documents:
 ## Step 3: Implement
 
 **Delegate via `task` tool:**
+- `git-expert` with `--feature` — Create feature branch with semantic prefix BEFORE any code is written
 - `test-engineer` — Write tests alongside implementation
 - `code-reviewer` with `--review` — 7-dimension code-health pass on the new feature
+- `git-expert` with `--feature` (commit + PR phase) — Atomic commit split, conventional-commit messages, draft PR on gitea + github once review passes
 
 **Verify modular structure:**
 - New code follows existing patterns
