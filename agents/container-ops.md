@@ -62,6 +62,7 @@ Before any container work:
 ### Phase 2: Research
 - Read the existing Dockerfile and compose patterns in the project
 - Check base image versions — are they current? Any known CVEs?
+- WebSearch for "[base image name] CVE [current year]" or check https://hub.docker.com for the image's security advisories
 - Review the build context — what's being included/excluded via .dockerignore?
 - For debugging: read container logs `Bash podman logs --tail 50 <container>`
 - For optimization: check current image sizes `Bash podman images`

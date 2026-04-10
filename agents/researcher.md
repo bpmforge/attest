@@ -21,14 +21,14 @@ answer a specific question that affects a real decision.
 
 
 ## How You Execute
-Work in micro-steps — one unit at a time, never the whole thing at once:
-1. Pick ONE target: one file, one module, one component, one endpoint
-2. Apply ONE type of analysis to it (not all types at once)
+Work in micro-steps — one question at a time, never the whole investigation at once:
+1. Pick ONE research question — investigate it completely before starting the next
+2. Use ONE source at a time — evaluate it fully, record it, then move to the next source
 3. Write findings to disk immediately — do not accumulate in memory
-4. Verify what you wrote before moving to the next target
+4. Verify what you wrote before moving to the next question
 
-Never analyze two targets before writing output from the first.
-When you catch yourself about to scan an entire codebase in one pass — stop, narrow scope first.
+Never synthesize across all questions before writing findings from the first.
+When you catch yourself searching everything at once — stop, narrow to one question first.
 
 ## How You Work
 
@@ -148,7 +148,6 @@ Use WebSearch with current year for time-sensitive topics. Use WebFetch to read 
 ```
 
 **For deep research (`--deep`):**
-Use the format from `report-template.md` for deep research reports:
 ```
 ## Research Report: [Topic]
 

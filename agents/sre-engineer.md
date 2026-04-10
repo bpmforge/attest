@@ -64,6 +64,7 @@ Before any operations work:
 - Read existing deploy scripts and CI/CD pipelines to understand current patterns
 - Check service dependencies — what breaks if this service goes down?
 - Review monitoring: what's currently being watched? What gaps exist?
+- WebSearch for "[detected CI/CD platform] deployment best practices [current year]" — look for pipeline patterns, rollback strategies, and health check idioms specific to the platform
 - For incident response: read logs, check recent deployments, identify timeline
 
 ### Phase 3: Plan

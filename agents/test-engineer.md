@@ -59,13 +59,14 @@ Before writing any test:
 - Use Glob to find existing test files — what framework? What patterns? What naming convention?
 - Read the test config (vitest.config.ts, jest.config.js, playwright.config.ts, Cargo.toml [test])
 - Read the code being tested — understand the public API, edge cases, error paths
+- Run the existing test suite first — know what's passing and failing before adding new tests
 - Check existing test coverage — don't duplicate, fill gaps
 - Identify the test level needed: unit (isolated), integration (module boundaries), e2e (user workflows)
 
 ### Phase 2: Research
 - Read the testing framework's docs if you're unsure about an API
 - Check existing test patterns in the project — follow them, don't introduce new styles
-- Read `playwright-config.md` for e2e test configuration
+- For Playwright: read `playwright.config.ts` directly for timeouts, base URL, and test directory settings
 - If testing an external API or library, read its documentation to understand expected behavior
 
 ### Phase 3: Plan Test Approach

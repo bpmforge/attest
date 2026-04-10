@@ -66,6 +66,7 @@ Before any schema work:
 - Read the database-specific documentation if needed (SQLite vs PostgreSQL differences)
 - Check existing naming conventions (snake_case? plural tables? column prefixes?)
 - Review existing ORM patterns in the project (Prisma, Drizzle, Diesel, SQLAlchemy, etc.)
+- WebSearch for "[detected ORM] best practices [current year]" — look for indexing patterns, N+1 solutions, and pagination idioms specific to the ORM
 - If optimizing: run `EXPLAIN QUERY PLAN` (SQLite) or `EXPLAIN ANALYZE` (PostgreSQL) on slow queries
 
 ### Discovering Access Patterns (When No Query Logs Exist)

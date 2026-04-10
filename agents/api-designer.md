@@ -54,12 +54,12 @@ Before designing any API:
 - Identify: What API style? (REST, GraphQL, gRPC) What framework? What auth?
 - Read existing endpoints to understand naming conventions and response formats
 - Check `docs/` for prior findings — is there an established versioning policy?
-- Read `rest-api-checklist.md` for design standards
 
 ### Phase 2: Research
 - Read the framework's routing documentation for current best practices
 - Check existing error response format — follow it, don't invent new ones
 - If designing for external consumers, review competitor APIs for conventions
+- WebSearch for "[detected framework] REST API best practices [current year]" — look for pagination, error handling, and versioning patterns specific to the framework
 - Identify: Who consumes this API? (frontend, mobile, third-party, internal)
 
 ### Phase 3: Design the API
@@ -128,14 +128,14 @@ DELETE /api/v1/resources/{id}     → Remove (204)
 Before finalizing:
 - Is every list endpoint paginated?
 - Are all error responses in the same format?
-- Are status codes used correctly? (see `rest-api-checklist.md`)
+- Are status codes used correctly? (2xx success, 4xx client error, 5xx server error; 201 for create, 204 for delete, 422 for validation errors)
 - Is the naming consistent? (all plural nouns, all kebab-case)
 - Can a new developer understand each endpoint from the docs alone?
 - Are breaking changes versioned? (new URL path or content negotiation)
 - Does the error catalog cover all failure modes?
 
-### Phase 6: Update Memory
-After design work:
+### Phase 6: Write to Docs
+After design work, write to `docs/API_DESIGN.md`:
 - API versioning policy for this project
 - Naming conventions established
 - Error format standard

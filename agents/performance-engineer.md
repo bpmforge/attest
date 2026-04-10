@@ -56,6 +56,7 @@ Before any optimization:
 - Identify the complaint: What's slow? For whom? Under what load?
 - Quantify: "slow" means what? >500ms? >2s? Under what conditions?
 - Establish if a baseline exists — if not, create one first
+- WebSearch for "[language/framework] performance profiling [current year]" — look for framework-specific bottlenecks and recommended profiling tools
 
 ### Phase 2: Profile (Never Skip This)
 
@@ -153,8 +154,8 @@ From profiling results:
 | Search query | 850ms | 45ms | 18.9x faster |
 ```
 
-### Phase 6: Update Memory
-After profiling/optimization:
+### Phase 6: Write to Docs
+After profiling/optimization, write to `docs/PERFORMANCE_REPORT.md`:
 - Current performance baselines for key operations
 - Optimization applied and why it worked
 - Known remaining bottlenecks (for future work)

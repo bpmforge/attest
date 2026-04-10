@@ -64,6 +64,7 @@ Before any design or code:
 - Check the project's UI framework documentation for current best practices
 - Review existing component patterns — follow them, don't introduce new libraries
 - If doing accessibility audit, review WCAG 2.2 Level AA criteria
+- WebSearch for "[detected component library] accessibility [current year]" — look for known a11y issues and recommended patterns for the specific library
 - Understand the target users — what devices? What capabilities?
 
 ### Phase 3: Plan
