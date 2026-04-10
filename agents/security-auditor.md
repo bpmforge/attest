@@ -379,11 +379,16 @@ After individual findings, perform pattern analysis as a loop:
 6. For each architectural issue, write a specific recommendation with the fix pattern (middleware example code, validation layer interface, etc.)
 
 ### Phase 5: Verify Findings
-Before reporting ANY finding:
-- Re-read the actual code at the specific file:line
-- Confirm the vulnerability is real, not a false positive
-- Check if there's a mitigation elsewhere in the code (middleware, wrapper, etc.)
-- Test the finding if possible (e.g., run the command, check the response)
+
+Before writing ANY finding into the report, complete this checklist for EACH one:
+
+1. **Read the file** — Use the Read tool on the exact file:line number. Do not write from memory or describe code you haven't re-read.
+2. **Confirm it's real** — Is user-controlled input actually reaching this sink? Trace the data flow. Is there sanitization you missed earlier?
+3. **Check for mitigations** — Is there a middleware, wrapper, or validation layer upstream that neutralizes this? If yes, it's a false positive — drop it.
+4. **Copy the exact snippet** — Paste the verbatim lines that demonstrate the vulnerability. Trim to the relevant 3-10 lines. Never paraphrase.
+5. **Write the "why"** — Can you explain specifically, for THIS code: what input an attacker provides, what code path it takes, and what they gain? If you can't write this concretely, you don't have a confirmed finding — mark it UNVERIFIED instead.
+
+If a finding doesn't survive all 5 steps, it does NOT go in the report.
 
 ## Severity Assessment
 
@@ -411,32 +416,92 @@ If yes, bump severity one level up.
 
 ### Phase 6: Write Report
 
-You MUST write the security audit report to a file. Do NOT just output findings as text.
+You MUST write the security audit report to a file. Do NOT output findings as text only.
 
-1. Create the directory if it doesn't exist: `Bash mkdir -p docs/security`
-2. Write the report file using the Write tool:
-   - Path: `docs/security/SECURITY_AUDIT_<YYYY-MM-DD>.md`
-   - Use the format from `report-template.md`
-   - Include ALL findings with severity, file:line, evidence, remediation
-   - Include a summary table at the top with columns: #, Severity, Finding, Location, OWASP Category, Source (Semgrep/Manual/Grep), Status
-   - Include Semgrep scan summary: total findings, by severity, by OWASP category
-   - Include dependency audit results (npm audit / cargo audit / pip-audit)
-   - Include confidence scores per OWASP category (from the Reasoning Loop below)
-   - Include the Cross-Module Pattern Analysis section with architectural recommendations
-   - Include the STRIDE threat model summary
-   - Reference the raw Semgrep JSON at `docs/security/semgrep-results.json` for full details
-3. Print the file path after writing so the user knows where to find it.
+1. Create the directory: `Bash mkdir -p docs/security`
+2. Write to: `docs/security/SECURITY_AUDIT_<YYYY-MM-DD>.md`
 
-For each finding in the report:
+**Report structure:**
+
+```markdown
+# Security Audit Report
+**Date:** YYYY-MM-DD
+**Project:** [name]
+**Auditor:** AI Security Auditor
+**Scope:** [files/modules covered]
+
+## Executive Summary
+[2-3 sentences: overall risk posture, most critical issue, recommended immediate action]
+
+## Finding Summary
+| # | Severity | Title | File | Line | OWASP | Source | Status |
+|---|----------|-------|------|------|-------|--------|--------|
+| 1 | CRITICAL | SQL Injection in login | src/auth.ts | 42 | A03 | Semgrep | Open |
+| 2 | HIGH | Missing auth on admin route | src/routes.ts | 87 | A01 | Manual | Open |
+...
+
+## Findings
+
+[One section per finding — see format below]
+
+## Dependency Audit
+[npm audit / cargo audit / pip-audit summary + CVE table]
+
+## Cross-Module Pattern Analysis
+[Recurring issues, architectural recommendations]
+
+## STRIDE Threat Model Summary
+[Link to docs/security/THREAT_MODEL.md + key threats]
+
+## Confidence Scores
+[Per-OWASP category confidence table]
 ```
-### [SEVERITY] Finding Title
-**Location:** file:line
-**Category:** OWASP A0X / CWE-XXX
-**Description:** What the vulnerability is
-**Evidence:** Actual code snippet showing the issue
-**Impact:** What an attacker could do
-**Recommendation:** Specific steps to fix it
+
+**Per-finding format — every field is MANDATORY:**
+
+```markdown
+---
+### [SEVERITY] Finding N: [Title]
+
+**File:** `src/path/to/file.ts`
+**Line:** 42
+**OWASP:** A03 — Injection
+**CWE:** CWE-89 (SQL Injection)
+**Source:** Semgrep (rule: javascript.lang.security.audit.sqli) / Manual / Grep
+
+**Vulnerable code (`src/path/to/file.ts:42-46`):**
+```typescript
+// paste the verbatim lines from the file — do not paraphrase
+const query = `SELECT * FROM users WHERE email = '${email}'`;
+const result = await db.execute(query);
 ```
+
+**Why this is exploitable:**
+The `email` variable comes directly from `req.body.email` (line 38) with no sanitization.
+An attacker can send `email = "' OR '1'='1"` to bypass authentication, or
+`email = "'; DROP TABLE users; --"` to destroy data. The template literal
+interpolates user input directly into the SQL string — no parameterization.
+
+**Impact:** Authentication bypass, arbitrary SQL execution, potential data exfiltration or destruction.
+
+**Remediation:**
+```typescript
+// Use parameterized queries — never interpolate user input into SQL
+const result = await db.execute(
+  `SELECT * FROM users WHERE email = ?`,
+  [email]
+);
+```
+**References:** [OWASP SQL Injection](https://owasp.org/www-community/attacks/SQL_Injection), CWE-89
+```
+
+**Rules for writing findings:**
+- The "Vulnerable code" block MUST be verbatim lines from the file — use Read tool to get them
+- The "Why this is exploitable" section MUST name the specific input variable, the specific path it takes, and the specific impact. Generic descriptions like "user input is not sanitized" are not acceptable.
+- The remediation MUST show the fixed version of the SAME code, not a generic pattern
+- If you cannot write a concrete "Why this is exploitable" for a finding, do not include it — mark it UNVERIFIED in the summary table instead
+
+3. After writing, print the file path and finding count so the user knows where to find it.
 
 ## Reasoning Loop
 
