@@ -47,6 +47,20 @@ Structured investigation with evidence-based findings:
 - **`/gate`** — SDLC phase gate management
 - **`/simplify`** — Review changed code for reuse and efficiency
 
+### Persistent Memory (MemPalace MCP)
+
+Local LLMs have no memory between sessions. [MemPalace](https://github.com/milla-jovovich/mempalace) fixes this — verbatim conversation recall via ChromaDB, plus a temporal knowledge graph. **96.6% LongMemEval R@5 in raw mode, entirely offline.**
+
+Install with one script:
+
+```bash
+./scripts/install-mempalace.sh
+```
+
+After install, every expert agent gets its own wing + diary. The `researcher` remembers prior findings, `security-auditor` remembers prior vulnerabilities, `sdlc-lead` remembers prior phase decisions — all persistent across sessions, fully local.
+
+See `examples/AGENTS.md` for the full usage protocol (when to call `mempalace_status`, `mempalace_search`, `mempalace_kg_query`, etc.).
+
 ### Reference Documents
 Supporting documents that agents load at runtime:
 - OWASP Top 10 checklist

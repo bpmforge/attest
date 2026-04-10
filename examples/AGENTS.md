@@ -33,6 +33,60 @@ For live library documentation lookup, configure Context7 in your `opencode.json
 ```
 See `references/context7-mcp.md` for full setup guide including API key and remote HTTP options.
 
+## MemPalace MCP Setup (persistent memory for local LLMs)
+
+Local LLMs have no memory between sessions. MemPalace fixes this — verbatim
+conversation recall via ChromaDB, plus a temporal knowledge graph. 96.6%
+LongMemEval R@5 in raw mode, entirely offline.
+
+**Install:**
+```bash
+./scripts/install-mempalace.sh     # Installs pip package + runs init
+```
+
+Or manually: `pip install mempalace && mempalace init ~/projects/<your-project>`
+
+**Then add to your `opencode.json`:**
+```json
+{
+  "mcp": {
+    "mempalace": {
+      "type": "local",
+      "command": ["python", "-m", "mempalace.mcp_server"],
+      "enabled": true
+    }
+  }
+}
+```
+
+### When to use MemPalace tools
+
+**At the START of every session** — call `mempalace_status` first:
+- Loads ~170 tokens of critical facts (team, projects, preferences, current phase)
+- Returns the AAAK spec and memory protocol so the LLM learns it automatically
+- Returns wing/room taxonomy so the agent knows where to look
+
+**DURING work — before assuming context is lost:**
+- `mempalace_search "<question>"` — semantic search across all verbatim history
+- `mempalace_search "<question>" --wing <project>` — scope to current project (34% retrieval boost)
+- `mempalace_kg_query "<entity>"` — relationships + timeline for a person, project, or topic
+- `mempalace_kg_timeline "<entity>"` — chronological story (useful for "what did we decide about X?")
+
+**AFTER any decision or milestone:**
+- `mempalace_add_drawer` — file the verbatim exchange (don't summarize — raw mode is where the benchmark wins come from)
+- `mempalace_kg_add` — add temporal facts ("Maya assigned_to auth-migration valid_from 2026-04-15")
+- `mempalace_kg_invalidate` — mark facts as ended when they change
+
+**For expert agents specifically:**
+- Each specialist (security-auditor, code-reviewer, etc.) gets its own **wing + diary**
+- After completing work, use `mempalace_diary_write` to record patterns the agent should remember for next time
+- At start of work, use `mempalace_diary_read` to recall prior findings *from the same agent* (Verifier Isolation: read your own history, not another agent's reasoning)
+
+**What NOT to do:**
+- Do NOT enable AAAK mode — it currently regresses LongMemEval (84.2% vs 96.6% raw). Use raw storage.
+- Do NOT enable the auto-save hooks yet — Issue #110 has an unfixed shell injection. Wait for the fix.
+- Do NOT use MemPalace to store secrets, API keys, or PII in verbatim form.
+
 ## Architecture Rules
 
 - **Feature-sliced structure** — Group by feature, not by layer
