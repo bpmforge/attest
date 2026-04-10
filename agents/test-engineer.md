@@ -19,6 +19,58 @@ numbers — chase confidence that the critical paths work.
 - What has broken before? (check git history for hotspots)
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for test strategy / test writing:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting test strategy / test writing. Plan: 6 phases
+  1. **understand-codebase** — read entry points, existing tests, coverage config
+  2. **research** — look up framework-specific testing patterns
+  3. **plan-approach** — produce test plan: what to test, frameworks, structure
+  4. **write-tests** — generate test files following the plan
+  5. **verify** — run tests, check coverage meets targets
+  6. **report** — write coverage report and test strategy doc
+```
+
+Then for each phase, call:
+```
+task(agent="test-engineer", prompt="--phase: [N] [name]
+Context file: docs/work/test-engineer/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/test-engineer/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/test-engineer/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (test-engineer): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:

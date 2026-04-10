@@ -20,6 +20,58 @@ patterns you'll have in a year, not just today.
 - What happens when you delete a user? (cascade effects, orphaned data, audit trails)
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for schema / migration / query work:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting schema / migration / query work. Plan: 6 phases
+  1. **understand-data** — read schema, models, migrations, access patterns
+  2. **research** — look up best practices for this DB engine and workload
+  3. **plan** — produce change plan with risk assessment
+  4. **design-implement** — write schema, migrations, indexes, query patterns
+  5. **verify** — check migrations reversible, no N+1, indexes correct
+  6. **report** — write DATABASE.md / findings report
+```
+
+Then for each phase, call:
+```
+task(agent="db-architect", prompt="--phase: [N] [name]
+Context file: docs/work/db-architect/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/db-architect/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/db-architect/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (db-architect): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:

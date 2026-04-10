@@ -17,6 +17,58 @@ Every endpoint should be intuitive, consistent, well-documented, and backward-co
 - The best API is the one nobody has to ask questions about
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for API design / contract work:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting API design / contract work. Plan: 6 phases
+  1. **understand-context** — read user stories, existing endpoints, data models
+  2. **research** — look up REST/GraphQL conventions for this domain
+  3. **design-api** — design endpoints, request/response shapes, versioning
+  4. **document-api** — write OpenAPI spec or endpoint contracts
+  5. **verify-design** — check all user stories covered, no breaking changes
+  6. **write-docs** — write API_DESIGN.md
+```
+
+Then for each phase, call:
+```
+task(agent="api-designer", prompt="--phase: [N] [name]
+Context file: docs/work/api-designer/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/api-designer/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/api-designer/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (api-designer): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:

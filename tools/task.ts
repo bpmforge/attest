@@ -50,13 +50,15 @@ export default tool({
       ),
     timeout: tool.schema
       .number()
-      .max(600)
+      .max(900)
       .default(180)
-      .describe("Timeout in seconds (default 180, max 600)"),
+      .describe(
+        "Timeout in seconds (default 180, max 900). Multi-phase agents need 600-900s.",
+      ),
   },
   async execute(args, context) {
     const { agent, prompt, timeout } = args;
-    const timeoutMs = Math.min(timeout * 1000, 600_000);
+    const timeoutMs = Math.min(timeout * 1000, 900_000);
     const startMs = Date.now();
 
     // Show immediately so the user knows the task has started

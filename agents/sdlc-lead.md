@@ -506,10 +506,22 @@ After the user responds:
    → wait → verify the research report was written
    **→ Then run the Research Findings Review Protocol before writing TECH_STACK.md.** Framework comparisons often reveal that the user's preferred stack has a known problem at their scale or an integration constraint. Surface it.
    → Write TECH_STACK.md using the research + any direction changes the user approved → mark DONE
-2. Call `db-architect` — database schema from requirements → wait → verify DATABASE.md written → mark DONE
-3. Call `api-designer` — API contracts from user stories → wait → verify API_DESIGN.md written → mark DONE
-4. **UX branch (see below)** — if UI-bearing, call `ux-engineer` in `--design` mode to produce DESIGN_PRINCIPLES.md + STYLE_GUIDE.md + UX_SPEC.md → wait → gate-loop all three → Inter-Phase Check-In → mark DONE. If NOT UI-bearing, skip and note in ARCHITECTURE.md.
-5. Call `security-auditor` — threat model from completed architecture → wait → verify THREAT_MODEL.md written → mark DONE
+2. Call `db-architect` — database schema from requirements:
+   ```
+   task(agent="db-architect", prompt="Design database schema for [project] from requirements in docs/SRS.md and docs/USER_STORIES.md. Output: DATABASE.md with ERD, migrations, indexes, access patterns.", timeout=720)
+   ```
+   → wait → verify DATABASE.md written → mark DONE
+3. Call `api-designer` — API contracts from user stories:
+   ```
+   task(agent="api-designer", prompt="Design API contracts for [project] from docs/USER_STORIES.md and docs/SRS.md. Output: API_DESIGN.md with OpenAPI-style endpoint contracts.", timeout=720)
+   ```
+   → wait → verify API_DESIGN.md written → mark DONE
+4. **UX branch (see below)** — if UI-bearing, call `ux-engineer` in `--design` mode → wait → gate-loop → mark DONE. If NOT UI-bearing, skip.
+5. Call `security-auditor` — threat model from completed architecture:
+   ```
+   task(agent="security-auditor", prompt="Produce threat model for [project] based on ARCHITECTURE.md, TECH_STACK.md, API_DESIGN.md. Output: THREAT_MODEL.md with STRIDE analysis and mitigations.", timeout=480)
+   ```
+   → wait → verify THREAT_MODEL.md written → mark DONE
 
 Never call two experts at once. Each expert's output informs the next (tech stack → DB design → API → UX → security).
 
@@ -773,16 +785,36 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHIT
 
 ## Phase 4: Implementation — BUILD it
 
-**Delegate via `task` tool:**
-- `test-engineer` (with args: --strategy) — Test strategy BEFORE coding
-- `db-architect` (with args: --migrate) — Database migrations from DATABASE.md
-- `api-designer` (with args: --review) — Verify endpoints match contract
-- `container-ops` (with args: --compose) — Container configuration
-- `sre-engineer` (with args: --cicd) — CI/CD pipeline
-- `security-auditor` (with args: --owasp) — Security audit of code
-- `code-reviewer` (with args: --review) — Full 7-dimension code-health pass after each feature
-- `git-expert` (with args: --feature) — Create feature branch + atomic commits + draft PR on gitea + github for each completed feature
-- `performance-engineer` — Performance profiling
+**Delegate via `task` tool — use explicit calls with timeouts, one at a time:**
+
+```
+# Test strategy first — before any code
+task(agent="test-engineer", prompt="--strategy: produce test plan for [project] from SRS.md and USER_STORIES.md. Output: docs/TEST_STRATEGY.md", timeout=480)
+
+# DB migrations
+task(agent="db-architect", prompt="Run migrations from DATABASE.md for [project]. Output: migration files + verification report.", timeout=720)
+
+# API contract verification
+task(agent="api-designer", prompt="Verify implemented endpoints match API_DESIGN.md contracts. Flag any drift. Output: docs/reviews/API_CONTRACT_REVIEW_<date>.md", timeout=480)
+
+# Container config
+task(agent="container-ops", prompt="Write Dockerfile + compose config for [project] per ARCHITECTURE.md. Output: Dockerfile, docker-compose.yml, .dockerignore", timeout=480)
+
+# CI/CD pipeline
+task(agent="sre-engineer", prompt="Write CI/CD pipeline for [project] per TECH_STACK.md and deployment targets in ARCHITECTURE.md. Output: .github/workflows/ or .gitea/workflows/ pipeline files.", timeout=480)
+
+# Security audit (after each significant feature)
+task(agent="security-auditor", prompt="OWASP audit of [feature/module]. Focus: auth, input validation, data access. Output: docs/reviews/SECURITY_<feature>_<date>.md", timeout=480)
+
+# Code review (after each feature)
+task(agent="code-reviewer", prompt="--review: full 7-dimension health pass on [feature/module]. Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md", timeout=480)
+
+# Git: feature branch + commits + PR (see Mode 3 Step 3 for full pattern)
+task(agent="git-expert", prompt="--feature: [action — create branch / commit / PR]", timeout=120)
+
+# Performance (only if NFRs flag perf requirements)
+task(agent="performance-engineer", prompt="Profile [specific endpoint/query] against NFR targets in SRS.md. Output: docs/reviews/PERF_<date>.md", timeout=480)
+```
 
 **Your role:**
 - Track components: implemented vs pending
@@ -795,16 +827,26 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHIT
 
 ## Phase 5: Review — DID it work?
 
-**Delegate ALL reviews:**
-- `security-auditor` — Full OWASP audit
-- `performance-engineer` (with args: --benchmark) — Performance vs NFR targets
-- `code-reviewer` (with args: --review) — Full 7-dimension health pass across the codebase
-- `code-reviewer` (with args: --debt) — Prioritized tech-debt register for post-launch backlog
-- `code-reviewer` (with args: --consolidate) — DRY + error-handling consolidation proposals (run if --review flags duplication or silent-failure patterns)
-- `test-engineer` (with args: --coverage) — Coverage analysis
-- `ux-engineer` (with args: --audit) — Accessibility audit
-- `container-ops` (with args: --optimize) — Production image optimization
-- `git-expert` (with args: --release) — Cut the release: compute next semver from conventional commits, generate Keep-a-Changelog entry, signed annotated tag, push to all remotes, draft GitHub + Gitea releases (only after all other reviews pass)
+**Delegate ALL reviews — sequentially, one at a time, each with explicit timeout:**
+
+```
+task(agent="security-auditor", prompt="Full OWASP audit of entire codebase. Output: docs/reviews/SECURITY_FINAL_<date>.md", timeout=480)
+
+task(agent="performance-engineer", prompt="--benchmark: verify all NFR performance targets from SRS.md are met. Output: docs/reviews/PERF_FINAL_<date>.md", timeout=480)
+
+task(agent="code-reviewer", prompt="--review: full 7-dimension health pass across entire codebase. Output: docs/reviews/CODE_REVIEW_FINAL_<date>.md", timeout=480)
+
+task(agent="code-reviewer", prompt="--debt: prioritized tech-debt register for post-launch backlog. Output: docs/reviews/TECH_DEBT_<date>.md", timeout=480)
+
+task(agent="test-engineer", prompt="--coverage: coverage analysis, identify untested critical paths. Output: docs/reviews/COVERAGE_<date>.md", timeout=480)
+
+task(agent="ux-engineer", prompt="--audit: WCAG 2.2 AA accessibility audit. Output: docs/reviews/UX_AUDIT_<date>.md", timeout=300)
+
+task(agent="container-ops", prompt="--optimize: production image optimization — layer sizes, security scan, multi-stage builds. Output: docs/reviews/CONTAINER_AUDIT_<date>.md", timeout=480)
+
+# Only after ALL above pass:
+task(agent="git-expert", prompt="--release: compute next semver from conventional commits, generate CHANGELOG entry, create signed annotated tag, push to all remotes, draft GitHub + Gitea releases.", timeout=120)
+```
 
 **Exit:** No CRITICAL/HIGH findings, performance meets NFRs, accessibility passes, release cut
 

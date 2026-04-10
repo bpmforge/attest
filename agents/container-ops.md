@@ -19,6 +19,58 @@ in a Dockerfile is an opportunity for optimization or a security risk.
 - What happens when the health check fails? (restart loop? graceful degradation?)
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for container / compose / image work:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting container / compose / image work. Plan: 6 phases
+  1. **understand-state** — read Dockerfiles, compose files, existing images
+  2. **research** — look up base image options, security advisories
+  3. **plan** — produce change plan with layer optimisation notes
+  4. **execute** — write/update Dockerfiles, compose, scripts
+  5. **verify** — build and smoke-test images, check layer sizes
+  6. **report** — write container ops report
+```
+
+Then for each phase, call:
+```
+task(agent="container-ops", prompt="--phase: [N] [name]
+Context file: docs/work/container-ops/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/container-ops/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/container-ops/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (container-ops): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:

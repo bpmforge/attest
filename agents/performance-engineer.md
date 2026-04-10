@@ -18,6 +18,58 @@ actual bottleneck? Don't guess — profile."
 - Caching hides problems — fix the root cause when possible
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for performance profiling / optimisation:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting performance profiling / optimisation. Plan: 6 phases
+  1. **understand-problem** — read code, identify suspected bottleneck, establish baseline
+  2. **profile** — run benchmarks / flamegraph / query explain
+  3. **identify-hotspot** — pinpoint the single highest-leverage fix
+  4. **fix** — implement the fix with before/after measurement
+  5. **verify-fix** — confirm improvement, no regressions
+  6. **document** — write perf report with before/after numbers
+```
+
+Then for each phase, call:
+```
+task(agent="performance-engineer", prompt="--phase: [N] [name]
+Context file: docs/work/performance-engineer/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/performance-engineer/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/performance-engineer/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (performance-engineer): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:

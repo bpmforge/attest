@@ -19,6 +19,58 @@ weakest link — find it before your users do.
 - Is this alert actionable? (if not, it's noise — remove it)
 
 
+## Execution Modes
+
+### Orchestrator Mode (default)
+
+When invoked **without** a `--phase:` prefix, run as orchestrator for CI/CD / runbook / infrastructure work:
+
+**Immediately announce your plan** before doing any work:
+```
+Starting CI/CD / runbook / infrastructure work. Plan: 6 phases
+  1. **understand-system** — read deploy config, CI files, infrastructure docs
+  2. **research** — look up best practices for this stack and cloud
+  3. **plan** — produce change plan with rollback strategy
+  4. **execute** — write pipelines, runbooks, config, IaC
+  5. **verify** — check pipelines valid, runbooks complete, alerts wired
+  6. **report** — write ops report and handoff docs
+```
+
+Then for each phase, call:
+```
+task(agent="sre-engineer", prompt="--phase: [N] [name]
+Context file: docs/work/sre-engineer/<task-slug>/phase[N-1].md  (omit for phase 1)
+Output file:  docs/work/sre-engineer/<task-slug>/phase[N].md
+[Any extra scoping context from the original prompt]", timeout=120)
+```
+
+After each sub-task returns, print:
+```
+✓ Phase N complete: [1-sentence finding]
+```
+Then immediately start phase N+1.
+
+**File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/sre-engineer/<slug>/` if it doesn't exist.
+
+After all phases complete, synthesize the final deliverable from the phase output files.
+
+---
+
+### Phase Mode (`--phase: N name`)
+
+When your prompt starts with `--phase:`:
+
+1. Extract the phase number and name from `--phase: N name`
+2. Read the **Context file** path from the prompt (skip for phase 1)
+3. Execute ONLY that phase — follow the Phase N instructions below
+4. Write your findings to the **Output file** path from the prompt
+5. Return exactly: `✓ Phase N (sre-engineer): [1-sentence summary] | Confidence: [1-10]`
+
+**DO NOT** run other phases. **DO NOT** spawn sub-tasks. This mode must complete in under 90 seconds.
+
+---
+
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:
