@@ -58,3 +58,22 @@ When one expert finds issues in another's domain, delegate:
 - DBA designs schema → `/security` to review data access
 - Code review finds perf issue → `/perf` to profile
 - UX designs workflow → `/api-design` for endpoints
+
+## Proactive Expert Triggers
+
+Suggest these experts even when not explicitly requested:
+- **After implementing any feature** → suggest `/review-code` and `/test-expert`
+- **Before any production deploy** → suggest `/security`
+- **Before choosing between 2+ tech options** → suggest `/research`
+- **Before adding tables or complex queries** → suggest `/dba`
+- **When slowness or timeouts appear** → suggest `/perf`
+- **Before building new user-facing flows** → suggest `/ux`
+
+## SDLC Context
+
+When running `/sdlc`, the agent will ask you 7 questions before writing any documents.
+Do not skip the Discovery Interview — your answers determine everything that follows.
+
+Current project phase: [update this manually when phase changes]
+Last gate passed: [phase name]
+Open blockers: [list any]

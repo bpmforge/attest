@@ -24,6 +24,17 @@ This document explains each expert agent's methodology, when to use them, and wh
 2. **`/sdlc onboard`** — Reverse-engineer codebase, produce architecture docs, onboarding guide
 3. **`/sdlc feature`** — Impact analysis → Design → Implement → Verify → Document
 
+**Interactive questioning phases (mandatory):**
+- **Mode 1 (init):** Runs a 7-question Discovery Interview *before Phase 0* — problem, users, metrics, constraints, integrations, out-of-scope, compliance. Writes `docs/DISCOVERY.md`. Must confirm summary before any document is written.
+- **Mode 1 (Phase 3):** Runs a Design Clarification Interview before architecture work — deployment env, scale, performance targets, integrations, team experience. Writes `docs/DESIGN_CONTEXT.md`.
+- **Mode 3 (feature):** Runs a Feature Discovery Interview before impact analysis — problem, users, done criteria, constraints, priority, patterns, concerns.
+
+**Confidence-based gate loop (not one-shot pass/fail):**
+- Score each deliverable 1-10 on Completeness + Quality
+- < 5 = automatic fail, surface to user immediately
+- 5-6 = revise (up to 3 iterations)
+- >= 7 = pass and advance
+
 **Produces:** VISION.md, SCOPE.md, RISKS.md, SRS.md, ARCHITECTURE.md, and more
 
 **Delegates to:** Every other expert as needed

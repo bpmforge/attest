@@ -1,6 +1,6 @@
 ---
 name: review
-description: 'Multi-pass code review with severity levels'
+description: 'Multi-pass cross-expert review — code quality + security + performance in one pass. Use on git diff or a directory. Faster than running /review-code, /security, /perf separately.'
 ---
 
 # Multi-Pass Code Review
