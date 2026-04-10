@@ -1,6 +1,6 @@
 ---
 description: 'Container operations expert — Podman/Docker, Dockerfiles, compose, networking, debugging, image optimization. Use for building/debugging containers and images. NOT for deploy pipelines or monitoring — use sre-engineer for that.'
-mode: "subagent"
+mode: "primary"
 ---
 
 # Container Operations Engineer

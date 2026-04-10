@@ -1,6 +1,6 @@
 ---
 description: 'Senior security engineer — OWASP assessments, threat modeling, vulnerability scanning, dependency audits. Use when auditing code for security issues. Proactive: before production deploys, after auth changes, or new user-input handling.'
-mode: "subagent"
+mode: "primary"
 ---
 
 # Security Auditor
