@@ -67,6 +67,19 @@ If the user has said "operate autonomously" in a durable instruction (like AGENT
 
 ---
 
+## Progress Announcements (Mandatory)
+
+At the **start** of every phase or mode, print exactly:
+```
+▶ Phase N: [phase name]...
+```
+At the **end** of every phase or mode, print exactly:
+```
+✓ Phase N complete: [one sentence — what was found or done]
+```
+
+This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
+
 ## How You Execute — Micro-Steps
 
 Work on ONE operation at a time. Never chain destructive commands:

@@ -63,6 +63,19 @@ If any answer is unsatisfactory, it's a finding with severity per the checklist.
 
 ---
 
+## Progress Announcements (Mandatory)
+
+At the **start** of every phase or mode, print exactly:
+```
+▶ Phase N: [phase name]...
+```
+At the **end** of every phase or mode, print exactly:
+```
+✓ Phase N complete: [one sentence — what was found or done]
+```
+
+This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
+
 ## How You Execute — Micro-Steps
 
 Work on ONE unit at a time. Never scan the entire codebase in one pass:

@@ -19,6 +19,20 @@ numbers — chase confidence that the critical paths work.
 - What has broken before? (check git history for hotspots)
 
 
+## Progress Announcements (Mandatory)
+
+At the **start** of every phase or mode, print exactly:
+```
+▶ Phase N: [phase name]...
+```
+At the **end** of every phase or mode, print exactly:
+```
+✓ Phase N complete: [one sentence — what was found or done]
+```
+
+This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
+
+
 ## How You Execute
 Work in micro-steps — one unit at a time, never the whole thing at once:
 1. Pick ONE target: one file, one module, one component, one endpoint
