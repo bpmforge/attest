@@ -699,15 +699,28 @@ Next after resume: UX branch (if UI-bearing) or security-auditor handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /api-design (api-designer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /api-design with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
-  Design API contracts for [project] based on docs/USER_STORIES.md,
-  docs/SRS.md, and docs/DATABASE.md. Produce docs/API_DESIGN.md with
-  OpenAPI-style endpoint contracts including: method, path, request
-  body, response shapes, error codes, and authentication requirements.
+SDLC-TASK for api-designer:
 
-Expected output: docs/API_DESIGN.md
-When finished, come back here and say: "api done"
+CONTEXT (read these before starting):
+- docs/USER_STORIES.md — features that need API endpoints
+- docs/SRS.md — functional requirements including auth and data rules
+- docs/DATABASE.md — schema and data shapes the API reads/writes
+
+YOUR TASK:
+Design complete API contracts for [project]. For every user story that requires
+a server interaction, produce an OpenAPI-style endpoint contract. Cover every
+resource: create, read, update, delete, and any special actions.
+
+PRODUCE exactly this file:
+- docs/API_DESIGN.md — all endpoint contracts with: HTTP method, path, request
+  body schema, response shapes (200/201/400/401/403/404/500), auth requirements,
+  and a brief description of each endpoint's business purpose
+
+When the file is written, print exactly:
+"api done — [one sentence: how many endpoints designed and key resources covered]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1073,16 +1086,30 @@ Next after resume: db-architect migrations handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /test-expert (test-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /test-expert with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
-  --strategy: Produce a test plan for [project] from docs/SRS.md and
-  docs/USER_STORIES.md. Cover: test types needed (unit/integration/e2e),
-  framework selection, coverage targets per module, critical paths that
-  must have 100% coverage, and test data strategy.
-  Output: docs/TEST_STRATEGY.md
+SDLC-TASK for test-engineer:
 
-Expected output: docs/TEST_STRATEGY.md
-When finished, come back here and say: "test-strategy done"
+CONTEXT (read these before starting):
+- docs/SRS.md — functional requirements and acceptance criteria
+- docs/USER_STORIES.md — user scenarios that must be verified
+- docs/ARCHITECTURE.md — module structure and critical paths
+- docs/TECH_STACK.md — tech stack to select test frameworks from
+
+YOUR TASK:
+Produce a test strategy for [project]. Determine which test types are needed
+(unit / integration / e2e), select appropriate frameworks for the stack,
+identify critical paths that must have 100% coverage, and define a test data
+strategy. Do not write test code — strategy and plan only.
+
+PRODUCE exactly this file:
+- docs/TEST_STRATEGY.md — test types, framework choices with rationale, coverage
+  targets per module, list of critical paths requiring 100% coverage, test data
+  approach, and a table mapping each user story to its test type
+
+When the file is written, print exactly:
+"test-strategy done — [one sentence: frameworks chosen and critical paths identified]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1139,16 +1166,27 @@ Next after resume: api-designer contract verification
 ═══════════════════════════════════════════════════════════
   HANDOFF → /dba (db-architect)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /dba with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
-  Run --migrate mode. Generate migration files from the schema in
-  docs/DATABASE.md for [project]. Each migration must have an up and
-  down. Verify migrations run cleanly. Output migration files to
-  db/migrations/ and a verification report to
-  docs/reviews/DB_MIGRATION_<date>.md.
+SDLC-TASK for db-architect:
 
-Expected output: db/migrations/ + docs/reviews/DB_MIGRATION_<date>.md
-When finished, come back here and say: "db done"
+CONTEXT (read these before starting):
+- docs/DATABASE.md — complete schema with all tables, columns, and relationships
+
+YOUR TASK:
+Generate migration files for every table defined in docs/DATABASE.md. Each
+migration must have both an up (create/alter) and a down (rollback). Verify
+the migrations would run cleanly in order with no dependency issues.
+
+PRODUCE exactly these:
+- db/migrations/ — one migration file per table/change, numbered sequentially
+  (e.g. 001_create_users.sql, 002_create_orders.sql)
+- docs/reviews/DB_MIGRATION_<date>.md — verification report confirming each
+  migration runs cleanly, with any issues found and how they were resolved
+
+When all files are written, print exactly:
+"db done — [one sentence: how many migrations generated and any notable issues]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1158,15 +1196,27 @@ When finished, come back here and say: "db done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /api-design (api-designer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /api-design with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
-  Verify that implemented endpoints match the contracts in
-  docs/API_DESIGN.md. Flag any drift (missing endpoints, changed
-  response shapes, undocumented parameters).
-  Output: docs/reviews/API_CONTRACT_REVIEW_<date>.md
+SDLC-TASK for api-designer:
 
-Expected output: docs/reviews/API_CONTRACT_REVIEW_<date>.md
-When finished, come back here and say: "api done"
+CONTEXT (read these before starting):
+- docs/API_DESIGN.md — the agreed API contracts
+- The implemented route/handler files in the codebase (search src/ for route definitions)
+
+YOUR TASK:
+Verify that every endpoint in the implemented codebase matches its contract in
+docs/API_DESIGN.md. For each endpoint, check: HTTP method, path, request body
+schema, response shapes, and auth requirements. Flag any drift.
+
+PRODUCE exactly this file:
+- docs/reviews/API_CONTRACT_REVIEW_<date>.md — for each endpoint: MATCH or DRIFT,
+  with specific differences noted (e.g. "POST /users returns 200 but contract says 201"),
+  and a summary table of all endpoints with pass/fail status
+
+When the file is written, print exactly:
+"api done — [one sentence: how many endpoints checked, how many drifted]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1176,15 +1226,28 @@ When finished, come back here and say: "api done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /containers (container-ops)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /containers with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
-  Write Dockerfile + docker-compose (or podman-compose) config for
-  [project] per the architecture in docs/ARCHITECTURE.md.
-  Produce: Dockerfile, docker-compose.yml, .dockerignore.
-  Follow multi-stage build pattern. Include health checks.
+SDLC-TASK for container-ops:
 
-Expected output: Dockerfile, docker-compose.yml, .dockerignore
-When finished, come back here and say: "containers done"
+CONTEXT (read these before starting):
+- docs/ARCHITECTURE.md — all services, their ports, and dependencies
+- docs/TECH_STACK.md — language, runtime, and framework versions
+
+YOUR TASK:
+Write production-ready container configuration for [project]. Use multi-stage
+builds to minimize image size. Include health checks for every service. Use the
+exact runtime versions from docs/TECH_STACK.md.
+
+PRODUCE exactly these files:
+- Dockerfile — multi-stage build (build stage + minimal runtime stage)
+- docker-compose.yml — all services from ARCHITECTURE.md with correct ports,
+  volumes, environment variables, health checks, and service dependencies
+- .dockerignore — exclude node_modules, build artifacts, .env files, docs
+
+When all files are written, print exactly:
+"containers done — [one sentence: services configured and final image size estimate]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1194,15 +1257,28 @@ When finished, come back here and say: "containers done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /devops (sre-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /devops with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /devops:
 
-  --cicd: Write CI/CD pipeline for [project] per docs/TECH_STACK.md
-  and deployment targets in docs/ARCHITECTURE.md. Include: lint,
-  test, build, security scan, and deploy stages.
-  Output pipeline files to .github/workflows/ or .gitea/workflows/.
+SDLC-TASK for sre-engineer:
 
-Expected output: CI/CD pipeline files
-When finished, come back here and say: "devops done"
+CONTEXT (read these before starting):
+- docs/TECH_STACK.md — language, package manager, test command, build command
+- docs/ARCHITECTURE.md — deployment targets and infrastructure
+
+YOUR TASK:
+Write a CI/CD pipeline for [project]. The pipeline must run on every PR and
+main branch push. Include stages in this order: lint → test → build →
+security scan → deploy. Use the commands from docs/TECH_STACK.md. Target
+the deployment environment described in docs/ARCHITECTURE.md.
+
+PRODUCE exactly these files:
+- .github/workflows/ci.yml OR .gitea/workflows/ci.yml — the complete pipeline
+  with all stages, correct triggers (push to main, pull_request), and environment
+  variables (referenced as secrets, not hardcoded)
+
+When the file is written, print exactly:
+"devops done — [one sentence: pipeline stages included and deploy target]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1212,14 +1288,29 @@ When finished, come back here and say: "devops done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  OWASP audit of [feature/module]. Focus on auth, input validation,
-  and data access. Output findings with SEVERITY, file:line reference,
-  and fix recommendation to docs/reviews/SECURITY_<feature>_<date>.md.
+SDLC-TASK for security-auditor:
 
-Expected output: docs/reviews/SECURITY_<feature>_<date>.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- The implemented [feature/module] files (listed in the impact analysis)
+- docs/API_DESIGN.md — endpoint auth requirements for this feature
+- docs/THREAT_MODEL.md — known threats this feature should guard against
+
+YOUR TASK:
+Audit [feature/module] for OWASP Top 10 vulnerabilities. Focus on: auth and
+access control (A01), injection vectors in user inputs (A03), and any
+authentication failures (A07). For each finding include a verbatim code quote
+with file:line, a severity rating, and a specific fix recommendation.
+
+PRODUCE exactly this file:
+- docs/reviews/SECURITY_<feature>_<date>.md — findings sorted by severity
+  (CRITICAL first), each with: description, file:line code quote, severity,
+  and concrete fix. Plus a summary table of all findings.
+
+When the file is written, print exactly:
+"security done — [one sentence: findings count by severity]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1229,13 +1320,28 @@ When finished, come back here and say: "security done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --review: Full 7-dimension health pass on [feature/module].
-  Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
-When finished, come back here and say: "review done"
+CONTEXT (read these before starting):
+- The [feature/module] source files (from the impact analysis)
+- docs/ARCHITECTURE.md — patterns and structure this code should follow
+
+YOUR TASK:
+Run a 7-dimension code health review on [feature/module]. The 7 dimensions are:
+complexity, duplication/DRY, error handling (silent failures), type safety,
+pattern consistency, naming quality, and comment accuracy. For each finding
+include the file:line and a specific fix.
+
+PRODUCE exactly this file:
+- docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with
+  file:line references, severity (CRITICAL/HIGH/MEDIUM/LOW), and a verdict:
+  APPROVED / APPROVED WITH SUGGESTIONS / NEEDS REVISION / REJECT
+
+When the file is written, print exactly:
+"review done — [one sentence: verdict and most critical finding]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1250,14 +1356,27 @@ task(agent="git-expert", prompt="--feature: [action — create branch / commit /
 ═══════════════════════════════════════════════════════════
   HANDOFF → /perf (performance-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /perf with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
-  Profile [specific endpoint/query] against the NFR targets in
-  docs/SRS.md. Measure first, optimize second. Output:
-  docs/reviews/PERF_<date>.md with before/after measurements.
+SDLC-TASK for performance-engineer:
 
-Expected output: docs/reviews/PERF_<date>.md
-When finished, come back here and say: "perf done"
+CONTEXT (read these before starting):
+- docs/SRS.md — NFR performance targets (response time, throughput, etc.)
+- The [specific endpoint/query] implementation files
+
+YOUR TASK:
+Profile [specific endpoint/query] and verify it meets the NFR targets in
+docs/SRS.md. Measure the current baseline first — do not optimize without
+measuring. If it misses a target, optimize and re-measure to show the
+before/after delta.
+
+PRODUCE exactly this file:
+- docs/reviews/PERF_<date>.md — baseline measurements, NFR targets from SRS.md,
+  pass/fail per target, any optimizations applied with before/after numbers
+
+When the file is written, print exactly:
+"perf done — [one sentence: which NFR targets passed/failed]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1289,14 +1408,29 @@ Next after resume: performance benchmark handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  Full OWASP Top 10 audit of the entire codebase.
-  Output: docs/reviews/SECURITY_FINAL_<date>.md
-  Criteria: zero CRITICAL findings before release.
+SDLC-TASK for security-auditor:
 
-Expected output: docs/reviews/SECURITY_FINAL_<date>.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+- docs/THREAT_MODEL.md — threats that must be mitigated before release
+- docs/API_DESIGN.md — all endpoints and their auth requirements
+
+YOUR TASK:
+Run a full OWASP Top 10 audit across the entire codebase. Cover all 10
+categories. For each finding include a verbatim code quote with file:line,
+severity, and a specific fix. The release criterion is zero CRITICAL findings.
+
+PRODUCE exactly this file:
+- docs/reviews/SECURITY_FINAL_<date>.md — all findings sorted by severity,
+  CRITICAL findings in their own section at the top, a summary table of
+  finding counts per OWASP category, and an overall release verdict
+  (READY / BLOCKED — list what must be fixed)
+
+When the file is written, print exactly:
+"security done — [one sentence: CRITICAL count, HIGH count, release verdict]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1306,14 +1440,27 @@ When finished, come back here and say: "security done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /perf (performance-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /perf with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
-  --benchmark: Verify all NFR performance targets from docs/SRS.md
-  are met. Test each target with real load. Output:
-  docs/reviews/PERF_FINAL_<date>.md with pass/fail per NFR.
+SDLC-TASK for performance-engineer:
 
-Expected output: docs/reviews/PERF_FINAL_<date>.md
-When finished, come back here and say: "perf done"
+CONTEXT (read these before starting):
+- docs/SRS.md — all NFR performance targets (response time, throughput, uptime)
+- The full codebase to benchmark
+
+YOUR TASK:
+Benchmark the entire application against every NFR performance target in
+docs/SRS.md. Test each target with representative load. Report measured values
+vs. targets. For any missed target, identify the root cause.
+
+PRODUCE exactly this file:
+- docs/reviews/PERF_FINAL_<date>.md — a table of every NFR target with
+  measured value and PASS/FAIL, flame graph or profiling evidence for any
+  failures, and an overall verdict (RELEASE-READY / BLOCKED)
+
+When the file is written, print exactly:
+"perf done — [one sentence: how many NFR targets passed/failed]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1323,13 +1470,28 @@ When finished, come back here and say: "perf done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --review: Full 7-dimension health pass across the entire codebase.
-  Output: docs/reviews/CODE_REVIEW_FINAL_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/CODE_REVIEW_FINAL_<date>.md
-When finished, come back here and say: "review done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+- docs/ARCHITECTURE.md — patterns and structure the code should follow
+
+YOUR TASK:
+Run a full 7-dimension code health review across the entire codebase. Dimensions:
+complexity, duplication/DRY, error handling (silent failure hunter), type safety,
+pattern consistency, naming quality, comment accuracy. Flag every CRITICAL or HIGH
+finding with file:line and a specific fix.
+
+PRODUCE exactly this file:
+- docs/reviews/CODE_REVIEW_FINAL_<date>.md — findings per dimension, overall
+  health scores (1-10 per dimension), a verdict (APPROVED / NEEDS REVISION / REJECT),
+  and the top 5 highest-priority fixes
+
+When the file is written, print exactly:
+"review done — [one sentence: overall verdict and top issue]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1339,14 +1501,27 @@ When finished, come back here and say: "review done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --debt: Produce a prioritized tech-debt register for the post-launch
-  backlog. Sort by leverage (highest ROI fixes first).
-  Output: docs/reviews/TECH_DEBT_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/TECH_DEBT_<date>.md
-When finished, come back here and say: "debt done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+
+YOUR TASK:
+Produce a prioritized tech-debt register for the post-launch backlog. Identify
+every instance of: duplicated code, missing abstractions, hardcoded values,
+missing tests, unclear naming, and accumulated workarounds. Sort by leverage —
+highest ROI fixes (low effort, high impact) first.
+
+PRODUCE exactly this file:
+- docs/reviews/TECH_DEBT_<date>.md — each debt item with: description, file:line,
+  effort estimate (S/M/L), impact if fixed, and leverage score. Sorted highest
+  leverage first. Grouped by category (complexity, duplication, testing, etc.)
+
+When the file is written, print exactly:
+"debt done — [one sentence: total items found and top leverage item]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1356,13 +1531,28 @@ When finished, come back here and say: "debt done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /test-expert (test-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /test-expert with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
-  --coverage: Coverage analysis. Identify untested critical paths
-  and paths with coverage < 80%. Output: docs/reviews/COVERAGE_<date>.md
+SDLC-TASK for test-engineer:
 
-Expected output: docs/reviews/COVERAGE_<date>.md
-When finished, come back here and say: "test done"
+CONTEXT (read these before starting):
+- The test suite (test/ or __tests__/ directory)
+- docs/TEST_STRATEGY.md — coverage targets per module
+- The source codebase to compare against
+
+YOUR TASK:
+Analyse test coverage across the codebase. Identify: modules with coverage < 80%,
+critical paths (auth, payments, data writes) with any uncovered branches, and
+test cases that exist in docs/TEST_STRATEGY.md but have not been written.
+
+PRODUCE exactly this file:
+- docs/reviews/COVERAGE_<date>.md — coverage percentage per module, list of
+  untested critical paths with file:line, list of missing tests from the strategy,
+  and a prioritized "write these tests first" list
+
+When the file is written, print exactly:
+"test done — [one sentence: overall coverage and most critical gap]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1372,13 +1562,29 @@ When finished, come back here and say: "test done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  --audit: WCAG 2.2 AA accessibility audit of the entire UI.
-  Output: docs/reviews/UX_AUDIT_<date>.md with findings by severity.
+SDLC-TASK for ux-engineer:
 
-Expected output: docs/reviews/UX_AUDIT_<date>.md
-When finished, come back here and say: "ux done"
+CONTEXT (read these before starting):
+- The UI source files (components/, pages/, views/ directory)
+- docs/design/UX_SPEC.md — intended user workflows and component inventory
+- docs/design/STYLE_GUIDE.md — design standards the UI should follow
+
+YOUR TASK:
+Audit the entire UI for WCAG 2.2 AA accessibility compliance. Check every
+component and page for: missing alt text, keyboard navigation traps, insufficient
+color contrast, missing ARIA labels, focus order issues, and responsive breakpoint
+failures. For each finding include the file:line and a concrete fix.
+
+PRODUCE exactly this file:
+- docs/reviews/UX_AUDIT_<date>.md — findings sorted by severity (CRITICAL first),
+  each with file:line and fix, a summary count by severity, and a verdict
+  (RELEASE-READY / BLOCKED — list what must be fixed for AA compliance)
+
+When the file is written, print exactly:
+"ux done — [one sentence: CRITICAL/HIGH count and release verdict]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1388,13 +1594,28 @@ When finished, come back here and say: "ux done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /containers (container-ops)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /containers with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
-  --optimize: Production image optimization — layer sizes, security
-  scan, multi-stage builds. Output: docs/reviews/CONTAINER_AUDIT_<date>.md
+SDLC-TASK for container-ops:
 
-Expected output: docs/reviews/CONTAINER_AUDIT_<date>.md
-When finished, come back here and say: "containers done"
+CONTEXT (read these before starting):
+- Dockerfile and docker-compose.yml in the project root
+- docs/ARCHITECTURE.md — services and their resource requirements
+
+YOUR TASK:
+Audit the container configuration for production readiness. Check: image layer
+sizes (identify bloated layers), multi-stage build correctness, presence of
+unnecessary dev dependencies in the final image, security scan for known CVEs
+in base images, and health check coverage.
+
+PRODUCE exactly this file:
+- docs/reviews/CONTAINER_AUDIT_<date>.md — current image sizes, layer breakdown,
+  CVEs found in base images (severity-rated), specific optimization recommendations
+  with estimated size savings, and a production readiness verdict
+
+When the file is written, print exactly:
+"containers done — [one sentence: image size, CVE count, readiness verdict]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1546,17 +1767,27 @@ Next after resume: Step 4 Map Components
 ═══════════════════════════════════════════════════════════
   HANDOFF → /dba (db-architect)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /dba with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
-  --review: Audit the existing database schema in this codebase.
-  Find migrations, ORM models, or CREATE TABLE statements.
-  Produce docs/diagrams/erd.md with:
-  - Mermaid erDiagram of all tables and relationships
-  - Brief description of each table's purpose
-  - Any schema issues (missing indexes, poor naming, normalization problems)
+SDLC-TASK for db-architect:
 
-Expected output: docs/diagrams/erd.md
-When finished, come back here and say: "db done"
+CONTEXT (read these before starting):
+- The database migrations, ORM models, or schema files in this codebase
+  (search for: migrations/, schema.sql, models/, *.prisma, *.drizzle)
+
+YOUR TASK:
+Reverse-engineer the complete database schema from this codebase. Find every
+table definition — in migrations, ORM models, or raw SQL. Produce an ERD and
+flag any schema quality issues you find.
+
+PRODUCE exactly this file:
+- docs/diagrams/erd.md — Mermaid erDiagram showing all tables and relationships,
+  a brief description of each table's purpose, and a section listing any issues
+  found (missing indexes, naming inconsistencies, normalization problems)
+
+When the file is written, print exactly:
+"db done — [one sentence: how many tables found and any critical issues]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1614,13 +1845,26 @@ Next after resume: security-auditor handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer) — full health
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --review: Full 7-dimension health pass on the entire codebase.
-  Output: docs/reviews/CODE_REVIEW_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/CODE_REVIEW_<date>.md
-When finished, come back here and say: "review done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+
+YOUR TASK:
+Run a 7-dimension code health review across the entire codebase. The 7 dimensions:
+complexity, duplication/DRY, error handling (silent failure hunter), type safety,
+pattern consistency, naming quality, comment accuracy. Flag CRITICAL and HIGH
+findings with file:line and a specific fix.
+
+PRODUCE exactly this file:
+- docs/reviews/CODE_REVIEW_<date>.md — findings per dimension, health scores
+  (1-10 per dimension), a verdict, and top 5 highest-priority fixes
+
+When the file is written, print exactly:
+"review done — [one sentence: overall verdict and worst dimension]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1630,13 +1874,25 @@ When finished, come back here and say: "review done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer) — debt
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --debt: Leverage-sorted tech-debt register.
-  Output: docs/reviews/TECH_DEBT_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/TECH_DEBT_<date>.md
-When finished, come back here and say: "debt done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+
+YOUR TASK:
+Catalogue all tech debt in this codebase. Look for: duplicated logic, missing
+abstractions, hardcoded values, workarounds, outdated patterns, and missing tests.
+Sort by leverage — items that are cheap to fix but pay off the most go first.
+
+PRODUCE exactly this file:
+- docs/reviews/TECH_DEBT_<date>.md — each debt item with description, file:line,
+  effort (S/M/L), impact if fixed, and leverage score. Sorted highest leverage first.
+
+When the file is written, print exactly:
+"debt done — [one sentence: item count and top leverage item]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1646,13 +1902,27 @@ When finished, come back here and say: "debt done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer) — patterns
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --patterns: Cross-codebase pattern drift audit.
-  Output: docs/reviews/PATTERNS_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/PATTERNS_<date>.md
-When finished, come back here and say: "patterns done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+
+YOUR TASK:
+Audit the codebase for pattern drift — places where the same problem is solved
+differently in different parts of the code. Identify the established pattern for
+each concern (error handling, data access, logging, validation) and flag every
+place that deviates from it.
+
+PRODUCE exactly this file:
+- docs/reviews/PATTERNS_<date>.md — established patterns with example file:line,
+  drift instances with file:line and the deviation, and a prioritized
+  standardization plan
+
+When the file is written, print exactly:
+"patterns done — [one sentence: patterns identified and worst drift area]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1662,13 +1932,28 @@ When finished, come back here and say: "patterns done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  Quick OWASP vulnerability scan — auth, access control, secrets,
-  injection. Output: docs/reviews/SECURITY_SCAN_<date>.md
+SDLC-TASK for security-auditor:
 
-Expected output: docs/reviews/SECURITY_SCAN_<date>.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+- Focus areas: auth handlers, access control checks, input validation, secret storage
+
+YOUR TASK:
+Scan this codebase for OWASP Top 10 vulnerabilities. Prioritise: broken access
+control (A01), injection vulnerabilities in user inputs (A03), auth failures (A07),
+and hardcoded secrets or misconfigured security headers (A02, A05). For each
+finding include file:line and a concrete fix.
+
+PRODUCE exactly this file:
+- docs/reviews/SECURITY_SCAN_<date>.md — findings sorted by severity (CRITICAL first),
+  each with file:line code quote, severity, and fix recommendation. Plus a summary
+  table by OWASP category.
+
+When the file is written, print exactly:
+"security done — [one sentence: finding counts by severity]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1678,13 +1963,26 @@ When finished, come back here and say: "security done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /test-expert (test-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /test-expert with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
-  --coverage: Test coverage analysis. Identify untested critical paths.
-  Output: docs/reviews/COVERAGE_<date>.md
+SDLC-TASK for test-engineer:
 
-Expected output: docs/reviews/COVERAGE_<date>.md
-When finished, come back here and say: "test done"
+CONTEXT (read these before starting):
+- The test suite (test/ or __tests__/ directory)
+- The source codebase to measure against
+
+YOUR TASK:
+Analyse test coverage for this codebase. Identify: modules with no tests,
+critical paths (auth, data writes, error handling) with coverage gaps, and
+the overall coverage percentage. Do not write tests — analysis only.
+
+PRODUCE exactly this file:
+- docs/reviews/COVERAGE_<date>.md — coverage percentage per module, untested
+  critical paths with file:line, and a "write these tests first" priority list
+
+When the file is written, print exactly:
+"test done — [one sentence: overall coverage percentage and biggest gap]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1694,14 +1992,28 @@ When finished, come back here and say: "test done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /perf (performance-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /perf with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
-  Identify O(n²) loops, N+1 queries, missing indexes, and slow endpoints
-  without profiling (static analysis pass). Output:
-  docs/reviews/PERF_SCAN_<date>.md
+SDLC-TASK for performance-engineer:
 
-Expected output: docs/reviews/PERF_SCAN_<date>.md
-When finished, come back here and say: "perf done"
+CONTEXT (read these before starting):
+- The entire codebase (src/ directory)
+- Database query files and ORM usage
+
+YOUR TASK:
+Do a static analysis pass for performance anti-patterns — no profiling needed.
+Look for: O(n²) nested loops, N+1 query patterns in ORM usage, missing database
+indexes on frequently queried columns, synchronous blocking in async paths, and
+large in-memory data processing that should be paginated.
+
+PRODUCE exactly this file:
+- docs/reviews/PERF_SCAN_<date>.md — each finding with file:line, the anti-pattern
+  type, estimated impact (HIGH/MEDIUM/LOW), and a specific fix recommendation.
+  Sorted by estimated impact.
+
+When the file is written, print exactly:
+"perf done — [one sentence: finding count and most impactful issue]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1711,18 +2023,27 @@ When finished, come back here and say: "perf done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  --audit: Audit the UI for:
-  1. WCAG 2.2 AA violations (missing alt text, keyboard traps, contrast)
-  2. Component consistency (patterns reused or duplicated?)
-  3. UX anti-patterns (confusing flows, dead ends, broken affordances)
-  4. Responsive design gaps
-  Output: docs/reviews/UX_AUDIT_<date>.md with findings by severity
-  (CRITICAL/HIGH/MEDIUM/LOW).
+SDLC-TASK for ux-engineer:
 
-Expected output: docs/reviews/UX_AUDIT_<date>.md
-When finished, come back here and say: "ux done"
+CONTEXT (read these before starting):
+- The UI source files (components/, pages/, views/ directory)
+
+YOUR TASK:
+Audit this UI on four dimensions: (1) WCAG 2.2 AA accessibility — missing alt
+text, keyboard traps, contrast failures, missing ARIA labels; (2) component
+consistency — same UI pattern solved differently in different places; (3) UX
+anti-patterns — confusing flows, dead ends, broken affordances, unclear labels;
+(4) responsive design — breakpoints that break layout or hide important content.
+
+PRODUCE exactly this file:
+- docs/reviews/UX_AUDIT_<date>.md — findings per dimension with file:line and
+  severity (CRITICAL/HIGH/MEDIUM/LOW), sorted by severity within each dimension
+
+When the file is written, print exactly:
+"ux done — [one sentence: finding counts by severity across all dimensions]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1918,15 +2239,27 @@ Next after resume: api-designer handoff (if API changes needed)
 ═══════════════════════════════════════════════════════════
   HANDOFF → /dba (db-architect)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /dba with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
-  Design schema changes for [feature name]. Existing schema: docs/DATABASE.md.
-  Changes needed: [describe from impact analysis].
-  Produce: migration files with up/down, updated ERD section,
-  and index strategy for new access patterns.
+SDLC-TASK for db-architect:
 
-Expected output: migration files + updated docs/DATABASE.md section
-When finished, come back here and say: "db done"
+CONTEXT (read these before starting):
+- docs/DATABASE.md — the existing schema this feature extends
+- docs/FEATURE_CONTEXT.md — what data this feature needs to store or query
+
+YOUR TASK:
+Design the schema changes required for [feature name]. The changes needed are:
+[describe from impact analysis]. Extend the existing schema without breaking
+existing queries. Provide reversible migrations.
+
+PRODUCE exactly these:
+- db/migrations/[next-number]_[feature-slug].sql — migration with up and down
+- An updated section in docs/DATABASE.md — updated ERD (Mermaid erDiagram)
+  showing the new/modified tables, and index strategy for any new access patterns
+
+When all files are written, print exactly:
+"db done — [one sentence: tables added/modified and migration approach]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1936,15 +2269,27 @@ If API changes needed:
 ═══════════════════════════════════════════════════════════
   HANDOFF → /api-design (api-designer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /api-design with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
-  Design API changes for [feature name]. Existing contracts: docs/API_DESIGN.md.
-  Changes needed: [describe from impact analysis].
-  Ensure backward compatibility. Produce updated endpoint contracts
-  and add them to docs/API_DESIGN.md.
+SDLC-TASK for api-designer:
 
-Expected output: updated docs/API_DESIGN.md
-When finished, come back here and say: "api done"
+CONTEXT (read these before starting):
+- docs/API_DESIGN.md — existing endpoint contracts this feature extends
+- docs/FEATURE_CONTEXT.md — what the feature needs to expose via API
+
+YOUR TASK:
+Design the API changes for [feature name]. Changes needed: [describe from impact
+analysis]. All changes must be backward-compatible (additive only — new fields,
+new endpoints; never remove or rename existing ones).
+
+PRODUCE exactly this:
+- Updated docs/API_DESIGN.md — add new endpoint contracts and update any modified
+  ones. Each contract must include: HTTP method, path, request body schema, response
+  shapes (success + error codes), auth requirements, and backward-compatibility notes
+
+When the file is written, print exactly:
+"api done — [one sentence: endpoints added/modified and compatibility status]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -1954,15 +2299,29 @@ If the feature touches auth, data access, or user input:
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  Review the design for [feature name] for security issues before
-  implementation. Files affected: [list from impact analysis].
-  Focus: OWASP A01 (Broken Access Control), A03 (Injection),
-  A07 (Auth Failures). Output: docs/reviews/SECURITY_DESIGN_<feature>_<date>.md
+SDLC-TASK for security-auditor:
 
-Expected output: docs/reviews/SECURITY_DESIGN_<feature>_<date>.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- docs/FEATURE_CONTEXT.md — what [feature name] does and who can access it
+- docs/API_DESIGN.md — the new/modified endpoints for this feature
+- docs/DATABASE.md — any new tables or columns being added
+
+YOUR TASK:
+Review the design of [feature name] for security risks BEFORE implementation.
+This is a design review, not a code audit — look at the intended behaviour, not
+existing code. Focus on: broken access control (who should and shouldn't be able
+to trigger this feature), injection risks in the new inputs, and auth flow gaps.
+
+PRODUCE exactly this file:
+- docs/reviews/SECURITY_DESIGN_<feature>_<date>.md — design-level risks by severity,
+  each with: description of the risk, attack scenario, and a concrete mitigation to
+  build into the implementation
+
+When the file is written, print exactly:
+"security done — [one sentence: risk count by severity and key finding]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2006,15 +2365,29 @@ Next after resume: code-reviewer handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /test-expert (test-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /test-expert with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
-  Write tests for [feature name] alongside the implementation.
-  Context: docs/FEATURE_CONTEXT.md, test strategy in docs/TEST_STRATEGY.md.
-  Follow existing test patterns in [test directory].
-  Cover: happy path, error cases, edge cases identified in design.
+SDLC-TASK for test-engineer:
 
-Expected output: test files in the appropriate test directory
-When finished, come back here and say: "tests done"
+CONTEXT (read these before starting):
+- docs/FEATURE_CONTEXT.md — what [feature name] should do and its acceptance criteria
+- docs/TEST_STRATEGY.md — test patterns and frameworks used in this project
+- The existing test directory to follow its patterns
+
+YOUR TASK:
+Write test stubs and test cases for [feature name]. Cover: the happy path from
+the acceptance criteria, every error case identified in the feature design, and
+edge cases (empty inputs, boundary values, concurrent access if relevant).
+Follow the exact file naming and structure of existing tests.
+
+PRODUCE exactly these:
+- Test files in the appropriate test directory — one test file per module being
+  tested. Write the test structure and assertions, using TODO comments for any
+  mocks that need to be filled in during implementation.
+
+When all test files are written, print exactly:
+"tests done — [one sentence: how many test files and cases written]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2062,14 +2435,28 @@ After "implementation done":
 ═══════════════════════════════════════════════════════════
   HANDOFF → /review-code (code-reviewer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /review-code with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-  --review: 7-dimension code-health pass on the [feature name] changes.
-  Files changed: [list from impact analysis].
-  Output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
+SDLC-TASK for code-reviewer:
 
-Expected output: docs/reviews/CODE_REVIEW_<feature>_<date>.md
-When finished, come back here and say: "review done"
+CONTEXT (read these before starting):
+- The [feature name] implementation files: [list from impact analysis]
+- docs/ARCHITECTURE.md — patterns this code should follow
+
+YOUR TASK:
+Review the [feature name] implementation across 7 dimensions: complexity,
+duplication/DRY, error handling (silent failures), type safety, pattern
+consistency with the existing codebase, naming quality, and comment accuracy.
+For every CRITICAL or HIGH finding include file:line and a specific fix.
+
+PRODUCE exactly this file:
+- docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with
+  severity and file:line, a verdict (APPROVED / NEEDS REVISION / REJECT),
+  and a list of required fixes before merge
+
+When the file is written, print exactly:
+"review done — [one sentence: verdict and most critical finding]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2079,17 +2466,30 @@ When finished, come back here and say: "review done"
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  --review: Review the UI changes for [feature name]. Check:
-  1. Do components match patterns in docs/design/STYLE_GUIDE.md?
-  2. Are WCAG 2.2 AA requirements met (keyboard nav, alt text, contrast)?
-  3. Does the flow match docs/design/UX_SPEC.md for this feature?
-  4. Any accessibility regressions?
-  Output: findings with file:line and severity (CRITICAL/HIGH/MEDIUM/LOW).
+SDLC-TASK for ux-engineer:
 
-Expected output: UX review findings
-When finished, come back here and say: "ux done"
+CONTEXT (read these before starting):
+- The UI changes for [feature name] (files from the impact analysis)
+- docs/design/STYLE_GUIDE.md — component patterns this UI must follow
+- docs/design/UX_SPEC.md — the intended workflow for this feature
+
+YOUR TASK:
+Review the [feature name] UI changes. Check: (1) do components follow
+docs/design/STYLE_GUIDE.md patterns or introduce new inconsistent styles?
+(2) are all WCAG 2.2 AA requirements met — keyboard navigation, alt text,
+color contrast, ARIA labels? (3) does the actual flow match the intended
+flow in docs/design/UX_SPEC.md? (4) any accessibility regressions vs. existing UI?
+
+PRODUCE exactly this output:
+- A findings list with file:line and severity (CRITICAL/HIGH/MEDIUM/LOW) for
+  every issue found. Include a one-line fix for each.
+  Write findings to: docs/reviews/UX_REVIEW_<feature>_<date>.md
+
+When the file is written, print exactly:
+"ux done — [one sentence: finding counts by severity, CRITICAL/HIGH block merge]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2116,14 +2516,29 @@ If security-sensitive:
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  Security review of [feature name] changes in [file list].
-  Focus: auth, data access, user input handling.
-  Output: docs/reviews/SECURITY_<feature>_<date>.md
+SDLC-TASK for security-auditor:
 
-Expected output: docs/reviews/SECURITY_<feature>_<date>.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- The [feature name] implementation files: [list from impact analysis]
+- docs/reviews/SECURITY_DESIGN_<feature>_<date>.md — risks identified at design
+  time that must be verified as mitigated
+
+YOUR TASK:
+Verify the [feature name] implementation is secure. Check that every risk from
+the design-time security review has been mitigated. Then scan the implementation
+for any new vulnerabilities introduced: auth/access control, injection in user
+inputs, and insecure data handling.
+
+PRODUCE exactly this file:
+- docs/reviews/SECURITY_<feature>_<date>.md — design risks and whether each was
+  mitigated, new findings from the implementation with file:line and fix, and a
+  merge verdict (APPROVED / BLOCKED — list what must be fixed)
+
+When the file is written, print exactly:
+"security done — [one sentence: finding counts and merge verdict]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2133,14 +2548,27 @@ If performance-sensitive:
 ═══════════════════════════════════════════════════════════
   HANDOFF → /perf (performance-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /perf with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
-  Profile [specific endpoint/query changed by this feature].
-  Measure before and after. Verify meets NFR targets in docs/SRS.md.
-  Output: docs/reviews/PERF_<feature>_<date>.md
+SDLC-TASK for performance-engineer:
 
-Expected output: docs/reviews/PERF_<feature>_<date>.md
-When finished, come back here and say: "perf done"
+CONTEXT (read these before starting):
+- docs/SRS.md — the NFR performance targets this feature must meet
+- The [feature name] implementation (the specific endpoint or query changed)
+
+YOUR TASK:
+Measure the performance of the [feature name] changes against the NFR targets
+in docs/SRS.md. Profile the specific endpoint/query that was changed. Measure
+the baseline, then verify it meets the target. If it misses the target, optimize
+and re-measure — always show before/after numbers.
+
+PRODUCE exactly this file:
+- docs/reviews/PERF_<feature>_<date>.md — baseline measurement, NFR target,
+  measured value, PASS/FAIL verdict, and any optimizations applied with delta
+
+When the file is written, print exactly:
+"perf done — [one sentence: measured value vs target, pass or fail]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -2150,13 +2578,29 @@ If UI feature, final accessibility check:
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  --audit: Final accessibility check on [feature name] UI changes.
-  WCAG 2.2 AA. Output findings by severity.
+SDLC-TASK for ux-engineer:
 
-Expected output: accessibility audit findings
-When finished, come back here and say: "ux done"
+CONTEXT (read these before starting):
+- The [feature name] UI changes (files from the impact analysis)
+- docs/reviews/UX_REVIEW_<feature>_<date>.md — issues flagged in earlier review
+
+YOUR TASK:
+Final accessibility check on the [feature name] UI. Verify that all CRITICAL
+and HIGH issues from the earlier UX review have been fixed. Then do a fresh
+WCAG 2.2 AA pass on the updated components to confirm no new violations were
+introduced.
+
+PRODUCE exactly this output:
+- A verdict on each previously flagged issue: FIXED or STILL PRESENT
+- Any new WCAG 2.2 AA violations found, with file:line
+- Final verdict: APPROVED or BLOCKED (CRITICAL/HIGH = blocked)
+  Write to: docs/reviews/UX_FINAL_<feature>_<date>.md
+
+When the file is written, print exactly:
+"ux done — [one sentence: prior issues resolved, new issues found, final verdict]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
