@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-04-10
+
+Mode 4 (`/sdlc improve`), strict git branching discipline across all modes, HANDOFF block overhaul, and Bounded Task Mode on all specialist agents.
+
+### Added
+
+- **Mode 4 (`/sdlc improve ["<focus>"]`)** — New SDLC mode for discovery-driven improvement of existing systems. Runs targeted specialist audits (UX, code quality, performance, security, DB), synthesizes findings into a prioritized improvement backlog (S/M/L sizing), and executes approved items with the right ceremony for their size (S = direct + verify, M = design step first, L = spawn Mode 3 sub-workflow). Optional focus arg narrows scope: `"ux"`, `"performance"`, `"security"`, `"code-quality"`.
+- **Git Discipline section (mandatory — all modes)** — New top-level section defining the branching model: `main` = production, no direct commits. Each mode now creates a typed branch before touching any file: `sdlc/setup` (Mode 1 phases 0–3), `docs/onboard` (Mode 2), `feat/[slug]` (Mode 3), `improve/[slug]` (Mode 4). Every mode ends with a PR — no work merges without one.
+- **`sdlc/setup` branch for Mode 1** — Phases 0–3 design docs all commit to `sdlc/setup`, not `main`. After Phase 3 gate passes, the branch is merged to `main` via PR before Phase 4 implementation begins. Feature branches cut from updated `main`.
+- **Mode 2 branch + PR** — `docs/onboard` branch created at Step 0. All onboarding docs committed there. PR opened at end — docs don't land on `main` without review.
+- **Mode 3 explicit merge step** — After all reviews pass in Step 4, `git-expert` marks the draft PR as ready and squash-merges to `main`. Branch deleted after merge.
+- **Mode 4 branch + PR** — `improve/[slug]` branch created at Step 1 before any audit work. All findings and implementation committed there. PR opened at wrap-up.
+- **Bounded Task Mode on all 11 specialist agents** — `SDLC-TASK for [agent]:` prefix triggers a scoped execution mode: skip discovery, skip orchestrator phases, read only the files listed under CONTEXT, execute exactly the task in YOUR TASK, write exactly the files in PRODUCE, print the exact completion phrase, then stop. Prevents specialists from running full multi-phase workflows when invoked via HANDOFF.
+- **SDLC-TASK HANDOFF format on all 33 delegation points** — Every specialist HANDOFF in `sdlc-lead` now uses the structured `SDLC-TASK for [agent]: CONTEXT / YOUR TASK / PRODUCE / completion phrase` format. Specialists execute bounded jobs without triggering their own orchestrator workflows.
+- **Mode 4 Improvement Discovery Interview** — Structured interview determines which audits to run based on what's driving the improvement (user complaints, perf concerns, tech debt, security, etc.). Announces audit plan and waits for user confirmation before running any specialists.
+
+### Changed
+
+- **`sdlc-lead` description** updated to include Mode 4 (`/sdlc improve`).
+- **`sdlc-lead` command table** updated from "Three Operating Modes" to "Four Operating Modes".
+- **All Phase 0–3 git commits** now explicitly target `sdlc/setup` branch (not "current branch").
+- **`sdlc-lead` Rules** — Three new rules: never commit to `main` directly, always create the mode's branch before starting, always open a PR before merging.
+- **All specialist agents** changed from `mode: "subagent"` to `mode: "primary"` — fix for OpenCode 1.4.0 which hides `subagent`-mode agents from direct invocation. All 12 agents now visible in the UI.
+
+---
+
 ## [0.4.0] — 2026-04-10
 
 Multi-agent orchestration, real-time progress feedback, phase-splitting for long-running agents, full git and UX wiring throughout the SDLC, and a comprehensive test suite.

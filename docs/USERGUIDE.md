@@ -8,7 +8,7 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 - [Core concepts](#core-concepts)
 - [Typical workflows](#typical-workflows)
 - [Per-expert usage](#per-expert-usage)
-  - [`/sdlc` — SDLC workflow](#sdlc)
+  - [`/sdlc` — SDLC workflow (4 modes)](#sdlc)
   - [`/git-expert` — Git & forges](#git-expert)
   - [`/security` — Security audit](#security)
   - [`/review-code` — Code health](#review-code)
@@ -114,19 +114,27 @@ When an expert says "gate failed", it's telling you the report isn't ready. Ask 
 ```
 /sdlc init my-app "Short description of what it is"
 ```
-`sdlc-lead` runs a discovery interview, calls `git-expert --init` to bootstrap the repo, then walks through Phase 0 (Vision) → Phase 5 (Review) with git checkpoints after every phase — nothing advances uncommitted. Expect 6–8 agent delegations across the full run.
+`sdlc-lead` runs a discovery interview, calls `git-expert --init` (repo bootstrap + branch protection on `main`), creates a `sdlc/setup` branch, then walks through Phase 0 → Phase 3 with git checkpoints after every phase. After Phase 3 gate passes, `sdlc/setup` merges to `main` via PR. Phase 4 feature work runs on `feat/[slug]` branches. Expect 6–8 agent delegations across the full run.
 
 ### Existing codebase you don't understand
 ```
 /sdlc onboard
 ```
-`sdlc-lead` runs `git-expert --inspect` first (hot files, commit history), detects if the project has a UI, then produces architecture docs and an onboarding guide. If the project has UI, `ux-engineer --audit` runs automatically. All produced docs are committed at the end.
+`sdlc-lead` creates a `docs/onboard` branch, runs `git-expert --inspect` first (hot files, commit history), detects if the project has a UI, then produces architecture docs and an onboarding guide. If UI-bearing, `ux-engineer --audit` runs automatically. All produced docs are committed via PR to `main`.
 
 ### Add a feature to an existing project
 ```
 /sdlc feature "OAuth refresh token support"
 ```
-`sdlc-lead` runs a discovery interview → design → `git-expert --feature` (branch) → implement → `test-engineer` → `code-reviewer --review` → `ux-engineer --review` (if UI) → `git-expert --feature` (commit + draft PR). A CRITICAL or HIGH UX finding blocks the PR.
+`sdlc-lead` runs a discovery interview → creates `feat/[slug]` branch → impact analysis → design → implement → `test-engineer` → `code-reviewer --review` → `ux-engineer --review` (if UI) → commit + draft PR → squash merge to `main`. A CRITICAL or HIGH UX finding blocks the PR.
+
+### Audit and improve an existing system
+```
+/sdlc improve
+/sdlc improve "ux"
+/sdlc improve "performance"
+```
+`sdlc-lead` creates an `improve/[slug]` branch, runs a discovery interview to determine which audits to run, runs targeted specialist audits (UX, code quality, performance, security, DB), synthesizes findings into a ranked backlog with S/M/L sizing, and lets you pick which items to execute. Each item is verified by the same specialist that found it. All work committed via PR to `main`.
 
 ### Cut a release
 ```
@@ -151,14 +159,28 @@ Inspects the reflog, explains the plan, then executes recovery with your confirm
 ## Per-expert usage
 
 ### `/sdlc`
-Modes: `init`, `onboard`, `feature`, `status`, `validate`
+Modes: `init`, `onboard`, `feature`, `improve`, `status`, `gate`
 
 ```
 /sdlc init my-app "AI assistant for developers"
 /sdlc onboard
 /sdlc feature "Magic link login"
+/sdlc improve                   # full audit across all dimensions
+/sdlc improve "ux"              # UX audit only
+/sdlc improve "performance"     # performance audit only
+/sdlc improve "security"        # security audit only
+/sdlc improve "code-quality"    # code quality audit only
 /sdlc status                    # show current phase + gate state
-/sdlc validate                  # validate all SDLC documents
+/sdlc gate                      # check gate requirements
+```
+
+**Git branching:** Every mode creates the right branch automatically before touching any file. `main` is always production-ready — nothing lands there without a PR. The git discipline is automatic; you don't have to think about it.
+
+```
+init    → sdlc/setup  (phases 0-3) → feat/[slug] (phase 4)
+onboard → docs/onboard
+feature → feat/[slug]
+improve → improve/[slug]
 ```
 
 Gate control:

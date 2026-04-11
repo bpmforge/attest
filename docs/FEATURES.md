@@ -28,11 +28,12 @@ Progress is shown in the `task` tool label in real time: `task: db-architect —
 
 ### `sdlc-lead` — Program manager & lead architect (`mode: primary`)
 
-Orchestrates the full SDLC across 3 operating modes. Delegates every technical task to specialist agents via `task()` with explicit timeouts — never does technical work itself.
+Orchestrates the full SDLC across 4 operating modes. Delegates every technical task to specialist agents — never does technical work itself. Enforces strict git branching discipline: `main` = production, every mode starts with a typed branch and ends with a PR.
 
-- **Mode 1 (`/sdlc init`)** — new project from scratch, Phases 0–5. Discovery interview → competitive research → planning → requirements → design → implementation → review. Git checkpoints after every phase — nothing advances uncommitted.
-- **Mode 2 (`/sdlc onboard`)** — understand an existing codebase. Starts with `git-expert --inspect` (hot files, history). Detects UI-bearing status. Produces full architecture + onboarding docs. Calls `ux-engineer --audit` if UI-bearing. Commits all docs at end.
-- **Mode 3 (`/sdlc feature`)** — add a feature. Discovery interview → impact analysis → design (calls `ux-engineer --review` for UI features) → implement (branch-first, UX review before PR) → verify → document (updates `UX_SPEC.md`, commits docs).
+- **Mode 1 (`/sdlc init`)** — new project from scratch, Phases 0–5. Discovery interview → competitive research → planning → requirements → design → implementation → review. Phases 0–3 docs commit to `sdlc/setup` branch; merged to `main` via PR before Phase 4. Feature branches cut from updated `main`.
+- **Mode 2 (`/sdlc onboard`)** — understand an existing codebase. Creates `docs/onboard` branch. Starts with `git-expert --inspect` (hot files, history). Detects UI-bearing status. Produces full architecture + onboarding docs. Commits via PR to `main`.
+- **Mode 3 (`/sdlc feature`)** — add a feature. Discovery interview → impact analysis → design → implement on `feat/[slug]` branch → verify → document → squash merge to `main` via PR.
+- **Mode 4 (`/sdlc improve`)** — audit and improve an existing system. Discovery interview determines which dimensions to audit. Runs specialist audits (UX, code quality, performance, security, DB). Synthesizes findings into a prioritized S/M/L backlog. Executes approved items on `improve/[slug]` branch. PR at end. Optional focus: `"ux"`, `"performance"`, `"security"`, `"code-quality"`.
 
 Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
 
