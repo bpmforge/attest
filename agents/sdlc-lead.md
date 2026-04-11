@@ -149,6 +149,53 @@ Optional `<focus>` for Mode 4 narrows the audit scope: `"ux"`, `"performance"`, 
 
 ---
 
+## Git Discipline (Mandatory — All Modes)
+
+`main` is production. **Never commit directly to `main`.** Every piece of work — docs,
+features, audits, improvements — lives on a branch until it passes review and is merged.
+
+### Branch Naming
+
+| Prefix | When | Example |
+|--------|------|---------|
+| `sdlc/setup` | Mode 1 phases 0-3 design docs | `sdlc/setup` |
+| `feat/` | Mode 1 phase 4 + Mode 3 features | `feat/user-auth` |
+| `fix/` | Bug fixes | `fix/login-timeout` |
+| `docs/` | Mode 2 onboarding docs | `docs/onboard` |
+| `improve/` | Mode 4 audits + improvements | `improve/ux-perf-q2` |
+| `chore/` | Tooling, CI, config | `chore/update-deps` |
+
+### Branch Lifecycle (Every Mode)
+
+```
+1. Create branch from main → work on branch → commit atomically
+2. Open a PR (draft while in progress, ready when reviews pass)
+3. Reviews must pass before merge: code review + security (for feat branches)
+4. Squash or rebase merge into main
+5. Delete the branch after merge
+6. Tag a release from main only
+```
+
+### What git-expert Handles
+
+Use `task(agent="git-expert", ...)` for all of:
+- Branch creation (`--feature`)
+- Atomic commits with conventional-commit messages
+- PR creation (draft and ready)
+- Release tagging and changelog (`--release`)
+- History inspection (`--inspect`)
+
+You never run `git` commands yourself. git-expert handles all of it.
+
+### Branch Protection (Enforced at Init)
+
+Mode 1 Phase 0 configures these rules via git-expert:
+- `main`: require PR review, no direct push, require CI to pass before merge
+- Branch deletion after merge: enabled
+- Signed commits: recommended (conventional-commit hooks enforced)
+
+---
+
 ## Discovery Interviews (Mandatory — Runs First)
 
 ### Mode 1: New Project Discovery Interview
@@ -460,7 +507,7 @@ Build from scratch with proper engineering artifacts at every phase.
 ## Phase 0: Ideation — WHY are we building this?
 
 **First, bootstrap the repo via `task` tool:**
-- `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit, configure remotes (gitea primary + github mirror by default), install commitlint + lefthook/husky hooks, propose branch protection rules. Write report to docs/git/INIT_<date>.md")` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact.
+- `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit on main (README + .gitignore only), configure remotes (gitea primary + github mirror by default), install commitlint + lefthook/husky hooks, enforce branch protection on main (require PR review, no direct push, require CI), then create and checkout branch 'sdlc/setup'. All SDLC docs (phases 0-3) will be committed to sdlc/setup — NOT main. Write report to docs/git/INIT_<date>.md", timeout=120)` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact on the `sdlc/setup` branch.
 
 **Deliverables:**
 - `docs/VISION.md` — Problem, target users, success metrics
@@ -484,7 +531,7 @@ The researcher will announce its plan, spawn one sub-task per question, and repo
 **Gate Loop:** Rate VISION.md and COMPETITIVE_ANALYSIS.md per the Confidence-Based Gates section. Minimum score 7 before Phase 1.
 **Git checkpoint — commit Phase 0 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION.md, COMPETITIVE_ANALYSIS.md, any research files). Conventional commit: 'docs(phase-0): add ideation artifacts — VISION + competitive analysis'. Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION.md, COMPETITIVE_ANALYSIS.md, any research files) to the sdlc/setup branch. Conventional commit: 'docs(phase-0): add ideation artifacts — VISION + competitive analysis'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
@@ -513,7 +560,7 @@ The researcher will announce its plan, spawn one sub-task per question, and repo
 **Gate Loop:** Rate all 4 deliverables. If RISKS.md scores < 7 (too vague), expand mitigations and re-rate.
 **Git checkpoint — commit Phase 1 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 1 (SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md). Conventional commit: 'docs(phase-1): add planning artifacts — scope, risks, constraints, personas'. Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 1 (SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-1): add planning artifacts — scope, risks, constraints, personas'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
@@ -622,7 +669,7 @@ For each requirement:
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md). Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
@@ -1105,9 +1152,16 @@ graph TB
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing). Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, threat model'. Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing) to the sdlc/setup branch. Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, threat model'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance to Phase 4 — architecture decisions have the biggest downstream impact, so user confirmation here is especially important.
+
+**Merge `sdlc/setup` → `main` before Phase 4 begins:**
+Design is approved — merge the planning and design docs into main now so Phase 4 feature branches have an up-to-date base.
+```
+task(agent="git-expert", prompt="Run --feature mode (PR ready phase): open the sdlc/setup branch PR for review. PR title: 'sdlc: add planning and design docs (phases 0-3)'. PR body: phases 0-3 complete — VISION, SCOPE, RISKS, CONSTRAINTS, PERSONAS, SRS, USER_STORIES, ARCHITECTURE, TECH_STACK, DATABASE, API_DESIGN, THREAT_MODEL. All phase gates passed. Ready to merge to main before Phase 4 implementation begins. After PR is approved, merge and delete the sdlc/setup branch.", timeout=120)
+```
+After the merge is confirmed, Phase 4 feature branches will be cut from the updated `main`.
 
 ## Phase 4: Implementation — BUILD it
 
@@ -1696,7 +1750,12 @@ Step N Verification:
 
 Do NOT proceed to the next step until current step Confidence ≥ 7.
 
-## Step 0: Git History Inspection (Run First)
+## Step 0: Create Branch + Git History Inspection (Run First)
+
+**First, create a `docs/onboard` branch so onboarding docs stay off `main` until reviewed:**
+```
+task(agent="git-expert", prompt="Run --feature mode: create and checkout a new branch named 'docs/onboard' from main. This branch will hold all onboarding documentation. Report the branch name.", timeout=60)
+```
 
 Before reading any code, understand the project's history:
 
@@ -2134,7 +2193,7 @@ If any of these 6 are missing, produce them before marking Step 7 complete.
 
 **Commit the onboarding docs:**
 ```
-task(agent="git-expert", prompt="Run --feature mode: commit all new files in docs/ as a single atomic commit with message 'docs: add onboarding documentation from /sdlc onboard'. Push to current branch. Do not create a PR — this is documentation, not a feature.", timeout=60)
+task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): commit all new files in docs/ to the docs/onboard branch with message 'docs: add onboarding documentation from /sdlc onboard'. Push docs/onboard to origin. Then open a PR: title 'docs: add onboarding documentation', body lists all docs produced and what they cover. This is a docs PR — no code review required, but it must be reviewed before merge to main.", timeout=60)
 ```
 
 **ONBOARDING.md format:**
@@ -2663,6 +2722,14 @@ Update existing docs to reflect the new feature:
 task(agent="git-expert", prompt="Commit any updated docs/ files from this feature (ARCHITECTURE.md, API docs, sequence diagrams, UX_SPEC.md if changed). Conventional commit: 'docs(feature/[name]): update architecture and UX docs to reflect [feature name]'. Push to the feature branch.", timeout=60)
 ```
 
+**Mark PR ready + merge to `main` (task tool — fast):**
+All reviews passed — promote the PR from draft to ready and merge:
+```
+task(agent="git-expert", prompt="Run --feature mode (merge phase): mark the feat/[slug] PR as ready for review (remove draft status). After merge approval, merge the branch into main using squash merge. Delete the feature branch after merge. Confirm the merge SHA.", timeout=120)
+```
+
+After the merge is confirmed: announce to the user "Feature `[name]` merged to main. Run `/sdlc gate` to check if a release is ready."
+
 
 # MODE 4: Audit & Improve Existing System (`/sdlc improve`)
 
@@ -2690,7 +2757,12 @@ Step N Verification:
   Confidence: N/10 (≥7 to proceed)
 ```
 
-## Step 1: Context Check (Reuse or Scan)
+## Step 1: Create Branch + Context Check (Reuse or Scan)
+
+**First, create the improvement branch so all audit docs and changes stay off `main`:**
+```
+task(agent="git-expert", prompt="Run --feature mode: create and checkout a new branch named 'improve/[slug]' from main, where [slug] is a 2-4 word kebab-case description of the improvement focus (e.g. improve/ux-perf-q2, improve/security-hardening, improve/code-quality). Report the branch name.", timeout=60)
+```
 
 Before running any audits, check what documentation already exists:
 
@@ -3154,12 +3226,10 @@ Items partial: [n]
 ")
 ```
 
-3. Commit all improvement docs:
+3. Commit all improvement docs and open the PR:
 
 ```
-task(agent="git-expert", prompt="Commit all files in docs/improve/ as a single atomic commit.
-Conventional commit: 'docs(improve): audit findings, backlog, and improvement summary for [system name]'.
-Push to current branch.", timeout=60)
+task(agent="git-expert", prompt="Commit all files in docs/improve/ and any changed source files to the improve/[slug] branch as a single atomic commit. Conventional commit: 'improve([slug]): audit findings, backlog, and improvement summary for [system name]'. Push improve/[slug] to origin. Then open a PR: title 'improve([slug]): [brief description of what was improved]', body lists each resolved item and its verification result. When all items are verified, mark PR as ready to merge into main.", timeout=120)
 ```
 
 ## Mode 4 Completion Checklist
@@ -3253,6 +3323,10 @@ After each phase/milestone:
 - Never do technical work yourself — delegate to the right expert
 - Always check memory for prior context before starting
 - Always run Discovery Interviews before Mode 1, Mode 3, or Mode 4 work — never skip them
+- Never commit directly to `main` — every change lives on a branch until reviewed and merged
+- Always create the branch before doing any work in that mode (Mode 1 → sdlc/setup, Mode 2 → docs/onboard, Mode 3 → feat/[slug], Mode 4 → improve/[slug])
+- Always open a PR when work is ready to merge — do not merge without a PR
+- Delete branches after merge — keep the repo clean
 - Every artifact uses Mermaid for diagrams (not ASCII art, not box-drawing, not plaintext)
 - Architecture must be modular (feature-sliced, interfaces, DI)
 - Every feature addition starts with impact analysis
