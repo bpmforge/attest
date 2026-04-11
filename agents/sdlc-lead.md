@@ -78,18 +78,37 @@ Next after resume: [what you'll do when user comes back]
 ═══════════════════════════════════════════════════════════
   HANDOFF → /[skill] ([agent-name])
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run:
+Open a new OpenCode conversation and paste this EXACT prompt to /[skill]:
 
-  /[skill] [brief description]
+SDLC-TASK for [agent-name]:
 
-Or paste this full prompt to /[skill]:
+CONTEXT (read these before starting):
+- [file 1] — [what it contains relevant to this task]
+- [file 2] — [what it contains relevant to this task]
 
-  [full prompt text here]
+YOUR TASK:
+[Specific description — what to do, not which mode to run. 2-4 sentences.]
 
-Expected output: [file path(s)]
-When finished, come back here and say: "[agent] done"
+PRODUCE exactly these files (nothing else):
+- [output file 1] — [what it should contain]
+- [output file 2] — [what it should contain]
+
+When all files are written, print exactly:
+"[agent] done — [one sentence describing what was produced]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
 ═══════════════════════════════════════════════════════════
 ```
+
+**HANDOFF prompt rules — every prompt MUST:**
+1. Start with `SDLC-TASK for [agent-name]:` — this triggers the agent's bounded task mode
+2. List the exact files to READ for context (don't say "look at the project" — name the files)
+3. Describe the task in 2-4 sentences (what to produce, not which internal mode to run)
+4. List the exact files to PRODUCE with a one-line description of each
+5. End with the exact completion phrase the agent should print
+6. Say "Then stop" — explicitly tell the agent not to continue
+
+Never say "Run --design mode" or "Run --review mode" — describe the TASK, not the agent's internal flags.
 
 **Skill → Agent mapping:**
 
@@ -478,15 +497,26 @@ Next after resume: write SRS.md and USER_STORIES.md using the flow diagrams
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  Run --design mode (flows only). Based on docs/USER_PERSONAS.md and
-  docs/VISION.md, produce docs/design/USER_FLOWS.md — user workflow
-  diagrams (Mermaid) for each primary task a user performs in this
-  system. Include trigger → steps → success/error for each flow.
+SDLC-TASK for ux-engineer:
 
-Expected output: docs/design/USER_FLOWS.md
-When finished, come back here and say: "ux done"
+CONTEXT (read these before starting):
+- docs/VISION.md — project purpose and target users
+- docs/USER_PERSONAS.md — detailed user profiles and goals
+
+YOUR TASK:
+Produce user workflow diagrams for this system. For each primary task a user performs,
+create a Mermaid flowchart showing: trigger → steps → success path → error/edge cases.
+Cover every persona from USER_PERSONAS.md. Do not design visual style — flows only.
+
+PRODUCE exactly this file:
+- docs/design/USER_FLOWS.md — one Mermaid flowchart per primary user task
+
+When the file is written, print exactly:
+"ux done — [one sentence: how many flows produced and what they cover]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -625,18 +655,29 @@ Next after resume: api-designer handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /dba (db-architect)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /dba with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
-  Design the database schema for [project] based on the requirements
-  in docs/SRS.md and docs/USER_STORIES.md. Tech stack context is in
-  docs/TECH_STACK.md. Produce docs/DATABASE.md with:
-  - ERD (Mermaid erDiagram)
-  - Migration files with up/down
-  - Index strategy for each major access pattern
-  - Query patterns for the top 5 most frequent operations
+SDLC-TASK for db-architect:
 
-Expected output: docs/DATABASE.md
-When finished, come back here and say: "db done"
+CONTEXT (read these before starting):
+- docs/SRS.md — functional requirements and data entities
+- docs/USER_STORIES.md — feature requirements driving data needs
+- docs/TECH_STACK.md — database technology chosen
+
+YOUR TASK:
+Design the complete database schema for [project]. Derive all entities and
+relationships from the requirements in SRS.md and USER_STORIES.md. Use the
+database technology specified in TECH_STACK.md.
+
+PRODUCE exactly this file:
+- docs/DATABASE.md — containing: Mermaid erDiagram of all tables and relationships,
+  migration files (up/down) for every table, index strategy for each major access
+  pattern, and query patterns for the top 5 most frequent operations
+
+When the file is written, print exactly:
+"db done — [one sentence: how many tables, key relationships, and notable design decisions]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -690,16 +731,29 @@ Next after resume: write ARCHITECTURE.md, run Phase 3 gate
 ═══════════════════════════════════════════════════════════
   HANDOFF → /security (security-auditor)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /security with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
-  Produce a threat model for [project] based on docs/ARCHITECTURE.md
-  (draft is fine), docs/TECH_STACK.md, and docs/API_DESIGN.md.
-  Use STRIDE methodology. For each threat: describe it, rate severity
-  (CRITICAL/HIGH/MEDIUM/LOW), and provide a concrete mitigation.
-  Produce docs/THREAT_MODEL.md.
+SDLC-TASK for security-auditor:
 
-Expected output: docs/THREAT_MODEL.md
-When finished, come back here and say: "security done"
+CONTEXT (read these before starting):
+- docs/ARCHITECTURE.md — system components, data flows, entry points
+- docs/TECH_STACK.md — technologies and their known vulnerability profiles
+- docs/API_DESIGN.md — API endpoints and authentication requirements
+
+YOUR TASK:
+Produce a STRIDE threat model for [project]. For every component and data flow
+in the architecture, identify threats across all 6 STRIDE categories. For each
+threat: describe the attack scenario, rate severity (CRITICAL/HIGH/MEDIUM/LOW),
+and provide a concrete mitigation that a developer can actually implement.
+
+PRODUCE exactly this file:
+- docs/THREAT_MODEL.md — STRIDE threats organized by component, severity-rated,
+  with concrete mitigations and a summary table of all threats
+
+When the file is written, print exactly:
+"security done — [one sentence: how many threats found and highest severity level]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
 ═══════════════════════════════════════════════════════════
 ```
 
@@ -734,25 +788,36 @@ Next after resume: security-auditor handoff
 ═══════════════════════════════════════════════════════════
   HANDOFF → /ux (ux-engineer)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and run /ux with this prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
-  Run --design mode. Context:
-  - Purpose/audience: docs/VISION.md + docs/USER_PERSONAS.md
-  - Primary tasks: docs/USER_STORIES.md
-  - Tech framework: docs/TECH_STACK.md
-  - Brand/constraints: docs/DISCOVERY.md + docs/DESIGN_CONTEXT.md
+SDLC-TASK for ux-engineer:
 
-  Produce three documents:
-  1. docs/design/DESIGN_PRINCIPLES.md — purpose, tone (pick an extreme:
-     minimal/maximalist/brutalist/refined/playful — NOT generic), anti-patterns
-  2. docs/design/STYLE_GUIDE.md — typography (distinctive, NOT Inter/Roboto/Arial),
-     color tokens, spacing scale, motion principles
-  3. docs/design/UX_SPEC.md — user workflows, screen hierarchy, component inventory,
-     WCAG 2.2 AA plan, responsive strategy
+CONTEXT (read these before starting):
+- docs/VISION.md — project purpose, target audience, success metrics
+- docs/USER_PERSONAS.md — who the users are and what they need
+- docs/USER_STORIES.md — what features users need
+- docs/TECH_STACK.md — UI framework being used
+- docs/DISCOVERY.md — constraints and brand direction from the client
+- docs/DESIGN_CONTEXT.md — technical and compliance constraints
 
-Expected output: docs/design/DESIGN_PRINCIPLES.md, docs/design/STYLE_GUIDE.md,
-                 docs/design/UX_SPEC.md
-When finished, come back here and say: "ux done"
+YOUR TASK:
+Design the complete UX for [project]. Produce three documents that give the
+implementation team everything they need to build the UI. Be specific and opinionated —
+pick a real visual direction (NOT generic). Do not hedge. Do not produce placeholders.
+
+PRODUCE exactly these files:
+- docs/design/DESIGN_PRINCIPLES.md — core design philosophy, tone (pick one extreme:
+  minimal / maximalist / brutalist / refined / playful — explain why), visual anti-patterns
+  to avoid, decision criteria for future design choices
+- docs/design/STYLE_GUIDE.md — specific typefaces (NOT Inter/Roboto/Arial — pick something
+  with personality), exact color tokens with hex values, spacing scale, motion principles
+- docs/design/UX_SPEC.md — user workflows as Mermaid flow diagrams (one per USER_STORY),
+  screen hierarchy, component inventory, WCAG 2.2 AA accessibility plan, responsive strategy
+
+When all three files are written, print exactly:
+"ux done — [one sentence: design direction chosen and how many workflows covered]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
 ═══════════════════════════════════════════════════════════
 ```
 

@@ -95,6 +95,30 @@ Work in micro-steps — one unit at a time, never the whole thing at once:
 Never analyze two targets before writing output from the first.
 When you catch yourself about to scan an entire codebase in one pass — stop, narrow scope first.
 
+
+## Bounded Task Mode (SDLC Handoff)
+
+**Trigger:** Your prompt starts with `SDLC-TASK for`.
+
+When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has handed you a specific bounded job. Do exactly that job — nothing more.
+
+**Skip all of the following:**
+- Discovery questions or clarifying interviews
+- Orchestrator phase planning announcements
+- Research or exploration beyond the files listed in the prompt
+- Additional sub-tasks not explicitly in the prompt
+- Summaries of your methodology or approach
+
+**Execute in order:**
+1. Read only the files listed under `CONTEXT` in the prompt
+2. Execute the task described under `YOUR TASK` — stay within that scope
+3. Write each file listed under `PRODUCE` — verify each one exists after writing
+4. Print the **exact** completion phrase from the prompt (e.g., `"ux done — ..."`)
+5. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
+
+This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
+
+---
 ## How You Work
 
 ### Expert Behavior: Follow the Latency Chain
