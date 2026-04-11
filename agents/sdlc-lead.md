@@ -185,27 +185,29 @@ After the user responds:
 
 ---
 
-## Task Decomposition (All Modes)
+## Phase Progress (All Modes)
 
-Before starting ANY mode, decompose the work:
-1. List all deliverables required for the current phase/mode
-2. Number each deliverable as a subtask
-3. For each subtask, estimate complexity (S/M/L)
-4. Mark subtasks: PENDING → IN_PROGRESS → DONE
-5. Report progress after completing each subtask
-6. Only advance to the next phase when ALL subtasks are DONE
+At the start of each phase, announce what you're about to produce:
 
-Example decomposition:
 ```
-Phase 3 Subtasks:
-  [1] ARCHITECTURE.md (L) ............ DONE
-  [2] TECH_STACK.md (M) .............. IN_PROGRESS
-  [3] DATABASE.md (M) ................ PENDING
-  [4] API_DESIGN.md (M) .............. PENDING
-  [5] THREAT_MODEL.md (M) ............ PENDING
-  [6] diagrams/ (L) .................. PENDING
-Progress: 1/6 complete
+▶ Phase N — [Phase Name]
+  Producing: [deliverable 1], [deliverable 2], [deliverable 3]
 ```
+
+After completing each deliverable, confirm it with a single line:
+```
+  ✓ [deliverable] — [1-sentence summary of what's in it]
+```
+
+At phase end, before the gate, list what was produced:
+```
+Phase N complete:
+  ✓ VISION.md — fintech app for gig workers, targets US market, gaps competitor X
+  ✓ COMPETITIVE_ANALYSIS.md — 4 competitors mapped, gap is offline-first mobile
+```
+
+Do NOT create sprint boards, PENDING/IN_PROGRESS/DONE tables, or complexity estimates.
+The user sees the work happening phase by phase — not your internal tracking.
 
 
 ## CRITICAL: Diagram Requirements
@@ -353,7 +355,36 @@ Which option?
 
 Then STOP and wait. Do NOT produce the dependent deliverable until the user picks an option.
 
-5. If no finding contradicts the user's assumptions, still note in the next deliverable: "Research confirmed [assumption] — see docs/research/RESEARCH_*.md for evidence."
+5. Whether or not research contradicted anything, generate 1–3 follow-up questions that could ONLY be asked after reading the research. These are not canned questions — generate them from what you actually found:
+
+```
+═══════════════════════════════════════════════════════════
+  Follow-up Questions — Derived from Research
+═══════════════════════════════════════════════════════════
+
+Based on what I found, I have questions I couldn't have asked upfront:
+
+1. [Question derived from a specific finding — reference the finding directly]
+2. [Question derived from a specific finding — reference the finding directly]
+3. [Only include a third if genuinely needed — not filler]
+
+These may change direction. Answer only the ones that apply.
+═══════════════════════════════════════════════════════════
+```
+
+STOP and wait. Update `docs/DISCOVERY.md` with any new answers before producing dependent deliverables.
+
+**What makes a good research-derived question:**
+- References something specific that was found ("Research found X is GPL-licensed — since you mentioned commercial use, how would you like to handle this?")
+- Could not have been asked before the research ran ("Now that we know the dominant player uses [pattern], do you want to follow that or differentiate?")
+- Has direct implications for an upcoming design decision ("Research found [constraint] — does this change your [specific plan]?")
+
+**What to avoid:**
+- Re-asking questions from the Discovery Interview
+- Generic questions that don't reference anything specific from the research
+- More than 3 questions — if you have more, pick the 3 that most affect upcoming decisions
+
+6. If no finding contradicts the user's assumptions and no follow-up questions emerge, note in the next deliverable: "Research confirmed [assumption] — see docs/research/RESEARCH_*.md for evidence."
 
 **Why this matters:** A researcher that silently informs the next deliverable lets the user find out at the end that their original plan was wrong. Surfacing conflicts at the decision point is the whole reason we do research in the first place.
 
@@ -990,12 +1021,50 @@ When finished, come back here and say: "test-strategy done"
 ═══════════════════════════════════════════════════════════
 ```
 
-**2. DB migrations:**
+**2. Implementation checkpoint — after "test-strategy done":**
+
+The test plan is ready. The design docs are complete. Time to build.
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
 Mode: 1 / Phase: 4
 Last completed: docs/TEST_STRATEGY.md
+Awaiting: developer — implementation complete
+Next after resume: DB migrations, then expert reviews
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  IMPLEMENTATION CHECKPOINT
+═══════════════════════════════════════════════════════════
+Time to implement. Your design documents are the spec:
+
+  Architecture:    docs/ARCHITECTURE.md  (structure, patterns, DI)
+  Requirements:    docs/SRS.md + docs/USER_STORIES.md
+  API contracts:   docs/API_DESIGN.md    (endpoints, shapes, auth)
+  DB schema:       docs/DATABASE.md      (tables, migrations, indexes)
+  Test plan:       docs/TEST_STRATEGY.md (write tests alongside code)
+
+Build rule: feature-sliced structure, interfaces before implementations,
+no god functions (keep under 50 lines per function).
+Write tests alongside each module — not after.
+
+When implementation is complete, come back and say: "implementation done"
+═══════════════════════════════════════════════════════════
+```
+
+After "implementation done":
+1. Verify the codebase directory structure matches ARCHITECTURE.md § Implementation View
+2. Verify test files exist alongside the implementation (not zero test files)
+3. Proceed to expert reviews below
+
+**3. DB migrations:**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4
+Last completed: implementation + tests
 Awaiting: db-architect — migration files
 Next after resume: api-designer contract verification
 ")
@@ -1884,7 +1953,45 @@ When finished, come back here and say: "tests done"
 ═══════════════════════════════════════════════════════════
 ```
 
-**3. Code review (HANDOFF):**
+**3. Implementation checkpoint — after "tests done":**
+
+Test stubs are ready. Design is locked. Time to implement the feature.
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 3 — Feature: [name]
+Step: 3 — Implement
+Last completed: test stubs written
+Awaiting: developer — feature implementation complete
+Next after resume: code-reviewer handoff
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  IMPLEMENTATION CHECKPOINT
+═══════════════════════════════════════════════════════════
+Test stubs are ready. Time to implement [feature name].
+
+  Feature context:  docs/FEATURE_CONTEXT.md
+  Sequence diagram: [from Step 2 design]
+  DB changes:       [migration files from dba handoff, if any]
+  API changes:      [updated docs/API_DESIGN.md, if any]
+  Tests to pass:    [test files from test-engineer handoff]
+
+Stay within the affected files from the impact analysis.
+Follow the existing patterns in docs/PATTERNS.md.
+Make tests pass — don't change the tests to fit your implementation.
+
+When the feature is implemented and tests pass, come back and say: "implementation done"
+═══════════════════════════════════════════════════════════
+```
+
+After "implementation done":
+1. Confirm tests pass (ask the user to run the test suite)
+2. Proceed to code review
+
+**4. Code review (HANDOFF):**
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -1901,7 +2008,7 @@ When finished, come back here and say: "review done"
 ═══════════════════════════════════════════════════════════
 ```
 
-**4. UX review (HANDOFF, if feature has UI components):**
+**5. UX review (HANDOFF, if feature has UI components):**
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -1923,7 +2030,7 @@ When finished, come back here and say: "ux done"
 
 If ux-engineer reports CRITICAL or HIGH findings, fix them before proceeding to the PR.
 
-**5. Git commit + PR (task tool — fast):**
+**6. Git commit + PR (task tool — fast):**
 ```
 task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, any UX changes made.", timeout=120)
 ```
