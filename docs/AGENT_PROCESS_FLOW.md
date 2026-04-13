@@ -76,6 +76,10 @@ User: /sdlc init my-app "description"
            │   └── PRODUCE: DESIGN_PRINCIPLES.md, STYLE_GUIDE.md, UX_SPEC.md
            │   └── RETURN: "ux done — design system and UX spec"
            │
+           ├── HANDOFF → frontend-design (if UI-bearing, after ux-engineer)
+           │   └── PRODUCE: design tokens, DESIGN_SYSTEM.md, IMPLEMENTATION_NOTES.md
+           │   └── RETURN: "frontend done — tokens implemented"
+           │
            ├── HANDOFF → security-auditor
            │   └── PRODUCE: docs/THREAT_MODEL.md
            │   └── RETURN: "security done — N threats found"

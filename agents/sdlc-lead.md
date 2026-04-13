@@ -160,6 +160,7 @@ Never say "Run --design mode" or "Run --review mode" — describe the TASK, not 
 | `/perf`       | `performance-engineer` |
 | `/containers` | `container-ops`        |
 | `/git-expert` | `git-expert`           |
+| `/frontend`   | `frontend-design`      |
 
 ### Resuming after a HANDOFF
 
@@ -1033,6 +1034,48 @@ After "ux done":
    - 5–6 → iterate (max 3 passes) — describe gap explicitly in follow-up handoff
    - ≥ 7 on all three → pass
 4. Run Inter-Phase Check-In Protocol for the UX deliverables specifically before proceeding
+
+**After UX passes — HANDOFF to frontend-design for visual implementation:**
+
+If ux-engineer produced DESIGN_PRINCIPLES.md, STYLE_GUIDE.md, and UX_SPEC.md,
+the visual design is specified but not implemented. Hand off to frontend-design:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /frontend (frontend-design)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
+
+SDLC-TASK for frontend-design:
+
+CONTEXT (read these before starting):
+- docs/design/DESIGN_PRINCIPLES.md — aesthetic direction and anti-patterns
+- docs/design/STYLE_GUIDE.md — typography, color tokens, spacing, motion
+- docs/design/UX_SPEC.md — component inventory and screen hierarchy
+- docs/TECH_STACK.md — UI framework and component library
+
+YOUR TASK:
+Implement the design system from the UX specs. Create or update the design
+token file (Tailwind config, theme.ts, or CSS custom properties), implement
+the typography scale, color palette, and spacing system. Apply to 3
+representative components as examples.
+
+PRODUCE exactly these files:
+- Updated theme/token files matching STYLE_GUIDE.md specifications
+- docs/design/DESIGN_SYSTEM.md — token inventory, naming convention, example usage
+- docs/design/IMPLEMENTATION_NOTES.md — what was implemented, before/after
+
+Include a Completion Manifest.
+
+When all files are written, print exactly:
+"frontend done — [one sentence: tokens implemented, components styled]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+This is optional in Phase 3 (design phase) — the full visual implementation happens
+in Phase 4 after the codebase exists. But establishing the token layer early gives
+implementation a clear starting point.
 
 **If NOT UI-bearing** (pure backend API, CLI tool, library, data pipeline): skip the UX branch. Note "No UI — UX branch not applicable" in ARCHITECTURE.md § Logical View.
 
