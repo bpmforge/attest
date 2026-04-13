@@ -6,20 +6,24 @@ set -e
 #   ./install.sh              Install globally to ~/.config/opencode/
 #   ./install.sh --project    Install to current project's .opencode/
 #   ./install.sh --link       Symlink instead of copy (for development)
+#   ./install.sh --semgrep    Also install Semgrep binary + community rules
 #   ./install.sh --uninstall  Remove installed files
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
+SEMGREP_CACHE="$HOME/.semgrep/rules"
 
 MODE="global"
 METHOD="copy"
+INSTALL_SEMGREP=false
 
 for arg in "$@"; do
   case $arg in
-    --project)  MODE="project" ;;
-    --link)     METHOD="link" ;;
-    --uninstall) MODE="uninstall" ;;
+    --project)    MODE="project" ;;
+    --link)       METHOD="link" ;;
+    --uninstall)  MODE="uninstall" ;;
+    --semgrep)    INSTALL_SEMGREP=true ;;
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
       echo ""
@@ -27,6 +31,7 @@ for arg in "$@"; do
       echo "  ./install.sh              Install globally to ~/.config/opencode/"
       echo "  ./install.sh --project    Install to .opencode/ in current directory"
       echo "  ./install.sh --link       Symlink instead of copy (for development)"
+      echo "  ./install.sh --semgrep    Also install Semgrep + community rule repos"
       echo "  ./install.sh --uninstall  Remove installed files"
       exit 0
       ;;
@@ -35,11 +40,13 @@ done
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing BPM OpenCode Experts..."
-  for dir in agents skills commands references; do
+  for dir in agents skills commands references tools hooks scripts; do
     rm -rf "$GLOBAL_DIR/$dir"
     rm -rf "$PROJECT_DIR/$dir"
   done
   echo "Done. Removed from both global and project locations."
+  echo "Note: ~/.semgrep/rules/ community rule cache was NOT removed."
+  echo "      Remove manually if desired:  rm -rf ~/.semgrep/rules/"
   exit 0
 fi
 
@@ -48,6 +55,8 @@ if [ "$MODE" = "project" ]; then
 else
   DEST="$GLOBAL_DIR"
 fi
+
+mkdir -p "$DEST"
 
 echo "Installing BPM OpenCode Experts to $DEST/"
 echo "Method: $METHOD"
@@ -82,11 +91,35 @@ for dir in $DIRS; do
   fi
 done
 
-# Install package.json for tools (needed for @opencode-ai/plugin)
+# --- Install audit scripts globally ---
+# Copy the Semgrep audit scripts so they're usable from ~/.config/opencode/scripts/
+# without needing the repo clone on PATH.
+if [ "$MODE" = "global" ]; then
+  if [ -d "$SCRIPT_DIR/scripts" ]; then
+    if [ -d "$DEST/scripts" ]; then
+      rm -rf "$DEST/scripts"
+    fi
+    if [ "$METHOD" = "link" ]; then
+      ln -sf "$SCRIPT_DIR/scripts" "$DEST/scripts"
+      echo "  Linked scripts/ → $DEST/scripts/"
+    else
+      cp -r "$SCRIPT_DIR/scripts" "$DEST/scripts"
+      chmod +x "$DEST/scripts/"*.sh 2>/dev/null || true
+      count=$(find "$DEST/scripts" -type f | wc -l | tr -d ' ')
+      echo "  Copied scripts/ ($count files) → $DEST/scripts/"
+    fi
+  fi
+fi
+
+# Install package.json + package-lock.json for tools (needed for @opencode-ai/plugin)
 if [ "$MODE" = "global" ] && [ "$METHOD" != "link" ]; then
   if [ -f "$SCRIPT_DIR/package.json" ] && [ ! -f "$DEST/package.json" ]; then
     cp "$SCRIPT_DIR/package.json" "$DEST/package.json"
     echo "  Copied package.json → $DEST/package.json"
+  fi
+  # Copy lockfile to ensure reproducible install
+  if [ -f "$SCRIPT_DIR/package-lock.json" ]; then
+    cp "$SCRIPT_DIR/package-lock.json" "$DEST/package-lock.json"
   fi
   # Install tool dependencies if npm is available
   if command -v npm &>/dev/null && [ -f "$DEST/package.json" ]; then
@@ -153,20 +186,211 @@ CONFIGEOF
   echo "  Created $CONFIG_FILE with Context7 MCP configured"
 fi
 
-# --- Semgrep Check ---
-echo ""
+# --- Semgrep Setup ---
 echo "Checking for Semgrep (security scanning)..."
+
+SEMGREP_OK=false
+SEMGREP_VERSION=""
+
 if command -v semgrep &>/dev/null; then
-  echo "  Semgrep $(semgrep --version 2>/dev/null | head -1) — installed ✓"
+  SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1)
+  echo "  Semgrep $SEMGREP_VERSION — installed ✓"
+  SEMGREP_OK=true
 else
-  echo "  Semgrep not installed. The /security agent works best with Semgrep."
-  echo "  Install with:  brew install semgrep  (macOS)"
-  echo "             or:  pip install semgrep   (any platform)"
-  echo "  The agent will offer to install it when you run /security."
+  echo "  Semgrep not found."
+  if [ "$INSTALL_SEMGREP" = true ]; then
+    # --semgrep flag: auto-install without prompting
+    echo "  Installing Semgrep (--semgrep flag set)..."
+    if command -v brew &>/dev/null; then
+      brew install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
+        && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
+        || echo "  ⚠️ brew install semgrep failed — install manually"
+    elif command -v pip3 &>/dev/null; then
+      pip3 install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
+        && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
+        || echo "  ⚠️ pip3 install semgrep failed — install manually"
+    elif command -v pip &>/dev/null; then
+      pip install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
+        && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
+        || echo "  ⚠️ pip install semgrep failed — install manually"
+    else
+      echo "  ⚠️ Neither brew nor pip found. Install manually:"
+      echo "       brew install semgrep    (macOS)"
+      echo "       pip install semgrep     (any platform)"
+    fi
+  else
+    # No flag — detect if interactive TTY and prompt
+    if [ -t 0 ] && [ -t 1 ]; then
+      echo ""
+      echo "  The /security agent requires Semgrep for automated scanning."
+      printf "  Install Semgrep now? [Y/n] "
+      read -r semgrep_confirm </dev/tty
+      if [[ ! "$semgrep_confirm" =~ ^[Nn] ]]; then
+        if command -v brew &>/dev/null; then
+          echo "  Running: brew install semgrep"
+          brew install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
+            && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
+            || echo "  ⚠️ brew install failed — install manually: brew install semgrep"
+        elif command -v pip3 &>/dev/null; then
+          echo "  Running: pip3 install semgrep"
+          pip3 install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
+            && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
+            || echo "  ⚠️ pip3 install failed — install manually: pip3 install semgrep"
+        else
+          echo "  ⚠️ Neither brew nor pip found. Install manually:"
+          echo "       brew install semgrep    (macOS)"
+          echo "       pip install semgrep     (any platform)"
+        fi
+      else
+        echo "  Skipped. Install later: brew install semgrep"
+      fi
+    else
+      # Non-interactive (piped install) — print instructions, don't prompt
+      echo "  ⚠️ Semgrep not installed. The /security agent works best with Semgrep."
+      echo "     Install: brew install semgrep  (macOS)"
+      echo "              pip install semgrep   (any platform)"
+      echo "     Or re-run: ./install.sh --semgrep  (auto-installs)"
+    fi
+  fi
+fi
+
+# --- Semgrep community rules setup ---
+echo ""
+echo "Checking Semgrep community rules (~/.semgrep/rules/)..."
+
+# Ensure the cache directory exists (primes the path even if rules not cloned yet)
+mkdir -p "$SEMGREP_CACHE"
+
+COMMUNITY_STATUS=""
+COMMUNITY_SOURCES=(trailofbits elttam gitlab 0xdea)
+missing_sources=()
+found_sources=()
+
+for src in "${COMMUNITY_SOURCES[@]}"; do
+  if [ -d "$SEMGREP_CACHE/$src/.git" ]; then
+    commit=$(git -C "$SEMGREP_CACHE/$src" rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    found_sources+=("$src ($commit)")
+  else
+    missing_sources+=("$src")
+  fi
+done
+
+if [ ${#found_sources[@]} -gt 0 ]; then
+  echo "  Cached: ${found_sources[*]}"
+fi
+
+if [ ${#missing_sources[@]} -gt 0 ]; then
+  echo "  Missing: ${missing_sources[*]}"
+fi
+
+if [ ${#missing_sources[@]} -gt 0 ]; then
+  if [ "$INSTALL_SEMGREP" = true ] && [ "$SEMGREP_OK" = true ]; then
+    # --semgrep flag + semgrep is installed: clone missing sources automatically
+    echo "  Cloning missing community rule sources (--semgrep flag set)..."
+    if [ -f "$DEST/scripts/update-semgrep-rules.sh" ]; then
+      bash "$DEST/scripts/update-semgrep-rules.sh" \
+        && echo "  Community rules cloned ✓" \
+        || echo "  ⚠️ Some community rule sources failed — check output above"
+    elif [ -f "$SCRIPT_DIR/scripts/update-semgrep-rules.sh" ]; then
+      bash "$SCRIPT_DIR/scripts/update-semgrep-rules.sh" \
+        && echo "  Community rules cloned ✓" \
+        || echo "  ⚠️ Some community rule sources failed — check output above"
+    else
+      echo "  ⚠️ update-semgrep-rules.sh not found — clone manually:"
+      echo "     git clone --depth 1 https://github.com/trailofbits/semgrep-rules $SEMGREP_CACHE/trailofbits"
+      echo "     git clone --depth 1 https://github.com/elttam/semgrep-rules       $SEMGREP_CACHE/elttam"
+      echo "     git clone --depth 1 https://gitlab.com/gitlab-org/security-products/sast-rules $SEMGREP_CACHE/gitlab"
+      echo "     git clone --depth 1 https://github.com/0xdea/semgrep-rules        $SEMGREP_CACHE/0xdea"
+    fi
+  elif [ -t 0 ] && [ -t 1 ] && [ "$SEMGREP_OK" = true ]; then
+    # Interactive + semgrep installed: prompt
+    echo ""
+    echo "  Community rules (Trail of Bits, elttam, GitLab, 0xdea) give the"
+    echo "  /security agent highest-signal coverage. Each repo is ~10-50 MB."
+    printf "  Clone missing community rule sources now? [Y/n] "
+    read -r rules_confirm </dev/tty
+    if [[ ! "$rules_confirm" =~ ^[Nn] ]]; then
+      if [ -f "$DEST/scripts/update-semgrep-rules.sh" ]; then
+        bash "$DEST/scripts/update-semgrep-rules.sh" \
+          && echo "  Community rules cloned ✓" \
+          || echo "  ⚠️ Some community rule sources failed — check output above"
+      elif [ -f "$SCRIPT_DIR/scripts/update-semgrep-rules.sh" ]; then
+        bash "$SCRIPT_DIR/scripts/update-semgrep-rules.sh" \
+          && echo "  Community rules cloned ✓" \
+          || echo "  ⚠️ Some community rule sources failed — check output above"
+      fi
+    else
+      echo "  Skipped. Run later:  $DEST/scripts/update-semgrep-rules.sh"
+    fi
+  else
+    # Non-interactive or semgrep not installed: print instructions
+    if [ "$SEMGREP_OK" = false ]; then
+      echo "  ℹ️  Install Semgrep first, then run:  $DEST/scripts/update-semgrep-rules.sh"
+    else
+      echo "  ℹ️  Run later:  $DEST/scripts/update-semgrep-rules.sh"
+      echo "      Or re-run:  ./install.sh --semgrep  (auto-clones everything)"
+    fi
+  fi
+else
+  echo "  All 4 community rule sources present ✓"
 fi
 
 echo ""
 echo "Installation complete!"
+echo ""
+
+# --- Status summary ---
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "  Status"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Agents / skills / commands
+agent_count=$(find "$DEST/agents" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+skill_count=$(find "$DEST/skills" -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+echo "  ✓  Agents:  $agent_count installed → $DEST/agents/"
+echo "  ✓  Skills:  $skill_count installed → $DEST/skills/"
+
+# Scripts
+if [ -d "$DEST/scripts" ]; then
+  script_count=$(find "$DEST/scripts" -type f | wc -l | tr -d ' ')
+  echo "  ✓  Scripts: $script_count installed → $DEST/scripts/"
+else
+  echo "  ⚠️  Scripts: not installed (project-mode only)"
+fi
+
+# npm tools
+if [ -d "$DEST/node_modules" ]; then
+  echo "  ✓  npm tools: node_modules present"
+else
+  echo "  ⚠️  npm tools: run 'cd $DEST && npm install'"
+fi
+
+# MCP
+if [ -f "$GLOBAL_DIR/opencode.json" ] && grep -q "context7" "$GLOBAL_DIR/opencode.json" 2>/dev/null; then
+  echo "  ✓  MCP: Context7 configured"
+else
+  echo "  ⚠️  MCP: Context7 not configured — check $GLOBAL_DIR/opencode.json"
+fi
+
+# Semgrep binary
+if [ "$SEMGREP_OK" = true ]; then
+  echo "  ✓  Semgrep: $SEMGREP_VERSION"
+else
+  echo "  ⚠️  Semgrep: not installed — run: brew install semgrep"
+fi
+
+# Community rules
+total_sources=${#COMMUNITY_SOURCES[@]}
+cached_sources=$(( total_sources - ${#missing_sources[@]} ))
+if [ ${#missing_sources[@]} -eq 0 ]; then
+  echo "  ✓  Community rules: all $total_sources sources cached (~/.semgrep/rules/)"
+elif [ $cached_sources -gt 0 ]; then
+  echo "  ⚠️  Community rules: $cached_sources/$total_sources sources cached — run: $DEST/scripts/update-semgrep-rules.sh"
+else
+  echo "  ⚠️  Community rules: none cached — run: $DEST/scripts/update-semgrep-rules.sh"
+fi
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Available commands:"
 echo "  /sdlc init <name> \"<desc>\"  — Start new project"
@@ -198,25 +422,26 @@ echo ""
 echo "MCP Servers configured:"
 echo "  Context7 — Live library documentation lookup (auto-configured)"
 echo ""
+echo "Semgrep audit scripts (installed to $DEST/scripts/):"
+echo "  update-semgrep-rules.sh              Clone/update community rule repos"
+echo "  update-semgrep-rules.sh --bump       Pull latest + write lock file"
+echo "  update-semgrep-rules.sh --test       Verify working subdirs per source"
+echo "  semgrep-full-audit.sh                Deep audit (all community + framework rules)"
+echo "  semgrep-full-audit.sh --fast         CI-tier scan (< 60s)"
+echo "  semgrep-full-audit.sh --autofix      OPT-IN autofix (LOW/WARNING only)"
+echo "  Community rules cache: ~/.semgrep/rules/"
+echo ""
 echo "Optional: Copy AGENTS.md to your project root:"
 echo "  cp $SCRIPT_DIR/examples/AGENTS.md ./AGENTS.md"
 echo ""
 echo "Optional: Get SDLC phase context before starting a session:"
-echo "  ./scripts/sdlc-context.sh            Print current phase + blockers"
-echo "  ./scripts/sdlc-context.sh --update   Auto-update AGENTS.md with phase context"
+echo "  $DEST/scripts/sdlc-context.sh            Print current phase + blockers"
+echo "  $DEST/scripts/sdlc-context.sh --update   Auto-update AGENTS.md with phase context"
 echo ""
 echo "Optional: Install MemPalace for persistent memory across sessions:"
-echo "  ./scripts/install-mempalace.sh       Verbatim conversation recall + KG"
+echo "  $DEST/scripts/install-mempalace.sh       Verbatim conversation recall + KG"
 echo "  (96.6% LongMemEval R@5 in raw mode, fully offline — highly recommended"
 echo "   for local LLMs which have no memory between sessions)"
-echo ""
-echo "Optional: Install community Semgrep rule sources for deep security audits:"
-echo "  ./scripts/update-semgrep-rules.sh              Clone Trail of Bits, elttam, GitLab, 0xdea rules"
-echo "  ./scripts/update-semgrep-rules.sh --bump       Pull latest + write .semgrep/community-rules.lock"
-echo "  ./scripts/update-semgrep-rules.sh --verify     Verify cached rules match pinned commits"
-echo "  ./scripts/semgrep-full-audit.sh                Run full audit with all community + framework rules"
-echo "  ./scripts/semgrep-full-audit.sh --fast         CI-tier scan (< 60s)"
-echo "  ./scripts/semgrep-full-audit.sh --autofix      OPT-IN autofix (LOW/WARNING only, refuses HIGH/CRITICAL)"
 echo ""
 echo "Optional: Get a free Context7 API key for higher rate limits:"
 echo "  https://context7.com/dashboard"
