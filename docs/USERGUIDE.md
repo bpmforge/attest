@@ -91,7 +91,7 @@ Every expert writes its output to a predictable location under `docs/`:
 | `researcher` | `docs/research/` |
 | `sdlc-lead` | `docs/` (VISION.md, SCOPE.md, etc. per phase) |
 | `test-engineer` | `docs/test/` |
-| `performance-engineer` | `docs/perf/` |
+| `performance-engineer` | `docs/PERFORMANCE_REPORT.md` + `docs/performance/PERF_TRACKER.md` |
 | `db-architect` | `docs/db/` |
 | `ux-engineer` | `docs/design/` |
 
@@ -276,15 +276,41 @@ Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`
 Reference: `references/playwright-config.md`. Output: `docs/test/`.
 
 ### `/perf`
-Modes: `--profile`, `--benchmark`, `--optimize`
 
 ```
+/perf                           # full 7-phase profiling run (understand → static analysis → profile → fix → verify → document)
 /perf --profile                 # profile current state, flame graph, hot paths
 /perf --benchmark               # measure vs NFR targets
-/perf --optimize src/pipeline/  # optimize a specific module (after profiling)
+/perf --optimize src/pipeline/  # optimize a specific module (profile first)
 ```
 
-Never optimizes without measuring first. Output: `docs/perf/`.
+**What it does:**
+
+1. **Phase 1 — Understand the problem** — reads CLAUDE.md, checks for prior reports, quantifies the complaint ("slow" → specific operation + P95 latency target). Initializes `docs/performance/PERF_TRACKER.md` — a persistent session tracker that survives context loss.
+
+2. **Phase 1b — Static analysis** — detects anti-patterns without running the code. Starts by enumerating all source files (`find . -type f ...`) so it knows the full scope. Then runs 5 targeted grep scans:
+   - O(n²) nested loops — `.find()` inside `for`
+   - N+1 query patterns — DB call inside a loop
+   - `try/catch` performance anti-patterns (try/catch inside loops → V8 de-opt; exceptions as control flow; individual `await try/catch` blocking parallelism; double stack capture from re-throw after log)
+   - Blocking I/O in async paths (`readFileSync` etc. on the request path)
+   - Hot-path allocations (JSON.parse, object spread, string concat in loops)
+   
+   Every finding requires a `read()` of the exact lines — no findings from grep output alone. A **coverage confidence loop** after all 5 scans cross-checks grep coverage against the source file list, re-passes if < 7/10 confidence (max 3 attempts).
+
+3. **Phases 2–5** — profile → identify hotspot → fix → verify with before/after benchmarks.
+
+4. **Phase 6 — Full report** — writes `docs/PERFORMANCE_REPORT.md` with a mandatory template: executive summary, baseline measurements table, one block per static finding (verbatim code + loop bound + specific impact + concrete fix), profiler results, fix before/after code, final benchmark (P50/P95), regression check table, deferred backlog with effort/priority, data size thresholds, coverage verdict, handoffs recommended.
+
+**Output files:**
+- `docs/performance/PERF_TRACKER.md` — live session tracker (updated after every phase)
+- `docs/PERFORMANCE_REPORT.md` — final full report
+
+**Key rules:**
+- Static findings from Phase 1b are **suspects** — always confirmed with a profiler before being fixed
+- Phase 5 (verify-fix) uses a raised confidence threshold of 8/10 — a fix without before/after numbers is not verified
+- The confidence gate reads from `PERF_TRACKER.md`, not from context memory — safe to resume interrupted sessions
+
+**try/catch and performance** — the agent explicitly checks whether error-handling constructs are costing you performance, which is distinct from whether they're *correct* (that's `code-reviewer`'s job). If the same `try/catch` also swallows errors, the report will recommend a `code-reviewer` handoff for the correctness angle.
 
 ### `/dba`
 Modes: `--design`, `--migrate`, `--tune`, `--review`
