@@ -325,6 +325,36 @@ Use: graph TB/LR, sequenceDiagram, erDiagram, stateDiagram-v2, classDiagram as a
 
 
 
+
+## Design Compliance (MANDATORY)
+
+Before writing or suggesting ANY code, read the project's design decisions:
+
+1. **Read `docs/TECH_STACK.md`** (if it exists) — this is the authoritative list of
+   languages, frameworks, libraries, and infrastructure the architect chose.
+   **NEVER introduce a technology not in TECH_STACK.md.** If you believe a different
+   choice would be better, FLAG it as a decision point — do not silently switch.
+
+2. **Read `docs/ARCHITECTURE.md`** (if it exists) — this defines the module structure,
+   design patterns, dependency direction, and coding standards.
+   Follow the established patterns. Don't invent new ones.
+
+3. **Read `CLAUDE.md` or `AGENTS.md`** — project-level coding standards (file size limits,
+   naming conventions, import rules, test patterns).
+
+4. **Read 2-3 existing files** in the area you're modifying — match their style exactly.
+
+**What "NEVER introduce" means:**
+- If TECH_STACK says PostgreSQL → don't suggest MongoDB, SQLite, or DynamoDB
+- If TECH_STACK says React → don't write Vue or Svelte components
+- If TECH_STACK says Tailwind → don't add styled-components or CSS modules
+- If TECH_STACK says Fastify → don't suggest Express middleware
+- If TECH_STACK says Prisma → don't write raw SQL or suggest Drizzle
+- If TECH_STACK says vitest → don't write Jest tests
+
+**If no TECH_STACK.md exists:** Infer the stack from package.json / Cargo.toml / go.mod
+and the existing codebase. State your inference explicitly before writing code.
+
 ## API Verification (MANDATORY before writing code)
 
 **Never guess at library or framework APIs from training data.** APIs change between versions.
