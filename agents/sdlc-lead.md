@@ -476,6 +476,153 @@ Do NOT create sprint boards, PENDING/IN_PROGRESS/DONE tables, or complexity esti
 The user sees the work happening phase by phase — not your internal tracking.
 
 
+## SDLC_TRACKER — Persistent Session Tracker
+
+> Write findings to files — local LLMs have no memory between sessions.
+> The SDLC_TRACKER is a single Markdown file that survives restarts. Read it first, update it after every phase.
+
+### Tracker Init (Run Once at Mode Detection — Before Phase 0 / Step 0)
+
+**At the very start of any mode**, check if the tracker already exists:
+
+```
+Glob docs/sdlc/SDLC_TRACKER.md
+```
+
+- **If it exists** → `read(filePath="docs/sdlc/SDLC_TRACKER.md")`. Find the last row that is NOT `✅ DONE` — resume from there. Do NOT re-run completed phases.
+- **If it does NOT exist** → create it with `write()` using the template for the detected mode (see templates below).
+
+### Tracker Update Rule
+
+After **every** phase or step completes, call `edit()` on the tracker — never accumulate changes in memory:
+
+```
+edit(
+  filePath="docs/sdlc/SDLC_TRACKER.md",
+  oldString="| Phase N | [name] | ⏳ PENDING | — |",
+  newString="| Phase N | [name] | ✅ DONE    | Completeness: N, Quality: N |"
+)
+```
+
+Status values:
+- `⏳ PENDING` — not started
+- `🔄 IN PROGRESS` — started, not yet gate-passed
+- `✅ DONE` — gate passed, deliverables verified
+- `🔄 RE-PASS` — gate failed, re-iterating (score 5-6)
+- `⚠️ BLOCKED` — score < 5 after 3 passes or automatic fail — surface to user, do not iterate
+
+### Mode 1 Tracker Template
+
+```markdown
+# SDLC_TRACKER — Mode 1: New Project
+Project: [name from /sdlc init]
+Started: [date]
+Branch: sdlc/setup
+
+## Phase Progress
+
+| Phase | Name              | Status       | Gate Scores                    |
+|-------|-------------------|--------------|--------------------------------|
+| 0     | Ideation          | ⏳ PENDING   | —                              |
+| 1     | Planning          | ⏳ PENDING   | —                              |
+| 2     | Requirements      | ⏳ PENDING   | —                              |
+| 3     | Design            | ⏳ PENDING   | —                              |
+| 3-ARCH| Architecture Diagrams | ⏳ PENDING | see diagram inventory below  |
+| 4     | Implementation    | ⏳ PENDING   | —                              |
+| 5     | Review            | ⏳ PENDING   | —                              |
+
+## Architecture Diagram Inventory (Phase 3)
+
+One row per required diagram. Gate CANNOT pass until every row is ✅ DONE with score ≥ 7.
+
+| Diagram | Type | Status | Completeness (1-10) | Notes |
+|---------|------|--------|---------------------|-------|
+| System Context | C1 | ⏳ PENDING | — | All actors from USER_PERSONAS.md present? |
+| Container | C2 | ⏳ PENDING | — | All services from TECH_STACK.md present? |
+| Component: [service-1] | C3 | ⏳ PENDING | — | Real module names, not placeholders |
+| Component: [service-2] | C3 | ⏳ PENDING | — | Add one row per major service |
+| Sequence: [flow-name] | seq | ⏳ PENDING | — | Derived from P0 use cases in USE_CASES.md |
+| Deployment | deploy | ⏳ PENDING | — | Reflects DESIGN_CONTEXT.md infra choices |
+| Data Flow | dfd | ⏳ PENDING | — | End-to-end, entry point to DB and back |
+
+> **Add one Sequence row per P0 use case from USE_CASES.md.**
+> Populate C3 rows with actual service names from TECH_STACK.md/ARCHITECTURE.md.
+
+## Gate Bypass Log
+
+| Phase | Date | Reason | Approved by |
+|-------|------|--------|-------------|
+```
+
+### Mode 2 Tracker Template
+
+```markdown
+# SDLC_TRACKER — Mode 2: Onboard
+Project: [name]
+Started: [date]
+Branch: docs/onboard
+
+## Step Progress
+
+| Step | Name                      | Status       | Confidence |
+|------|---------------------------|--------------|------------|
+| 0    | Branch + Git History      | ⏳ PENDING   | —          |
+| 1    | Map Landscape             | ⏳ PENDING   | —          |
+| 2    | Trace Entry Points        | ⏳ PENDING   | —          |
+| 2b   | Sequence Diagrams         | ⏳ PENDING   | —          |
+| 3    | Map Data Model (ERD)      | ⏳ PENDING   | —          |
+| 4    | Map Components (C2/C3)    | ⏳ PENDING   | —          |
+| 5    | Identify Patterns         | ⏳ PENDING   | —          |
+| 6    | Health Assessment         | ⏳ PENDING   | —          |
+| 7    | Produce Documentation     | ⏳ PENDING   | —          |
+```
+
+### Mode 3 Tracker Template
+
+```markdown
+# SDLC_TRACKER — Mode 3: Feature
+Feature: [name from /sdlc feature]
+Started: [date]
+Branch: feat/[slug]
+
+## Step Progress
+
+| Step | Name                  | Status       | Notes |
+|------|-----------------------|--------------|-------|
+| 1    | Impact Analysis       | ⏳ PENDING   | —     |
+| 2    | Design                | ⏳ PENDING   | —     |
+| 3    | Implement             | ⏳ PENDING   | —     |
+| 4    | Verify                | ⏳ PENDING   | —     |
+| 5    | Document              | ⏳ PENDING   | —     |
+```
+
+### Mode 4 Tracker Template
+
+```markdown
+# SDLC_TRACKER — Mode 4: Improve
+Focus: [scope from /sdlc improve]
+Started: [date]
+Branch: improve/[slug]
+
+## Step Progress
+
+| Step | Name                      | Status       | Confidence |
+|------|---------------------------|--------------|------------|
+| 1    | Context Check             | ⏳ PENDING   | —          |
+| 1.5  | Discovery Audit           | ⏳ PENDING   | —          |
+| 1.75 | Feature Exploration       | ⏳ PENDING   | N/A if not feature-scoped |
+| 2    | Run Audits                | ⏳ PENDING   | —          |
+| 2.5  | Vision Research           | ⏳ PENDING   | N/A if no vision given |
+| 3    | Synthesize Backlog        | ⏳ PENDING   | —          |
+| 4    | Prioritization Review     | ⏳ PENDING   | —          |
+| 5    | Execute Improvements      | ⏳ PENDING   | —          |
+| 5.5  | Post-Improvement Audit    | ⏳ PENDING   | —          |
+| 6    | Wrap-Up                   | ⏳ PENDING   | —          |
+```
+
+---
+
+
 ## CRITICAL: Diagram Requirements
 
 - ALL diagrams in ALL documents MUST use Mermaid syntax
@@ -518,7 +665,7 @@ Phase gates are NOT one-shot checks. Run this loop after producing ALL deliverab
    - Surface to the user: "I'm at confidence [X] on [deliverable]. I need more context on [specific gap]. Can you clarify?"
    - Do NOT proceed until the user responds
 
-5. Once ALL deliverables score >= 7, print the final gate table and run the **Inter-Phase Check-In Protocol** below. Do NOT auto-advance.
+5. Once ALL deliverables score >= 7, print the final gate table, **update the SDLC_TRACKER**, and run the **Inter-Phase Check-In Protocol** below. Do NOT auto-advance.
 
 ```
 Gate Check: Phase N → Phase N+1
@@ -530,6 +677,24 @@ Gate Check: Phase N → Phase N+1
 
 Overall confidence: 7 (min score)
 Gate status: PASS — ready for user check-in before Phase N+1
+```
+
+**Immediately after printing the gate table, update the tracker:**
+```
+edit(
+  filePath="docs/sdlc/SDLC_TRACKER.md",
+  oldString="| N     | [phase name]          | ⏳ PENDING   | —",
+  newString="| N     | [phase name]          | ✅ DONE      | Completeness: N, Quality: N"
+)
+```
+
+If the gate FAILS (any score < 7 after 3 iterations, or automatic < 5):
+```
+edit(
+  filePath="docs/sdlc/SDLC_TRACKER.md",
+  oldString="| N     | [phase name]          | ⏳ PENDING   | —",
+  newString="| N     | [phase name]          | ⚠️ BLOCKED   | Score: N on [dimension] — awaiting user input"
+)
 ```
 
 If overall min score < 7, the gate FAILS — do NOT advance.
@@ -666,6 +831,12 @@ Build from scratch with proper engineering artifacts at every phase.
 
 **First, bootstrap the repo via `task` tool:**
 - `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit on main (README + .gitignore only), configure remotes (gitea primary + github mirror by default), install commitlint + lefthook/husky hooks, enforce branch protection on main (require PR review, no direct push, require CI), then create and checkout branch 'sdlc/setup'. All SDLC docs (phases 0-3) will be committed to sdlc/setup — NOT main. Write report to docs/git/INIT_<date>.md", timeout=120)` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact on the `sdlc/setup` branch.
+
+**Initialize the SDLC_TRACKER for Mode 1** (immediately after the repo is bootstrapped):
+```
+write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 1 template from SDLC_TRACKER section above — fill in project name and date]")
+```
+This file lives on `sdlc/setup` alongside the rest of the SDLC docs. It persists across sessions so you can resume without re-running completed phases.
 
 **Deliverables:**
 - `docs/VISION.md` — Problem, target users, success metrics
@@ -1197,74 +1368,186 @@ implementation a clear starting point.
 
 ARCHITECTURE.md MUST include ALL of the following diagrams. Do not skip any:
 
-1. **System Context (C1)** — Mermaid diagram showing the system and all external actors/systems
-2. **Container Diagram (C2)** — Mermaid diagram showing all services/components (web app, API, DB, cache, queue)
-3. **Component Diagrams (C3)** — Mermaid diagram for each major service showing internal components
-4. **Sequence Diagrams** — Mermaid sequence diagram for every critical flow (minimum 3: happy path, error path, async flow)
-5. **Deployment Diagram** — Mermaid diagram showing infrastructure topology (servers, containers, load balancers, DNS)
-6. **Data Flow Diagram** — Mermaid diagram showing how data moves through the system end-to-end
+1. **System Context (C1)** — Mermaid diagram showing the system and ALL external actors/systems
+2. **Container Diagram (C2)** — Mermaid diagram showing ALL services/components from TECH_STACK.md
+3. **Component Diagrams (C3)** — ONE Mermaid diagram PER MAJOR SERVICE showing internal components
+4. **Sequence Diagrams** — ONE per P0 use case from USE_CASES.md (not a fixed minimum — one per critical path)
+5. **Deployment Diagram** — Mermaid diagram showing infrastructure topology from DESIGN_CONTEXT.md
+6. **Data Flow Diagram** — Mermaid diagram showing data movement end-to-end
 
 If ARCHITECTURE.md is missing any of these 6 diagram types, the Phase 3 gate CANNOT pass.
 
+### Per-Diagram Confidence Loop (Mandatory — Run After Writing Each Diagram)
+
+After writing EACH diagram in ARCHITECTURE.md, run this loop before moving to the next:
+
+**For C1 (System Context):**
+1. List every persona from USER_PERSONAS.md — are they all present as actors?
+2. List every external system from SRS.md § Interface Requirements — are they all present?
+3. Rate Completeness 1-10. Score < 7 → revise (add missing actors/systems). Score < 5 → surface to user.
+4. Update the SDLC_TRACKER diagram inventory row: `⏳ PENDING` → `✅ DONE | [score]`
+
+**For C2 (Container Diagram):**
+1. List every service/runtime in TECH_STACK.md — is each represented as a container node?
+2. Are the communication arrows (HTTP, gRPC, queue) matching what TECH_STACK.md specifies?
+3. Rate Completeness 1-10. Score < 7 → add missing containers. Score < 5 → surface to user.
+4. Update tracker C2 row.
+
+**For C3 (Component Diagrams — one per service):**
+1. For EACH major service: list its internal modules from the planned feature-sliced structure
+2. Do module names match the real implementation plan (not generic "ServiceA", "ModuleB")?
+3. Are dependency arrows showing direction (who depends on whom — no circular deps)?
+4. Rate each C3 separately. Score < 7 → name real modules. Score < 5 → surface to user.
+5. Update tracker row for each C3 (named by service).
+
+**For Sequence Diagrams (one per P0 use case):**
+1. Read USE_CASES.md — list every P0 use case
+2. For EACH P0 use case: produce one `sequenceDiagram` block tracing: actor → API → service → repository → DB → response
+3. Each diagram MUST include: happy path AND at least one error path (validation failure, auth failure, or DB error)
+4. Rate each sequence diagram: (a) all participants named specifically — no "Service" generics; (b) error path present; (c) consistent with SRS acceptance criteria for that use case. Score < 7 → add error path or rename generics. Score < 5 → surface.
+5. Update tracker — one row per sequence diagram.
+
+**For Deployment Diagram:**
+1. Cross-reference with DESIGN_CONTEXT.md § infrastructure — does the diagram reflect the ACTUAL infra choices (cloud provider, services, regions)?
+2. Are load balancers, CDN, container runtime, DNS, and monitoring represented if applicable?
+3. Rate Completeness 1-10. Score < 7 → add missing infra components. Score < 5 → surface.
+4. Update tracker deployment row.
+
+**For Data Flow Diagram:**
+1. Trace from user browser/client → through all intermediate hops → to persistence layer → and the read path back
+2. Show where data transforms (e.g., DTO → domain model → DB schema)
+3. Show where data at rest is encrypted or masked (if applicable per THREAT_MODEL.md)
+4. Rate Completeness 1-10. Score < 7 → fill in missing hops. Score < 5 → surface.
+5. Update tracker data flow row.
+
+**HLA Overview (write LAST — after all diagrams pass):**
+After all 6 diagram types pass their confidence loops, write a 3-paragraph HLA Overview at the TOP of ARCHITECTURE.md:
+- Para 1: What the system is, how it's partitioned (monolith / services / serverless), and the key architectural metaphor
+- Para 2: The most important architectural decisions and WHY (reference the ADR table)
+- Para 3: What a new engineer should understand first to navigate the codebase
+
+This overview is grounded in the real decisions made during the diagram phase — not a copy of the discovery interview answers.
+
 ### SAD Format (4+1 Views)
 
+**MANDATORY:** Every section below must be filled with real names from the project — no `[placeholder]` text in the final document. Placeholders exist only in this template as a guide.
+
 ```markdown
-# Software Architecture Document
+# Software Architecture Document — [Project Name]
+
+## 0. HLA Overview
+[Write LAST — after all diagrams pass. See Per-Diagram Confidence Loop above.]
+[3 paragraphs: system partition metaphor | key architectural decisions | what to read first]
 
 ## 1. Architecture Goals & Constraints
-- Quality attributes (performance, security, scalability)
-- Technology constraints
-- Team constraints
+- Quality attributes: [specific targets from SRS.md NFR section — e.g., "P95 < 200ms, 99.9% uptime"]
+- Technology constraints: [from DESIGN_CONTEXT.md — e.g., "must run on AWS us-east-1, Node 22 LTS"]
+- Team constraints: [from DESIGN_CONTEXT.md — e.g., "team of 3 engineers, TypeScript expertise"]
 
 ## 2. C4 Diagrams
 
 ### 2.1 System Context (C1)
-[Mermaid diagram: system + external actors + external systems]
+<!-- Actors: all personas from USER_PERSONAS.md. External systems: all from SRS §5.2 -->
+<!-- Score this diagram with the C1 confidence loop before writing § 2.2 -->
+```mermaid
+graph TB
+    [Persona1 from USER_PERSONAS.md]-->SystemBoundary[System Name]
+    [Persona2]-->SystemBoundary
+    SystemBoundary-->[ExternalSystem1 from SRS §5.2]
+    SystemBoundary-->[ExternalSystem2]
+```
 
 ### 2.2 Container Diagram (C2)
-[Mermaid diagram: web app, API server, database, cache, queue]
+<!-- All services/runtimes from TECH_STACK.md. Communication style on arrows. -->
+<!-- Score with C2 confidence loop before writing § 2.3 -->
+```mermaid
+graph TB
+    subgraph System
+        [ServiceName from TECH_STACK.md]
+        ...
+    end
+```
 
-### 2.3 Component Diagram (C3)
-[Mermaid diagram: modules within the API server]
+### 2.3 Component Diagrams (C3) — one subsection per major service
+<!-- Real module names from the feature-sliced structure. Arrows show dependency direction. -->
+<!-- Score each C3 separately before writing the next. -->
+
+#### 2.3.1 [Service Name 1]
+```mermaid
+graph TB
+    [RealModuleName]-->[OtherRealModule]
+    ...
+```
+
+#### 2.3.2 [Service Name 2]
+```mermaid
+graph TB
+    ...
+```
+<!-- Add one 2.3.x subsection per major service -->
 
 ### 2.4 Deployment Diagram
-[Mermaid diagram: infrastructure topology]
+<!-- Reflect DESIGN_CONTEXT.md infrastructure choices. No invented infra. -->
+<!-- Score with Deployment confidence loop before writing § 2.5 -->
+```mermaid
+graph TB
+    ...
+```
 
 ### 2.5 Data Flow Diagram
-[Mermaid diagram: data movement through system]
+<!-- Trace user request all the way to persistence and back. Show transforms and masking. -->
+<!-- Score with Data Flow confidence loop before writing § 3 -->
+```mermaid
+graph LR
+    ...
+```
+
+### 2.6 Sequence Diagrams — one per P0 Use Case
+<!-- Derive from USE_CASES.md. Each MUST have a happy path AND an error path. -->
+<!-- Score each sequence diagram separately. -->
+
+#### [UC-001 name from USE_CASES.md]
+```mermaid
+sequenceDiagram
+    participant [RealActorName]
+    participant [RealServiceName]
+    ...
+    Note over API: On error: [specific error response]
+```
+<!-- Add one sequence section per P0 use case -->
 
 ## 3. Logical View
-- Major modules and their responsibilities
-- Module dependencies (who depends on whom)
-- Design patterns used (repository, service, factory)
-- Interface definitions (contracts between modules)
+- Major modules: [real module names from feature-sliced structure]
+- Module dependencies: [who depends on whom — reference C3 diagrams above]
+- Design patterns: [repository, service, factory — where each is used]
+- Interface definitions: [list key interfaces and where they live in src/]
 
 ## 4. Process View
-- Request flow (entry → auth → business logic → data → response)
-- Async flows (events, queues, background jobs)
-- Concurrency model
-- Sequence diagrams for critical flows (minimum 3)
+- Request flow: [specific path for the most common request — names all hops]
+- Async flows: [queue names, event names, job names — if applicable]
+- Concurrency model: [e.g., "Node.js single-threaded event loop + worker threads for CPU work"]
+- Sequence diagrams: [reference the 2.6 subsections above]
 
 ## 5. Implementation View
-- Directory structure (feature-sliced, not layer-sliced)
-- Module boundaries and public APIs
-- Build system and dependencies
+- Directory structure: [actual planned feature-sliced layout]
+- Module boundaries: [which modules are public API vs internal]
+- Build system: [command, output location, key scripts]
 
 ## 6. Deployment View
-- Infrastructure (containers, servers, CDN)
-- CI/CD pipeline
-- Environment configuration
+- Infrastructure: [reference the deployment diagram in § 2.4]
+- CI/CD: [pipeline file path, stages, deploy target]
+- Environment configuration: [where .env lives, required vars, secrets management]
 
 ## 7. Architecture Decision Records
 | ADR | Decision | Rationale | Alternatives Considered |
 |-----|----------|-----------|------------------------|
-| ADR-001 | Use PostgreSQL | Need JSONB + full-text search | SQLite (no concurrent writes), MongoDB (no ACID) |
+| ADR-001 | [Real decision, e.g., Use PostgreSQL] | [Why — reference DESIGN_CONTEXT.md or research findings] | [Real alternatives evaluated] |
 
 ## 8. Cross-Cutting Concerns
-- Logging strategy
-- Error handling pattern
-- Caching strategy
-- Security controls
+- Logging strategy: [specific library + format + levels — not "use a logger"]
+- Error handling: [pattern name + where defined — e.g., "Result<T,E> type in src/shared/result.ts"]
+- Caching strategy: [what is cached, TTL, where invalidated]
+- Security controls: [reference THREAT_MODEL.md mitigations — e.g., "JWT RS256, httpOnly cookies"]
 ```
 
 ### Modular Design Requirements
@@ -1402,8 +1685,38 @@ graph TB
 
 **Exit:** All components documented, data flows diagrammed, modular structure defined, security threats identified, ARCHITECTURE.md contains all 6 required diagram types
 
+**Architecture Diagram Pre-Gate (Mandatory — Run BEFORE the Phase 3 Gate Loop):**
+
+Before rating the standard gate deliverables, verify every row in the SDLC_TRACKER Diagram Inventory is `✅ DONE`:
+
+```
+read(filePath="docs/sdlc/SDLC_TRACKER.md")
+```
+
+Check the **Architecture Diagram Inventory** table. For every row that is NOT `✅ DONE`:
+1. Identify which diagram is missing or incomplete
+2. Write/revise that diagram following the Per-Diagram Confidence Loop rules above
+3. Score it. Score < 5 → surface to user immediately. Score 5-6 → revise up to 3 times. Score ≥ 7 → mark `✅ DONE` in tracker.
+4. Do NOT start the main gate loop until EVERY diagram row is `✅ DONE`.
+
+**Diagram Inventory Completion Check (print before gate):**
+```
+Architecture Diagram Inventory — Phase 3 Pre-Gate:
+  C1 System Context:          [✅ DONE | score] / [⚠️ BLOCKED | reason]
+  C2 Container:               [✅ DONE | score] / [⚠️ BLOCKED | reason]
+  C3 [service-1]:             [✅ DONE | score] / [⚠️ BLOCKED | reason]
+  C3 [service-N]:             ...
+  Seq: [UC-001 name]:         [✅ DONE | score] / [⚠️ BLOCKED | reason]
+  Seq: [UC-002 name]:         ...  (one row per P0 use case)
+  Deployment:                 [✅ DONE | score] / [⚠️ BLOCKED | reason]
+  Data Flow:                  [✅ DONE | score] / [⚠️ BLOCKED | reason]
+
+  ALL DONE? [YES → proceed to gate] / [NO → fix blocked items first]
+```
+
 **Gate Loop:** Rate all deliverables. Critical quality checks:
-- ARCHITECTURE.md contains all 6 Mermaid diagram types (hard requirement)
+- ARCHITECTURE.md Diagram Inventory: ALL rows `✅ DONE` with score ≥ 7 (enforced above)
+- ARCHITECTURE.md § 0 HLA Overview: present and NOT placeholder text (written after diagrams)
 - TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
 - DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
 - THREAT_MODEL.md has mitigations, not just threats listed
@@ -2068,6 +2381,9 @@ After completing EACH step below, verify the deliverable before moving on:
 3. Confirm the file contains the required sections for that step
 4. If verification fails, redo the step immediately
 5. Do NOT proceed to the next step until the current step's output is verified
+6. **After PASS**: update the SDLC_TRACKER step row from `⏳ PENDING` → `✅ DONE | [confidence]`
+7. **After FAIL / REDO**: update the SDLC_TRACKER step row to `🔄 RE-PASS | [reason]`
+8. **After confidence < 5**: update to `⚠️ BLOCKED | [what's missing]` — surface to user immediately
 
 Verification log format (output after each step):
 ```
@@ -2078,6 +2394,7 @@ Step N Verification:
   Required sections present: YES/NO (list missing sections if NO)
   Status: PASS / FAIL → REDO
   Confidence: N/10 (8-10: move on; 5-7: add more detail; <5: redo with different approach)
+  Tracker: updated docs/sdlc/SDLC_TRACKER.md row [Step N] → [new status]
 ```
 
 Do NOT proceed to the next step until current step Confidence ≥ 7.
@@ -2088,6 +2405,13 @@ Do NOT proceed to the next step until current step Confidence ≥ 7.
 ```
 task(agent="git-expert", prompt="Run --feature mode: create and checkout a new branch named 'docs/onboard' from main. This branch will hold all onboarding documentation. Report the branch name.", timeout=60)
 ```
+
+**Initialize the SDLC_TRACKER for Mode 2** (check first — resume if it already exists):
+```
+Glob docs/sdlc/SDLC_TRACKER.md
+```
+- If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
+- If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 2 template from SDLC_TRACKER section above]")`
 
 Before reading any code, understand the project's history:
 
@@ -2668,6 +2992,16 @@ Mode 2 Completion:
 
 Add a feature to an existing system without breaking it.
 
+## Step 0: Initialize SDLC_TRACKER for Mode 3
+
+After the Feature Discovery Interview confirms scope and BEFORE the impact analysis:
+
+```
+Glob docs/sdlc/SDLC_TRACKER.md
+```
+- If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
+- If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 3 template from SDLC_TRACKER section above — fill in feature name and date]")`
+
 ## Step 1: Impact Analysis (Use `/explore` Pattern)
 
 After the Feature Discovery Interview confirms scope, run a codebase exploration
@@ -3172,6 +3506,9 @@ After completing EACH step below, verify before moving on:
 2. Confirm each audit report is >50 lines with substantive findings
 3. Confirm the backlog has ranked items with S/M/L sizing and verification criteria
 4. If verification fails, redo the step before continuing
+5. **After PASS**: update the SDLC_TRACKER step row from `⏳ PENDING` → `✅ DONE | [confidence]`
+6. **After FAIL / REDO**: update to `🔄 RE-PASS | [reason]`
+7. **After confidence < 5**: update to `⚠️ BLOCKED | [what's missing]` — surface to user immediately
 
 ```
 Step N Verification:
@@ -3181,6 +3518,7 @@ Step N Verification:
   Required sections present: YES/NO
   Status: PASS / FAIL → REDO
   Confidence: N/10 (≥7 to proceed)
+  Tracker: updated docs/sdlc/SDLC_TRACKER.md row [Step N] → [new status]
 ```
 
 ## Step 1: Create Branch + Context Check (Reuse or Scan)
@@ -3189,6 +3527,13 @@ Step N Verification:
 ```
 task(agent="git-expert", prompt="Run --feature mode: create and checkout a new branch named 'improve/[slug]' from main, where [slug] is a 2-4 word kebab-case description of the improvement focus (e.g. improve/ux-perf-q2, improve/security-hardening, improve/code-quality). Report the branch name.", timeout=60)
 ```
+
+**Initialize the SDLC_TRACKER for Mode 4** (check first — resume if it already exists):
+```
+Glob docs/sdlc/SDLC_TRACKER.md
+```
+- If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
+- If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 4 template from SDLC_TRACKER section above]")`
 
 Before running any audits, check what documentation already exists:
 
