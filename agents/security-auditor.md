@@ -29,11 +29,13 @@ When invoked **without** a `--phase:` prefix, run as orchestrator for security a
 
 **Immediately announce your plan** before doing any work:
 ```
-Starting security audit. Plan: 4 phases
+Starting security audit. Plan: 5 phases
   1. **understand-target** — read entry points, auth, data flows, framework
   2. **automated-scan** — run Semgrep, dependency audit, secret scan
   3. **owasp-manual** — manual OWASP Top 10 + STRIDE per component
-  4. **verify-report** — cross-check findings, deduplicate, write report
+  4. **verify-findings** — cross-check findings, deduplicate, confirm real
+  5. **attack-chain** — chain verified findings into multi-step exploits
+  6. **write-report** — write final report including chain findings
 ```
 
 Then for each phase, call:
@@ -544,6 +546,14 @@ Total Semgrep findings: ⏳
 
 Gate: ALL categories must reach ✅ DONE (confidence ≥ 7) before the report is written.
 Any category at ⚠️ BLOCKED (< 5 after 3 passes) stops the audit — surface to user.
+
+## Attack Chain Analysis
+<!-- Filled in after Phase 5b -->
+Chains found: ⏳
+  CRITICAL: ⏳
+  HIGH: ⏳
+  Systemic enablers: ⏳
+  See: docs/security/attack-chains.md
 
 ---
 
@@ -1575,6 +1585,125 @@ Before writing ANY finding into the report, complete this checklist for EACH one
 
 If a finding doesn't survive all 5 steps, it does NOT go in the report.
 
+### Phase 5b: Attack Chain Analysis
+
+After all individual findings are verified (Phase 5), perform a second-order analysis:
+look for NEW vulnerabilities that only exist because multiple findings can be combined
+into a multi-step exploit path. A chain is a finding in its own right — often CRITICAL
+where each individual link was only MEDIUM.
+
+**Why this matters:** Automated tools and OWASP passes find individual weaknesses.
+Attackers don't stop at one. A MEDIUM information disclosure + a MEDIUM IDOR + a MEDIUM
+weak session token = a CRITICAL account takeover chain that none of the three findings
+described alone.
+
+**Step 1: Build the findings inventory**
+
+Load every REAL (non-false-positive) finding from `docs/security/OWASP_TRACKER.md`
+and the scan results. For each finding, extract:
+
+| Finding | Pre-condition (what the attacker needs before exploiting) | Post-condition (what they gain after) |
+|---------|----------------------------------------------------------|---------------------------------------|
+| #N: Title | e.g., unauthenticated / valid session / any logged-in user | e.g., reads arbitrary files / gains admin token / leaks DB creds |
+
+Write this table to `docs/security/chain-inventory.md` before proceeding.
+
+**Step 2: Run the chain-linking loop**
+
+For every pair (and triple) of findings, ask:
+> "Does the **post-condition** of Finding A satisfy the **pre-condition** of Finding B?"
+
+If yes — that's a candidate chain. Keep it if:
+- Both findings are confirmed REAL (not UNVERIFIED)
+- The combined path is reachable from a single attacker starting point (unauthenticated or a realistic initial foothold)
+- The combined impact is worse than either finding alone
+
+Common chain patterns to test for explicitly:
+
+| Chain Type | What to look for |
+|------------|-----------------|
+| **Recon → Targeted Attack** | Info disclosure (stack traces, verbose errors, debug endpoints) leaks creds, tokens, or internal paths → use them in a second exploit |
+| **Auth Bypass → Privilege Escalation** | Weak/missing auth → access a low-priv endpoint → IDOR or mass assignment → admin access |
+| **XSS → Session Hijack → Account Takeover** | Stored/reflected XSS fires in victim's browser → steals session cookie → attacker replays session → operates as victim |
+| **SSRF → Internal Pivot** | SSRF reaches internal services (metadata API, Redis, internal admin) → leaks credentials or triggers RCE on internal host |
+| **Path Traversal → Credential Theft** | Path traversal reads `.env`, config files, or key stores → credentials used for DB access, API impersonation, or auth bypass |
+| **Misconfiguration → Enumeration → Exploitation** | Debug mode / verbose errors → enumerate users, structure, or secrets → use in injection or auth attack |
+| **Weak Crypto → Forgery** | Weak JWT secret / predictable token → forge auth token → operate as any user |
+| **Race Condition + Business Logic** | Race condition in payment/balance → double-spend or negative balance → financial fraud |
+| **Dependency CVE + Reachability** | CVE in a dependency + confirmed call path from user input to the vulnerable function → remote exploitation |
+
+**Step 3: Write up each chain**
+
+For every confirmed chain, document it with the same rigor as an individual finding:
+
+```
+### Chain C-N: [Descriptive name, e.g., "Error Disclosure → Credential Reuse → Admin Takeover"]
+
+Severity: [CRITICAL / HIGH — always at least as high as highest link, often bumped]
+OWASP: [all categories involved, e.g., A01 + A09]
+Links: Finding #X → Finding #Y → Finding #Z
+
+**Attack narrative:**
+[Step-by-step description of a real attacker using this chain. Concrete:
+ name the specific endpoints, parameters, and payloads at each step.]
+
+Step 1 — [exploit Finding #X]:
+  Endpoint: POST /api/login
+  Payload: { "username": "admin'--", "password": "x" }
+  Result: SQL error leaks DB schema in response body
+
+Step 2 — [use the output of Step 1 to exploit Finding #Y]:
+  The leaked schema reveals a `users` table with an `is_admin` column.
+  Exploit Finding #Y (IDOR in /api/users/:id) with id=1 to read the admin record.
+  Result: Admin password hash leaked.
+
+Step 3 — [exploit Finding #Z]:
+  Hash is MD5 (Finding #Z — weak hashing). Cracked offline in <1 min.
+  Result: Full admin account access.
+
+**Why this is worse than each finding alone:**
+[Explain why the chain creates a higher-severity outcome than any single link.]
+
+**Precondition:** [What the attacker needs to start — unauthenticated? valid account?]
+**Combined impact:** [What they achieve at the end of the chain]
+**Chain confidence:** [1-10 — how certain are you each step is exploitable?]
+
+**Remediation:** Break the chain at its weakest link first.
+  Priority fix: [The finding that, if fixed, collapses the most chains]
+```
+
+Save all chains to `docs/security/attack-chains.md`.
+
+**Step 4: Severity bump rule**
+
+Apply these automatic bumps to chain severity:
+- Any chain reachable by an **unauthenticated** attacker AND resulting in data access → CRITICAL
+- Any chain that crosses a **trust boundary** (internet → internal, user → admin) → bump one level
+- A chain of 3+ MEDIUM findings that reaches data exfiltration or account takeover → CRITICAL
+
+**Step 5: Check for systemic chain enablers**
+
+Ask: "Is there a single root cause that enables multiple chains?"
+
+Common systemic enablers:
+- Missing authentication middleware (enables many A01 chains)
+- No output encoding layer (enables multiple XSS chains)
+- Single debug flag that enables verbose errors (enables multiple recon chains)
+- Shared secret / key reuse across services
+
+If you find one: it's an architectural finding separate from the individual chains.
+Document it as `CHAIN-SYSTEMIC-N` and recommend a single architectural fix.
+
+**Step 6: Update the tracker**
+
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="## Attack Chain Analysis\n<!-- Filled in after Phase 5b -->",
+  newString="## Attack Chain Analysis\nChains found: <N>\n  CRITICAL: <N>\n  HIGH: <N>\n  Systemic enablers: <N>\n  See: docs/security/attack-chains.md")
+```
+
+---
+
 ## Severity Assessment
 
 Read `severity-matrix.md` and apply consistently:
@@ -1617,6 +1746,7 @@ This produces `docs/security/SECURITY_AUDIT_<today>.md` with every mechanical fi
 - Finding summary table (from all scan sources: semgrep, gitleaks, osv-scanner)
 - Per-finding sections with: file, line range, OWASP, CWE, source (rule ID), verbatim code snippet, rule message, auto-bumped severity for known-critical patterns, references
 - Cross-Module Pattern Analysis scaffold
+- **Attack Chain Analysis scaffold** (chains from Phase 5b — each chain as a finding section)
 - Action Plan scaffold (severity buckets: immediate / this sprint / 30 days / backlog)
 - Confidence Scores table skeleton
 
@@ -1738,6 +1868,17 @@ Replace each `⚠️ AGENT TO FILL IN`:
 
 Group findings by root cause. 3+ occurrences = architectural issue. Recommend a shared fix (middleware / validation layer / helper) with effort comparison vs. fixing each instance.
 
+**Step 5b: Fill in Attack Chain Analysis section**
+
+Read `docs/security/attack-chains.md` (written in Phase 5b). For each chain, write a full finding section in the report using the same format as individual findings, but with:
+- Severity = chain severity (often bumped above the highest individual link)
+- Finding ID = `C-N` prefix (e.g., `C-1`)
+- A multi-step exploit narrative (one paragraph per step) instead of a single exploit payload
+- "Break the chain" remediation: identify which single fix collapses the chain and prioritize it
+- Reference back to each individual finding it composes (e.g., "Composed of: #3, #7, #12")
+
+If Phase 5b found 0 chains, write a one-line note: "No exploitable attack chains identified — individual findings do not compound."
+
 **Step 6: Fill in the Action Plan**
 
 Ordered checklist prioritized by severity AND dependency. Buckets:
@@ -1763,6 +1904,8 @@ Re-read the report cold:
 - Every "similar locations" section classifies each match as VULNERABLE/SAFE/NEEDS REVIEW?
 - Executive summary answers "what do I do first"?
 - Non-dev can understand business impact sections?
+- Attack chain section present — even if empty (0 chains), is it explicitly stated?
+- Each chain finding references back to its component individual findings?
 - Any `⚠️ FILL IN` markers left? (if yes, you're not done)
 
 **Step 9: Update `docs/security/LAST_AUDIT.json`**
