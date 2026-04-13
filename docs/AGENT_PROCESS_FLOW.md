@@ -107,6 +107,12 @@ User: /sdlc init my-app "description"
            │
            ├── HANDOFF → db-architect (migration verification)
            ├── HANDOFF → api-designer (contract verification)
+           │
+           ├── HANDOFF → container-ops (Dockerfile, compose, .dockerignore)
+           │   └── Must run BEFORE sre-engineer — CI/CD needs container config
+           │
+           ├── HANDOFF → sre-engineer (CI/CD pipeline, monitoring, deploy)
+           │   └── Uses container config from container-ops as input
            ├── HANDOFF → container-ops (Dockerfile, compose)
            │
            ├── HANDOFF → code-reviewer

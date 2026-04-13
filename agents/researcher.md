@@ -102,11 +102,12 @@ Use when given a broad topic or multi-question task.
 **Announce your plan immediately** — do not start research without telling the user what you're doing:
 
 ```
-Research plan for [topic]:
+▶ Research plan for [topic]:
   Q1: [first question]
   Q2: [second question]
   Q3: [third question]
-Starting Q1...
+
+▶ Phase 1: Researching Q1...
 ```
 
 Then for each question, call:
@@ -116,8 +117,8 @@ task(agent="researcher", prompt="--single: [question]. Context: [1-sentence cont
 
 After each sub-task returns, print a one-line finding before moving to the next:
 ```
-✓ Q1 complete: [1-sentence finding]. [source URL]
-Starting Q2...
+✓ Phase 1 complete: Q1 — [1-sentence finding]. [source URL]
+▶ Phase 2: Researching Q2...
 ```
 
 After ALL questions complete, synthesize the full report (Phase 5–7 below) from the collected findings.

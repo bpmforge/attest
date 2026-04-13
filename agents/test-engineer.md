@@ -111,11 +111,20 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 - Summaries of your methodology or approach
 
 **Execute in order:**
-1. Read only the files listed under `CONTEXT` in the prompt
-2. Execute the task described under `YOUR TASK` — stay within that scope
-3. Write each file listed under `PRODUCE` — verify each one exists after writing
-4. Print the **exact** completion phrase from the prompt (e.g., `"ux done — ..."`)
-5. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
+1. Read the context packet first: `docs/work/context-for-test-engineer.md` (if it exists)
+2. Read the files listed under `CONTEXT` in the prompt — especially:
+   - `docs/testing/USE_CASES.md` — the use case catalog (source of truth for what to test)
+   - `docs/testing/TEST_PLAN.md` — existing test plan (if it exists, update it)
+3. Execute the task described under `YOUR TASK` — stay within that scope
+4. Write each file listed under `PRODUCE` — verify each one exists after writing
+5. Include a Completion Manifest (see below) with files produced, test results, decisions
+6. Print the **exact** completion phrase from the prompt (e.g., `"tests done — ..."`)
+7. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
+
+**Common SDLC tasks you'll receive:**
+- **TEST_PLAN.md** (Phase 2): Review USE_CASES.md, assign P0/P1/P2 priorities, map to test files
+- **E2E test writing** (Phase 4): Write one spec per P0 use case with shared fixtures
+- **TDD acceptance test** (Mode 3): Write a failing test BEFORE implementation
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 

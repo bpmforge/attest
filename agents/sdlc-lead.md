@@ -3499,28 +3499,85 @@ Before advancing any phase or milestone:
 
 ## Status Command (`/sdlc status`)
 
-Output format:
+Read the project state from docs/ + docs/work/ + docs/testing/ and display:
+
 ```
-Project: [Name]
+═══════════════════════════════════════════════════════════
+  PROJECT STATUS — [Name]
+═══════════════════════════════════════════════════════════
+
 Mode: [init | onboard | feature | improve]
-Phase: [0-5] ([Phase Name])
+Branch: [current git branch]
 
-Deliverables:
-  Phase 0 (Ideation):     COMPLETE
-    - VISION.md (234 lines)
-    - COMPETITIVE_ANALYSIS.md (156 lines)
-  Phase 1 (Planning):     IN PROGRESS (2/4 docs)
-    - SCOPE.md (44 lines)     ✓
-    - RISKS.md                 ✗ MISSING
-    - CONSTRAINTS.md (26 lines) ✓
-    - USER_PERSONAS.md (78 lines) ✓
+PHASES:
+  ✓ Phase 0 (Ideation)     — VISION.md (234 lines), COMPETITIVE_ANALYSIS.md (156 lines)
+  ✓ Phase 1 (Planning)     — SCOPE, RISKS, CONSTRAINTS, PERSONAS
+  ⏳ Phase 2 (Requirements) — SRS.md ✓, USER_STORIES.md ✓, USE_CASES.md ✗, TEST_PLAN.md ✗
+  ○ Phase 3 (Design)       — not started
+  ○ Phase 4 (Implementation) — not started
 
-Gate Status: Phase 2 BLOCKED (need RISKS.md)
-Next Action: Run /sdlc run --phase 1 to generate RISKS.md
+GATE STATUS: Phase 2 BLOCKED
+  ✗ docs/testing/USE_CASES.md — not yet written
+  ✗ docs/testing/TEST_PLAN.md — awaiting test-engineer handoff
+  → Next: write USE_CASES.md from USER_STORIES.md + USER_PERSONAS.md
+
+TESTING:
+  Test plan: [exists/missing]
+  P0 tests: [N/N passing | not yet written]
+  P1 tests: [N/N passing | not yet written]
+  Last run: [date or "never"]
+
+HANDOFF STATE:
+  [reading docs/work/sdlc-state.md]
+  Awaiting: [agent name — what it should produce]
+  Next after resume: [what to do when agent returns]
+
+═══════════════════════════════════════════════════════════
 ```
 
-Read docs/ directory structure and check file existence.
-Check docs/work/sdlc-state.md if present — it shows where we left off after the last HANDOFF.
+**How to build this output:**
+1. `Glob docs/*.md docs/design/*.md docs/testing/*.md` — check which deliverables exist
+2. Read `docs/work/sdlc-state.md` — get current handoff state
+3. Check `docs/testing/TEST_PLAN.md` — extract pass/fail counts if available
+4. Map files to phases:
+   - Phase 0: VISION.md, COMPETITIVE_ANALYSIS.md
+   - Phase 1: SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md
+   - Phase 2: SRS.md, USER_STORIES.md, USE_CASES.md, TEST_PLAN.md
+   - Phase 3: ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, THREAT_MODEL.md
+   - Phase 4: source code + test files + reviews
+5. Phase is COMPLETE if all deliverables exist with >50 lines
+6. Phase is IN PROGRESS if some deliverables exist
+7. Phase is BLOCKED if the gate check fails (see below)
+
+## Gate Command (`/sdlc gate`)
+
+Check if the current phase's exit criteria are met. This is also called automatically
+at the end of each phase before the Inter-Phase Check-In.
+
+```
+═══════════════════════════════════════════════════════════
+  GATE CHECK — Phase [N] → Phase [N+1]
+═══════════════════════════════════════════════════════════
+
+| Deliverable         | Exists | Lines | Completeness | Quality | Pass? |
+|---------------------|--------|-------|-------------|---------|-------|
+| SRS.md              | ✓      | 234   | 8           | 7       | YES   |
+| USER_STORIES.md     | ✓      | 156   | 7           | 8       | YES   |
+| USE_CASES.md        | ✓      | 420   | 9           | 8       | YES   |
+| TEST_PLAN.md        | ✓      | 89    | 7           | 7       | YES   |
+
+Test gate: [N/N P0 tests passing | tests not yet written]
+Overall: PASS — ready for Phase [N+1]
+═══════════════════════════════════════════════════════════
+```
+
+**Gate failure handling:**
+- Score < 5 on any dimension → STOP, surface to user immediately
+- Score 5-6 → iterate up to 3 times
+- Score >= 7 → pass
+- All P0 tests must pass (Phase 4+ only)
+- Missing deliverables → automatic fail
+
 Cross-reference with AGENTS.md or project docs for prior phase approvals.
 
 ## Cross-Expert Coordination
