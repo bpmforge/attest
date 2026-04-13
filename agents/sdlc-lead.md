@@ -662,14 +662,73 @@ For each requirement:
 
 **Exit:** Every FR has acceptance criteria, every NFR has a measurable metric
 
-**Gate Loop:** Rate SRS.md and USER_STORIES.md. Key quality checks:
+**After SRS.md + USER_STORIES.md, produce the use case catalog (INLINE — do this yourself):**
+
+Write `docs/testing/USE_CASES.md` — derive one use case per user story:
+- For each user story in USER_STORIES.md:
+  - Which persona from USER_PERSONAS.md does this?
+  - What are the preconditions?
+  - What triggers the flow?
+  - Main flow (numbered steps: user does X → system does Y)
+  - Alternate flows (error, empty state, permission denied)
+  - Success criteria (observable outcome)
+- Index table at top: UC number, name, persona, priority (P0/P1/P2)
+- P0 = demo-blocking critical paths, P1 = should work, P2 = nice-to-have
+
+**Then hand off to test-engineer for the test plan:**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 2 — Requirements
+Last completed: SRS.md, USER_STORIES.md, USE_CASES.md
+Awaiting: test-engineer — docs/testing/TEST_PLAN.md
+Next after resume: Phase 2 gate
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- docs/testing/USE_CASES.md — all use cases with personas and acceptance criteria
+- docs/SRS.md — functional and non-functional requirements
+- docs/USER_STORIES.md — user stories with acceptance criteria
+
+YOUR TASK:
+Review the use case catalog and produce a test plan. For each use case:
+assign a priority (P0/P1/P2), map it to a test file name, and note the
+test type (unit/integration/e2e). Define cross-cutting checks that apply
+to every test (no console errors, no 5xx responses, loading states visible).
+
+PRODUCE exactly this file:
+- docs/testing/TEST_PLAN.md — index table (UC, test file, priority, status),
+  rollout criteria (P0 must pass for demo, P0+P1 for ship), cross-cutting
+  checks, run history table (date, pass count, fail count)
+
+When the file is written, print exactly:
+"test-plan done — [N use cases mapped, N P0 / N P1 / N P2]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+═══════════════════════════════════════════════════════════
+```
+
+→ After "test-plan done": verify docs/testing/TEST_PLAN.md exists → mark DONE
+
+**Gate Loop:** Rate SRS.md, USER_STORIES.md, USE_CASES.md, and TEST_PLAN.md. Key quality checks:
 - Every FR has a `Given/When/Then` acceptance criterion (not just a description)
 - Every NFR has a measurable metric (not "should be fast" — "< 200ms at P95")
+- Every user story has a corresponding use case in USE_CASES.md
+- TEST_PLAN.md maps every P0 use case to a test file
 - If any FR/NFR is vague, revise before advancing
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS and user stories'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/testing/USE_CASES.md, docs/testing/TEST_PLAN.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements + test plan — SRS, user stories, use cases, test plan'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 
@@ -1245,7 +1304,75 @@ When implementation is complete, come back and say: "implementation done"
 After "implementation done":
 1. Verify the codebase directory structure matches ARCHITECTURE.md § Implementation View
 2. Verify test files exist alongside the implementation (not zero test files)
-3. Proceed to expert reviews below
+3. Proceed to E2E test writing and discovery audit below
+
+**2b. E2E test writing — MANDATORY before expert reviews:**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4
+Last completed: implementation
+Awaiting: test-engineer — E2E test specs for P0 use cases
+Next after resume: discovery audit, then expert reviews
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- docs/testing/USE_CASES.md — all use cases with personas and flows
+- docs/testing/TEST_PLAN.md — priorities and test file mapping
+- docs/TEST_STRATEGY.md — framework choices and approach
+- docs/API_DESIGN.md — endpoint contracts for API-level tests
+
+YOUR TASK:
+Write E2E test specs for ALL P0 use cases from TEST_PLAN.md. For each P0:
+create a Playwright (or framework from TEST_STRATEGY.md) test file that
+exercises the main flow end-to-end. Use a shared fixtures helper for
+login, data creation, and cleanup.
+
+Each test must:
+- Create its own fixture data (self-contained, no shared state between tests)
+- Test the main flow from the use case
+- Include a cross-cutting clean check at the end (no console errors, no 5xx)
+- Clean up after itself
+
+PRODUCE exactly these files:
+- e2e/use-cases/_fixtures.ts (or equivalent) — shared helpers for login,
+  API calls, model creation, clean check
+- e2e/use-cases/*.spec.ts — one per P0 use case (or combined for related UCs)
+- Update docs/testing/TEST_PLAN.md — mark each P0 with its test file path
+
+Run the full suite and report results.
+
+When all files are written and tests have been run, print exactly:
+"e2e-tests done — [N tests written, M/N passing, key failures listed]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+═══════════════════════════════════════════════════════════
+```
+
+→ After "e2e-tests done":
+1. Read the pass/fail report
+2. If < 80% passing: surface failures to user, ask whether to fix before proceeding
+3. If >= 80% passing: proceed to discovery audit
+
+**2c. Discovery audit — find what's broken before reviews:**
+
+Run this INLINE (not a handoff) — the SDLC lead does it directly:
+1. Navigate every page/route the app exposes
+2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
+3. Write findings to `docs/audits/discovery-YYYY-MM-DD.md`
+4. If critical findings (5xx errors, pages that don't load): fix before proceeding to reviews
+5. If cosmetic findings only (console warnings, slow loads): note and proceed
+
+**GATE: E2E tests + discovery must both be clean before expert reviews start.**
 
 **3. DB migrations:**
 
@@ -1411,6 +1538,11 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 **7. Code review (after each feature):**
+
+**PRE-REVIEW GATE:** Before handing off to code-reviewer, verify:
+- All P0 E2E tests pass (from step 2b)
+- Discovery audit has no critical findings (from step 2c)
+- If either fails, fix first — don't waste reviewer time on broken code
 
 ```
 ═══════════════════════════════════════════════════════════
