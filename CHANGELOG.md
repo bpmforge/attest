@@ -2,7 +2,51 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [0.6.0] — 2026-04-13
+## [0.7.0] — 2026-04-13
+
+Performance engineer deep upgrade: persistent session tracker, pre-profiling static analysis pass with try/catch performance anti-patterns, coverage confidence loop, and mandatory full report template. Also fixes stale `mode: subagent` references across all docs.
+
+### Added
+
+- **`PERF_TRACKER.md` — persistent performance session tracker** (`cd5357b`) — Written at Phase 1, updated after every phase via `edit()`. Stored at `docs/performance/PERF_TRACKER.md`. Survives context loss and session restarts. Tracks: 7-row progress summary (status/confidence per phase), baseline metrics, static analysis findings, profiler results, hotspot log, before/after benchmark table (filled across phases 2, 4, 5). Status transitions: `⏳ PENDING` → `✅ DONE` / `🔄 RE-PASS` / `⚠️ BLOCKED`.
+
+- **Phase 1b — Static Analysis Pass** (`cd5357b`) — New phase between "understand problem" and "profile". Runs 5 grep scans against all source files to detect performance anti-patterns statically, before any profiler runs. Source file inventory (`find . -type f ...`) runs first so the agent knows the full scope.
+
+  Scan 1 — **O(n²) nested loops**: `.find()` / `.filter()` / `.some()` inside `for` / `forEach`.
+  
+  Scan 2 — **N+1 query patterns**: DB/fetch call inside a loop; suggests `findMany` + `Map` pre-build.
+  
+  Scan 3 — **try/catch performance anti-patterns** (four patterns, four languages):
+  - Pattern A: `try/catch` inside tight loop → V8 cannot apply JIT optimizations (inlining, hidden class caching, escape analysis) → 5-20x slowdown. Fix: move try/catch outside loop or use `Promise.allSettled`.
+  - Pattern B: Exception-driven control flow in hot paths (e.g. `try { JSON.parse } catch` called 10,000×/req) → 100-1000× slower than a guard check.
+  - Pattern C: Individual `try/catch` per `await` → each `await` blocks on completion, preventing `Promise.allSettled` parallelism. Three 200ms calls = 600ms serial vs 200ms parallel.
+  - Pattern D: Re-throw after logging → stack captured twice (on throw + on re-throw); noisy logs + perf cost.
+  - Python: EAFP misuse — `try/except KeyError` in hot loop instead of `.get(default)`.
+  - Go: `errors.New()` in hot loop → heap allocation per call; fix with sentinel error at init.
+  - Rust: `unwrap()` panic path in tight loop → `filter_map` / `.ok()` avoids panic overhead.
+  
+  Scan 4 — **Blocking I/O in async paths**: `readFileSync`, `execSync`, `bcrypt.hashSync` etc. inside request handlers. Blocks Node.js event loop for all concurrent requests.
+  
+  Scan 5 — **Hot-path allocations**: `JSON.parse` per request on static data, object spread in tight loops, string concatenation loops instead of buffers.
+
+- **Coverage confidence loop** (`eaed023`) — After all 5 scans, agent cross-checks grep coverage against the source file list with a 9-question checklist (all scans run? all hits read? all extensions covered? absence-of-findings suspicious?). Rates coverage 1-10. Re-passes with broader patterns if < 7 (max 3 attempts). Prints a mandatory `Phase 1b Coverage Verdict` block. Sets `⚠️ BLOCKED` and surfaces to user if still < 7 after 3 passes.
+
+- **Verbatim code mandate on all findings** (`eaed023`) — Every finding in every scan now requires `read(filePath=..., offset=<line-5>, limit=20)` before the finding is recorded. Each finding's block has a `Verbatim code (lines N–M):` section with exact output from `read()`. Findings from grep output alone are explicitly prohibited.
+
+- **Full mandatory report template — Phase 6** (`eaed023`) — Replaces the previous 5-bullet list. `docs/PERFORMANCE_REPORT.md` must be filled in completely (placeholder dashes = incomplete). Template sections: executive summary, baseline measurements table (P50/P95, data size, method), one `STATIC-NNN` block per finding (verbatim code + loop bound + specific impact reason + concrete fix code + profiler confirmation status), profiler results table (top hot functions with file:line and time%), fix applied (before/after verbatim code + rationale), final benchmark (P50/P95 before/after + improvement factor + regression column), regression check table, known remaining bottlenecks (S/M/L effort + P0/P1/P2 priority), data size thresholds, coverage verdict (per-scan file count + finding count + confidence), handoffs recommended (expert + finding + specific reason).
+
+- **Confidence gate reads from `PERF_TRACKER.md`** (`cd5357b`) — Gate prints a 7-row confidence table derived from the tracker file, not from context memory. Phase 5 (verify-fix) uses raised threshold of 8/10 — a fix without before/after benchmark numbers is not considered verified.
+
+- **Resume check at Phase 2** (`cd5357b`) — `read(filePath="docs/performance/PERF_TRACKER.md")` before profiling starts; skips `✅ DONE` phases, surfaces `⚠️ BLOCKED` to user before continuing.
+
+### Changed
+
+- **`performance-engineer` phase count: 6 → 7** — Phase 1b (static analysis) is a distinct new phase between understand and profile. Updated orchestrator plan announcement and tracker row count.
+- **`performance-engineer` handoff boundary clarified** — try/catch-in-loop: performance-engineer owns the runtime cost; code-reviewer owns the swallowed-error / correctness angle. Both agents can flag the same instance for different reasons without duplicating findings.
+- **`docs/FEATURES.md`** — performance-engineer entry expanded from 1 line to full capability description. All 13 agent entries updated from `mode: subagent` → `mode: primary` (reflects the v0.5.0 change that was not reflected in docs). Agent count header corrected from 12 → 13.
+- **`docs/USERGUIDE.md`** — `/perf` section expanded: full 7-phase description, Phase 1b scan list, output file paths corrected (`docs/perf/` → `docs/PERFORMANCE_REPORT.md` + `docs/performance/PERF_TRACKER.md`), try/catch and performance handoff boundary documented.
+
+
 
 Test-driven SDLC, visual design agent, smart routing, adaptive questioning, and design compliance enforcement. Based on lessons from a real 60-test QA track on Sibling.
 
@@ -156,7 +200,8 @@ Initial public release of the BPM OpenCode Expert system.
 - **Full documentation**: expert guide, SDLC guide, contributing guide.
 - **Interoperable** with the sibling `claude-experts` project for Claude Code — works with any LLM backend (Claude, OpenAI, Gemini, Ollama, LM Studio, 75+ providers).
 
-[0.4.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.3.0...v0.4.0
+[0.7.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.6.0...v0.7.0
+[0.6.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.5.0...v0.6.0
 [0.3.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bpmforge/bpm-opencode-experts/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/bpmforge/bpm-opencode-experts/releases/tag/v0.1.0

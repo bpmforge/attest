@@ -4,7 +4,7 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (12)](#agents)
+- [Agents (13)](#agents)
 - [Skills (15)](#skills)
 - [Reference documents (11)](#reference-documents)
 - [Custom tools (18)](#custom-tools)
@@ -15,7 +15,7 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Agents
 
-Every agent lives in `agents/<name>.md`. All agents share: frontmatter (`description`, `mode`), "how you think" section, progress announcements, micro-step execution, phase-by-phase workflow, orchestrator + `--phase` sub-task mode, confidence gate-loop, reader-simulation pass, and verifier-isolation clause.
+Every agent lives in `agents/<name>.md`. All agents share: frontmatter (`description`, `mode: primary`), "how you think" section, progress announcements, micro-step execution, phase-by-phase workflow, orchestrator + `--phase` sub-task mode, confidence gate-loop, reader-simulation pass, and verifier-isolation clause.
 
 ### Multi-agent execution model
 
@@ -37,7 +37,7 @@ Orchestrates the full SDLC across 4 operating modes. Delegates every technical t
 
 Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
 
-### `git-expert` — Git & forge operations (`mode: subagent`)
+### `git-expert` — Git & forge operations (`mode: primary`)
 
 Called by `sdlc-lead` at every phase boundary to commit docs, create branches, cut releases, and inspect history. Six modes:
 
@@ -50,7 +50,7 @@ Called by `sdlc-lead` at every phase boundary to commit docs, create branches, c
 
 Never force-pushes protected branches, never `--no-verify`, scans for secrets before every commit.
 
-### `researcher` — Professional research analyst (`mode: subagent`)
+### `researcher` — Professional research analyst (`mode: primary`)
 
 Three execution modes:
 
@@ -58,41 +58,67 @@ Three execution modes:
 - **`--single: <question>`** — researches exactly one question (30–60 s), appends finding to output file, no sub-spawning
 - **`--plan: <topic>`** — returns a numbered question list only, no searching
 
-### `security-auditor` — Security assessments (`mode: subagent`)
+### `security-auditor` — Security assessments (`mode: primary`)
 
 OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 4-phase orchestrator: understand → automated scan → OWASP + STRIDE manual → verify + report.
 
-### `code-reviewer` — Code health review (`mode: subagent`)
+### `code-reviewer` — Code health review (`mode: primary`)
 
 Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
 
-### `ux-engineer` — UX design & accessibility (`mode: subagent`)
+### `ux-engineer` — UX design & accessibility (`mode: primary`)
 
 - **`--design`** — greenfield component/workflow design, WCAG 2.2 AA, style guide, UX spec
 - **`--review`** — heuristic review of existing UI, called by `sdlc-lead` after code review on UI features
 - **`--audit`** — WCAG accessibility audit, called by `sdlc-lead` in Mode 2 (if UI-bearing) and Mode 3 verify
 
-### `test-engineer` — Test strategy & implementation (`mode: subagent`)
+### `test-engineer` — Test strategy & implementation (`mode: primary`)
 
 Runs as 6-phase orchestrator: understand → research → plan → write tests → verify → report. Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`.
 
-### `performance-engineer` — Performance profiling (`mode: subagent`)
+### `performance-engineer` — Performance profiling (`mode: primary`)
 
-Profile first, optimize second. 6-phase orchestrator: understand → profile → identify hotspot → fix → verify → document. Never optimizes without measurement.
+Profile first, optimize second. 7-phase orchestrator: understand → **static analysis** → profile → identify hotspot → fix → verify → document. Never optimizes without measurement.
 
-### `db-architect` — Database design (`mode: subagent`)
+Key capabilities added in v0.7.0:
+
+- **`PERF_TRACKER.md`** — persistent session tracker written at Phase 1, updated after every phase. Survives context loss and session restarts. Stored at `docs/performance/PERF_TRACKER.md`. Tracks: progress summary (7 rows with status/confidence), baseline metrics, static analysis findings, profiler results, hotspot log, before/after benchmark table.
+
+- **Phase 1b — Static Analysis Pass** — runs before any profiler. Five grep scans across all source files detect performance anti-patterns without executing code. Scans:
+  1. **O(n²) nested loops** — `.find()` / `.filter()` inside `for` / `forEach`
+  2. **N+1 query patterns** — DB/fetch call inside a loop
+  3. **try/catch performance anti-patterns** — four language-specific patterns:
+     - A: `try/catch` inside tight loop → V8 de-optimization (5-20x slowdown in Node.js)
+     - B: Exception-driven control flow in hot paths → 100-1000× vs a guard check
+     - C: Individual `try/catch` per `await` → prevents `Promise.allSettled` parallelism
+     - D: Re-throw after logging → double stack capture cost
+     - Python: EAFP misuse in hot loops → use `.get()` / guard check
+     - Go: `errors.New()` in hot loop → sentinel error allocated once at init
+     - Rust: `unwrap()` panic path in hot loop → `filter_map` / `.ok()`
+  4. **Blocking I/O in async paths** — `readFileSync`, `execSync`, etc. inside request handlers
+  5. **Hot-path allocations** — `JSON.parse`, object spread, string concat inside tight loops
+
+- **Coverage confidence loop** — after all 5 scans, the agent cross-checks its grep coverage against a `find`-generated source file list, answers a 9-question checklist, and rates coverage 1-10. Re-passes if < 7 (max 3 attempts); surfaces `⚠️ BLOCKED` to user if still < 7.
+
+- **Verbatim code mandate** — every finding requires a `read(filePath=..., offset=..., limit=...)` call before it's recorded. Findings from grep output alone are prohibited. Each finding's "Verbatim code" block shows the exact lines from `read()`.
+
+- **Full report template (Phase 6)** — `docs/PERFORMANCE_REPORT.md` follows a mandatory template with: executive summary, baseline measurements table, one `STATIC-NNN` block per finding (verbatim code + loop bound + specific impact + concrete fix + profiler confirmation status), profiler results table, fix before/after verbatim code, final benchmark (P50/P95 before and after), regression check table, remaining bottlenecks backlog (with S/M/L effort + P0/P1/P2 priority), data size thresholds, coverage verdict, and handoffs recommended.
+
+- **Confidence gate reads from tracker file** — gate prints a 7-row table derived from `PERF_TRACKER.md`, not from context memory. Phase 5 (verify-fix) uses a raised threshold of 8/10 — a fix without before/after numbers is not verified.
+
+### `db-architect` — Database design (`mode: primary`)
 
 6-phase orchestrator: understand data → research → plan → design + implement → verify → report. Modes: `--design`, `--migrate`, `--tune`, `--review`.
 
-### `api-designer` — API design (`mode: subagent`)
+### `api-designer` — API design (`mode: primary`)
 
 6-phase orchestrator: understand → research → design → document → verify → write docs. REST + GraphQL, contracts, versioning, pagination, error shapes.
 
-### `container-ops` — Container operations (`mode: subagent`)
+### `container-ops` — Container operations (`mode: primary`)
 
 6-phase orchestrator: understand → research → plan → execute → verify → report. Podman/Docker, Dockerfiles, compose, networking, image optimization.
 
-### `sre-engineer` — Site reliability (`mode: subagent`)
+### `sre-engineer` — Site reliability (`mode: primary`)
 
 6-phase orchestrator: understand → research → plan → execute → verify → report. CI/CD pipelines, monitoring, incident response, runbooks.
 
