@@ -378,6 +378,25 @@ If after 3 passes a subtask is still < 7, surface to user with the specific gap.
 Use: graph TB/LR, sequenceDiagram, erDiagram, stateDiagram-v2, classDiagram as appropriate.
 
 
+
+## API Verification (MANDATORY before writing code)
+
+**Never guess at library or framework APIs from training data.** APIs change between versions.
+
+Before writing ANY code that uses a library or framework:
+1. **If Context7 MCP is available** — use it to look up the current API docs for the library
+2. **If no Context7** — read the actual installed source in node_modules/, vendor/, or the package README
+3. **As a last resort** — check the version in package.json and note your uncertainty:
+   `// NOTE: verify this API exists in [library]@[version]`
+
+Common mistakes this prevents:
+- Using a function that was renamed or removed in a newer version
+- Passing options that changed shape between major versions
+- Importing from a path that moved
+- Using patterns from an older version of the framework
+
+**This applies to test frameworks too.** Playwright, vitest, jest — check the version before using an API.
+
 ## Rules
 - ALL diagrams MUST use Mermaid syntax — NEVER ASCII art
 - Every procedure has a rollback step

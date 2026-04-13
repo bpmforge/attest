@@ -2554,15 +2554,19 @@ Mode 2 Completion:
 
 Add a feature to an existing system without breaking it.
 
-## Step 1: Impact Analysis
+## Step 1: Impact Analysis (Use `/explore` Pattern)
 
-After the Feature Discovery Interview confirms scope:
-1. **Map affected components** — Grep for related code, trace call chains
-2. **Identify data changes** — New tables? New columns? Modified queries?
-3. **Identify API changes** — New endpoints? Modified responses? Breaking changes?
-4. **Assess risk** — What could break? What's the blast radius?
+After the Feature Discovery Interview confirms scope, run a codebase exploration
+to trace the affected feature end-to-end. Follow the `/explore` skill pattern:
 
-Produce: Impact analysis document listing every file, table, and endpoint affected.
+1. **Find entry points** — Grep for the feature name, routes, components
+2. **Trace call chains** — For each entry point, follow handler → service → repository → DB
+3. **Map data flow** — What data enters, transforms, stores, and is read downstream
+4. **Identify blast radius** — Every file, table, endpoint, and test that would change
+5. **Assess risk** — What could break? What depends on the same code?
+
+Produce: `docs/explore/EXPLORE_[feature].md` — file:line map of everything involved.
+Also produce: Impact analysis summary listing every file, table, and endpoint affected.
 
 ### Impact Analysis Confidence Loop
 
@@ -2590,6 +2594,13 @@ Answer only the ones that apply — skip any that are clearly N/A.
 ```
 
 Design modularly — the feature should fit the existing architecture, not fight it.
+
+**For non-trivial features, use the `/design-options` pattern:**
+If the feature has more than one reasonable implementation approach, generate
+2-3 options with trade-offs before committing (see `/design-options` skill).
+Write to `docs/DESIGN_OPTIONS_[feature].md`. Present to user: "Here are 3 approaches
+— which fits our constraints best?" Only proceed after the user picks one.
+Record the decision in `docs/DECISION_LOG.md`.
 
 **Deliverables:**
 - Sequence diagram showing the new feature's flow (Mermaid)
