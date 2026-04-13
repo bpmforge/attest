@@ -5,7 +5,7 @@ This document describes what every agent, skill, reference document, and tool in
 ## Table of contents
 
 - [Agents (13)](#agents)
-- [Skills (15)](#skills)
+- [Skills (19)](#skills)
 - [Reference documents (11)](#reference-documents)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
@@ -122,6 +122,16 @@ Key capabilities added in v0.7.0:
 
 6-phase orchestrator: understand → research → plan → execute → verify → report. CI/CD pipelines, monitoring, incident response, runbooks.
 
+### `frontend-design` — Frontend design engineer (`mode: primary`)
+
+Bridges UX specification and production UI. Turns design tokens and component specs into code that looks intentional — not AI-generated. Three modes:
+
+- **`--implement`** — turns `UX_SPEC.md` + `STYLE_GUIDE.md` into production components
+- **`--polish`** — takes existing UI and elevates typography, color, spacing, motion
+- **`--system`** — creates or refactors a design token system (colors, typography, spacing, shadows)
+
+Distinct from `ux-engineer`: UX handles usability, workflows, and accessibility; this agent handles visual polish and implementation. Called by `sdlc-lead` in Phase 3 (after UX spec is approved) and Mode 4 (`/sdlc improve "frontend"`).
+
 ---
 
 ## Skills
@@ -144,7 +154,11 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/devops` | `sre-engineer` | CI/CD, monitoring, runbooks, incident response |
 | `/gate` | `sdlc-lead` | Gate check / approve / bypass for SDLC phases |
 | `/review` | `code-reviewer` + `security-auditor` | Generic review meta-skill |
-| `/simplify` | `code-reviewer` | Simplification-focused pass |
+| `/simplify` | `code-reviewer` | Simplification-focused pass on recent changes |
+| `/explore` | `sdlc-lead` (inline) | Codebase archaeology — trace a feature end-to-end, map blast radius |
+| `/design-options` | `sdlc-lead` (inline) | Generate 2-3 architecture alternatives with trade-offs before committing |
+| `/frontend` | `frontend-design` | Visual polish, design tokens, typography, color, spacing, motion |
+| `/steward` | `sdlc-lead` (inline) | Audit CLAUDE.md / AGENTS.md alignment, capture session learnings |
 
 ---
 
