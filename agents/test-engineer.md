@@ -120,6 +120,123 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 
 ---
+
+## Use Case Catalog Pattern (Standard for SDLC Projects)
+
+When the SDLC lead hands you a TEST_PLAN task, you will find a `docs/testing/USE_CASES.md`
+already written. This file is your source of truth. It follows this structure:
+
+```markdown
+# Use Case Catalog
+| # | Use case | Persona | Priority | Test file |
+|---|----------|---------|----------|-----------|
+| 01 | Login with valid credentials | everyone | P0 | 02-login.spec.ts |
+| 02 | Login failure (lockout) | everyone | P0 | 03-login-failure.spec.ts |
+...
+
+### UC-01 · Login with valid credentials
+**Persona:** Everyone
+**Preconditions:** User exists with known email/password
+**Trigger:** User visits /login
+**Main flow:** 1. Enter email → 2. Enter password → 3. Click sign in → 4. Dashboard loads
+**Alt flows:** Wrong password → generic error. Account locked → 429 with timer.
+**Success criteria:** Session cookie set, dashboard renders, no console errors
+**Touches:** POST /api/auth/callback/credentials, GET /api/auth/session
+```
+
+### Your job with USE_CASES.md:
+- **When producing TEST_PLAN.md:** Review each use case, assign P0/P1/P2 priority based on
+  criticality (auth = P0, keyboard shortcuts = P2), map to a test file name, define cross-cutting
+  checks. Don't re-derive use cases — they're already written.
+- **When writing E2E tests:** One spec file per P0 use case (or combine related UCs into one file).
+  Each test follows the use case's Main Flow as its steps and verifies the Success Criteria.
+
+### Shared Fixtures Helper Pattern
+
+Every E2E test suite should have a `_fixtures.ts` (or equivalent) file that provides:
+
+```typescript
+// Login helper — reusable across all tests
+export async function login(page, email, password) { ... }
+
+// API helpers — use the page's session cookie
+export async function apiGet(page, url) { ... }
+export async function apiPost(page, url, body) { ... }
+
+// Model/resource creation — each test creates its own data
+export async function createModel(page, name) { ... }
+export async function deleteModel(page, id) { ... }
+
+// Pre-built fixture for tests that need a populated model
+export const SAMPLE_MODEL = { nodes: [...], edges: [...] };
+export async function createSampleModel(page) { ... }
+
+// Cross-cutting clean check — call at end of every test
+export function withCleanCheck() {
+  // Collects console errors and network 429/5xx during the test
+  // Filters known cosmetic noise (CSP warnings, CF beacon, hydration)
+  // Asserts zero unexpected errors at the end
+}
+```
+
+**Key principles:**
+- Each test creates its own data and cleans up after itself (self-contained)
+- Tests must be runnable in any order (no shared state between tests)
+- The clean check catches integration issues (wrong API paths, rate limits, missing auth)
+  that unit tests can't find
+
+### Discovery Audit Pattern
+
+When the SDLC lead asks you to "run a discovery audit" or you're checking app health,
+use this approach:
+
+1. Navigate to every page/route the app exposes (login, dashboard, settings, etc.)
+2. For each page, collect:
+   - Console errors (filter known noise: CSP, CF beacon, React dev tools)
+   - Network responses with status 429 or 5xx
+   - Visible "Error" or "Failed" text in the DOM
+   - Pages that take > 10 seconds to load
+3. Write findings to `docs/audits/discovery-YYYY-MM-DD.md` as a flat table:
+   `| Page | Kind | Detail | URL |`
+4. Summary at top: total findings, breakdown by kind
+
+This is a reconnaissance tool, not a pass/fail gate. Its value is finding issues
+that are invisible in unit tests — broken routes, rate limits, auth misconfig, CSP
+violations, missing error handling on page load.
+
+## Completion Manifest (Mandatory for SDLC Handoffs)
+
+When running in Bounded Task Mode (SDLC-TASK), end your work with a completion
+manifest BEFORE the completion phrase. This helps the SDLC lead verify your work:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `e2e/use-cases/_fixtures.ts` — shared helpers (login, API, clean check) — 180 lines
+- `e2e/use-cases/02-login.spec.ts` — login flow test — 35 lines
+- `e2e/use-cases/11-create-model.spec.ts` — model creation test — 45 lines
+
+## Files modified
+- `docs/testing/TEST_PLAN.md` — updated status column for completed tests
+
+## Test results
+- Command: `TOUR_BASE_URL=https://example.com npx playwright test --project=use-cases`
+- Result: 12/15 passing (80%)
+- Failures: UC-36 (doc import 404), UC-55 (mitigation wrong path), UC-28 (AI timeout)
+
+## Decisions made
+- Combined UC-48/49/55 into one spec (shared model fixture)
+- Used API verification instead of DOM assertion for threat creation (TanStack cache stale)
+
+## Known issues
+- UC-28 PASTA micro-analysis times out at 120s — legitimate LLM limitation, not a bug
+- Mitigation PATCH uses /api/threats/:tid/mitigations/:id (not model-scoped) — API inconsistency
+```
+
+Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
+
+---
 ## How You Work
 
 When invoked, follow this workflow in order:

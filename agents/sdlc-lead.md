@@ -2582,15 +2582,25 @@ After producing the design documents:
 task(agent="git-expert", prompt="Run --feature mode: create a feature branch for '[feature name]' with semantic prefix (feat/, fix/, chore/, etc). Use conventional branch naming: feat/[slug]. Report the branch name.", timeout=60)
 ```
 
-**2. Write tests (HANDOFF):**
+**2. Write use cases + acceptance tests FIRST (TDD approach):**
+
+Before any implementation, define what "done" looks like:
+
+a) **SDLC lead writes use cases for this feature (INLINE):**
+   - Append to `docs/testing/USE_CASES.md` (create if it doesn't exist)
+   - One use case per user story / acceptance criterion from FEATURE_CONTEXT.md
+   - Each has: persona, preconditions, main flow, alt flows, success criteria
+   - Mark all as P0 (this feature must work)
+
+b) **HANDOFF → test-engineer writes the E2E test:**
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
 Mode: 3 — Feature: [name]
 Step: 3 — Implement
-Last completed: feature branch created
-Awaiting: test-engineer — test files for this feature
-Next after resume: code-reviewer handoff
+Last completed: feature branch created + use cases written
+Awaiting: test-engineer — E2E test for this feature (should FAIL initially)
+Next after resume: implementation checkpoint
 ")
 ```
 
@@ -2604,22 +2614,34 @@ SDLC-TASK for test-engineer:
 
 CONTEXT (read these before starting):
 - docs/FEATURE_CONTEXT.md — what [feature name] should do and its acceptance criteria
+- docs/testing/USE_CASES.md — the use cases for this feature (just added by SDLC lead)
+- docs/testing/TEST_PLAN.md — existing test plan (if it exists)
 - docs/TEST_STRATEGY.md — test patterns and frameworks used in this project
 - The existing test directory to follow its patterns
 
 YOUR TASK:
-Write test stubs and test cases for [feature name]. Cover: the happy path from
-the acceptance criteria, every error case identified in the feature design, and
-edge cases (empty inputs, boundary values, concurrent access if relevant).
-Follow the exact file naming and structure of existing tests.
+Write E2E acceptance tests for [feature name] based on the use cases in
+USE_CASES.md. These tests should FAIL initially because the feature isn't
+built yet (TDD approach). Cover: the main flow from each use case, error
+cases, and key edge cases. Use the shared fixtures helper if one exists.
+
+Each test must:
+- Create its own fixture data (self-contained)
+- Follow the main flow steps from the use case
+- Assert the success criteria from the use case
+- Include a clean check (no console errors, no 5xx)
 
 PRODUCE exactly these:
-- Test files in the appropriate test directory — one test file per module being
-  tested. Write the test structure and assertions, using TODO comments for any
-  mocks that need to be filled in during implementation.
+- e2e/use-cases/[feature-slug].spec.ts — E2E test(s) for this feature
+- Update docs/testing/TEST_PLAN.md — add new test entries
+
+Run the tests. They should FAIL (feature not built yet). Report which
+tests fail and why — this becomes the implementation checklist.
+
+Include a completion manifest (see Completion Manifest section).
 
 When all test files are written, print exactly:
-"tests done — [one sentence: how many test files and cases written]"
+"tests done — [N tests written, all failing as expected (feature not built)]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
@@ -2659,8 +2681,11 @@ When the feature is implemented and tests pass, come back and say: "implementati
 ```
 
 After "implementation done":
-1. Confirm tests pass (ask the user to run the test suite)
-2. Proceed to code review
+1. **GATE: all feature tests must pass.** Ask user to run the test suite.
+   If tests fail, implementation is NOT done — go back and fix.
+2. **GATE: all existing P0 tests must still pass** (no regressions).
+   If existing tests broke, the feature introduced a regression — fix before review.
+3. Only after both gates pass: proceed to code review.
 
 **4. Code review (HANDOFF):**
 
@@ -2930,6 +2955,20 @@ Awaiting: user confirmation of audit scope
 Next after resume: Step 2 — Run Audits
 ")
 ```
+
+## Step 1.5: Discovery Audit (INLINE — before specialist audits)
+
+Before sending any specialist agent to audit the code, run a discovery audit yourself.
+This gives you ground truth — what's actually broken right now — so you can scope the
+specialist audits precisely and not waste their context on things that are obviously fine.
+
+1. If the app has a running instance (dev or prod), navigate every page/route
+2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
+3. Write findings to `docs/improve/DISCOVERY_PRE.md`
+4. Use this to narrow specialist scope: "UX audit should focus on the 3 pages with errors"
+
+If the app doesn't have a running instance, skip this step and rely on static analysis
+from the specialist agents.
 
 ## Step 2: Run Audits
 
@@ -3330,6 +3369,21 @@ Context file: docs/improve/IMPROVEMENT_BACKLOG.md (item #[n])
 
 Run the full Mode 3 workflow with the improvement as the "feature." After Mode 3 completes,
 return to Mode 4 and continue with the next approved item.
+
+## Step 5.5: Post-Improvement Discovery Audit (Compare Before/After)
+
+After all items are executed and verified by specialist agents, run the discovery
+audit again to measure the improvement:
+
+1. Run the same discovery audit as Step 1.5 (navigate all pages, collect errors)
+2. Write findings to `docs/improve/DISCOVERY_POST.md`
+3. Compare with `docs/improve/DISCOVERY_PRE.md`:
+   - How many findings were resolved?
+   - Did any NEW issues appear (regressions)?
+   - Net improvement: `PRE findings - POST findings = delta`
+4. If regressions found: fix them before wrap-up
+
+Include the before/after comparison in the summary below.
 
 ## Step 6: Wrap-Up
 
