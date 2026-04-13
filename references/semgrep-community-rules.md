@@ -256,18 +256,22 @@ using it and logs skipped packs.
 
 ### Confirmed dead (exit 7 / HTTP 404)
 
-| Pack | Status |
-|------|--------|
-| `p/express` | ❌ Dead — HTTP 404 |
-| `p/nextjs` | ❌ Dead — HTTP 404 |
-| `p/spring` | ❌ Dead — HTTP 404 |
+| Pack | Status | Replacement |
+|------|--------|-------------|
+| `p/cpp` | ❌ Dead — HTTP 404 | `p/c` (thin: 2 rules), **cpp-bridge rules**, 0xdea + GitLab community |
+| `p/express` | ❌ Dead — HTTP 404 | `p/javascript` + `p/nodejsscan` |
+| `p/nextjs` | ❌ Empty — returns `rules: []` | `p/react` + `p/javascript` |
+| `p/rails` | ❌ Dead — HTTP 404 | `p/ruby` + `p/brakeman` |
+| `p/gin` | ❌ Dead — HTTP 404 | `p/golang` + `p/gosec` |
+| `p/spring` | ❌ Dead — HTTP 404 | `p/java` |
+| `p/ci` | Meta-pack (not downloadable as static YAML) | `p/default` + `p/secrets` + language packs |
 
 ### Confirmed alive (verified working)
 
 | Category | Packs |
 |----------|-------|
 | Core security | `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default` |
-| Languages | `p/javascript`, `p/typescript`, `p/python`, `p/golang`, `p/java`, `p/ruby`, `p/php`, `p/rust`, `p/kotlin` |
+| Languages | `p/javascript`, `p/typescript`, `p/python`, `p/golang`, `p/java`, `p/ruby`, `p/php`, `p/rust`, `p/kotlin`, `p/csharp`, `p/c`, `p/swift`, `p/scala` |
 | Language-native | `p/bandit` (Python), `p/gosec` (Go), `p/brakeman` (Ruby), `p/nodejsscan` (Node.js) |
 | Frameworks | `p/react`, `p/django`, `p/flask`, `p/fastapi` |
 | IaC | `p/dockerfile`, `p/terraform`, `p/kubernetes`, `p/github-actions` |
@@ -301,7 +305,57 @@ scripts/update-semgrep-rules.sh --verify
 
 # Check for stale sources (> 90 days since upstream commit)
 scripts/update-semgrep-rules.sh --check-staleness
+
+# Download registry packs for offline use
+scripts/update-semgrep-rules.sh --cache-packs
+# or directly:
+scripts/cache-registry-packs.sh
 ```
+
+---
+
+## Offline / Air-Gapped Scanning
+
+Registry packs (`p/javascript`, `p/owasp-top-ten`, etc.) require internet at scan time. For offline environments:
+
+```bash
+# 1. While online: download all registry packs as local YAML files
+scripts/cache-registry-packs.sh
+
+# 2. Run scans offline — uses cached YAML instead of hitting semgrep.dev
+scripts/semgrep-full-audit.sh --offline
+```
+
+**Cache location:** `~/.semgrep/registry-cache/` (override: `SEMGREP_REGISTRY_CACHE` env var)
+
+**Cache management:**
+- `scripts/cache-registry-packs.sh --status` — show what's cached and age
+- `scripts/cache-registry-packs.sh --refresh` — re-download all packs
+- `scripts/cache-registry-packs.sh --prune` — remove dead/empty pack files
+
+**Automatic cache preference:** Even without `--offline`, if a cached YAML file exists for a pack, it is used first (avoids network latency). The `--offline` flag makes cache mandatory — missing packs are skipped instead of fetched.
+
+---
+
+## C/C++ Bridge Rules
+
+Since `p/cpp` is dead and `p/c` has only 2 rules, this toolchain provides custom bridge rules for C/C++ security scanning:
+
+**Location:** `.semgrep/cpp-bridge-rules/cpp-security.yml`
+**Languages:** `[c, cpp]` — fires on both `.c` and `.cpp` files
+**Rule count:** 15 rules covering:
+
+| Category | Rules | CWE |
+|----------|-------|-----|
+| Buffer overflow | `strcpy`, `strcat`, `sprintf`, `gets` | CWE-120 |
+| Format string | `printf(var)`, `fprintf(stream, var)`, `syslog(pri, var)` | CWE-134 |
+| Memory safety | Use-after-free, double-free patterns | CWE-416, CWE-415 |
+| Integer overflow | `atoi` without error checking | CWE-190 |
+| Command injection | `system()`, `popen()` | CWE-78 |
+| Deprecated/banned | `tmpnam`, `mktemp` | CWE-377 |
+| Crypto weakness | `rand()`/`srand()` for security contexts | CWE-338 |
+
+These rules load automatically when C/C++ files are detected. Combined with 0xdea (~50 rules) and GitLab community (~20 rules), C/C++ projects get ~87 rules total — comparable to more mature language packs.
 
 ---
 
@@ -355,7 +409,40 @@ Run `scripts/update-semgrep-rules.sh --bump` to auto-populate real commit hashes
 
 ## Combining with Official Registry Packs
 
-Community rules supplement the official packs — they don't replace them:
+Community rules supplement the official packs — they don't replace them.
+
+### Polyglot Detection
+
+`scripts/semgrep-full-audit.sh` detects **ALL** languages in a project, not just the first.
+A .NET backend + React frontend gets both `p/csharp` AND `p/javascript` rules. Community
+rules are also loaded for every detected language. This is critical for:
+
+- Monorepos with multiple services in different languages
+- Mobile apps with native + JS bridge code (React Native + Swift/Kotlin)
+- .NET projects with JavaScript frontends
+- C/C++ projects with Python bindings
+- Java + Kotlin Android projects
+
+### Language → Registry Pack + Community Rule Coverage Matrix
+
+| Language | Registry Packs | Community Rules |
+|----------|---------------|-----------------|
+| JavaScript/TypeScript | `p/javascript`, `p/typescript`, `p/nodejsscan` | trailofbits/javascript, elttam/rules-audit/javascript, gitlab/javascript | — |
+| Python | `p/python`, `p/bandit` | trailofbits/python, elttam/rules-audit/python, gitlab/python | — |
+| Go | `p/golang`, `p/gosec` | trailofbits/go, elttam/rules/go, elttam/rules-audit/go, gitlab/go | — |
+| Rust | `p/rust` | (no community rules currently) | **rust-security.yml** (15 rules) |
+| Java | `p/java` | elttam/rules/java, elttam/rules-audit/java, gitlab/java | — |
+| Kotlin | `p/kotlin`, `p/java` | elttam/rules-audit/kotlin, + all Java community rules | **kotlin-security.yml** (16 rules) |
+| C# / .NET | `p/csharp` | elttam/rules-audit/csharp, gitlab/csharp | **csharp-security.yml** (20 rules) |
+| C / C++ | `p/c` (**`p/cpp` is dead**) | **cpp-bridge** (15 rules), elttam/rules/c, elttam/rules-audit/c, gitlab/c, 0xdea/rules (~50 rules) | — |
+| Swift | `p/swift` | trailofbits/swift | **swift-security.yml** (17 rules) |
+| Ruby | `p/ruby`, `p/brakeman` | trailofbits/ruby | — |
+| PHP | `p/php` | elttam/rules/php | **php-security.yml** (15 rules) |
+| Scala | `p/scala` | gitlab/scala | — |
+
+> **All languages also get:** `trailofbits/generic` (language-agnostic rules: SSL modes, wget flags, etc.)
+>
+> **Custom gap-filler rules** (98 total across 6 languages) load automatically from `.semgrep/custom-rules/` when the audit script detects the corresponding language. They fill OWASP Top 10 gaps in registry packs with thin coverage. See `references/semgrep-guide.md` § "Custom gap-filler rulesets" for the full inventory.
 
 ```bash
 # semgrep-full-audit.sh does this automatically.

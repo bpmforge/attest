@@ -212,12 +212,25 @@ If a `.semgrep/community-rules.lock` file exists and verify fails, STOP and surf
 **Step 2: Detect project characteristics** (drives which rule packs to use)
 
 ```
-bash -c "ls package.json go.mod Cargo.toml requirements.txt pyproject.toml pom.xml Gemfile composer.json 2>/dev/null"
+bash -c "ls package.json go.mod Cargo.toml requirements.txt pyproject.toml pom.xml build.gradle build.gradle.kts Gemfile composer.json global.json build.sbt CMakeLists.txt Package.swift Podfile 2>/dev/null"
+bash -c "find . -maxdepth 2 -name '*.csproj' -o -name '*.sln' -o -name '*.xcodeproj' -o -name '*.xcworkspace' 2>/dev/null | head -5"
 ```
 
-Identify:
-- **Language** (JS/TS, Python, Go, Rust, Java, Ruby, PHP)
-- **Framework** — grep `package.json` for express/next/react/vue; `requirements.txt` for django/flask/fastapi; `Gemfile` for rails; `go.mod` for gin/echo; `pom.xml` for spring
+Identify (polyglot — detect ALL languages present, not just the first):
+- **Languages** — the audit script detects all of these automatically:
+  - JS/TS: `package.json`, `*.ts`/`*.js`
+  - Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`, `*.py`
+  - Go: `go.mod`, `*.go`
+  - Rust: `Cargo.toml`, `*.rs`
+  - Java: `pom.xml`, `build.gradle`, `*.java`
+  - Kotlin: `build.gradle.kts`, `*.kt`/`*.kts`
+  - C# / .NET: `*.csproj`, `*.sln`, `global.json`, `*.cs`
+  - C / C++: `CMakeLists.txt`, `Makefile`, `configure.ac`, `meson.build`, `*.c`/`*.cpp`/`*.h`
+  - Swift / iOS: `Package.swift`, `*.xcodeproj`, `*.xcworkspace`, `Podfile`, `*.swift`
+  - Ruby: `Gemfile`, `*.rb`
+  - PHP: `composer.json`, `*.php`
+  - Scala: `build.sbt`, `*.scala`
+- **Framework** — grep `package.json` for express/next/react/vue/fastify; `requirements.txt` for django/flask/fastapi; `Gemfile` for rails; `go.mod` for gin/echo; `pom.xml`/`build.gradle` for spring
 - **IaC present** — `Dockerfile*`, `*.tf`, `k8s/`, `kubernetes/`, `helm/`, `.github/workflows/`
 
 > Write findings to files — local LLMs have no memory between sessions.
@@ -235,7 +248,7 @@ The script:
 - **Probes each registry pack** in isolation before adding it to the config list — 404'd or deprecated packs are logged and skipped rather than silently producing empty results
 - **Auto-detects the community rules cache** (checks `$SEMGREP_COMMUNITY_CACHE`, then `~/.semgrep/rules/` (canonical), then `~/.cache/semgrep-community/` (legacy fallback))
 - **Probes community rule directories** for YAML parse errors before including them (catches broken rule repos like `gitlab/typescript`)
-- Includes: `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default`, language pack, framework pack, language-native pack (e.g. `p/bandit` for Python, `p/gosec` for Go), IaC packs (if relevant), community rules (Trail of Bits, elttam, GitLab, 0xdea if C/C++), project-specific rules from `.semgrep/project-rules/`
+- Includes: `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default`, language pack, framework pack, language-native pack (e.g. `p/bandit` for Python, `p/gosec` for Go), IaC packs (if relevant), community rules (Trail of Bits, elttam, GitLab, 0xdea if C/C++), **custom gap-filler rules** (98 rules across 6 languages in `.semgrep/custom-rules/` — auto-loaded per detected language), project-specific rules from `.semgrep/project-rules/`
 
 Outputs:
 - `docs/security/semgrep-results.json` — JSON findings
@@ -245,8 +258,11 @@ Outputs:
 **Alternate scan modes (explicit opt-in):**
 - `scripts/semgrep-full-audit.sh --fast` — Tier 1 scan only (CI tier, < 60s, high signal)
 - `scripts/semgrep-full-audit.sh --baseline <commit>` — only new findings since commit
+- `scripts/semgrep-full-audit.sh --offline` — use cached registry packs only (no network required)
 - `scripts/semgrep-full-audit.sh --autofix-dryrun` — preview what autofix WOULD change (no files modified)
 - `scripts/semgrep-full-audit.sh --autofix` — apply autofix (LOW/WARNING only, HIGH/CRITICAL refused)
+
+**Offline scanning:** If the environment has no internet (air-gapped, CI without egress), use `--offline`. Requires prior setup: `scripts/cache-registry-packs.sh` downloads all registry packs as local YAML files. Community rules must also be pre-cloned via `scripts/update-semgrep-rules.sh`. See `references/semgrep-guide.md` § Offline / Air-Gapped Scanning for details.
 
 **Autofix rules:** Autofix is OPT-IN ONLY. Never run it by default. Even with `--autofix`, the script refuses to fix HIGH/CRITICAL — security fixes need human review. A flawed autofix for SQL injection could introduce a subtle bug. The script only autofixes WARNING/INFO severity findings: unused imports, deprecated API calls, missing types. If the user wants HIGH/CRITICAL auto-remediation, they must fix those manually after reviewing the finding.
 

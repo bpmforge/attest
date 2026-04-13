@@ -82,6 +82,7 @@ Or just describe what you want and the SDLC lead figures out the right mode:
 | `commands/` | Slash command definitions (SDLC subcommands) |
 | `hooks/` | Event hooks (session start, pre-tool, etc.) |
 | `scripts/` | Helper scripts (deploy, semgrep audits, validate tools) |
+| `.semgrep/` | Custom security rulesets — 98 rules across 6 languages (auto-loaded) |
 | `examples/` | Example `AGENTS.md` + `opencode.json` |
 | `docs/` | Full documentation (see below) |
 

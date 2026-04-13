@@ -1,0 +1,311 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Swift / iOS Security Rules — Gap Filler
+  #
+  # p/swift only has 2 rules (UserDefaults + WebView JS). This ruleset
+  # covers everything else an iOS/macOS security audit needs:
+  #   A01: Broken Access Control (keychain misconfig, file protection)
+  #   A02: Crypto Failures (weak algorithms, hardcoded keys)
+  #   A03: Injection (SQLite, webview, format string)
+  #   A05: Misconfig (ATS bypass, insecure HTTP, debug flags)
+  #   A07: Auth Failures (biometric bypass)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A02: Cryptographic Failures ─────────────────────────────────────
+
+  - id: swift-custom.crypto.weak-hash-md5
+    languages: [swift]
+    severity: WARNING
+    message: >
+      MD5 is cryptographically broken. Use SHA-256 or SHA-512 for integrity
+      checks, and bcrypt/scrypt/Argon2 for password hashing.
+    pattern-either:
+      - pattern: Insecure.MD5.hash(...)
+      - pattern: CC_MD5(...)
+    metadata:
+      cwe: ["CWE-328"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: swift-custom.crypto.weak-hash-sha1
+    languages: [swift]
+    severity: WARNING
+    message: >
+      SHA-1 is deprecated for security use. Use SHA-256 or SHA-512.
+    pattern-either:
+      - pattern: Insecure.SHA1.hash(...)
+      - pattern: CC_SHA1(...)
+    metadata:
+      cwe: ["CWE-328"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: swift-custom.crypto.hardcoded-key
+    languages: [swift]
+    severity: ERROR
+    message: >
+      Hardcoded cryptographic key or secret. Store keys in the iOS Keychain
+      or use Apple's CryptoKit key generation. Never embed keys in source.
+    pattern-either:
+      - pattern: |
+          let $KEY = SymmetricKey(data: "...")
+      - pattern: |
+          let encryptionKey = "..."
+      - pattern: |
+          let secretKey = "..."
+      - pattern: |
+          let apiKey = "..."
+      - pattern: |
+          let apiSecret = "..."
+      - pattern: |
+          let privateKey = "..."
+      - pattern: |
+          let password = "..."
+      - pattern: |
+          let token = "..."
+      - pattern: |
+          let accessToken = "..."
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A02:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: swift-custom.crypto.hardcoded-key-var
+    languages: [swift]
+    severity: ERROR
+    message: >
+      Hardcoded secret assigned with `var`. Store in Keychain or env vars.
+    pattern-either:
+      - pattern: var password = "..."
+      - pattern: var secret = "..."
+      - pattern: var apiKey = "..."
+      - pattern: var token = "..."
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A02:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: swift-custom.crypto.ecb-mode
+    languages: [swift]
+    severity: WARNING
+    message: >
+      ECB mode is insecure — identical plaintext blocks produce identical
+      ciphertext. Use CBC, GCM, or ChaChaPoly instead.
+    pattern: .ECB
+    metadata:
+      cwe: ["CWE-327"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Injection ─────────────────────────────────────────────────
+
+  - id: swift-custom.injection.sqlite-string-interpolation
+    languages: [swift]
+    severity: ERROR
+    message: >
+      SQLite query built with string interpolation. This allows SQL
+      injection. Use parameterized queries with `?` placeholders and
+      `sqlite3_bind_*` functions instead.
+    patterns:
+      - pattern-either:
+          - pattern: sqlite3_exec($DB, "...\($VAR)...", ...)
+          - pattern: sqlite3_prepare_v2($DB, "...\($VAR)...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: swift-custom.injection.webview-evaluate-js
+    languages: [swift]
+    severity: WARNING
+    message: >
+      `evaluateJavaScript` with a dynamic string. If the string includes
+      user input, this enables XSS or arbitrary code execution in the
+      WebView context. Sanitize input or use `callAsyncJavaScript` with
+      arguments instead.
+    pattern: $WEBVIEW.evaluateJavaScript($SCRIPT, ...)
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: swift-custom.injection.webview-load-string
+    languages: [swift]
+    severity: WARNING
+    message: >
+      WebView loading HTML from a string. If the HTML includes user input,
+      this is a stored XSS vulnerability. Sanitize the HTML or load from
+      a trusted local file.
+    pattern: $WEBVIEW.loadHTMLString($HTML, ...)
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Security Misconfiguration ─────────────────────────────────
+
+  - id: swift-custom.misconfig.insecure-http
+    languages: [swift]
+    severity: WARNING
+    message: >
+      Plaintext HTTP URL. Use HTTPS instead. iOS App Transport Security
+      (ATS) blocks HTTP by default — do not add ATS exceptions to bypass
+      this in production.
+    pattern-regex: "URL\\(string:\\s*\"http://(?!localhost|127\\.0\\.0\\.1)"
+    metadata:
+      cwe: ["CWE-319"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: swift-custom.misconfig.disable-ssl-validation
+    languages: [swift]
+    severity: ERROR
+    message: >
+      SSL certificate validation disabled. This makes the connection
+      vulnerable to man-in-the-middle attacks. Never disable SSL
+      validation in production. For development, use a proxy tool
+      instead of disabling security.
+    pattern-either:
+      - pattern: |
+          completionHandler(.useCredential(...), ...)
+      - pattern: |
+          $SESSION.serverTrustPolicy = .disableEvaluation
+    metadata:
+      cwe: ["CWE-295"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: swift-custom.misconfig.webview-allows-arbitrary-loads
+    languages: [swift]
+    severity: WARNING
+    message: >
+      WebView configured to allow arbitrary loads (disabling ATS). This
+      permits insecure HTTP connections. Remove this unless absolutely
+      required for compatibility.
+    pattern-either:
+      - pattern: $CONFIG.preferences.javaScriptEnabled = true
+      - pattern: $CONFIG.allowsInlineMediaPlayback = true
+    metadata:
+      cwe: ["CWE-16"]
+      owasp: ["A05:2021"]
+      confidence: LOW
+      category: security
+
+  - id: swift-custom.misconfig.print-sensitive
+    languages: [swift]
+    severity: WARNING
+    message: >
+      Potentially sensitive data printed to console. In production builds,
+      `print()` output goes to the system log where other apps or crash
+      reporters can read it. Use `os_log` with `.private` for sensitive
+      data, or remove the print statement entirely.
+    pattern-either:
+      - pattern: print("...\(password)...")
+      - pattern: print("...\(token)...")
+      - pattern: print("...\(secret)...")
+      - pattern: print("...\(apiKey)...")
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A01: Broken Access Control (iOS-specific) ──────────────────────
+
+  - id: swift-custom.ios.keychain-accessible-always
+    languages: [swift]
+    severity: WARNING
+    message: >
+      Keychain item accessibility set to `.always` or `.afterFirstUnlock`.
+      This means the item is accessible even when the device is locked.
+      For sensitive data, use `.whenUnlockedThisDeviceOnly` or
+      `.whenPasscodeSetThisDeviceOnly`.
+    pattern-either:
+      - pattern: kSecAttrAccessibleAlways
+      - pattern: kSecAttrAccessibleAlwaysThisDeviceOnly
+      - pattern: kSecAttrAccessibleAfterFirstUnlock
+    metadata:
+      cwe: ["CWE-921"]
+      owasp: ["A01:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: swift-custom.ios.file-protection-none
+    languages: [swift]
+    severity: WARNING
+    message: >
+      File protection set to `.none` or `.completeUntilFirstUserAuthentication`.
+      Sensitive files should use `.complete` to ensure they are encrypted
+      when the device is locked.
+    pattern-either:
+      - pattern: |
+          try $FM.setAttributes([.protectionKey: FileProtectionType.none], ...)
+      - pattern: FileProtectionType.none
+    metadata:
+      cwe: ["CWE-311"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A07: Authentication Failures ───────────────────────────────────
+
+  - id: swift-custom.ios.biometric-no-fallback-check
+    languages: [swift]
+    severity: WARNING
+    message: >
+      Biometric authentication (Face ID / Touch ID) used via
+      `LAContext.evaluatePolicy`. Ensure you handle the fallback path
+      securely — if biometrics fail, the fallback should not be a
+      weak PIN or no authentication at all.
+    pattern: $CONTEXT.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, ...)
+    metadata:
+      cwe: ["CWE-287"]
+      owasp: ["A07:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A03: Path Traversal ────────────────────────────────────────────
+
+  - id: swift-custom.injection.path-traversal
+    languages: [swift]
+    severity: WARNING
+    message: >
+      File path constructed from user-controlled input. Validate that the
+      resolved path stays within the intended directory. Use URL path
+      methods and check `standardizedFileURL` starts with your base path.
+    pattern-either:
+      - pattern: |
+          URL(fileURLWithPath: $USERINPUT)
+      - pattern: |
+          FileManager.default.contentsOfDirectory(atPath: $USERINPUT)
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: swift-custom.ssrf.url-from-input
+    languages: [swift]
+    severity: WARNING
+    message: >
+      URL constructed from a variable. If this comes from user input,
+      validate against an allowlist of permitted hosts to prevent SSRF.
+    pattern: |
+      URL(string: $USERINPUT)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: LOW
+      category: security

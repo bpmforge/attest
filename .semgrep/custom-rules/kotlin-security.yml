@@ -1,0 +1,295 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Kotlin Security Rules — Gap Filler
+  #
+  # Covers OWASP categories missing from p/kotlin (which only has crypto):
+  #   A01: Broken Access Control
+  #   A03: Injection (SQL, command, XSS)
+  #   A05: Security Misconfiguration (hardcoded secrets)
+  #   A08: Insecure Deserialization
+  #   A10: SSRF
+  #
+  # Also covers Android-specific security patterns.
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ───────────────────────────────────────────────
+
+  - id: kotlin-custom.injection.sql-string-concat
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      SQL query built with string concatenation. Use parameterized queries
+      (`?` placeholders) or a prepared statement instead. String concatenation
+      allows SQL injection if any part comes from user input.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $STMT.executeQuery("..." + $VAR + ...)
+          - pattern: |
+              $STMT.execute("..." + $VAR + ...)
+          - pattern: |
+              $STMT.executeUpdate("..." + $VAR + ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: kotlin-custom.injection.sql-string-template
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      SQL query built with Kotlin string templates (`$var` or `${expr}`).
+      This is equivalent to string concatenation and allows SQL injection.
+      Use parameterized queries with `?` placeholders instead.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $STMT.executeQuery("...$${...}...")
+          - pattern: |
+              $STMT.execute("...$${...}...")
+          - pattern: |
+              $STMT.executeUpdate("...$${...}...")
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: kotlin-custom.injection.raw-query-android
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      Android `rawQuery` with string concatenation or template is vulnerable
+      to SQL injection. Use the `selectionArgs` parameter for user input.
+    patterns:
+      - pattern-either:
+          - pattern: $DB.rawQuery("..." + $VAR + ..., ...)
+          - pattern: $DB.rawQuery("...$${...}...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Command Injection ──────────────────────────────────────────
+
+  - id: kotlin-custom.injection.runtime-exec
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      `Runtime.getRuntime().exec()` with a non-literal argument. If the
+      command string includes user input, this is a command injection
+      vulnerability. Use ProcessBuilder with explicit argument arrays.
+    pattern: Runtime.getRuntime().exec($CMD)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: kotlin-custom.injection.process-builder-command
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      `ProcessBuilder` with a dynamic command list. Verify that no element
+      of the command list comes from user input without validation.
+    pattern: ProcessBuilder($CMD).start()
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Hardcoded Secrets ──────────────────────────────────────────
+
+  - id: kotlin-custom.secrets.hardcoded-password
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      Hardcoded password or secret string. Store secrets in environment
+      variables, Android Keystore, or a secrets manager — never in source.
+    pattern-either:
+      - pattern: val password = "..."
+      - pattern: val secret = "..."
+      - pattern: val apiKey = "..."
+      - pattern: val api_key = "..."
+      - pattern: val secretKey = "..."
+      - pattern: val token = "..."
+      - pattern: val accessToken = "..."
+      - pattern: val privateKey = "..."
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: kotlin-custom.secrets.hardcoded-password-var
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      Hardcoded password or secret assigned with `var`. Store secrets in
+      environment variables, Android Keystore, or a secrets manager.
+    pattern-either:
+      - pattern: var password = "..."
+      - pattern: var secret = "..."
+      - pattern: var apiKey = "..."
+      - pattern: var token = "..."
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A08: Insecure Deserialization ───────────────────────────────────
+
+  - id: kotlin-custom.deserialization.object-input-stream
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      `ObjectInputStream.readObject()` deserializes arbitrary Java/Kotlin
+      objects. If the input comes from an untrusted source, an attacker
+      can achieve remote code execution. Use a safe format (JSON, protobuf)
+      or configure an allow-list with `ObjectInputFilter`.
+    pattern: |
+      ($X as ObjectInputStream).readObject()
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: kotlin-custom.deserialization.object-input-stream-direct
+    languages: [kotlin]
+    severity: ERROR
+    message: >
+      `ObjectInputStream.readObject()` deserializes arbitrary objects.
+      Use a safe format (JSON, protobuf) or configure `ObjectInputFilter`.
+    pattern: $OIS.readObject()
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: kotlin-custom.ssrf.url-from-input
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      URL constructed from a variable. If this value comes from user input,
+      it may allow Server-Side Request Forgery (SSRF). Validate the URL
+      against an allowlist of permitted hosts before making the request.
+    pattern-either:
+      - pattern: java.net.URL($USERINPUT)
+      - pattern: java.net.URI($USERINPUT)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A05: Android-specific misconfigurations ─────────────────────────
+
+  - id: kotlin-custom.android.webview-js-enabled
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      WebView JavaScript is enabled. If the WebView loads untrusted content,
+      JavaScript execution can be exploited for XSS or data theft. Only
+      enable JavaScript if the WebView loads your own trusted content.
+    pattern: $WEBVIEW.settings.javaScriptEnabled = true
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: kotlin-custom.android.webview-file-access
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      WebView file access is enabled. This allows JavaScript in the WebView
+      to read local files. Disable unless absolutely required.
+    pattern-either:
+      - pattern: $WEBVIEW.settings.allowFileAccess = true
+      - pattern: $WEBVIEW.settings.allowUniversalAccessFromFileURLs = true
+      - pattern: $WEBVIEW.settings.allowFileAccessFromFileURLs = true
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: kotlin-custom.android.exported-component-no-permission
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      Android `Intent` with an explicit action but no permission check.
+      Exported components without permission requirements can be triggered
+      by any app on the device. Consider adding `android:permission` or
+      checking the caller in the handler.
+    pattern: |
+      val $INTENT = Intent($ACTION)
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021"]
+      confidence: LOW
+      category: security
+
+  - id: kotlin-custom.android.cleartext-traffic
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      HTTP (not HTTPS) URL detected. Android 9+ blocks cleartext traffic
+      by default. Use HTTPS instead. If you must use HTTP for development,
+      configure a Network Security Config file — don't ship with cleartext.
+    pattern-regex: "http://(?!localhost|127\\.0\\.0\\.1|10\\.)"
+    metadata:
+      cwe: ["CWE-319"]
+      owasp: ["A02:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Path Traversal ────────────────────────────────────────────
+
+  - id: kotlin-custom.injection.path-traversal
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      File path constructed from user input without sanitization. Validate
+      that the resolved path stays within the intended directory (e.g.,
+      use `canonicalPath` and check it starts with the base directory).
+    patterns:
+      - pattern-either:
+          - pattern: java.io.File($BASE, $USERINPUT)
+          - pattern: java.io.File($USERINPUT)
+          - pattern: java.nio.file.Paths.get($USERINPUT)
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A09: Logging Sensitive Data ────────────────────────────────────
+
+  - id: kotlin-custom.logging.sensitive-data-logged
+    languages: [kotlin]
+    severity: WARNING
+    message: >
+      Potentially sensitive variable logged. Avoid logging passwords,
+      tokens, or API keys — they end up in crash reports, logcat, and
+      log aggregation systems.
+    pattern-either:
+      - pattern: Log.d(..., "...$password...")
+      - pattern: Log.i(..., "...$password...")
+      - pattern: Log.e(..., "...$token...")
+      - pattern: Log.d(..., "...$secret...")
+      - pattern: println("...$password...")
+      - pattern: println("...$token...")
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: LOW
+      category: security

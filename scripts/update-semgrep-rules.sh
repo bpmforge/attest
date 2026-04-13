@@ -21,6 +21,7 @@
 #   ./update-semgrep-rules.sh --verify       Verify sources match pinned commits
 #   ./update-semgrep-rules.sh --bump         Pull latest + update lock file
 #   ./update-semgrep-rules.sh --check-staleness  Warn on stale (> 90 days) sources
+#   ./update-semgrep-rules.sh --cache-packs  Download registry packs for offline use
 #   ./update-semgrep-rules.sh --help         Show this help
 #
 # Portable: works on macOS bash 3.2+ and Linux bash 4+.
@@ -55,8 +56,9 @@ for arg in "$@"; do
     --verify)           MODE="verify" ;;
     --bump)             MODE="bump" ;;
     --check-staleness)  MODE="staleness" ;;
+    --cache-packs)      MODE="cache-packs" ;;
     --help|-h)
-      sed -n '3,27p' "$0" | sed 's/^# //'
+      sed -n '3,28p' "$0" | sed 's/^# //'
       exit 0
       ;;
   esac
@@ -127,6 +129,79 @@ PROBE_EOF
 package main
 import "fmt"
 func main() { fmt.Println("probe") }
+PROBE_EOF
+  cat > "$TMPDIR/probe.cs" << 'PROBE_EOF'
+using System;
+using System.Data.SqlClient;
+class Test {
+    void Run(string input) {
+        var cmd = new SqlCommand("SELECT * FROM users WHERE id = " + input);
+        string password = "hardcoded_password";
+    }
+}
+PROBE_EOF
+  cat > "$TMPDIR/probe.c" << 'PROBE_EOF'
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+void vulnerable(char *input) {
+    char buf[64];
+    strcpy(buf, input);
+    printf(input);
+    sprintf(buf, "%s", input);
+}
+PROBE_EOF
+  cat > "$TMPDIR/probe.java" << 'PROBE_EOF'
+import java.sql.*;
+public class Test {
+    void run(String input) throws Exception {
+        Statement stmt = null;
+        stmt.executeQuery("SELECT * FROM users WHERE id = " + input);
+        String secret = "hardcoded_api_key";
+    }
+}
+PROBE_EOF
+  cat > "$TMPDIR/probe.kt" << 'PROBE_EOF'
+import java.sql.*
+fun run(input: String) {
+    val stmt: Statement? = null
+    stmt?.executeQuery("SELECT * FROM users WHERE id = $input")
+    val secret = "hardcoded_api_key"
+}
+PROBE_EOF
+  cat > "$TMPDIR/probe.swift" << 'PROBE_EOF'
+import Foundation
+let password = "hardcoded_secret"
+let url = URL(string: "http://insecure.example.com")!
+PROBE_EOF
+  cat > "$TMPDIR/probe.rb" << 'PROBE_EOF'
+require 'open-uri'
+password = "hardcoded"
+system(params[:cmd])
+PROBE_EOF
+  cat > "$TMPDIR/probe.php" << 'PROBE_EOF'
+<?php
+$password = "hardcoded";
+$query = "SELECT * FROM users WHERE id = " . $_GET['id'];
+system($_GET['cmd']);
+?>
+PROBE_EOF
+  cat > "$TMPDIR/probe.scala" << 'PROBE_EOF'
+object Test {
+  val secret = "hardcoded_key"
+  def run(input: String): Unit = {
+    val query = s"SELECT * FROM users WHERE id = $input"
+  }
+}
+PROBE_EOF
+  cat > "$TMPDIR/probe.rs" << 'PROBE_EOF'
+fn main() {
+    let secret = "hardcoded_secret";
+    unsafe {
+        let ptr: *const i32 = std::ptr::null();
+        let _val = *ptr;
+    }
+}
 PROBE_EOF
 
   echo ""
@@ -367,4 +442,19 @@ if [ "$MODE" = "staleness" ]; then
   [ $fail -eq 0 ] && { ok "No sources past FAIL threshold."; exit 0; }
   err "Some sources past FAIL threshold."
   exit 1
+fi
+
+# ── Mode: cache-packs (download registry packs for offline use) ────────
+if [ "$MODE" = "cache-packs" ]; then
+  SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  CACHE_SCRIPT="$SCRIPT_DIR/cache-registry-packs.sh"
+  if [ ! -f "$CACHE_SCRIPT" ]; then
+    err "cache-registry-packs.sh not found at $CACHE_SCRIPT"
+    exit 1
+  fi
+  echo ""
+  echo "Delegating to cache-registry-packs.sh..."
+  echo "(Run scripts/cache-registry-packs.sh --help for advanced options)"
+  echo ""
+  exec "$CACHE_SCRIPT" "$@"
 fi

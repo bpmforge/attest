@@ -1,0 +1,461 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # C# / .NET Security Rules — Gap Filler
+  #
+  # p/csharp has 27 rules (good deserialization + XXE). This fills gaps:
+  #   A01: Broken Access Control (path traversal)
+  #   A03: Injection (command injection, LDAP injection, XSS via Razor)
+  #   A05: Security Misconfiguration (hardcoded secrets, CORS wildcard)
+  #   A07: Auth failures (weak password hashing)
+  #   A09: Logging / monitoring (sensitive data in logs)
+  #   A10: SSRF
+  #
+  # All rules target `languages: [csharp]`.
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: csharp-custom.injection.process-start-user-input
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      Process.Start() called with a user-controlled argument. An attacker can
+      inject arbitrary OS commands. Use an allow-list of permitted commands or
+      avoid shelling out entirely.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              System.Diagnostics.Process.Start($CMD)
+          - pattern: |
+              Process.Start($CMD)
+          - pattern: |
+              new ProcessStartInfo($CMD, ...)
+          - pattern: |
+              new System.Diagnostics.ProcessStartInfo($CMD, ...)
+      - pattern-not:
+          pattern: |
+            Process.Start("...")
+      - pattern-not:
+          pattern: |
+            new ProcessStartInfo("...", "...")
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.injection.process-startinfo-filename
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      ProcessStartInfo.FileName set from a variable. If this value originates
+      from user input, it allows arbitrary command execution. Use a fixed
+      allow-list of acceptable executables.
+    pattern: |
+      $PSI.FileName = $VAR;
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: csharp-custom.injection.process-startinfo-arguments
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      ProcessStartInfo.Arguments set from a variable. If this contains
+      user input, it may allow command injection via argument manipulation.
+      Validate and sanitize arguments before use.
+    pattern: |
+      $PSI.Arguments = $VAR;
+    metadata:
+      cwe: ["CWE-88"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: XSS (Razor / ASP.NET) ────────────────────────────────────
+
+  - id: csharp-custom.xss.html-raw
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      Html.Raw() renders unescaped HTML. If the argument contains user input,
+      this is a stored or reflected XSS vulnerability. Use encoded output
+      (@Model.Property) instead, or sanitize with a library like HtmlSanitizer.
+    pattern-either:
+      - pattern: |
+          Html.Raw($VAR)
+      - pattern: |
+          @Html.Raw($VAR)
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.xss.content-result-unescaped
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      ContentResult with "text/html" content type may render unescaped user
+      input as HTML. Use a View or encode the content before returning it.
+    patterns:
+      - pattern: |
+          new ContentResult { Content = $VAR, ContentType = "text/html" }
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: LDAP Injection ────────────────────────────────────────────
+
+  - id: csharp-custom.injection.ldap-filter-concat
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      LDAP filter built with string concatenation. An attacker can inject LDAP
+      operators to bypass authentication or exfiltrate directory data. Use
+      parameterized LDAP queries or escape special characters.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              new DirectorySearcher(..., "..." + $VAR + ..., ...)
+          - pattern: |
+              $SEARCHER.Filter = "..." + $VAR + ...;
+          - pattern: |
+              $SEARCHER.Filter = $"...{$VAR}...";
+    metadata:
+      cwe: ["CWE-90"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A01: Path Traversal ────────────────────────────────────────────
+
+  - id: csharp-custom.path-traversal.file-open-user-input
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      File I/O operation uses a variable that may contain user input. Without
+      path validation, an attacker can read or write files outside the intended
+      directory using "../" sequences. Use Path.GetFullPath() and verify the
+      result starts with the expected base directory.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              System.IO.File.ReadAllText($PATH)
+          - pattern: |
+              System.IO.File.ReadAllBytes($PATH)
+          - pattern: |
+              System.IO.File.OpenRead($PATH)
+          - pattern: |
+              System.IO.File.Open($PATH, ...)
+          - pattern: |
+              System.IO.File.WriteAllText($PATH, ...)
+          - pattern: |
+              System.IO.File.WriteAllBytes($PATH, ...)
+          - pattern: |
+              System.IO.File.Delete($PATH)
+          - pattern: |
+              System.IO.File.Copy($PATH, ...)
+          - pattern: |
+              System.IO.File.Move($PATH, ...)
+          - pattern: |
+              new StreamReader($PATH)
+          - pattern: |
+              new StreamWriter($PATH)
+          - pattern: |
+              new FileStream($PATH, ...)
+      - pattern-not:
+          pattern: |
+            System.IO.File.ReadAllText("...")
+      - pattern-not:
+          pattern: |
+            new StreamReader("...")
+      - pattern-not:
+          pattern: |
+            new StreamWriter("...")
+      - pattern-not:
+          pattern: |
+            new FileStream("...", ...)
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: csharp-custom.path-traversal.path-combine-user-input
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      Path.Combine() does not prevent path traversal. If the second argument
+      is an absolute path (e.g., "/etc/passwd" or "C:\..."), it REPLACES the
+      first argument entirely. Always validate the combined result with
+      Path.GetFullPath() and check it starts with the expected base directory.
+    patterns:
+      - pattern: |
+          Path.Combine($BASE, $USERPATH)
+      - pattern-not:
+          pattern: |
+            Path.Combine("...", "...")
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: csharp-custom.ssrf.httpclient-user-url
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      HttpClient request with a user-controlled URL. An attacker can probe
+      internal services, cloud metadata endpoints (169.254.169.254), or
+      exfiltrate data via DNS. Validate the URL against an allow-list of
+      permitted hosts before making the request.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $CLIENT.GetAsync($URL)
+          - pattern: |
+              $CLIENT.PostAsync($URL, ...)
+          - pattern: |
+              $CLIENT.PutAsync($URL, ...)
+          - pattern: |
+              $CLIENT.DeleteAsync($URL)
+          - pattern: |
+              $CLIENT.SendAsync(new HttpRequestMessage(..., $URL))
+          - pattern: |
+              new HttpRequestMessage(..., $URL)
+      - pattern-not:
+          pattern: |
+            $CLIENT.GetAsync("...")
+      - pattern-not:
+          pattern: |
+            $CLIENT.PostAsync("...", ...)
+      - pattern-not:
+          pattern: |
+            new HttpRequestMessage(..., "...")
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.ssrf.webrequest-user-url
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      WebRequest.Create() or HttpWebRequest with a user-controlled URL allows
+      SSRF. Migrate to HttpClient and validate URLs against an allow-list.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              WebRequest.Create($URL)
+          - pattern: |
+              HttpWebRequest.Create($URL)
+      - pattern-not:
+          pattern: |
+            WebRequest.Create("...")
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: csharp-custom.secrets.hardcoded-connection-string
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      Hardcoded database connection string with password. Store credentials in
+      environment variables, Azure Key Vault, or user secrets (dotnet user-secrets).
+      Never commit plaintext passwords to source control.
+    pattern-regex: '(connectionString|ConnectionString)\s*=\s*"[^"]*[Pp]assword\s*=[^"]+[^"]*"'
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.secrets.hardcoded-api-key
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      Hardcoded API key or secret token in source code. Use environment variables,
+      IConfiguration, or a secrets manager instead.
+    pattern-regex: '(api[_-]?key|api[_-]?secret|auth[_-]?token|secret[_-]?key|access[_-]?token)\s*=\s*"[A-Za-z0-9+/=_\-]{16,}"'
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: csharp-custom.secrets.hardcoded-password-field
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      Variable named "password" or "secret" assigned a string literal. This is
+      likely a hardcoded credential. Use a configuration provider or secrets
+      manager instead.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              string $PASSWORD = "...";
+          - pattern: |
+              var $PASSWORD = "...";
+      - metavariable-regex:
+          metavariable: $PASSWORD
+          regex: '(?i)(password|passwd|secret|apikey|api_key|token|credentials)'
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: CORS Wildcard ─────────────────────────────────────────────
+
+  - id: csharp-custom.misconfiguration.cors-allow-any-origin
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      CORS policy allows any origin (.AllowAnyOrigin()). This lets any website
+      make credentialed requests to your API. Use .WithOrigins("https://your-domain.com")
+      to restrict allowed origins.
+    pattern: |
+      $BUILDER.AllowAnyOrigin()
+    metadata:
+      cwe: ["CWE-942"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A07: Weak Password Hashing ─────────────────────────────────────
+
+  - id: csharp-custom.crypto.weak-password-hash-md5
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      MD5 is cryptographically broken and must not be used for password hashing
+      or integrity verification. Use bcrypt, scrypt, Argon2, or PBKDF2 with
+      >= 100,000 iterations for passwords. Use SHA-256+ for integrity checks.
+    pattern-either:
+      - pattern: |
+          MD5.Create()
+      - pattern: |
+          System.Security.Cryptography.MD5.Create()
+      - pattern: |
+          new MD5CryptoServiceProvider()
+    metadata:
+      cwe: ["CWE-327", "CWE-328"]
+      owasp: ["A07:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.crypto.weak-password-hash-sha1
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      SHA-1 is deprecated for security purposes. Use SHA-256+ for integrity
+      checks and bcrypt/scrypt/Argon2/PBKDF2 for password hashing.
+    pattern-either:
+      - pattern: |
+          SHA1.Create()
+      - pattern: |
+          System.Security.Cryptography.SHA1.Create()
+      - pattern: |
+          new SHA1CryptoServiceProvider()
+      - pattern: |
+          new SHA1Managed()
+    metadata:
+      cwe: ["CWE-328"]
+      owasp: ["A07:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A09: Logging Sensitive Data ────────────────────────────────────
+
+  - id: csharp-custom.logging.sensitive-data-in-logs
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      Potentially sensitive data (password, token, secret, creditcard, ssn)
+      being logged. Sensitive values in logs can be exposed via log aggregation
+      services, SIEM tools, or log files. Mask or redact sensitive fields
+      before logging.
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $LOGGER.LogInformation(..., $SENSITIVE, ...)
+          - pattern: |
+              $LOGGER.LogDebug(..., $SENSITIVE, ...)
+          - pattern: |
+              $LOGGER.LogWarning(..., $SENSITIVE, ...)
+          - pattern: |
+              $LOGGER.LogError(..., $SENSITIVE, ...)
+          - pattern: |
+              Console.WriteLine(..., $SENSITIVE, ...)
+      - metavariable-regex:
+          metavariable: $SENSITIVE
+          regex: '(?i).*(password|token|secret|creditcard|ssn|apikey|api_key|credential).*'
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Insecure Cookie ───────────────────────────────────────────
+
+  - id: csharp-custom.misconfiguration.cookie-missing-secure
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      Cookie configured without Secure flag. The cookie will be sent over
+      unencrypted HTTP connections, allowing interception. Set Secure = true
+      on all authentication and session cookies.
+    patterns:
+      - pattern: |
+          new CookieOptions { ..., Secure = false, ... }
+    metadata:
+      cwe: ["CWE-614"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.misconfiguration.cookie-missing-httponly
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      Cookie configured without HttpOnly flag. JavaScript can read this cookie,
+      enabling session hijacking via XSS. Set HttpOnly = true on all session
+      and auth cookies.
+    patterns:
+      - pattern: |
+          new CookieOptions { ..., HttpOnly = false, ... }
+    metadata:
+      cwe: ["CWE-1004"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Debug Mode in Production ──────────────────────────────────
+
+  - id: csharp-custom.misconfiguration.developer-exception-page
+    languages: [csharp]
+    severity: WARNING
+    message: >
+      UseDeveloperExceptionPage() exposes full stack traces, source code
+      snippets, and environment variables to users. This MUST be wrapped in
+      an `if (env.IsDevelopment())` check to prevent information disclosure
+      in production.
+    pattern: |
+      $APP.UseDeveloperExceptionPage()
+    metadata:
+      cwe: ["CWE-209"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
