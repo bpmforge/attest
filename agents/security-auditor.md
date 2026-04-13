@@ -369,6 +369,13 @@ Semgrep Triage Summary:
   UNVERIFIED:     N  → will appear in "Requires Developer Verification" section
 ```
 
+Then write these totals back into the tracker so they survive context loss:
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="## Semgrep Triage Summary\n<!-- Filled in after Step 6 triage -->\nTotal Semgrep findings: ⏳\n  REAL:           ⏳\n  FALSE POSITIVE: ⏳\n  UNVERIFIED:     ⏳",
+  newString="## Semgrep Triage Summary\nTotal Semgrep findings: <N>\n  REAL:           <N>  → in main report\n  FALSE POSITIVE: <N>  → excluded (see triage-working.md)\n  UNVERIFIED:     <N>  → in 'Requires Developer Verification' section\n  Triage file: docs/security/triage-working.md")
+```
+
 ---
 
 **Step 7: Check the triage file**
@@ -465,12 +472,358 @@ For each finding you identified manually (not caught by any rule pack), write a 
 
 This is the single most valuable thing you do in each audit — it makes the audit smarter over time.
 
-### Phase 3: Plan the Audit
+### Phase 3: Plan the Audit + Initialize Tracker
+
 - List the specific areas to audit based on the attack surface found in Phase 1
 - Prioritize by risk: auth/input handling first, then data protection, then config
 - State your audit plan before executing
 
+**IMMEDIATELY after planning, create the OWASP tracker file on disk.**
+This file is the single source of truth for audit progress. It is written before the
+first pass begins and updated after every step of every pass. If the session is interrupted,
+the tracker is how you resume without re-doing completed work.
+
+```
+write(filePath="docs/security/OWASP_TRACKER.md", content="
+# OWASP Audit Tracker
+Project: <project-name>
+Started: <timestamp>
+Auditor: security-auditor
+Codebase root: <PROJECT_ROOT>
+Total files scanned (Phase 1): <N>
+Primary language: <lang>
+Framework: <framework>
+
+## Semgrep Triage Summary
+<!-- Filled in after Step 6 triage -->
+Total Semgrep findings: ⏳
+  REAL:           ⏳
+  FALSE POSITIVE: ⏳
+  UNVERIFIED:     ⏳
+
+## OWASP Pass Progress
+
+| # | Category                        | Status      | Passes | Confidence | Findings |
+|---|---------------------------------|-------------|--------|------------|----------|
+| A01 | Broken Access Control        | ⏳ PENDING  | 0      | —          | —        |
+| A02 | Cryptographic Failures       | ⏳ PENDING  | 0      | —          | —        |
+| A03 | Injection                    | ⏳ PENDING  | 0      | —          | —        |
+| A04 | Insecure Design              | ⏳ PENDING  | 0      | —          | —        |
+| A05 | Security Misconfiguration    | ⏳ PENDING  | 0      | —          | —        |
+| A06 | Vulnerable Components        | ⏳ PENDING  | 0      | —          | —        |
+| A07 | Authentication Failures      | ⏳ PENDING  | 0      | —          | —        |
+| A08 | Data Integrity Failures      | ⏳ PENDING  | 0      | —          | —        |
+| A09 | Logging & Monitoring         | ⏳ PENDING  | 0      | —          | —        |
+| A10 | SSRF                         | ⏳ PENDING  | 0      | —          | —        |
+
+Gate: ALL categories must reach ✅ DONE (confidence ≥ 7) before the report is written.
+Any category at ⚠️ BLOCKED (< 5 after 3 passes) stops the audit — surface to user.
+
+---
+
+## A01: Broken Access Control
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Does every HTTP route have an auth check applied BEFORE the handler executes?
+- [ ] Do any queries fetch a resource by ID without filtering by owner (IDOR)?
+- [ ] Are admin/privileged functions gated by role checks, not just hidden in the UI?
+- [ ] Can a lower-privilege user call higher-privilege endpoints directly?
+- [ ] Are access control checks duplicated at the API layer, not just the UI?
+
+### Grep runs
+<!-- One row per grep executed — fill in as you go -->
+| Pattern | Matches | Files read | Notes |
+|---------|---------|------------|-------|
+
+### Files read
+<!-- List every file you opened during this pass -->
+
+### Semgrep findings for A01
+<!-- From triage-working.md, REAL findings mapped to A01 -->
+
+### Manual findings
+<!-- Findings discovered by grep/read that Semgrep missed -->
+
+### Pass log
+<!-- One entry per pass attempt -->
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A02: Cryptographic Failures
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are passwords/secrets stored with strong hashes (bcrypt/argon2), not MD5/SHA1?
+- [ ] Is sensitive data encrypted at rest?
+- [ ] Is TLS enforced, no fallback to HTTP?
+- [ ] Are crypto keys in env vars, not hardcoded?
+- [ ] Are there any custom crypto implementations?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A02
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A03: Injection
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are ALL database queries parameterized — no string concatenation into SQL?
+- [ ] Is user input ever passed to shell/subprocess commands?
+- [ ] Is user input ever rendered into HTML without escaping?
+- [ ] Can user input traverse file paths to access arbitrary files?
+- [ ] Is user input ever used in template engines without auto-escaping?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A03
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A04: Insecure Design
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are rate limits applied to auth endpoints (login, password reset, OTP)?
+- [ ] Is there brute-force protection / account lockout?
+- [ ] Are business logic flows tamper-resistant (can a user skip steps)?
+- [ ] Is there server-side validation for all operations, not just client-side?
+- [ ] Are critical operations atomic — no race condition / TOCTOU risk?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A04
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A05: Security Misconfiguration
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are CORS policies restrictive — not wildcard or open to untrusted origins?
+- [ ] Are security headers present (HSTS, CSP, X-Frame-Options)?
+- [ ] Do error responses leak stack traces / internal paths in production?
+- [ ] Are debug modes disabled in production?
+- [ ] Are default credentials / keys changed from vendor defaults?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A05
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A06: Vulnerable Components
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are there known CVEs in current dependency versions?
+- [ ] Are any dependencies severely outdated (major version behind)?
+- [ ] Are dependencies pinned to exact versions?
+- [ ] Are there unmaintained dependencies (no release > 18 months)?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### CVEs found (from osv-scanner / npm audit / pip-audit)
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A07: Authentication Failures
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are passwords hashed with bcrypt/argon2/scrypt — not MD5/SHA1/base64?
+- [ ] Are JWTs validated for algorithm (rejects alg:none), signature, and expiry?
+- [ ] Are session tokens httpOnly, Secure, SameSite=Strict/Lax?
+- [ ] Are there protections against credential stuffing on login?
+- [ ] Is the password reset flow secure (time-limited, single-use, no email enumeration)?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A07
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A08: Data Integrity Failures
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are CI/CD configs protected against unauthorized modification?
+- [ ] Are packages installed from verified sources with integrity checks?
+- [ ] Is deserialization of untrusted data guarded?
+- [ ] Are lockfiles committed to the repo?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A08
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A09: Logging & Monitoring Failures
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Are authentication events logged (success, failure, logout)?
+- [ ] Are authorization failures logged?
+- [ ] Are logs sanitized against log injection (CRLF, ANSI)?
+- [ ] Is PII/sensitive data excluded from logs?
+- [ ] Are there monitoring/alerting hooks for suspicious activity?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A09
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## A10: SSRF
+Status: ⏳ PENDING
+Pass count: 0
+Current confidence: —
+
+### Mandatory questions
+- [ ] Does the app make outbound HTTP requests to URLs from user input?
+- [ ] Are there allowlists restricting which hosts/IPs the app can reach?
+- [ ] Can SSRF reach internal services (metadata APIs, admin panels)?
+- [ ] Are redirects followed without validation?
+- [ ] Are there webhook or URL-preview features?
+
+### Grep runs
+| Pattern | Matches | Files read | Notes |
+
+### Files read
+
+### Semgrep findings for A10
+
+### Manual findings
+
+### Pass log
+
+### Confidence score: —
+### Verdict: ⏳ PENDING
+
+---
+
+## Final Gate
+
+All categories ≥ 7 confidence: ⏳ NOT YET
+Report may be written: ⏳ NOT YET
+")
+```
+
+> This file is your audit contract. Every row in the progress table must reach ✅ DONE
+> before you write the final report. Do not rely on context memory — update this file.
+
 ### Phase 4: OWASP Deep Pass — 10 Dedicated Passes with Confidence Loop
+
+**Resume check (run this first if returning to an in-progress audit):**
+```
+bash -c "[ -f docs/security/OWASP_TRACKER.md ] && echo 'TRACKER EXISTS — reading state' || echo 'TRACKER MISSING — start from scratch'"
+```
+If the tracker exists, read it to find which categories are already ✅ DONE or ⚠️ BLOCKED.
+Skip DONE categories. Resume from the first non-DONE category.
+Never re-run a DONE pass — it wastes time and produces duplicate findings in the report.
 
 This is the core of the audit. Do NOT rush through these passes. You are the LLM — you
 have the context, reasoning, and recall to catch things automated tools miss. Apply full
@@ -541,6 +894,24 @@ by simply changing an ID in the request? Read the query and verify the WHERE cla
 
 Record findings for A01. Score confidence (1-10). If < 7, re-pass targeting uncovered routes.
 
+**After scoring — update the tracker (MANDATORY before starting A02):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A01 | Broken Access Control        | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A01 | Broken Access Control        | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Then update the A01 detail section:
+- Fill in the mandatory question checkboxes (✅ YES / ❌ NO / ⚠️ PARTIAL — evidence)
+- Fill in the Grep runs table (pattern, match count, files read, notes)
+- Fill in Files read list
+- Fill in Semgrep findings and Manual findings
+- Add a Pass log entry: `Pass <N> — <timestamp> — confidence <X>/10 — <one-sentence summary>`
+- Set Confidence score and Verdict
+
+If confidence < 7: set Status to `🔄 RE-PASS <N>` and continue the pass before A02.
+If confidence ≥ 7: set Status to `✅ DONE` and move to A02.
+If confidence < 5 after 3 passes: set Status to `⚠️ BLOCKED` — stop and surface to user.
+
 ---
 
 **Pass 2 — A02: Cryptographic Failures**
@@ -583,6 +954,15 @@ grep-mcp --pattern "XOR|bit_xor|rol\b|ror\b|custom.*cipher|encode.*decode|obfusc
 Any custom crypto = immediate HIGH finding regardless of intent.
 
 Record findings for A02. Score confidence (1-10). If < 7, re-pass targeting database field encryption and transport config.
+
+**After scoring — update the tracker (MANDATORY before starting A03):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A02 | Cryptographic Failures       | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A02 | Cryptographic Failures       | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A02 detail section: mandatory Q answers, grep runs table, files read, findings, pass log entry.
+If < 7 after pass 1-2: status `🔄 RE-PASS <N>`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 
 ---
 
@@ -636,6 +1016,15 @@ Record findings for A03. Score confidence (1-10). **This is the category most li
 sub-variants — if score < 8, re-pass targeting ORM edge cases (raw queries, query builders
 with `literal()` or `unsafe()` methods) and stored XSS paths through the database.**
 
+**After scoring — update the tracker (MANDATORY before starting A04):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A03 | Injection                    | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A03 | Injection                    | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A03 detail section: mandatory Q answers, grep runs table (one row per pattern — SQL, command, XSS, path, template), files read, findings, pass log entry.
+If < 8 after pass 1: status `🔄 RE-PASS <N>`. If ≥ 8: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
+
 ---
 
 **Pass 4 — A04: Insecure Design**
@@ -676,6 +1065,15 @@ Find all places where user input enters. Is there server-side validation in addi
 to any client-side checks? Grep for validation libraries and check which routes use them.
 
 Record findings for A04. Score confidence (1-10). If < 7, re-pass focusing on business-critical flows.
+
+**After scoring — update the tracker (MANDATORY before starting A05):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A04 | Insecure Design              | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A04 | Insecure Design              | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A04 detail section: mandatory Q answers, grep runs table, files read, findings, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 
 ---
 
@@ -722,6 +1120,15 @@ ENV instructions, exposed ports that shouldn't be public, missing health checks.
 
 Record findings for A05. Score confidence (1-10). If < 7, re-pass targeting the server/app startup file.
 
+**After scoring — update the tracker (MANDATORY before starting A06):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A05 | Security Misconfiguration    | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A05 | Security Misconfiguration    | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A05 detail section: mandatory Q answers, grep runs table, files read, findings, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
+
 ---
 
 **Pass 6 — A06: Vulnerable and Outdated Components**
@@ -754,6 +1161,15 @@ Flag any that haven't had a release in > 18 months.
 Record findings for A06. Note: many CVE findings will be CONFIRMED real or FALSE POSITIVE
 only after verifying how the package feature is actually used in this codebase.
 Score confidence (1-10). If < 7, re-pass cross-referencing CVE descriptions with usage patterns.
+
+**After scoring — update the tracker (MANDATORY before starting A07):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A06 | Vulnerable Components        | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A06 | Vulnerable Components        | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A06 detail section: mandatory Q answers, dependency manifest read, CVEs assessed, maintenance flags, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 
 ---
 
@@ -807,6 +1223,15 @@ Note whether MFA is available and whether it can be bypassed by API calls.
 Record findings for A07. Score confidence (1-10). This is the second most common critical
 finding source — if < 8, re-pass on the full auth module.
 
+**After scoring — update the tracker (MANDATORY before starting A08):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A07 | Authentication Failures      | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A07 | Authentication Failures      | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A07 detail section: mandatory Q answers, grep runs table, files read (auth handlers, session config, password reset flow), findings, pass log entry.
+If < 8 after pass 1: `🔄 RE-PASS`. If ≥ 8: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
+
 ---
 
 **Pass 8 — A08: Software and Data Integrity Failures**
@@ -842,6 +1267,15 @@ Are lockfiles committed to the repo? Missing lockfile = developers may get diffe
 versions than what was tested.
 
 Record findings for A08. Score confidence (1-10). If < 7, re-pass on CI/CD configs.
+
+**After scoring — update the tracker (MANDATORY before starting A09):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A08 | Data Integrity Failures      | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A08 | Data Integrity Failures      | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A08 detail section: mandatory Q answers, deserialization grep results, CI/CD file review, SRI and lockfile checks, findings, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 
 ---
 
@@ -888,6 +1322,15 @@ in the logs? Read the README/ops docs. Note absence of monitoring as a MEDIUM fi
 
 Record findings for A09. Score confidence (1-10). If < 7, re-pass on the auth module logging.
 
+**After scoring — update the tracker (MANDATORY before starting A10):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A09 | Logging & Monitoring         | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A09 | Logging & Monitoring         | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A09 detail section: mandatory Q answers, logger config read, auth event logging check, log injection grep, sensitive data grep, findings, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
+
 ---
 
 **Pass 10 — A10: Server-Side Request Forgery (SSRF)**
@@ -932,16 +1375,30 @@ reach internal services via a redirect chain.
 
 Record findings for A10. Score confidence (1-10). If < 7, re-pass reading every URL-accepting parameter.
 
+**After scoring — update the tracker (MANDATORY before the confidence summary):**
+```
+edit(filePath="docs/security/OWASP_TRACKER.md",
+  oldString="| A10 | SSRF                         | ⏳ PENDING  | 0      | —          | —        |",
+  newString="| A10 | SSRF                         | <STATUS>   | <N>    | <SCORE>/10 | <COUNT> findings |")
+```
+Update the A10 detail section: mandatory Q answers, outbound HTTP grep results, webhook/URL-preview findings, metadata API risk, redirect-following check, findings, pass log entry.
+If < 7: `🔄 RE-PASS`. If ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
+
 ---
 
 **After all 10 passes — OWASP confidence summary:**
 
-Before proceeding to Phase 4a, produce this table and score it:
+All 10 tracker rows should now be `✅ DONE` or `⚠️ BLOCKED`. Read the tracker to verify:
+```
+read(filePath="docs/security/OWASP_TRACKER.md")
+```
+
+From the tracker's progress table, extract and print the final confidence summary:
 
 ```
 | OWASP Category                        | Confidence | Passes | Key finding (or "None found") |
 |---------------------------------------|-----------|--------|-------------------------------|
-| A01 Broken Access Control             | X/10      | N      | ...                           |
+| A01 Broken Access Control             | X/10      | N      | <from tracker detail section> |
 | A02 Cryptographic Failures            | X/10      | N      | ...                           |
 | A03 Injection                         | X/10      | N      | ...                           |
 | A04 Insecure Design                   | X/10      | N      | ...                           |
@@ -953,12 +1410,16 @@ Before proceeding to Phase 4a, produce this table and score it:
 | A10 SSRF                              | X/10      | N      | ...                           |
 ```
 
-Any category scoring < 7 after 3 passes: STOP and surface the gap to the user with:
+Any category still showing `⏳ PENDING` means the tracker was not updated — go back and update it now.
+
+Any category showing `⚠️ BLOCKED` (confidence < 5 after 3 passes): STOP and surface the gap to the user with:
 - The specific question you could not answer
 - Which files you'd need to read to answer it
 - What additional context would let you complete the pass
 
-Do NOT write the final report until all categories score ≥ 7.
+Any category scoring < 7 that is NOT yet `⚠️ BLOCKED`: run one more pass, then update the tracker.
+
+Do NOT write the final report until all categories score ≥ 7 and the tracker shows no `⏳ PENDING` rows.
 
 ### Phase 4a: Secret Scanning
 - API keys, tokens, passwords in source code
