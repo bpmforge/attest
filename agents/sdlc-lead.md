@@ -2323,6 +2323,62 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
+**6b. Discovery audit (if the app has a running instance):**
+
+Before synthesizing the health assessment, run a discovery audit to catch
+integration issues that static code analysis misses (rate limits, auth misconfig,
+broken pages, missing routes):
+
+1. Navigate every page/route the app exposes
+2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
+3. Write findings to `docs/reviews/DISCOVERY_AUDIT_<date>.md`
+4. Include these findings in the health assessment alongside the expert reviews
+
+If the app doesn't have a running instance, note "Discovery audit skipped — no running instance" in HEALTH_ASSESSMENT.md.
+
+**6c. Test coverage + use cases (from existing code):**
+
+After the test-engineer's coverage analysis (step 6 #3 above), produce a
+USE_CASES.md from the EXISTING codebase — these are the use cases that already
+exist and need tests, not new requirements:
+
+1. Read `docs/LANDSCAPE.md` for the feature list
+2. Read `docs/diagrams/entry-points.md` for every user-facing route
+3. Write `docs/testing/USE_CASES.md` — one use case per route/feature found
+4. Each has: inferred persona, trigger, main flow, success criteria
+
+Then hand off to test-engineer for TEST_PLAN.md:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- docs/testing/USE_CASES.md — use cases derived from the existing codebase
+- docs/reviews/COVERAGE_<date>.md — current test coverage analysis
+
+YOUR TASK:
+Review the use case catalog and current coverage analysis. Produce a test plan
+that maps each use case to a test file, assigns P0/P1/P2 priorities, and
+identifies which existing tests cover which use cases (and which have no coverage).
+
+PRODUCE exactly this file:
+- docs/testing/TEST_PLAN.md — use case index with test file mapping, priority,
+  coverage status (covered / partial / no coverage), cross-cutting checks
+
+Include a Completion Manifest.
+
+When the file is written, print exactly:
+"test-plan done — [N use cases mapped, N covered, N gaps identified]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+═══════════════════════════════════════════════════════════
+```
+
 After all reviews complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
 - Overall health score per dimension: Code Quality / Security / Test Coverage / Performance (each 1-10)
 - Top 3 critical issues across all dimensions
@@ -2419,7 +2475,9 @@ Before reporting completion, verify ALL of these exist:
 - [ ] `docs/diagrams/c2-containers.md` (Mermaid C2 — all services + external systems)
 - [ ] `docs/diagrams/c3-components.md` (Mermaid C3 — internal module dependencies)
 - [ ] `docs/PATTERNS.md` (error handling, state, data access, naming)
-- [ ] `docs/HEALTH_ASSESSMENT.md` (all 4 expert reviews + health scores + severity table)
+- [ ] `docs/HEALTH_ASSESSMENT.md` (expert reviews + health scores + severity table + discovery audit)
+- [ ] `docs/testing/USE_CASES.md` (use cases derived from existing codebase)
+- [ ] `docs/testing/TEST_PLAN.md` (use case → test file mapping with coverage status)
 - [ ] `docs/ARCHITECTURE.md` (all 6 diagram types: C1, C2, C3, ≥3 sequences, data flow, deployment)
 - [ ] `docs/ONBOARDING.md` (getting started guide with Quick Start)
 - [ ] `docs/DECISION_LOG.md` (design decisions discovered from git history + code comments)
