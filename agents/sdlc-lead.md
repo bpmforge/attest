@@ -1136,7 +1136,8 @@ After the user responds:
 - `docs/ARCHITECTURE.md` — SAD with C4 diagrams (see SAD format below)
 - `docs/TECH_STACK.md` — Language, framework, libraries + justification
 - `docs/DATABASE.md` — ERD, schema, migrations, access patterns
-- `docs/API_DESIGN.md` — OpenAPI-style endpoint contracts
+- `docs/API_DESIGN.md` — Human-readable endpoint contracts (narrative + examples)
+- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible)
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/diagrams/` — Mermaid files for all diagrams
 - **If UI-bearing (see UX branch below):**
@@ -1234,18 +1235,35 @@ Design complete API contracts for [project]. For every user story that requires
 a server interaction, produce an OpenAPI-style endpoint contract. Cover every
 resource: create, read, update, delete, and any special actions.
 
-PRODUCE exactly this file:
-- docs/API_DESIGN.md — all endpoint contracts with: HTTP method, path, request
-  body schema, response shapes (200/201/400/401/403/404/500), auth requirements,
-  and a brief description of each endpoint's business purpose
+PRODUCE exactly these two files:
 
-When the file is written, print exactly:
+1. docs/API_DESIGN.md — human-readable contracts with: HTTP method, path, request
+   body schema, response shapes (200/201/400/401/403/404/500), auth requirements,
+   example request/response payloads, and a brief description of each endpoint's
+   business purpose. Aimed at developers who need to understand the API quickly.
+
+2. docs/api/openapi.yaml — a valid OpenAPI 3.0 spec that exactly mirrors the
+   contracts in API_DESIGN.md. Requirements:
+   - `openapi: "3.0.3"` header
+   - `info` block: title, version ("0.1.0"), description (one sentence from VISION.md)
+   - `servers` block: `- url: /api/v1` (or the correct base path)
+   - Every endpoint from API_DESIGN.md as a `paths` entry
+   - `components/schemas` for every request body and response object
+   - `components/securitySchemes` matching the auth strategy in SRS.md
+   - All error responses (400/401/403/404/500) as reusable `$ref` components
+   - No inline schemas for objects used in more than one place — always $ref
+   - The spec must pass `swagger-cli validate docs/api/openapi.yaml` with 0 errors
+
+When both files are written, print exactly:
 "api done — [one sentence: how many endpoints designed and key resources covered]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
-→ After "api done": verify docs/API_DESIGN.md exists → mark DONE
+→ After "api done": verify both `docs/API_DESIGN.md` and `docs/api/openapi.yaml` exist.
+  Run: `bash -c "swagger-cli validate docs/api/openapi.yaml 2>&1 || echo 'swagger-cli not found — install: npm i -g @apidevtools/swagger-cli'"`.
+  If validation fails, send the errors back to api-designer with: "Fix these OpenAPI validation errors: [errors]".
+  Mark DONE only when both files exist and the spec validates with 0 errors.
 
 **Step 4 — UX branch (HANDOFF, if UI-bearing — see below)**
 
@@ -1763,19 +1781,21 @@ Architecture Diagram Inventory — Phase 3 Pre-Gate:
 - ARCHITECTURE.md § 0 HLA Overview: present and NOT placeholder text (written after diagrams)
 - TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
 - DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
+- API_DESIGN.md has example request/response payloads for every endpoint, not just schemas
+- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry — the spec CANNOT be a subset of the design doc
 - THREAT_MODEL.md has mitigations, not just threats listed
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, and `docs/design/UX_SPEC.md` MUST all exist and have passed the UX gate-loop (asymmetric thresholds, each document ≥ 7). If missing, the Phase 3 gate CANNOT pass. If NOT UI-bearing, ARCHITECTURE.md § Logical View must explicitly say "No UI — UX branch not applicable".
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing) to the sdlc/setup branch. Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, threat model'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, docs/api/openapi.yaml, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing) to the sdlc/setup branch. Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, OpenAPI spec, threat model'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance to Phase 4 — architecture decisions have the biggest downstream impact, so user confirmation here is especially important.
 
 **Merge `sdlc/setup` → `main` before Phase 4 begins:**
 Design is approved — merge the planning and design docs into main now so Phase 4 feature branches have an up-to-date base.
 ```
-task(agent="git-expert", prompt="Run --feature mode (PR ready phase): open the sdlc/setup branch PR for review. PR title: 'sdlc: add planning and design docs (phases 0-3)'. PR body: phases 0-3 complete — VISION, SCOPE, RISKS, CONSTRAINTS, PERSONAS, SRS, USER_STORIES, ARCHITECTURE, TECH_STACK, DATABASE, API_DESIGN, THREAT_MODEL. All phase gates passed. Ready to merge to main before Phase 4 implementation begins. After PR is approved, merge and delete the sdlc/setup branch.", timeout=120)
+task(agent="git-expert", prompt="Run --feature mode (PR ready phase): open the sdlc/setup branch PR for review. PR title: 'sdlc: add planning and design docs (phases 0-3)'. PR body: phases 0-3 complete — VISION, SCOPE, RISKS, CONSTRAINTS, PERSONAS, SRS, USER_STORIES, ARCHITECTURE, TECH_STACK, DATABASE, API_DESIGN, docs/api/openapi.yaml (validated OpenAPI 3.0 spec), THREAT_MODEL. All phase gates passed. Ready to merge to main before Phase 4 implementation begins. After PR is approved, merge and delete the sdlc/setup branch.", timeout=120)
 ```
 After the merge is confirmed, Phase 4 feature branches will be cut from the updated `main`.
 
