@@ -20,6 +20,11 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
   - [`/api-design` — API design](#api-design)
   - [`/containers` — Containers](#containers)
   - [`/devops` — SRE & CI/CD](#devops)
+  - [`/frontend` — Visual design & polish](#frontend)
+  - [`/explore` — Codebase archaeology](#explore)
+  - [`/design-options` — Architecture trade-offs](#design-options)
+  - [`/simplify` — Quick simplification pass](#simplify)
+  - [`/steward` — Project intelligence steward](#steward)
 
 ---
 
@@ -28,14 +33,18 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 ```bash
 git clone https://github.com/bpmforge/bpm-opencode-experts.git
 cd bpm-opencode-experts
-./install.sh                  # symlinks into ~/.config/opencode/
+./install.sh                  # copies agents, skills, tools into ~/.config/opencode/
+./install.sh --link           # symlink instead of copy (for development — edits apply immediately)
+./install.sh --semgrep        # also auto-install Semgrep + community rule repos
+./install.sh --project        # install into .opencode/ in current directory instead of global
 ```
 
 The installer:
-- Symlinks `agents/`, `skills/`, `references/`, `commands/`, `hooks/` into `~/.config/opencode/`
-- Compiles and registers the custom TypeScript tools in `tools/`
+- Copies (or symlinks) `agents/`, `skills/`, `references/`, `commands/`, `hooks/`, `scripts/` into `~/.config/opencode/`
+- Installs the custom TypeScript tools in `tools/` and runs `npm install` for dependencies
 - Safely merges Context7 MCP config into your existing `opencode.json`
 - Checks for Semgrep (and optionally installs it) for `security-auditor`
+- Prompts to clone 4 community Semgrep rule repos (~10-50 MB each)
 
 Uninstall with `./uninstall.sh`.
 
@@ -366,6 +375,50 @@ Modes: `--cicd`, `--monitor`, `--runbook`, `--incident`
 /devops --runbook "deploy to prod"
 /devops --incident              # incident response playbook
 ```
+
+### `/frontend`
+Modes: `--implement`, `--polish`, `--system`
+
+```
+/frontend --implement           # implement UX_SPEC.md + STYLE_GUIDE.md into production components
+/frontend --polish              # take existing UI and elevate typography, color, spacing, motion
+/frontend --system              # create or refactor design token system (colors, fonts, spacing, shadows)
+/frontend                       # auto-detect: --polish if UI exists, --system if no tokens found
+```
+
+Used by `sdlc-lead` in Phase 3 after the UX spec is approved, and in `/sdlc improve "frontend"`. Distinct from `/ux`: UX handles workflows and accessibility; frontend handles visual implementation and polish.
+
+### `/explore`
+
+```
+/explore                        # trace a feature or concept end-to-end through the codebase
+```
+
+Codebase archaeology — finds all entry points for a feature, traces call chains, maps the data flow, and produces a file:line blast radius map. Use this before `/sdlc feature` or any time you need to understand how something works before touching it. Produces `docs/explore/EXPLORE_[slug].md`.
+
+### `/design-options`
+
+```
+/design-options                 # generate 2-3 architecture alternatives with trade-offs
+```
+
+Architecture decision tool. Before committing to an approach, generates 2-3 alternatives with explicit trade-offs (cost, complexity, reversibility, fit with team constraints). Prevents building the wrong thing well. Use during `/sdlc` Phase 3 or any time you face a "how should we build this?" decision. Output: `docs/DESIGN_OPTIONS_[topic].md`.
+
+### `/simplify`
+
+```
+/simplify                       # quick review of recent changes for reuse opportunities and over-engineering
+```
+
+Scoped to what just changed (git diff). Faster than `/review-code` — looks for: duplicated logic that could reuse an existing abstraction, over-engineered solutions where a simpler approach would do, and obvious quality gaps introduced in the last edit session.
+
+### `/steward`
+
+```
+/steward                        # audit CLAUDE.md / AGENTS.md against actual codebase, capture session learnings
+```
+
+Project intelligence lifecycle. CLAUDE.md and AGENTS.md drift from the actual codebase as code evolves and decisions are made in conversation but never written down. The steward audits them for gaps, captures learnings from the current session, and updates project docs to stay aligned with reality. Use after any major session or when docs feel stale.
 
 ---
 
