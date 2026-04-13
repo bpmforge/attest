@@ -2,6 +2,43 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-04-13
+
+Test-driven SDLC, visual design agent, smart routing, adaptive questioning, and design compliance enforcement. Based on lessons from a real 60-test QA track on Sibling.
+
+### Added
+
+- **`frontend-design` agent (#13)** + `/frontend` skill — Production-grade visual implementation: typography, color systems, spacing, motion. Three modes: `--implement` (turn UX specs into components), `--polish` (elevate existing generic UI), `--system` (build/refactor design tokens). Includes "AI slop" checklist to catch generic AI-generated look.
+- **`/explore` skill** — Codebase archaeology: trace a feature end-to-end before modifying it. Maps entry points, call chains, data flow, blast radius with file:line references.
+- **`/steward` skill** — Project intelligence lifecycle: audits CLAUDE.md/AGENTS.md alignment with actual code, captures session learnings, fixes doc drift. Three modes: `audit`, `capture`, full.
+- **`/design-options` skill** — Multi-approach architecture decisions: generates 3 alternatives (minimal, clean, pragmatic) with 6-dimension trade-off matrix. Integrated into Mode 3 Step 2 and Mode 4 Step 2.5.
+- **Smart Routing** — `/sdlc` without a mode keyword detects intent from natural language. "Make the frontend better" → Mode 4 with frontend scope. When ambiguous, asks ONE routing question (A/B/C/D).
+- **Adaptive Questioning** — Agents learn from research and audits, then generate follow-up questions derived from what they discovered. Questions must reference something specific, affect the next step, and couldn't have been asked at start.
+- **Design Compliance (MANDATORY)** — 8 code-writing agents now read TECH_STACK.md + ARCHITECTURE.md before writing code. Will NEVER introduce technologies the architect didn't choose. If they think a change is better, they flag it as a decision point.
+- **API Verification (MANDATORY)** — 6 code-writing agents check Context7 MCP or node_modules before using any library API. Never guesses from training data. Prevents renamed functions, changed option shapes, moved import paths.
+- **Completion Manifest protocol** — All 12 specialist agents produce structured return manifests: files produced/modified, decisions made, known issues, test results.
+- **Context Packet protocol** — SDLC lead writes focused context files before every HANDOFF, front-loading specialists instead of having them re-explore the codebase.
+- **USE_CASES.md + TEST_PLAN.md in all 4 modes** — Phase 2 (from requirements), Mode 2 Step 6c (from existing code), Mode 3 Step 2 (for new features), Mode 4 (per-fix regression tests).
+- **E2E test writing in Phase 4** — MANDATORY test-engineer handoff writes actual E2E specs for all P0 use cases BEFORE code review starts.
+- **Discovery audit** — SDLC lead walks all app pages/routes and collects errors (console, 4xx/5xx, visible error text, slow loads) before and after improvements.
+- **Pre-review gate** — All P0 tests must pass before code-reviewer or security-auditor sees the code.
+- **TDD in Mode 3** — Test-engineer writes failing acceptance test first, developer implements, test passes, then review.
+- **Mode 4 Vision Research** — When user provides a desired state ("make it feel like Linear"), researcher studies how best products achieve that vision with the current stack. `/design-options` triggered when multiple paths exist.
+- **Mode 4 Feature-scoped improvement** — `/sdlc improve "feature:payments"` traces that specific feature via `/explore`, then scopes all audits to just those files.
+- **Mode 4 granular scoping** — "frontend", "backend", "feature:X", "design", or combinations.
+- **`/sdlc status` enhanced** — Visual progress display with phase→deliverable mapping, test counts, gate blockers, handoff state.
+- **`/sdlc gate` implemented** — Full gate check with quality scoring, test gates, failure handling rules.
+- **Container-ops → SRE ordering** clarified in AGENT_PROCESS_FLOW.md.
+- **Researcher progress announcements** standardized to `▶ Phase N:` format.
+
+### Changed
+
+- All agents use `mode: "primary"` (OpenCode 1.4.0 compatibility).
+- Mode 4 discovery interview expanded: new Q3 "What should it BECOME?", granular scope options.
+- Mode 3 Step 1 now uses `/explore` pattern for impact analysis.
+- Mode 3 Step 2 uses `/design-options` for non-trivial features.
+- HANDOFF return verification strengthened: checks completion manifest, surfaces test failures.
+
 ## [0.5.0] — 2026-04-10
 
 Mode 4 (`/sdlc improve`), strict git branching discipline across all modes, HANDOFF block overhaul, and Bounded Task Mode on all specialist agents.
