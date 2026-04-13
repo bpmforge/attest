@@ -2,6 +2,48 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-04-13
+
+SDLC lead deep upgrade: persistent SDLC_TRACKER across all four modes, per-diagram confidence loops for ARCHITECTURE.md, strengthened SAD format template that rejects placeholders, and Phase 3 Architecture Diagram Pre-Gate that blocks advancement until every diagram row passes independently.
+
+### Added
+
+- **`SDLC_TRACKER.md` — persistent session tracker for all four SDLC modes** — Written at the start of each mode (Phase 0 for Mode 1, Step 0 for Modes 2/4, new Step 0 for Mode 3). Stored at `docs/sdlc/SDLC_TRACKER.md`. Survives context loss and session restarts. Status transitions: `⏳ PENDING` → `✅ DONE` / `🔄 RE-PASS` / `⚠️ BLOCKED`. Four mode-specific templates provided (Mode 1 phases 0-5, Mode 2 steps 0-7, Mode 3 steps 0-5, Mode 4 steps 1-6). Resume check: read tracker at start of each mode and skip `✅ DONE` rows — never re-run completed phases.
+
+- **Architecture Diagram Inventory** — New section within the Mode 1 tracker template. One row per required diagram type: C1, C2, one C3 per major service, one sequence diagram per P0 use case, deployment, data flow. Gate CANNOT pass until every inventory row is `✅ DONE` with score ≥ 7.
+
+- **Per-Diagram Confidence Loop** — New mandatory sub-loop in Phase 3. After writing EACH diagram, the agent rates completeness 1-10 against specific grounding criteria:
+  - C1: all personas from USER_PERSONAS.md present as actors? all external systems from SRS §5.2 present?
+  - C2: all services/runtimes from TECH_STACK.md present? communication styles on arrows?
+  - C3 (one per service): real module names from feature-sliced structure? dependency arrows showing direction? no circular deps?
+  - Sequence diagrams: one per P0 use case from USE_CASES.md (not a fixed minimum of 3). Each must have happy path + at least one error path. Participants named specifically — no "Service" generics.
+  - Deployment: reflects DESIGN_CONTEXT.md infra choices — no invented infrastructure.
+  - Data Flow: traces user request to persistence and back, shows where data transforms and where it's masked.
+  - Score < 5 → surface to user immediately. Score 5-6 → revise up to 3 passes. Score ≥ 7 → mark tracker row `✅ DONE`.
+
+- **Architecture Diagram Pre-Gate** — New mandatory check that runs BEFORE the standard Phase 3 gate loop. Reads `docs/sdlc/SDLC_TRACKER.md`, checks every diagram inventory row. If any row is NOT `✅ DONE`, write/revise that diagram following the per-diagram confidence loop before proceeding. Prints a `Diagram Inventory Completion Check` block showing DONE/BLOCKED status per diagram before the main gate runs.
+
+- **HLA Overview section — written LAST** — New `## 0. HLA Overview` at the top of ARCHITECTURE.md. Written AFTER all diagrams pass their confidence loops so it's grounded in real design decisions, not a copy of the discovery interview. Three paragraphs: system partition metaphor, key architectural decisions (referencing ADR table), what a new engineer should read first.
+
+- **Strengthened SAD Format template** — The `### SAD Format (4+1 Views)` template now:
+  - Has a MANDATORY notice: no placeholder text in final documents — every section must be filled with real names from the project
+  - C3 has one `#### 2.3.x [Service Name]` subsection per major service (not a single generic block)
+  - Sequence diagrams section is `### 2.6 Sequence Diagrams — one per P0 Use Case` (derived from USE_CASES.md, not "minimum 3")
+  - Each section has HTML comments listing the specific grounding criteria the diagram must meet
+  - Goals & Constraints now requires specific targets from SRS.md (e.g., "P95 < 200ms") — not "performance, security, scalability"
+  - Cross-Cutting Concerns now requires specific library names and file paths — not "use a logger"
+
+- **Tracker writes wired into Confidence-Based Gates** — After every gate table is printed, the agent immediately calls `edit()` on the tracker to update the phase row status. `✅ DONE` on pass, `⚠️ BLOCKED` on automatic fail, `🔄 RE-PASS` on 5-6 score iteration.
+
+- **Tracker init wired into Mode 2 Output Verification Protocol** — Every step verification log now includes a `Tracker:` line showing the row update applied after the step passes or fails.
+
+- **Tracker init wired into Mode 4 Output Verification Protocol** — Same as Mode 2 — every step verification log includes a `Tracker:` line.
+
+### Changed
+
+- **ARCHITECTURE.md sequence diagram count: "minimum 3" → "one per P0 use case"** — The previous minimum-3 rule was a floor that led to arbitrary diagrams. Now explicitly derived from USE_CASES.md P0 entries so coverage is traceable to requirements.
+- **Phase 3 Gate Loop: new pre-gate check added** — The standard gate deliverable rating loop now has a mandatory pre-step (Architecture Diagram Pre-Gate) that must clear before the standard loop runs.
+
 ## [0.7.0] — 2026-04-13
 
 Performance engineer deep upgrade: persistent session tracker, pre-profiling static analysis pass with try/catch performance anti-patterns, coverage confidence loop, and mandatory full report template. Also fixes stale `mode: subagent` references across all docs.
