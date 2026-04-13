@@ -1,0 +1,278 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # PHP Security Rules — Gap Filler
+  #
+  # p/php has 24 rules. This fills the gaps:
+  #   A01: File upload, LFI/RFI
+  #   A03: Additional injection patterns
+  #   A05: Type juggling, session fixation, preg /e
+  #   A07: Auth failures
+  #   A08: Insecure deserialization (unserialize)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: php-custom.deserialization.unserialize-user-input
+    languages: [php]
+    severity: ERROR
+    message: >
+      `unserialize()` with potentially user-controlled data. PHP object
+      deserialization can trigger magic methods (`__wakeup`, `__destruct`)
+      leading to RCE. Use `json_decode()` instead, or pass an
+      `allowed_classes` option: `unserialize($data, ['allowed_classes' => false])`.
+    pattern: unserialize($DATA)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A01: Local/Remote File Inclusion ───────────────────────────────
+
+  - id: php-custom.inclusion.include-variable
+    languages: [php]
+    severity: ERROR
+    message: >
+      `include`/`require` with a variable path. If the path comes from
+      user input (`$_GET`, `$_POST`), this enables Local File Inclusion
+      (LFI) or Remote File Inclusion (RFI). Use a whitelist of allowed
+      file names instead.
+    pattern-either:
+      - pattern: include $VAR;
+      - pattern: include_once $VAR;
+      - pattern: require $VAR;
+      - pattern: require_once $VAR;
+    metadata:
+      cwe: ["CWE-98"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: php-custom.inclusion.include-concat
+    languages: [php]
+    severity: ERROR
+    message: >
+      `include`/`require` with string concatenation. If any part comes
+      from user input, this is a file inclusion vulnerability. Use a
+      whitelist mapping instead.
+    pattern-either:
+      - pattern: include $BASE . $PATH;
+      - pattern: include_once $BASE . $PATH;
+      - pattern: require $BASE . $PATH;
+      - pattern: require_once $BASE . $PATH;
+    metadata:
+      cwe: ["CWE-98"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A01: Unrestricted File Upload ──────────────────────────────────
+
+  - id: php-custom.upload.move-uploaded-file-no-validation
+    languages: [php]
+    severity: WARNING
+    message: >
+      `move_uploaded_file` used. Ensure you validate: (1) file extension
+      against an allowlist, (2) MIME type via `finfo_file`, (3) file size,
+      and (4) the destination path is outside the web root or has random
+      names. Accepting arbitrary uploads enables webshell deployment.
+    pattern: move_uploaded_file($TMP, $DEST)
+    metadata:
+      cwe: ["CWE-434"]
+      owasp: ["A01:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A05: Type Juggling ─────────────────────────────────────────────
+
+  - id: php-custom.type-juggling.loose-comparison
+    languages: [php]
+    severity: WARNING
+    message: >
+      Loose comparison (`==`) used with what may be a security-sensitive
+      check (password, hash, token). PHP's loose comparison has dangerous
+      type juggling: `"0" == false`, `"0e123" == "0e456"` (both are 0).
+      Use strict comparison (`===`) for any security-relevant check.
+    patterns:
+      - pattern-either:
+          - pattern: $HASH == $INPUT
+          - pattern: $PASSWORD == $INPUT
+          - pattern: $TOKEN == $INPUT
+          - pattern: $SECRET == $INPUT
+    metadata:
+      cwe: ["CWE-1025"]
+      owasp: ["A05:2021"]
+      confidence: LOW
+      category: security
+
+  - id: php-custom.type-juggling.hash-equals
+    languages: [php]
+    severity: WARNING
+    message: >
+      Comparing hashes with `==` or `===` instead of `hash_equals()`.
+      String comparison leaks timing information, enabling timing attacks
+      to recover the hash value. Use `hash_equals($known, $user)`.
+    pattern-either:
+      - pattern: md5($X) == $Y
+      - pattern: sha1($X) == $Y
+      - pattern: $Y == md5($X)
+      - pattern: $Y == sha1($X)
+      - pattern: md5($X) === $Y
+      - pattern: sha1($X) === $Y
+    metadata:
+      cwe: ["CWE-208"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Session Security ──────────────────────────────────────────
+
+  - id: php-custom.session.fixation-no-regenerate
+    languages: [php]
+    severity: WARNING
+    message: >
+      `session_start()` called without `session_regenerate_id()` after
+      authentication. Without regeneration, the session ID from before
+      login carries over, enabling session fixation attacks. Call
+      `session_regenerate_id(true)` after successful authentication.
+    pattern: session_start()
+    metadata:
+      cwe: ["CWE-384"]
+      owasp: ["A07:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A03: preg /e modifier (RCE) ───────────────────────────────────
+
+  - id: php-custom.injection.preg-replace-e-modifier
+    languages: [php]
+    severity: ERROR
+    message: >
+      `preg_replace` with the `/e` modifier evaluates the replacement
+      string as PHP code. This is a code injection / RCE vulnerability
+      if the pattern or replacement includes user input. The `/e` modifier
+      was deprecated in PHP 5.5 and removed in PHP 7.0. Use
+      `preg_replace_callback` instead.
+    pattern-regex: "preg_replace\\s*\\(\\s*['\"].*?/[a-z]*e[a-z]*['\"]"
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: eval / assert injection ───────────────────────────────────
+
+  - id: php-custom.injection.eval-usage
+    languages: [php]
+    severity: ERROR
+    message: >
+      `eval()` executes arbitrary PHP code. If the input includes any
+      user-controlled data, this is a Remote Code Execution vulnerability.
+      Avoid `eval()` entirely — use structured alternatives.
+    pattern: eval($CODE)
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: php-custom.secrets.hardcoded-credentials
+    languages: [php]
+    severity: WARNING
+    message: >
+      Hardcoded password or secret. Use environment variables
+      (`getenv()`, `$_ENV`), a `.env` file excluded from version control,
+      or a secrets manager.
+    pattern-either:
+      - pattern: $password = "...";
+      - pattern: $secret = "...";
+      - pattern: $api_key = "...";
+      - pattern: $apiKey = "...";
+      - pattern: $token = "...";
+      - pattern: $secret_key = "...";
+      - pattern: $db_password = "...";
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: XXE (XML External Entity) ────────────────────────────────
+
+  - id: php-custom.xxe.simplexml-load-string
+    languages: [php]
+    severity: WARNING
+    message: >
+      `simplexml_load_string` processes XML that may contain external
+      entity declarations. Set `libxml_disable_entity_loader(true)` or
+      use `LIBXML_NOENT | LIBXML_DTDLOAD` flags to prevent XXE attacks.
+    pattern: simplexml_load_string($XML)
+    metadata:
+      cwe: ["CWE-611"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: php-custom.xxe.dom-document-load
+    languages: [php]
+    severity: WARNING
+    message: >
+      DOMDocument loading XML without disabling external entities. Set
+      `$doc->substituteEntities = false` and use
+      `libxml_disable_entity_loader(true)` before loading untrusted XML.
+    pattern: $DOC->loadXML($XML)
+    metadata:
+      cwe: ["CWE-611"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: php-custom.ssrf.curl-url-from-input
+    languages: [php]
+    severity: WARNING
+    message: >
+      cURL URL from a variable. If this comes from user input, validate
+      the URL against an allowlist of permitted hosts. Deny internal
+      network ranges (10.x, 172.16.x, 192.168.x, 127.x, 169.254.x).
+    pattern: curl_setopt($CH, CURLOPT_URL, $URL)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: LOW
+      category: security
+
+  - id: php-custom.ssrf.file-get-contents
+    languages: [php]
+    severity: WARNING
+    message: >
+      `file_get_contents` with a variable URL. If user-controlled, this
+      enables SSRF (reading internal services, metadata endpoints).
+      Validate the URL against a host allowlist.
+    pattern: file_get_contents($URL)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A09: Logging Sensitive Data ────────────────────────────────────
+
+  - id: php-custom.logging.error-log-sensitive
+    languages: [php]
+    severity: WARNING
+    message: >
+      Potentially sensitive variable in `error_log`. Passwords and tokens
+      in log files are accessible to anyone with log access.
+    pattern-either:
+      - pattern: error_log("..." . $password . "...")
+      - pattern: error_log("..." . $token . "...")
+      - pattern: error_log("..." . $secret . "...")
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: LOW
+      category: security

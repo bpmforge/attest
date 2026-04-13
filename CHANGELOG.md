@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.9.0] — 2026-04-13
+
+Semgrep security scanning deep upgrade: 98 custom gap-filler rules across 6 languages, offline/air-gapped scanning with registry pack caching, polyglot language detection, and auto-loading custom rulesets per detected language.
+
+### Added
+
+- **Custom gap-filler rulesets** (`.semgrep/custom-rules/`) — 98 hand-written Semgrep rules across 6 languages that fill OWASP Top 10 coverage gaps in registry packs with thin coverage:
+  - `csharp-security.yml` (20 rules) — command injection (`Process.Start`), XSS (`Html.Raw`), LDAP injection, path traversal, SSRF (`HttpClient` + `WebRequest`), hardcoded secrets, CORS wildcard, weak hashing, sensitive logging, insecure cookies
+  - `kotlin-security.yml` (16 rules) — SQL injection (JDBC + Android `rawQuery`), command injection, hardcoded secrets, deserialization, SSRF, WebView misconfig, path traversal, cleartext traffic, sensitive logging
+  - `swift-security.yml` (17 rules) — weak hashes (MD5/SHA1), hardcoded keys, ECB mode, SQLite injection, WebView XSS, insecure HTTP, SSL bypass, keychain accessibility, path traversal, SSRF
+  - `rust-security.yml` (15 rules) — SQL injection (`format!` macro), command injection, hardcoded secrets, `unwrap`/`expect`/`panic`/`todo` abuse, path traversal, SSRF, sensitive logging
+  - `php-security.yml` (15 rules) — `unserialize` RCE, `include`/`require` LFI, file upload, type juggling, hash timing, session fixation, `preg /e` injection, `eval`, XXE, SSRF
+  - `cpp-security.yml` (15 rules) — buffer overflow, format string, memory safety, command injection, crypto weakness, deprecated functions (targets `[c, cpp]`)
+
+- **Offline / air-gapped scanning** — New `scripts/cache-registry-packs.sh` downloads all registry packs as local YAML files for fully offline scanning. Modes: `download`, `refresh`, `status`, `prune`.
+
+- **`--offline` flag for `semgrep-full-audit.sh`** — Forces the audit to use only cached registry packs and local rules. No network calls. Requires prior `cache-registry-packs.sh` setup.
+
+- **Auto-loading custom rules per language** — `semgrep-full-audit.sh` now detects which languages are present and automatically loads matching gap-filler rulesets from `.semgrep/custom-rules/`. Banner reports how many custom rulesets were loaded.
+
+- **`--cache-packs` subcommand for `update-semgrep-rules.sh`** — Delegates to `cache-registry-packs.sh` for one-command registry pack caching.
+
+- **`resolve_registry_pack()` function** — New function in `semgrep-full-audit.sh` that prefers local cache over live registry, handles 4 cases: cache hit, cache miss with network, cache miss offline (skip), and cache disabled (direct URL).
+
+### Changed
+
+- **Polyglot language detection** — `semgrep-full-audit.sh` language detection rewritten from single-language `elif` chain to `LANGS=()` array. Projects with multiple languages (e.g., TypeScript + Go + Python) now get ALL relevant packs, not just the first match.
+- **Language detection expanded** — Added detection for C#/.NET, C/C++, Swift/iOS, Kotlin/Android, Scala alongside existing JS/TS, Python, Go, Rust, Java, Ruby, PHP.
+- **`install.sh` now installs `.semgrep/` custom rules** — Custom rulesets are copied to `$DEST/.semgrep/` alongside scripts. Status summary reports custom rule count. Uninstall cleans up `.semgrep/` directory.
+- **`uninstall.sh` updated** — Now removes `scripts/` and `.semgrep/` directories, notes about registry-cache cleanup.
+- **Documentation updated across all references** — `semgrep-guide.md`, `semgrep-community-rules.md`, and `security-auditor.md` all document the custom rulesets, offline scanning, and dead registry packs.
+
 ## [0.8.0] — 2026-04-13
 
 SDLC lead deep upgrade: persistent SDLC_TRACKER across all four modes, per-diagram confidence loops for ARCHITECTURE.md, strengthened SAD format template that rejects placeholders, and Phase 3 Architecture Diagram Pre-Gate that blocks advancement until every diagram row passes independently.

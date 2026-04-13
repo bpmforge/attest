@@ -1,0 +1,254 @@
+rules:
+  # ── Buffer overflow — dangerous string functions ──────────────────────
+  # These functions do not check buffer bounds. Exploitable if the source
+  # is attacker-controlled. Covers both C and C++ codebases.
+
+  - id: cpp-bridge.buffer-overflow.strcpy-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `strcpy` does not check destination buffer size. Use `strncpy`,
+      `strlcpy` (BSD/macOS), or `snprintf` instead. If the source string
+      exceeds the buffer, this is a classic stack/heap buffer overflow.
+    pattern: strcpy($DST, $SRC)
+    metadata:
+      cwe: ["CWE-120"]
+      owasp: ["A06:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: cpp-bridge.buffer-overflow.strcat-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `strcat` does not check destination buffer size. Use `strncat`,
+      `strlcat` (BSD/macOS), or build strings with `snprintf` instead.
+    pattern: strcat($DST, $SRC)
+    metadata:
+      cwe: ["CWE-120"]
+      owasp: ["A06:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: cpp-bridge.buffer-overflow.sprintf-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `sprintf` does not check destination buffer size. Use `snprintf`
+      with an explicit size limit instead.
+    pattern: sprintf($DST, ...)
+    metadata:
+      cwe: ["CWE-120"]
+      owasp: ["A06:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: cpp-bridge.buffer-overflow.gets-usage
+    languages: [c, cpp]
+    severity: ERROR
+    message: >
+      `gets` is inherently unsafe — it reads unlimited input into a
+      fixed buffer with no bounds check. Removed in C11. Use `fgets`
+      with an explicit size limit instead.
+    pattern: gets($BUF)
+    metadata:
+      cwe: ["CWE-120", "CWE-676"]
+      owasp: ["A06:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── Format string vulnerabilities ────────────────────────────────────
+  # Passing user-controlled data as the format argument to printf-family
+  # functions allows %n writes, memory reads via %x, and crashes via %s.
+
+  - id: cpp-bridge.format-string.printf-no-format
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `printf` called with a non-literal format string. If the argument
+      is user-controlled, this is a format string vulnerability. Use
+      `printf("%s", $VAR)` to safely print arbitrary strings.
+    pattern: printf($VAR)
+    metadata:
+      cwe: ["CWE-134"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: cpp-bridge.format-string.fprintf-no-format
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `fprintf` called with a non-literal format string. If the argument
+      is user-controlled, this is a format string vulnerability. Use
+      `fprintf($STREAM, "%s", $VAR)` instead.
+    pattern: fprintf($STREAM, $VAR)
+    metadata:
+      cwe: ["CWE-134"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: cpp-bridge.format-string.syslog-no-format
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `syslog` called with a non-literal format string. If the argument
+      is user-controlled, an attacker can read stack memory or crash the
+      process. Use `syslog($PRI, "%s", $VAR)` instead.
+    pattern: syslog($PRI, $VAR)
+    metadata:
+      cwe: ["CWE-134"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Memory safety ────────────────────────────────────────────────────
+
+  - id: cpp-bridge.memory.use-after-free-pattern
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      Pointer used after `free()`. Set the pointer to NULL after freeing
+      to prevent use-after-free vulnerabilities.
+    patterns:
+      - pattern: |
+          free($PTR);
+          ...
+          $FUNC(..., $PTR, ...);
+      - pattern-not: |
+          free($PTR);
+          ...
+          $PTR = NULL;
+          ...
+          $FUNC(..., $PTR, ...);
+      - pattern-not: |
+          free($PTR);
+          ...
+          $PTR = $ALLOC(...);
+          ...
+          $FUNC(..., $PTR, ...);
+    metadata:
+      cwe: ["CWE-416"]
+      owasp: ["A06:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: cpp-bridge.memory.double-free-pattern
+    languages: [c, cpp]
+    severity: ERROR
+    message: >
+      Pointer potentially freed twice without reassignment. Double-free
+      corrupts the heap allocator and is exploitable. Set the pointer to
+      NULL after freeing.
+    patterns:
+      - pattern: |
+          free($PTR);
+          ...
+          free($PTR);
+      - pattern-not: |
+          free($PTR);
+          ...
+          $PTR = $ALLOC(...);
+          ...
+          free($PTR);
+      - pattern-not: |
+          free($PTR);
+          ...
+          $PTR = NULL;
+          ...
+          free($PTR);
+    metadata:
+      cwe: ["CWE-415"]
+      owasp: ["A06:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Integer overflow / unsafe conversions ────────────────────────────
+
+  - id: cpp-bridge.integer.atoi-unchecked
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `atoi` does not detect overflow or invalid input — it silently
+      returns 0 on failure. Use `strtol` with error checking instead.
+    pattern: atoi($ARG)
+    metadata:
+      cwe: ["CWE-190", "CWE-20"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Command / OS injection ──────────────────────────────────────────
+
+  - id: cpp-bridge.injection.system-call
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `system()` executes a shell command. If any part of the command
+      string is derived from user input, this is a command injection
+      vulnerability. Use `execve` with a fixed argv array instead.
+    pattern: system($CMD)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: cpp-bridge.injection.popen-call
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `popen()` passes a command string through the shell. If any part
+      is user-controlled, this is a command injection vector. Use
+      `posix_spawn` or `fork`/`exec` with explicit argv instead.
+    pattern: popen($CMD, ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Deprecated / banned functions ───────────────────────────────────
+
+  - id: cpp-bridge.deprecated.tmpnam-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `tmpnam` creates predictable temporary file names, enabling symlink
+      attacks (TOCTOU). Use `mkstemp` instead — it creates the file
+      atomically with a unique name.
+    pattern: tmpnam(...)
+    metadata:
+      cwe: ["CWE-377"]
+      confidence: HIGH
+      category: security
+
+  - id: cpp-bridge.deprecated.mktemp-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `mktemp` is vulnerable to race conditions (TOCTOU). Use `mkstemp`
+      or `mkstemps` instead — they create the file atomically.
+    pattern: mktemp($TEMPLATE)
+    metadata:
+      cwe: ["CWE-377"]
+      confidence: HIGH
+      category: security
+
+  # ── Crypto weakness ─────────────────────────────────────────────────
+
+  - id: cpp-bridge.crypto.rand-usage
+    languages: [c, cpp]
+    severity: WARNING
+    message: >
+      `rand()` / `srand()` are not cryptographically secure. For security
+      contexts (tokens, keys, nonces), use `arc4random`, `getrandom`, or
+      read from `/dev/urandom`.
+    pattern-either:
+      - pattern: rand()
+      - pattern: srand($SEED)
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: MEDIUM
+      category: security

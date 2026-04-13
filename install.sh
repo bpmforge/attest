@@ -40,13 +40,15 @@ done
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing BPM OpenCode Experts..."
-  for dir in agents skills commands references tools hooks scripts; do
+  for dir in agents skills commands references tools hooks scripts .semgrep; do
     rm -rf "$GLOBAL_DIR/$dir"
     rm -rf "$PROJECT_DIR/$dir"
   done
   echo "Done. Removed from both global and project locations."
   echo "Note: ~/.semgrep/rules/ community rule cache was NOT removed."
   echo "      Remove manually if desired:  rm -rf ~/.semgrep/rules/"
+  echo "Note: ~/.semgrep/registry-cache/ offline pack cache was NOT removed."
+  echo "      Remove manually if desired:  rm -rf ~/.semgrep/registry-cache/"
   exit 0
 fi
 
@@ -108,6 +110,25 @@ if [ "$MODE" = "global" ]; then
       count=$(find "$DEST/scripts" -type f | wc -l | tr -d ' ')
       echo "  Copied scripts/ ($count files) → $DEST/scripts/"
     fi
+  fi
+fi
+
+# --- Install Semgrep custom rules ---
+# Copy .semgrep/ custom rulesets (cpp-bridge + language gap-fillers) so they're
+# available to semgrep-full-audit.sh when run from any project. The audit script
+# resolves these relative to its own location: $(dirname SCRIPT_DIR)/.semgrep/
+if [ -d "$SCRIPT_DIR/.semgrep" ]; then
+  if [ -d "$DEST/.semgrep" ]; then
+    rm -rf "$DEST/.semgrep"
+  fi
+  if [ "$METHOD" = "link" ]; then
+    ln -sf "$SCRIPT_DIR/.semgrep" "$DEST/.semgrep"
+    echo "  Linked .semgrep/ → $DEST/.semgrep/"
+  else
+    cp -r "$SCRIPT_DIR/.semgrep" "$DEST/.semgrep"
+    rule_count=$(grep -r '^\s*- id:' "$DEST/.semgrep/" 2>/dev/null | wc -l | tr -d ' ')
+    file_count=$(find "$DEST/.semgrep" -name '*.yml' | wc -l | tr -d ' ')
+    echo "  Copied .semgrep/ ($file_count rulesets, $rule_count rules) → $DEST/.semgrep/"
   fi
 fi
 
@@ -390,6 +411,15 @@ else
   echo "  ⚠️  Community rules: none cached — run: $DEST/scripts/update-semgrep-rules.sh"
 fi
 
+# Custom gap-filler rules
+if [ -d "$DEST/.semgrep" ]; then
+  custom_count=$(grep -r '^\s*- id:' "$DEST/.semgrep/" 2>/dev/null | wc -l | tr -d ' ')
+  custom_files=$(find "$DEST/.semgrep" -name '*.yml' | wc -l | tr -d ' ')
+  echo "  ✓  Custom rules: $custom_count rules in $custom_files rulesets ($DEST/.semgrep/)"
+else
+  echo "  ⚠️  Custom rules: not installed — re-run install.sh"
+fi
+
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 echo "Available commands:"
@@ -432,10 +462,14 @@ echo "Semgrep audit scripts (installed to $DEST/scripts/):"
 echo "  update-semgrep-rules.sh              Clone/update community rule repos"
 echo "  update-semgrep-rules.sh --bump       Pull latest + write lock file"
 echo "  update-semgrep-rules.sh --test       Verify working subdirs per source"
+echo "  update-semgrep-rules.sh --cache-packs  Download registry packs for offline use"
+echo "  cache-registry-packs.sh              Manage offline registry pack cache"
 echo "  semgrep-full-audit.sh                Deep audit (all community + framework rules)"
 echo "  semgrep-full-audit.sh --fast         CI-tier scan (< 60s)"
+echo "  semgrep-full-audit.sh --offline      Air-gapped scan (cached packs only)"
 echo "  semgrep-full-audit.sh --autofix      OPT-IN autofix (LOW/WARNING only)"
-echo "  Community rules cache: ~/.semgrep/rules/"
+echo "  Custom gap-filler rules: $DEST/.semgrep/ (98 rules, 6 languages)"
+echo "  Community rules cache:   ~/.semgrep/rules/"
 echo ""
 echo "Optional: Copy AGENTS.md to your project root:"
 echo "  cp $SCRIPT_DIR/examples/AGENTS.md ./AGENTS.md"

@@ -1,0 +1,270 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Rust Security Rules — Gap Filler
+  #
+  # p/rust has 11 rules (SSL, hashes, args, temp dir, unsafe). This
+  # ruleset fills the remaining OWASP gaps:
+  #   A03: SQL injection (diesel/sqlx), command injection
+  #   A05: Hardcoded secrets, panic in production
+  #   A10: SSRF
+  #   Plus Rust-specific: unwrap abuse, path traversal, format string
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: rust-custom.injection.sql-format-string
+    languages: [rust]
+    severity: ERROR
+    message: >
+      SQL query built with `format!` macro. Use parameterized queries
+      with your SQL library (sqlx `query!()`, diesel `.bind()`) instead.
+      String formatting in SQL queries enables SQL injection.
+    pattern: |
+      format!("...SELECT...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: rust-custom.injection.sql-format-insert
+    languages: [rust]
+    severity: ERROR
+    message: >
+      SQL INSERT/UPDATE/DELETE built with `format!`. Use parameterized
+      queries instead.
+    pattern-either:
+      - pattern: format!("...INSERT...", ...)
+      - pattern: format!("...UPDATE...", ...)
+      - pattern: format!("...DELETE...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: rust-custom.injection.command-from-variable
+    languages: [rust]
+    severity: ERROR
+    message: >
+      `Command::new` with a non-literal argument. If the command name
+      comes from user input, this is a command injection vulnerability.
+      Hardcode the command path and pass user input only as arguments.
+    pattern: std::process::Command::new($CMD)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: LOW
+      category: security
+
+  - id: rust-custom.injection.command-arg-variable
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `Command.arg()` with a dynamic value. If the argument comes from
+      user input, validate it against an allowlist. Shell metacharacters
+      in arguments can alter command behavior.
+    pattern: $CMD.arg($ARG)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: rust-custom.secrets.hardcoded-secret
+    languages: [rust]
+    severity: WARNING
+    message: >
+      Hardcoded secret string. Use environment variables (`std::env::var`)
+      or a secrets manager. Never embed secrets in source code.
+    pattern-either:
+      - pattern: |
+          let password = "...";
+      - pattern: |
+          let secret = "...";
+      - pattern: |
+          let api_key = "...";
+      - pattern: |
+          let secret_key = "...";
+      - pattern: |
+          let access_token = "...";
+      - pattern: |
+          let private_key = "...";
+      - pattern: |
+          let token = "...";
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: rust-custom.secrets.hardcoded-const
+    languages: [rust]
+    severity: WARNING
+    message: >
+      Secret stored as a `const` or `static`. This is compiled into the
+      binary and trivially extractable with `strings`. Use runtime
+      configuration instead.
+    pattern-either:
+      - pattern: |
+          const API_KEY: &str = "...";
+      - pattern: |
+          const SECRET: &str = "...";
+      - pattern: |
+          const PASSWORD: &str = "...";
+      - pattern: |
+          const TOKEN: &str = "...";
+      - pattern: |
+          static API_KEY: &str = "...";
+      - pattern: |
+          static SECRET: &str = "...";
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── Rust-specific: Panic in Production ─────────────────────────────
+
+  - id: rust-custom.reliability.unwrap-in-handler
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `.unwrap()` panics on `None`/`Err`, crashing the thread (and
+      potentially the server). In request handlers and library code,
+      use `?` operator, `.unwrap_or()`, `.unwrap_or_else()`, or pattern
+      matching to handle errors gracefully.
+    pattern: $EXPR.unwrap()
+    metadata:
+      cwe: ["CWE-248"]
+      confidence: LOW
+      category: security
+
+  - id: rust-custom.reliability.expect-in-prod
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `.expect()` panics with a message on `None`/`Err`. In request
+      handlers, this crashes the thread. Use `?` or match instead.
+    pattern: $EXPR.expect("...")
+    metadata:
+      cwe: ["CWE-248"]
+      confidence: LOW
+      category: security
+
+  - id: rust-custom.reliability.panic-macro
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `panic!()` in non-test code aborts the current thread. In servers,
+      this drops the connection. Return an error type instead.
+    pattern: panic!(...)
+    metadata:
+      cwe: ["CWE-248"]
+      confidence: MEDIUM
+      category: security
+
+  - id: rust-custom.reliability.todo-macro
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `todo!()` panics at runtime. Remove or replace with proper error
+      handling before shipping to production.
+    pattern: todo!(...)
+    metadata:
+      cwe: ["CWE-248"]
+      confidence: HIGH
+      category: security
+
+  - id: rust-custom.reliability.unimplemented-macro
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `unimplemented!()` panics at runtime with "not implemented".
+      Replace with proper error handling before production.
+    pattern: unimplemented!(...)
+    metadata:
+      cwe: ["CWE-248"]
+      confidence: HIGH
+      category: security
+
+  # ── A01: Path Traversal ────────────────────────────────────────────
+
+  - id: rust-custom.injection.path-traversal
+    languages: [rust]
+    severity: WARNING
+    message: >
+      File path constructed from a variable. If this comes from user
+      input, validate that the canonicalized path stays within the
+      intended directory to prevent path traversal attacks.
+    pattern-either:
+      - pattern: std::path::Path::new($USERINPUT)
+      - pattern: std::path::PathBuf::from($USERINPUT)
+      - pattern: std::fs::read_to_string($USERINPUT)
+      - pattern: std::fs::read($USERINPUT)
+      - pattern: std::fs::write($USERINPUT, ...)
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: rust-custom.ssrf.reqwest-url-from-input
+    languages: [rust]
+    severity: WARNING
+    message: >
+      HTTP request URL constructed from a variable. If this comes from
+      user input, validate against an allowlist of permitted hosts to
+      prevent Server-Side Request Forgery (SSRF).
+    pattern-either:
+      - pattern: reqwest::get($URL)
+      - pattern: reqwest::Client::new().get($URL)
+      - pattern: $CLIENT.get($URL)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A05: Insecure Randomness ───────────────────────────────────────
+
+  - id: rust-custom.crypto.weak-random
+    languages: [rust]
+    severity: WARNING
+    message: >
+      `rand::thread_rng()` is not cryptographically secure for all use
+      cases. For security-sensitive randomness (tokens, keys, nonces),
+      use `rand::rngs::OsRng` or `ring::rand::SystemRandom`.
+    pattern: rand::thread_rng()
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A09: Logging Sensitive Data ────────────────────────────────────
+
+  - id: rust-custom.logging.sensitive-in-log
+    languages: [rust]
+    severity: WARNING
+    message: >
+      Potentially sensitive variable in log output. Avoid logging
+      passwords, tokens, or keys. They persist in log files and
+      aggregation systems.
+    pattern-either:
+      - pattern: log::info!("...", ..., $PASSWORD, ...)
+      - pattern: log::debug!("...", ..., $SECRET, ...)
+      - pattern: tracing::info!("...", ..., $TOKEN, ...)
+      - pattern: println!("...", ..., $PASSWORD, ...)
+      - pattern: eprintln!("...", ..., $SECRET, ...)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: LOW
+      category: security
