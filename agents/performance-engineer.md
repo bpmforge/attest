@@ -351,6 +351,23 @@ edit(filePath="docs/performance/PERF_TRACKER.md",
 
 **This pass runs BEFORE profiling.** It catches anti-patterns by reading code — no profiler needed. The goal: generate a prioritized shortlist of suspects for Phase 2 to measure.
 
+**MANDATORY: Before recording ANY finding, you MUST:**
+```
+read(filePath="<exact file>", offset=<line - 5>, limit=20)
+```
+Paste the verbatim lines into the finding's "Current code" block. Never write a finding from grep output alone — grep shows you WHERE to look, not WHAT is there. A finding without a verbatim code quote is not a finding.
+
+**Source file discovery — run this FIRST before any scan:**
+```bash
+# Count and list all source files so you know the full scope
+find . -type f \( -name "*.ts" -o -name "*.js" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \) \
+  ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" \
+  | sort > /tmp/perf_source_files.txt
+wc -l /tmp/perf_source_files.txt
+cat /tmp/perf_source_files.txt
+```
+Record the total file count in the tracker. Every scan must cover all files in this list — if a scan returns zero hits for a large codebase, re-run with broader patterns before concluding "not present".
+
 Run these grep scans ONE AT A TIME. Read every hit. Write findings to the tracker before moving to the next scan.
 
 #### Scan 1 — O(n²) nested loops
@@ -361,15 +378,27 @@ grep-mcp --pattern "for\s|while\s|\.forEach|\.map\(|\.filter\(" --recursive --in
 
 For each loop found: check whether its body also contains a loop, a `.find()`, a `.filter()`, or a linear search over a collection. Any nested iteration over the same data = O(n²) suspect.
 
-**Finding format:**
+**Before writing the finding** — read the exact lines:
 ```
-STATIC-001 [O(n²)] file.ts:42
-Current code:
-  for (const user of users) {
-    const match = orders.find(o => o.userId === user.id)  // ← linear scan inside loop
+read(filePath="<file from grep hit>", offset=<line - 5>, limit=20)
+```
+
+**Finding format** (verbatim code required — no paraphrasing):
+```
+STATIC-001 [O(n²)] src/services/userService.ts:42
+Verbatim code (lines 37-46):
+  function matchUsers(users: User[], orders: Order[]) {
+    return users.map(user => {
+      const match = orders.find(o => o.userId === user.id)  // ← linear scan inside loop
+      return { ...user, order: match }
+    })
   }
-Impact: O(n × m) — grows quadratically with user + order count
+Loop bound: unbounded — depends on users.length and orders.length at runtime
+Impact: O(n × m) — 1,000 users × 1,000 orders = 1,000,000 iterations
 Fix: build a Map<userId, Order> before the outer loop → O(n + m)
+  const orderMap = new Map(orders.map(o => [o.userId, o]))
+  return users.map(user => ({ ...user, order: orderMap.get(user.id) }))
+Needs profiling: YES — measure actual call frequency before fixing
 ```
 
 #### Scan 2 — N+1 query patterns
@@ -380,15 +409,30 @@ grep-mcp --pattern "await.*find|await.*query|await.*fetch|\.find\(|\.findOne\(|\
 
 For each DB/fetch call found: check whether it's inside a loop (`for`, `while`, `forEach`, `map`, `reduce`). Any query/fetch inside a loop = N+1 suspect unless the loop has a fixed small upper bound (≤ 5).
 
-**Finding format:**
+**Before writing the finding** — read the exact lines:
 ```
-STATIC-002 [N+1] service.ts:88
-Current code:
-  for (const id of userIds) {
-    const user = await db.users.findOne({ id })  // ← query inside loop
+read(filePath="<file from grep hit>", offset=<line - 10>, limit=25)
+```
+
+**Finding format** (verbatim code required):
+```
+STATIC-002 [N+1] src/api/orders/service.ts:88
+Verbatim code (lines 83-96):
+  async function enrichOrders(orderIds: string[]) {
+    const results = []
+    for (const id of orderIds) {
+      const user = await db.users.findOne({ id })  // ← query inside loop
+      results.push({ id, user })
+    }
+    return results
   }
-Impact: N database round-trips where 1 batch query would suffice
-Fix: await db.users.findMany({ id: { in: userIds } }) before the loop
+Loop bound: unbounded — orderIds.length is caller-controlled
+Impact: N round-trips to the database; at 100 orders = 100 separate queries vs 1
+Fix:
+  const users = await db.users.findMany({ id: { in: orderIds } })
+  const userMap = new Map(users.map(u => [u.id, u]))
+  return orderIds.map(id => ({ id, user: userMap.get(id) }))
+Needs profiling: YES — confirm N+1 with EXPLAIN before fixing
 ```
 
 #### Scan 3 — try/catch performance anti-patterns
@@ -576,18 +620,33 @@ fn process(items: &[&str]) -> Vec<i32> {
 }
 ```
 
-**Finding format for try/catch anti-patterns:**
+**Before writing any try/catch finding** — read the exact lines:
 ```
-STATIC-003 [try/catch-in-loop] api/handler.ts:156
+read(filePath="<file from grep hit>", offset=<line - 5>, limit=30)
+```
+Check the surrounding context: is this try/catch inside a loop? Is it used as control flow? Is each await independent?
+
+**Finding format** (verbatim code required):
+```
+STATIC-003 [try/catch-in-loop] src/api/events/handler.ts:156
 Pattern: A — try/catch inside tight loop (V8 de-opt)
-Current code:
-  for (const event of events) {
-    try { await processEvent(event) } catch (e) { logger.warn(e) }
+Verbatim code (lines 150-163):
+  async function processEvents(events: Event[]) {
+    for (const event of events) {
+      try {
+        await processEvent(event)
+      } catch (e) {
+        logger.warn('event failed', e)
+      }
+    }
   }
-Loop size: unbounded (depends on events array — can be 10,000+)
-Estimated impact: HIGH — V8 cannot optimize this function; 5-20x slowdown at scale
-Fix: move try/catch outside loop; use Promise.allSettled if parallelizable
-Measure: profile with --prof before and after to confirm actual delta
+Loop bound: unbounded — events.length controlled by caller (can be 10,000+)
+Estimated impact: HIGH — V8 cannot apply JIT optimizations to this function
+Fix: move try/catch outside loop; use Promise.allSettled if events are independent
+  try {
+    await Promise.allSettled(events.map(e => processEvent(e)))
+  } catch (e) { ... }
+Needs profiling: YES — run --prof before and after to confirm V8 de-opt delta
 ```
 
 #### Scan 4 — Blocking I/O in async paths
@@ -602,14 +661,28 @@ grep-mcp --pattern "time\.Sleep|ioutil\.ReadFile|os\.ReadFile" --recursive --inc
 
 Any `*Sync` call, blocking sleep, or synchronous file I/O inside a request handler or async function blocks the event loop / goroutine scheduler. In Node.js this serializes ALL concurrent requests while the sync call runs.
 
-**Finding format:**
+**Before writing the finding** — read the exact lines:
 ```
-STATIC-004 [blocking-I/O] middleware/auth.ts:34
-Current code:
-  const key = fs.readFileSync('./secrets/jwt.pem', 'utf8')  // blocks event loop
-Caller: called on every authenticated request
-Impact: HIGH — blocks Node.js event loop for duration of filesystem read
-Fix: read once at startup into a module-level const; or use fs.promises.readFile()
+read(filePath="<file from grep hit>", offset=<line - 5>, limit=20)
+```
+Check whether the Sync call is inside a request handler / hot path, or is it called once at startup (startup calls are fine).
+
+**Finding format** (verbatim code required):
+```
+STATIC-004 [blocking-I/O] src/middleware/auth.ts:34
+Verbatim code (lines 29-39):
+  export function authMiddleware(req: Request, res: Response, next: NextFunction) {
+    const key = fs.readFileSync('./secrets/jwt.pem', 'utf8')  // ← blocks event loop
+    const decoded = jwt.verify(req.headers.authorization, key)
+    req.user = decoded
+    next()
+  }
+Called on: every authenticated request — hot path
+Impact: HIGH — blocks Node.js event loop for entire filesystem read duration; all concurrent requests queue behind it
+Fix: read key once at module load time, outside the request handler:
+  const JWT_KEY = fs.readFileSync('./secrets/jwt.pem', 'utf8')  // startup only — OK
+  export function authMiddleware(req, res, next) { ... jwt.verify(token, JWT_KEY) ... }
+Needs profiling: YES — measure actual blocking time under load
 ```
 
 #### Scan 5 — Unnecessary allocations in hot paths
@@ -628,14 +701,97 @@ Look for large allocations inside tight loops or on critical request paths:
 - Object spread (`{...obj}`) inside a tight loop where mutation would be fine
 - String concatenation in a loop instead of a buffer / template
 
-**Finding format:**
+**Before writing the finding** — read the exact lines:
 ```
-STATIC-005 [hot-path-allocation] utils/transform.ts:78
-Current code:
-  events.map(e => ({ ...e, processed: true }))  // spreads every object in array
-Called: on every WebSocket message, potentially 1000+/sec
-Impact: MEDIUM — GC pressure from N object allocations per message
-Fix: mutate in-place if callers don't need immutability; or pre-allocate result array
+read(filePath="<file from grep hit>", offset=<line - 5>, limit=20)
+```
+Check call frequency: is this inside a loop, a WebSocket handler, a render function? One-off allocations are fine — repeated allocations in hot paths create GC pressure.
+
+**Finding format** (verbatim code required):
+```
+STATIC-005 [hot-path-allocation] src/utils/transform.ts:78
+Verbatim code (lines 73-83):
+  export function processMessages(messages: Message[]) {
+    return messages.map(m => ({
+      ...m,                    // ← spreads full object on every iteration
+      processed: true,
+      timestamp: Date.now(),
+    }))
+  }
+Called on: every WebSocket message batch — potentially 1,000+/sec
+Allocation count: 1 new object per message × N messages per call
+Impact: MEDIUM — GC pressure from N object allocations per batch; may cause GC pauses under sustained load
+Fix:
+  // Option A: mutate in-place (if callers don't require immutability)
+  messages.forEach(m => { m.processed = true; m.timestamp = Date.now() })
+  // Option B: pre-allocate result array
+  const out = new Array(messages.length)
+  for (let i = 0; i < messages.length; i++) out[i] = { ...messages[i], processed: true, timestamp: Date.now() }
+Needs profiling: YES — take a heap snapshot before and after to confirm GC reduction
+```
+
+---
+
+#### Coverage Confidence Loop (MANDATORY — runs after all 5 scans)
+
+After completing all 5 scans, rate your coverage confidence 1-10 and loop until ≥ 7:
+
+**Step 1 — Cross-check scanned files against the source file list:**
+```bash
+# How many source files did grep actually examine?
+# Re-run one scan with --include for each extension and compare hit file counts
+grep-mcp --pattern "for\s|while\s" --recursive --include "*.ts" | grep -o "^[^:]*" | sort -u | wc -l
+# Compare to: grep "\.ts$" /tmp/perf_source_files.txt | wc -l
+```
+
+If grep covered fewer files than the source list, check for:
+- Files excluded by `.gitignore` / `.eslintignore` that ARE part of the hot path
+- Minified or generated files that should be excluded (dist/, build/, *.min.js)
+- Directories the glob pattern missed (e.g. `apps/` monorepo subdirectories)
+
+**Step 2 — Ask yourself these questions:**
+
+| Question | If NO → action |
+|---|---|
+| Did I run all 5 scans? | Run any missing scans now |
+| Did I read every grep hit with `read()`? | Go back and read unread hits |
+| Did I check every file in the source list? | Re-run scans with `--path <missed-dir>` |
+| Did I verify loop bounds for every O(n²) / N+1? | Re-read those files for context |
+| Did I check whether Sync calls are startup-only or hot-path? | Re-read those callers |
+| Did I find at least 1 finding in a codebase >500 lines? (absence of findings is suspicious) | Re-run scans with broader patterns |
+
+**Step 3 — Rate and decide:**
+
+- **Confidence ≥ 7:** proceed to update tracker and move to Phase 2
+- **Confidence 5-6:** do a re-pass — broaden the grep pattern for the scan that feels incomplete, read more files
+- **Confidence < 5:** STOP — surface to user: "I cannot confidently say I've scanned all source files because [specific reason]. I need [specific thing] to proceed."
+
+Maximum 3 re-pass attempts. If still < 7 after 3 passes: set tracker Phase 1b to `⚠️ BLOCKED` and surface immediately.
+
+**Re-pass example (broader scan for missed patterns):**
+```bash
+# Broader O(n²) re-pass — catches non-standard iteration
+grep-mcp --pattern "\.(forEach|map|filter|reduce|find|findIndex|some|every)\(" --recursive
+# Catches Python list comprehensions with nested calls
+grep-mcp --pattern "\[.* for .* in .*\]" --recursive --include "*.py"
+# Catches Go range-in-range
+grep-mcp --pattern "for .* range" --recursive --include "*.go"
+```
+
+Print your coverage verdict before updating the tracker:
+```
+Phase 1b Coverage Verdict:
+  Source files in scope:  NNN (from /tmp/perf_source_files.txt)
+  Files grep examined:    NNN
+  Coverage gap:           <none | list specific dirs/extensions missed>
+  Scan 1 (O(n²)):         N hits examined, N findings
+  Scan 2 (N+1):           N hits examined, N findings
+  Scan 3 (try/catch):     N hits examined, N findings
+  Scan 4 (blocking-I/O):  N hits examined, N findings
+  Scan 5 (allocations):   N hits examined, N findings
+  Total static findings:  N
+  Coverage confidence:    N/10
+  Decision:               PROCEED | RE-PASS (pass N of 3) | BLOCKED
 ```
 
 **After completing Phase 1b — update the tracker (MANDATORY before Phase 2):**
@@ -831,16 +987,175 @@ edit(filePath="docs/performance/PERF_TRACKER.md",
 
 ---
 
-### Phase 6: Write to Docs
+### Phase 6: Write the Full Performance Report
 
-After profiling/optimization, write to `docs/PERFORMANCE_REPORT.md`:
-- Current performance baselines for key operations
-- Optimization applied and why it worked
-- Known remaining bottlenecks (for future work)
-- Data size thresholds where performance degrades
-- Static analysis findings not yet profiled (backlog for next pass)
+Write to `docs/PERFORMANCE_REPORT.md` using this MANDATORY template. Do not summarize — fill in every section. A report with placeholder dashes (`—`) in the findings tables is not complete.
 
-**After completing Phase 6 — update the tracker (MANDATORY — final step):**
+```markdown
+# Performance Report — <project name>
+
+**Date:** <YYYY-MM-DD>
+**Engineer:** performance-engineer agent
+**Complaint:** <what was reported as slow, by whom, under what conditions>
+**Target:** <quantified goal — e.g. 'reduce /api/users P95 latency from 2.3s to <500ms'>
+**Status:** <GOAL MET | GOAL PARTIALLY MET | GOAL NOT MET — explain>
+
+---
+
+## Executive Summary
+
+<2-3 sentences: what was found, what was fixed, what the measured improvement was.
+Example: "A nested O(n×m) loop in userService.ts:42 was the primary bottleneck causing 2.3s
+P95 on /api/users with 1K users. Replaced with a pre-built Map. Re-benchmark shows 120ms P95
+— 19x improvement. One secondary N+1 pattern found in orders/service.ts:88 deferred to backlog.">
+
+---
+
+## Baseline Measurements
+
+Measured BEFORE any changes. Same conditions used for the final benchmark.
+
+| Operation | Method | Baseline P50 | Baseline P95 | Data Size | Date |
+|-----------|--------|-------------|-------------|-----------|------|
+| <e.g. GET /api/users> | <wrk / cProfile / EXPLAIN> | <Xms> | <Xms> | <1K rows> | <date> |
+
+---
+
+## Static Analysis Findings (Phase 1b)
+
+Every finding from Phase 1b, with verbatim code. None omitted.
+
+### STATIC-001 — <type> — <file>:<line>
+
+**File:** `<exact path>`
+**Line:** <N>
+**Pattern:** <O(n²) | N+1 | try/catch-in-loop | blocking-I/O | hot-path-allocation>
+
+**Verbatim code (lines <start>–<end>):**
+```<language>
+<paste verbatim from read() — no paraphrasing>
+```
+
+**Loop / call bound:** <fixed ≤5 | unbounded | caller-controlled — explain>
+**Impact:** <HIGH | MEDIUM | LOW> — <specific reason: N iterations × M per item = X total ops>
+**Fix:**
+```<language>
+<concrete fixed version>
+```
+**Status:** <FIXED in Phase 4 | DEFERRED — see Backlog | CONFIRMED ACCEPTABLE — reason>
+**Profiler confirmation:** <YES — confirmed hot | NOT YET — suspected, needs measurement>
+
+---
+
+<repeat STATIC-NNN block for EVERY static finding>
+
+---
+
+## Profiler Results (Phase 2)
+
+**Tool:** <node --prof | cProfile | cargo flamegraph | EXPLAIN ANALYZE | wrk>
+**Profile file:** `<path to raw profile output if saved>`
+
+### Top Hot Functions / Queries
+
+| Rank | Function / Query | File:Line | Time % | Cumulative % | Type |
+|------|-----------------|-----------|--------|-------------|------|
+| 1 | <functionName> | <file>:<line> | <X%> | <X%> | <CPU/IO/DB> |
+| 2 | ... | ... | ... | ... | ... |
+| 3 | ... | ... | ... | ... | ... |
+
+**Bottleneck type:** <CPU-bound | I/O-bound | DB-bound | memory-bound>
+
+**Flame graph / query plan (if available):**
+<paste EXPLAIN output or top flamegraph nodes — do not skip this if you have it>
+
+---
+
+## Fix Applied (Phase 4)
+
+**Finding addressed:** STATIC-<NNN> — <one-line description>
+**File modified:** `<path>`
+**Lines changed:** <N>–<M>
+
+**Before:**
+```<language>
+<verbatim original code>
+```
+
+**After:**
+```<language>
+<verbatim fixed code>
+```
+
+**Why this fix:** <1-2 sentences — algorithmic | architectural | caching | code-level — what changed and why it's faster>
+
+---
+
+## Final Benchmark (Phase 5)
+
+Same conditions as baseline. Multiple runs — report median.
+
+| Operation | Baseline P50 | Baseline P95 | After Fix P50 | After Fix P95 | Improvement | Regressions? |
+|-----------|-------------|-------------|--------------|--------------|-------------|--------------|
+| <operation> | <Xms> | <Xms> | <Xms> | <Xms> | <Nx faster> | <none / list> |
+
+**Goal met:** <YES — target was X, achieved Y | NO — achieved Y, target was X, gap remains because Z>
+
+---
+
+## Regression Check
+
+| Area tested | Before | After | Delta | Status |
+|-------------|--------|-------|-------|--------|
+| <other key operation 1> | <Xms> | <Xms> | <+/-Xms> | <OK | REGRESSION> |
+| <other key operation 2> | ... | ... | ... | ... |
+
+---
+
+## Known Remaining Bottlenecks (Backlog)
+
+Items found but NOT fixed in this session. Prioritized by leverage.
+
+| # | Finding | File:Line | Type | Impact | Effort | Priority |
+|---|---------|-----------|------|--------|--------|----------|
+| 1 | <STATIC-NNN description> | <file>:<line> | <type> | <HIGH/MED/LOW> | <S/M/L> | <P0/P1/P2> |
+
+---
+
+## Data Size Thresholds
+
+At what data sizes does performance degrade?
+
+| Operation | Acceptable (<Xms) | Degraded (>Xms) | Breaks (>Xms) | Threshold |
+|-----------|------------------|-----------------|---------------|-----------|
+| <operation> | <N rows> | <N rows> | <N rows> | <N rows — explain why> |
+
+---
+
+## Coverage Verdict
+
+| Scan | Files Examined | Findings | Confidence |
+|------|---------------|----------|-----------|
+| O(n²) loops | <N> | <N> | <N>/10 |
+| N+1 queries | <N> | <N> | <N>/10 |
+| try/catch perf | <N> | <N> | <N>/10 |
+| Blocking I/O | <N> | <N> | <N>/10 |
+| Hot allocations | <N> | <N> | <N>/10 |
+| **Total source files** | **<N>** | **<N total>** | **<min>/10** |
+
+---
+
+## Handoffs Recommended
+
+| Finding | Expert | Reason |
+|---------|--------|--------|
+| <STATIC-NNN> | db-architect | <N+1 query needs index + query rewrite> |
+| <STATIC-NNN> | code-reviewer | <try/catch also swallows errors — correctness concern> |
+| <STATIC-NNN> | sre-engineer | <fix requires adding Redis cache layer> |
+
+```
+
+**After writing the report — update the tracker (MANDATORY — final step):**
 
 ```
 edit(filePath="docs/performance/PERF_TRACKER.md",
