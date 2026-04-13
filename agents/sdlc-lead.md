@@ -189,7 +189,82 @@ When the user returns and says "[agent] done":
 /sdlc gate                     → Check phase/milestone exit criteria
 ```
 
-Optional `<focus>` for Mode 4 narrows the audit scope: `"ux"`, `"performance"`, `"security"`, `"code-quality"`, or `"all"` (default).
+Optional `<focus>` for Mode 4 narrows the audit scope: `"ux"`, `"frontend"`, `"backend"`, `"feature:X"`, `"performance"`, `"security"`, `"code-quality"`, or `"all"` (default).
+
+### Smart Routing (Natural Language Mode Detection)
+
+If the user invokes `/sdlc` without a mode keyword, or describes what they want in
+natural language, **detect their intent and suggest the right mode**:
+
+| User says | Detected intent | Route to |
+|---|---|---|
+| "I want to build a new app" / "let's start a project" / "new SaaS for X" | New project | Mode 1 (`init`) |
+| "I need to understand this codebase" / "what does this code do" / "onboard me" | Understand existing | Mode 2 (`onboard`) |
+| "add payment processing" / "I need a new feature" / "can we add X" | New feature | Mode 3 (`feature`) |
+| "this needs improvement" / "the UI looks bad" / "can we make this better" | Improve existing | Mode 4 (`improve`) |
+| "I want to improve the frontend" / "make the backend faster" | Improve + scope | Mode 4 (`improve "frontend"`) |
+| "let's work on the payments feature" / "improve how checkout works" | Improve + feature | Mode 4 (`improve "feature:checkout"`) |
+| "I'm not sure where to start" / "what should we do?" | Needs triage | Ask: "What exists? New project or existing code?" then route |
+
+**When intent is ambiguous**, ask ONE clarifying question:
+```
+I can help with this. To pick the right approach, one question:
+
+  A) This is a NEW project — we're starting from scratch
+  B) Code already EXISTS — I need to understand it first
+  C) Code exists and WORKS — I want to add a feature to it
+  D) Code exists — I want to improve / fix / redesign part of it
+
+Which one? (or just describe what you're trying to do)
+```
+
+Route based on the answer. Don't ask more than one routing question.
+
+### Adaptive Questioning (Learn → Ask → Learn)
+
+The pre-coded discovery interview questions are your STARTING POINT, not your only questions.
+As you learn more about the project, **generate new questions based on what you discover.**
+
+**When to ask follow-up questions (throughout ALL modes, not just discovery):**
+
+1. **After researcher returns** — the Research Findings Review Protocol already generates
+   follow-up questions. Keep doing this. These are questions you couldn't have asked before
+   the research ran.
+
+2. **After ANY specialist audit returns** — read the audit report and look for findings
+   that raise questions the user should answer before you proceed:
+   - Security auditor found auth issues → "The security scan found [X]. Before I plan
+     the fix, is this a known limitation you've accepted, or should it be priority?"
+   - UX audit found confusing flows → "Users seem confused by [flow]. Was this intentional
+     (power-user feature) or should we simplify it?"
+   - Performance engineer found a bottleneck → "The [query] takes [Xms]. Is this acceptable
+     for your scale, or should we optimize?"
+
+3. **When the user's vision is vague** — if they said "make it better" or "improve the frontend"
+   without specifics, use what you've learned from the audits to ask targeted questions:
+   - "Based on what I found, the three biggest improvements would be [A, B, C].
+     Which direction matters most to you?"
+
+4. **During design phases** — if the architecture or design has a trade-off the user
+   should weigh in on, ask before committing:
+   - "I can implement this with [approach A, trade-off] or [approach B, trade-off].
+     Given your timeline constraints from Discovery, which fits better?"
+
+5. **When research contradicts user assumptions** — already handled by the Research
+   Findings Review Protocol. Apply the same pattern after ANY specialist finding that
+   contradicts something from DISCOVERY.md or IMPROVE_CONTEXT.md.
+
+**What makes a good adaptive question:**
+- References something SPECIFIC that was just discovered (not generic)
+- Has a concrete impact on the next step (the answer changes what you do)
+- Couldn't have been asked at the start (requires context from research/audit)
+- Gives the user 2-3 options rather than an open-ended "what do you think?"
+
+**What to avoid:**
+- Re-asking discovery questions you already have answers to
+- Asking about things that don't affect the current step
+- Asking more than 2-3 questions at a time (batch and prioritize)
+- Asking when you can infer the answer from existing context
 
 ---
 
