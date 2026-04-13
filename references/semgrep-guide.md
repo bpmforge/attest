@@ -280,15 +280,17 @@ semgrep scan \
   --config p/dockerfile \
   --config p/kubernetes \
   --config p/github-actions \
-  --config ~/.cache/semgrep-community/trailofbits \
-  --config ~/.cache/semgrep-community/elttam \
-  --config ~/.cache/semgrep-community/gitlab/<language> \
+  --config ~/.semgrep/rules/trailofbits/<language> \
+  --config ~/.semgrep/rules/elttam/rules/<language> \
+  --config ~/.semgrep/rules/gitlab/<language> \
   --config .semgrep/project-rules \
   --json --sarif --metrics=off \
   -o docs/security/semgrep-results.json
 ```
 
-The `hooks/semgrep-full-audit.sh` script handles all of this automatically — detects language, framework, IaC presence, and composes the right config list.
+The `scripts/semgrep-full-audit.sh` script handles all of this automatically — detects language, framework, IaC presence, and composes the right config list.
+
+> **Registry pack availability warning:** Some packs listed in the Framework Auto-Detection table (e.g., `p/express`, `p/nextjs`) have been deprecated in the free registry tier or moved to Semgrep Pro. Attempting to use a 404'd pack causes semgrep to write an empty `results: []` array — this looks identical to "no findings" but the pack was never actually run. `scripts/semgrep-full-audit.sh` probes each pack before use and skips 404s with a warning in the scan log. Never manually construct `--config` flag lists for registry packs — always let the script handle it.
 
 ---
 
@@ -298,19 +300,25 @@ Beyond language packs, framework-specific packs catch framework anti-patterns th
 
 | Framework | Detect via | Pack |
 |-----------|-----------|------|
-| Express | `"express"` in `package.json` | `p/express` |
-| Next.js | `"next"` in `package.json` | `p/nextjs` |
+| Express | `"express"` in `package.json` | `p/express` ⚠️ DEAD — probed + skipped by script |
+| Next.js | `"next"` in `package.json` | `p/nextjs` ⚠️ DEAD — probed + skipped by script |
 | React | `"react"` in `package.json` | `p/react` |
 | Django | `django` in `requirements.txt` | `p/django` |
 | Flask | `flask` in `requirements.txt` | `p/flask` |
 | Ruby on Rails | `rails` in `Gemfile` | `p/rails` |
-| Spring Boot | `spring-boot` in `pom.xml` | `p/spring` |
+| Spring Boot | `spring-boot` in `pom.xml` | `p/spring` ⚠️ DEAD — probed + skipped by script |
 | Gin | `github.com/gin-gonic/gin` in `go.mod` | `p/gin` |
+| Node.js | `"express"` or `"fastify"` in `package.json` | `p/nodejsscan` ✓ confirmed working |
 
-**Example finding only a framework pack catches:**
-- `p/nextjs` flags `getServerSideProps` using user input to fetch internal URLs → SSRF
+**Note on dead packs:** `p/express`, `p/nextjs`, and `p/spring` return HTTP 404 as of Semgrep 1.159.0.
+`semgrep-full-audit.sh` probes each pack and logs + skips dead ones. Do not use them manually.
+`p/nodejsscan` (Node.js command injection, SQL injection, hardcoded secrets) is confirmed working and fills the gap.
+
+**Example findings only framework/Node packs catch:**
+- `p/nodejsscan` flags command injection via `child_process.exec(userInput)` → RCE
+- `p/nodejsscan` flags hardcoded API keys in Node.js source → credential exposure
 - `p/django` flags `@csrf_exempt` on state-mutating views → CSRF
-- `p/express` flags routes without `helmet()` middleware → missing security headers
+- `p/react` flags `dangerouslySetInnerHTML` with unescaped content → XSS
 
 ---
 
@@ -344,7 +352,7 @@ The official Registry is good, but the highest-signal rules come from independen
 | **GitLab SAST** | Multi-language (rules powering GitLab SAST) | MIT | HIGH |
 | **0xdea** | C/C++ memory safety | MIT | HIGH for C/C++ projects |
 
-Install with `hooks/update-semgrep-rules.sh` (clones to `~/.cache/semgrep-community/`). Pin commits in `.semgrep/community-rules.lock`. Refresh quarterly.
+Install with `scripts/update-semgrep-rules.sh` (clones to `~/.semgrep/rules/`). Pin commits in `.semgrep/community-rules.lock`. Refresh quarterly.
 
 ---
 
@@ -577,9 +585,8 @@ Upload the SARIF file to GitHub's Security tab via `github/codeql-action/upload-
 
 1. **Preflight:**
    - `Bash which semgrep` — verify installed
-   - `Bash [ -d ~/.cache/semgrep-community/trailofbits ] || scripts/update-semgrep-rules.sh` — verify community rules cached
-   - `Bash scripts/update-semgrep-rules.sh --verify` — if `.semgrep/community-rules.lock` exists
-2. **Detect project characteristics:**
+   - `Bash [ -d ~/.semgrep/rules/trailofbits ] || scripts/update-semgrep-rules.sh` — verify community rules cached
+   - `Bash scripts/update-semgrep-rules.sh --verify` — if `.semgrep/community-rules.lock` exists2. **Detect project characteristics:**
    - Language (package.json, go.mod, Cargo.toml, requirements.txt, pom.xml, Gemfile, composer.json)
    - Framework (grep package.json / requirements.txt for known framework names)
    - IaC presence (Dockerfile, *.tf, k8s/, .github/workflows/)

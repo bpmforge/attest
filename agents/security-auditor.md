@@ -186,18 +186,26 @@ Real security experts don't just run checklists — they follow anomalies:
 
 Read `semgrep-guide.md` and `semgrep-community-rules.md` for full reference.
 
+> **CRITICAL RULES — do not violate:**
+> - **NEVER invoke `semgrep` directly.** Always use `scripts/semgrep-full-audit.sh`. The script handles pack probing, 404 detection, and community rule path resolution. Manual `semgrep` invocations bypass all of that.
+> - **NEVER append `|| true` to scan commands.** If the scan command fails, you MUST investigate why. Silencing errors hides 404'd registry packs, YAML parse failures, and config errors — all of which produce 0-finding JSON that looks like "clean code" but is actually a broken scan.
+> - **NEVER write ad-hoc Python or shell scripts to process scan results.** `scripts/semgrep-to-report-skeleton.py` already exists and is the correct tool. Writing a replacement from scratch wastes time and produces inferior output.
+> - **NEVER manually compose `--config` flag lists.** `semgrep-full-audit.sh` probes each pack before adding it. If you bypass this and add a pack that returns a 404, you get 0 results with no error — a silent lie.
+
 **Step 1: Preflight — tooling check**
 
 Run these checks in order:
 ```
 bash -c "which semgrep && semgrep --version" || echo "SEMGREP_NOT_INSTALLED"
-bash -c "[ -d ~/.cache/semgrep-community/trailofbits ] && echo 'community-rules-cached' || echo 'community-rules-missing'"
+bash -c "[ -d ~/.semgrep/rules/trailofbits ] && echo 'community-rules-cached' || echo 'community-rules-missing'"
 bash -c "[ -f .semgrep/community-rules.lock ] && scripts/update-semgrep-rules.sh --verify || echo 'no-lock-file'"
 ```
 
 If Semgrep is NOT installed, help the user install it (brew/pip/docker fallback). If they decline, proceed with grep-only mode and note the limitation in the report.
 
-If community rules are missing, run `scripts/update-semgrep-rules.sh` to clone Trail of Bits, elttam, GitLab, and 0xdea sources. Without these you're only getting baseline coverage — missing the highest-signal rules.
+If community rules are missing, run `scripts/update-semgrep-rules.sh` to clone Trail of Bits, elttam, GitLab, and 0xdea sources to `~/.semgrep/rules/`. Without these you're only getting baseline coverage — missing the highest-signal rules.
+
+> **Community rules canonical cache path:** `~/.semgrep/rules/{trailofbits,elttam,gitlab,0xdea}`. This is the path `scripts/semgrep-full-audit.sh` looks in. Always use `scripts/update-semgrep-rules.sh` to install rules — it clones to the canonical path. Do not clone rules anywhere else or the audit script won't find them.
 
 If a `.semgrep/community-rules.lock` file exists and verify fails, STOP and surface to the user — someone bumped the community rules without updating the lock file. This is a reproducibility problem.
 
@@ -223,19 +231,16 @@ Use the prebuilt audit runner — it composes the right rule pack list automatic
 bash scripts/semgrep-full-audit.sh
 ```
 
-This runs:
-- Official packs: `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default`
-- Language pack (auto-detected)
-- Framework pack (auto-detected — e.g. `p/express`, `p/nextjs`, `p/django`)
-- Language-native pack (e.g. `p/bandit` for Python, `p/gosec` for Go)
-- IaC packs (if relevant): `p/dockerfile`, `p/terraform`, `p/kubernetes`, `p/github-actions`
-- Community rules: Trail of Bits, elttam, GitLab, 0xdea (if C/C++)
-- Project-specific rules from `.semgrep/project-rules/` (if present)
+The script:
+- **Probes each registry pack** in isolation before adding it to the config list — 404'd or deprecated packs are logged and skipped rather than silently producing empty results
+- **Auto-detects the community rules cache** (checks `$SEMGREP_COMMUNITY_CACHE`, then `~/.semgrep/rules/` (canonical), then `~/.cache/semgrep-community/` (legacy fallback))
+- **Probes community rule directories** for YAML parse errors before including them (catches broken rule repos like `gitlab/typescript`)
+- Includes: `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default`, language pack, framework pack, language-native pack (e.g. `p/bandit` for Python, `p/gosec` for Go), IaC packs (if relevant), community rules (Trail of Bits, elttam, GitLab, 0xdea if C/C++), project-specific rules from `.semgrep/project-rules/`
 
 Outputs:
 - `docs/security/semgrep-results.json` — JSON findings
 - `docs/security/semgrep-results.sarif` — SARIF for GitHub Security tab
-- `docs/security/semgrep-scan-<timestamp>.log` — full scan log
+- `docs/security/semgrep-scan-<timestamp>.log` — full scan log (includes which packs were probed, which were skipped, and why)
 
 **Alternate scan modes (explicit opt-in):**
 - `scripts/semgrep-full-audit.sh --fast` — Tier 1 scan only (CI tier, < 60s, high signal)
@@ -255,7 +260,19 @@ bash -c '[ -f docs/security/LAST_AUDIT.json ] && LAST_COMMIT=$(jq -r .commit doc
 
 This surfaces only findings that appeared since the last audit — massively reduces noise on established codebases.
 
-**Step 5: Parse results**
+**Step 5: Parse results — VALIDATE before proceeding**
+
+**Zero-results guard (MANDATORY):** Before doing anything else with the JSON, check the result count:
+```
+bash -c "jq '.results | length' docs/security/semgrep-results.json"
+```
+
+If the result count is **0**, do NOT proceed to report generation. Zero findings from a real codebase is almost always a sign of a broken scan, not a clean codebase. Investigate:
+1. Read the scan log: `cat docs/security/semgrep-scan-*.log | tail -100`
+2. Check which configs were actually loaded: look for `SKIPPED:` and `LOADED:` lines in the log
+3. Check the errors array: `jq '.errors' docs/security/semgrep-results.json`
+4. If all packs were skipped (all 404'd or errored), surface this to the user: "Scan completed with 0 findings but all/most packs were skipped due to errors. The scan result is unreliable. See the log for details."
+5. Only proceed if you have confirmed that at least one pack was successfully loaded AND the codebase was actually scanned
 
 Group by severity:
 ```
@@ -616,7 +633,7 @@ Read `report-template.md` for the full report format, enforcement rules, and wor
 **Step 1: Generate the skeleton from scan JSON**
 
 ```
-bash scripts/semgrep-to-report-skeleton.py --project "$(basename $PWD)"
+python3 scripts/semgrep-to-report-skeleton.py --project "$(basename $PWD)"
 ```
 
 This produces `docs/security/SECURITY_AUDIT_<today>.md` with every mechanical field already filled in from the scan JSON:

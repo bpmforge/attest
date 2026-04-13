@@ -41,3 +41,6 @@ docs/db/
 # Runtime logs
 *.log
 logs/
+
+# Session working notes and issue logs — per-user, never shared
+issues/

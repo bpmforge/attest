@@ -2,26 +2,37 @@
 #
 # update-semgrep-rules.sh — Manage community Semgrep rule sources
 #
-# Clones, updates, and verifies the community rule repositories used by
-# the security-auditor agent's deep audit tier. Supports pinning via a
-# .semgrep/community-rules.lock file in the project.
+# Clones, updates, verifies, and tests the community rule repositories used
+# by the security-auditor agent's deep audit tier.
+#
+# Rules are cloned to ~/.semgrep/rules/<name>/ by default.
+# Override with: export SEMGREP_COMMUNITY_CACHE=/your/path
+#
+# IMPORTANT — HOW COMMUNITY RULES WORK:
+#   Community repos contain non-rule YAML files at their root (GitHub workflow
+#   files, Makefiles, config files). Pointing semgrep at the repo root causes
+#   parse errors. semgrep-full-audit.sh points at LANGUAGE SUBDIRECTORIES, not
+#   repo roots. This script clones the full repos; the audit script picks the
+#   right subdirs per language.
 #
 # Usage:
-#   ./update-semgrep-rules.sh                    Clone any missing sources
-#   ./update-semgrep-rules.sh --verify           Verify all sources match pinned commits
-#   ./update-semgrep-rules.sh --bump             Pull latest, update lock file
-#   ./update-semgrep-rules.sh --check-staleness  Warn on sources stale > 90 days
-#   ./update-semgrep-rules.sh --help             Show this help
+#   ./update-semgrep-rules.sh                Clone any missing sources
+#   ./update-semgrep-rules.sh --test         Test each source's working subdirs
+#   ./update-semgrep-rules.sh --verify       Verify sources match pinned commits
+#   ./update-semgrep-rules.sh --bump         Pull latest + update lock file
+#   ./update-semgrep-rules.sh --check-staleness  Warn on stale (> 90 days) sources
+#   ./update-semgrep-rules.sh --help         Show this help
 #
 # Portable: works on macOS bash 3.2+ and Linux bash 4+.
 #
 
 set -euo pipefail
 
-CACHE_DIR="${SEMGREP_COMMUNITY_CACHE:-$HOME/.cache/semgrep-community}"
+CACHE_DIR="${SEMGREP_COMMUNITY_CACHE:-$HOME/.semgrep/rules}"
 LOCK_FILE="${PWD}/.semgrep/community-rules.lock"
 
-# Community rule sources — parallel arrays (portable to bash 3.2)
+# ── Community rule sources ─────────────────────────────────────────────
+# Each entry: name, repo URL, notes
 # Keep in sync with references/semgrep-community-rules.md
 SOURCE_NAMES=(trailofbits elttam gitlab 0xdea)
 SOURCE_REPOS=(
@@ -30,15 +41,22 @@ SOURCE_REPOS=(
   "https://gitlab.com/gitlab-org/security-products/sast-rules"
   "https://github.com/0xdea/semgrep-rules"
 )
+SOURCE_NOTES=(
+  "High-signal rules from security research firm — Go, Python, JS/TS, Dockerfile, Solidity"
+  "Deep taint-tracking rules for JS/TS, Go, Java, PHP — use rules/ and rules-audit/ subdirs"
+  "GitLab's commercial SAST rules — use language subdirs ONLY (javascript/, python/, go/ etc.)"
+  "Memory safety rules for C/C++ only — use rules/ subdir"
+)
 
 MODE="clone"
 for arg in "$@"; do
   case $arg in
+    --test)             MODE="test" ;;
     --verify)           MODE="verify" ;;
     --bump)             MODE="bump" ;;
     --check-staleness)  MODE="staleness" ;;
     --help|-h)
-      sed -n '3,15p' "$0" | sed 's/^# //'
+      sed -n '3,27p' "$0" | sed 's/^# //'
       exit 0
       ;;
   esac
@@ -59,18 +77,151 @@ if [ "$MODE" = "clone" ]; then
   i=0
   for name in "${SOURCE_NAMES[@]}"; do
     repo="${SOURCE_REPOS[$i]}"
+    note="${SOURCE_NOTES[$i]}"
     target="$CACHE_DIR/$name"
     if [ -d "$target/.git" ]; then
-      log "$name already cloned (skipping). Use --bump to pull latest."
+      log "$name already cloned — skipping. Use --bump to pull latest."
     else
       log "Cloning $name from $repo..."
-      git clone --depth 1 "$repo" "$target" 2>&1 | tail -3 || { err "Failed to clone $name"; i=$((i+1)); continue; }
-      ok "$name ready at $target"
+      log "  ($note)"
+      if git clone --depth 1 "$repo" "$target" 2>&1 | tail -3; then
+        ok "$name cloned to $target"
+      else
+        err "Failed to clone $name — check network or repo URL"
+        i=$((i+1))
+        continue
+      fi
     fi
     i=$((i+1))
   done
   echo ""
-  ok "Done. Community rules ready for deep audit."
+  echo "Community rules ready. Run --test to validate working subdirs."
+  echo "The audit script (scripts/semgrep-full-audit.sh) handles subdir"
+  echo "selection automatically — do not point semgrep at repo roots."
+  exit 0
+fi
+
+# ── Mode: test (validate each source's working subdirectories) ─────────
+if [ "$MODE" = "test" ]; then
+  if ! command -v semgrep &>/dev/null; then
+    err "semgrep not installed — cannot test. Install: brew install semgrep"
+    exit 1
+  fi
+
+  TMPDIR=$(mktemp -d)
+  # Probe files that exercise multiple language rules
+  cat > "$TMPDIR/probe.js" << 'PROBE_EOF'
+const db = require('./db');
+const { exec } = require('child_process');
+const password = "hardcoded_secret_key";
+exec(process.env.CMD || "ls");
+db.query("SELECT * FROM users WHERE id = " + req.params.id);
+PROBE_EOF
+  cat > "$TMPDIR/probe.py" << 'PROBE_EOF'
+import hashlib, subprocess
+hashlib.md5(b"test")
+subprocess.call(user_input, shell=True)
+SECRET = "hardcoded"
+PROBE_EOF
+  cat > "$TMPDIR/probe.go" << 'PROBE_EOF'
+package main
+import "fmt"
+func main() { fmt.Println("probe") }
+PROBE_EOF
+
+  echo ""
+  echo "Testing community Semgrep rule sources"
+  echo "Semgrep version: $(semgrep --version)"
+  echo ""
+
+  probe_dir() {
+    local dir="$1"
+    [ -d "$dir" ] || { echo "MISSING"; return; }
+    result=$(semgrep scan --config "$dir" --metrics=off --json "$TMPDIR" 2>/dev/null)
+    rc=$?
+    count=$(echo "$result" | python3 -c \
+      "import sys,json; d=json.load(sys.stdin); print(len(d.get('results',[])))" \
+      2>/dev/null || echo "?")
+    case $rc in
+      0|1) echo "✓ ($count findings)" ;;
+      2)   echo "✓ with warnings ($count findings — some rules had parse errors, scan ran)" ;;
+      7)   echo "❌ PARSE ERROR (exit 7 — config invalid, scan did not run)" ;;
+      *)   echo "❌ exit $rc" ;;
+    esac
+  }
+
+  echo "=== trailofbits ($CACHE_DIR/trailofbits) ==="
+  if [ -d "$CACHE_DIR/trailofbits" ]; then
+    for d in "$CACHE_DIR/trailofbits"/*/; do
+      name=$(basename "$d")
+      [[ "$name" == ".github" ]] && continue
+      [[ "$name" =~ \.(md|py|txt)$ ]] && continue
+      [ -f "$d" ] && continue  # skip files, only dirs
+      r=$(probe_dir "$d")
+      echo "  $name: $r"
+    done
+  else
+    warn "trailofbits not cloned. Run without flags to clone."
+  fi
+
+  echo ""
+  echo "=== elttam ($CACHE_DIR/elttam) ==="
+  if [ -d "$CACHE_DIR/elttam" ]; then
+    echo "  rules/ subdirs:"
+    if [ -d "$CACHE_DIR/elttam/rules" ]; then
+      for d in "$CACHE_DIR/elttam/rules"/*/; do
+        [ -d "$d" ] || continue
+        name=$(basename "$d")
+        r=$(probe_dir "$d")
+        echo "    $name: $r"
+      done
+    fi
+    echo "  rules-audit/ subdirs:"
+    if [ -d "$CACHE_DIR/elttam/rules-audit" ]; then
+      for d in "$CACHE_DIR/elttam/rules-audit"/*/; do
+        [ -d "$d" ] || continue
+        name=$(basename "$d")
+        r=$(probe_dir "$d")
+        echo "    $name: $r"
+      done
+    fi
+  else
+    warn "elttam not cloned. Run without flags to clone."
+  fi
+
+  echo ""
+  echo "=== gitlab ($CACHE_DIR/gitlab) ==="
+  if [ -d "$CACHE_DIR/gitlab" ]; then
+    # Only test directories that look like language names
+    for d in "$CACHE_DIR/gitlab"/*/; do
+      [ -d "$d" ] || continue
+      name=$(basename "$d")
+      r=$(probe_dir "$d")
+      echo "  $name: $r"
+    done
+  else
+    warn "gitlab not cloned. Run without flags to clone."
+  fi
+
+  echo ""
+  echo "=== 0xdea ($CACHE_DIR/0xdea) ==="
+  if [ -d "$CACHE_DIR/0xdea" ]; then
+    if [ -d "$CACHE_DIR/0xdea/rules" ]; then
+      r=$(probe_dir "$CACHE_DIR/0xdea/rules")
+      echo "  rules/: $r"
+    fi
+  else
+    warn "0xdea not cloned. Run without flags to clone."
+  fi
+
+  rm -rf "$TMPDIR"
+  echo ""
+  echo "Legend:"
+  echo "  ✓              = works cleanly"
+  echo "  ✓ with warnings = scan ran, some individual rules had parse errors (still useful)"
+  echo "  ❌ PARSE ERROR  = config entirely broken, scan did NOT run — exclude this dir"
+  echo ""
+  echo "semgrep-full-audit.sh uses only ✓ and ✓-with-warnings directories."
   exit 0
 fi
 
@@ -94,7 +245,6 @@ if [ "$MODE" = "verify" ]; then
       continue
     fi
 
-    # Parse simple YAML — find the block for this name, extract commit line
     pinned=$(awk -v n="$name" '
       $0 ~ "^  "n":" { in_block=1; next }
       in_block && $0 ~ "^  [a-z0-9]" && $0 !~ "^  "n":" { in_block=0 }
@@ -134,6 +284,9 @@ if [ "$MODE" = "bump" ]; then
     echo "# Semgrep community rule pinning"
     echo "# Last bumped: $today"
     echo "# Generated by scripts/update-semgrep-rules.sh --bump"
+    echo "#"
+    echo "# NOTE: Semgrep must be pointed at LANGUAGE SUBDIRS, not repo roots."
+    echo "# See scripts/semgrep-full-audit.sh for the correct --config paths."
     echo ""
     echo "sources:"
   } > "$LOCK_FILE.new"
@@ -171,8 +324,9 @@ if [ "$MODE" = "bump" ]; then
   echo ""
   ok "Lock file updated: $LOCK_FILE"
   echo ""
-  echo "Next step: run a full /security audit and compare finding count"
-  echo "against the prior audit. Triage any new findings in docs/security/TRIAGE.md."
+  echo "Next: run --test to verify working subdirectories, then run a full"
+  echo "security audit and compare finding count against the prior audit."
+  echo "Triage any new findings in docs/security/TRIAGE.md."
   exit 0
 fi
 

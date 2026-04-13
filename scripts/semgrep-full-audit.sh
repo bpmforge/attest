@@ -19,6 +19,12 @@
 #   to LOW and WARNING severity rules (unused imports, deprecated API calls,
 #   missing types). Run with --autofix-dryrun first to preview changes.
 #
+# REGISTRY PACK PROBING:
+#   Semgrep's registry packs (p/express, p/nextjs, etc.) can return HTTP 404
+#   if a pack was renamed, deprecated, or moved behind a login tier. This
+#   script probes each non-core registry pack in isolation before adding it
+#   to the final config list, so a 404 on one pack never silences all results.
+#
 
 set -euo pipefail
 
@@ -57,110 +63,232 @@ JSON_OUT="$OUTPUT_DIR/semgrep-results.json"
 SARIF_OUT="$OUTPUT_DIR/semgrep-results.sarif"
 LOG_OUT="$OUTPUT_DIR/semgrep-scan-$TIMESTAMP.log"
 
-CACHE_DIR="${SEMGREP_COMMUNITY_CACHE:-$HOME/.cache/semgrep-community}"
+# Community rules cache — canonical path is ~/.semgrep/rules/
+# (where update-semgrep-rules.sh clones to by default).
+# Override with: export SEMGREP_COMMUNITY_CACHE=/your/path
+if [ -n "${SEMGREP_COMMUNITY_CACHE:-}" ]; then
+  CACHE_DIR="$SEMGREP_COMMUNITY_CACHE"
+elif [ -d "$HOME/.semgrep/rules/trailofbits" ]; then
+  CACHE_DIR="$HOME/.semgrep/rules"
+elif [ -d "$HOME/.cache/semgrep-community/trailofbits" ]; then
+  # Legacy layout from older versions of this toolchain
+  CACHE_DIR="$HOME/.cache/semgrep-community"
+else
+  CACHE_DIR="$HOME/.semgrep/rules"
+fi
+
+# ── Helper: probe a registry pack ─────────────────────────────────────
+# Returns 0 (usable) or 1 (unavailable/404) without crashing the script.
+# Writes a tiny dry-run against a temp file to test if the pack resolves.
+probe_registry_pack() {
+  local pack="$1"
+  # semgrep exits 7 on config errors (including HTTP 404).
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  echo "// probe" > "$tmpdir/probe.js"
+  semgrep scan --config "$pack" --metrics=off --json -o /dev/null "$tmpdir" \
+    2>/dev/null
+  local rc=$?
+  rm -rf "$tmpdir"
+  # 0 = no findings, 1 = findings, 2 = findings+errors — all mean "pack loaded OK"
+  # 7 = config error (404, YAML parse failure) — pack is unusable
+  [ "$rc" -ne 7 ]
+}
+
+# ── Helper: add registry pack with probe ──────────────────────────────
+# Silently skips the pack if it returns a 404/config error.
+add_registry_pack() {
+  local pack="$1"
+  if probe_registry_pack "$pack"; then
+    CONFIGS+=(--config "$pack")
+  else
+    echo "  ⚠️  Registry pack '$pack' unavailable (404 or parse error) — skipping"
+    SKIPPED_PACKS+=("$pack")
+  fi
+}
+
+# ── Helper: add a community rule directory ────────────────────────────
+# Community repos have non-rule YAML files (GitHub Actions workflows, Makefiles,
+# config files) that cause semgrep parse errors when scanning the repo root.
+# ALWAYS pass a specific language subdirectory — never the repo root.
+#
+# Exit codes from semgrep:
+#   0 = clean (no findings)
+#   1 = findings (normal — not an error)
+#   2 = findings + rule parse errors (some rules broken, scan still ran — USABLE)
+#   7 = config error (YAML invalid, scan did NOT run — skip this dir)
+#
+# We treat 0, 1, 2 as usable. Only 7 is a hard skip.
+add_community_dir() {
+  local label="$1"
+  local dir="$2"
+  [ -d "$dir" ] || return 0   # dir doesn't exist — silent skip
+  local tmpdir
+  tmpdir=$(mktemp -d)
+  echo "// probe" > "$tmpdir/probe.js"
+  semgrep scan --config "$dir" --metrics=off --json -o /dev/null "$tmpdir" 2>/dev/null
+  local rc=$?
+  rm -rf "$tmpdir"
+  if [ "$rc" -eq 7 ]; then
+    echo "  ⚠️  Community dir '$label' entirely broken (exit 7, YAML parse failure) — skipping"
+    SKIPPED_PACKS+=("$label ($dir)")
+  else
+    # rc 0, 1, or 2 — all mean the scan ran successfully
+    CONFIGS+=(--config "$dir")
+  fi
+}
 
 # ── Build config list ──────────────────────────────────────────────────
 CONFIGS=()
+SKIPPED_PACKS=()
 
 if [ "$MODE" = "fast" ]; then
-  # Fast tier — high signal, < 60s on most codebases
-  CONFIGS+=(--config p/ci)
-  CONFIGS+=(--config p/secrets)
+  # Fast tier — high signal, < 60s on most codebases.
+  # Core packs (p/ci, p/secrets) are stable — probe anyway for safety.
+  add_registry_pack "p/ci"
+  add_registry_pack "p/secrets"
 else
-  # Deep tier — full coverage
-  CONFIGS+=(--config p/owasp-top-ten)
-  CONFIGS+=(--config p/security-audit)
-  CONFIGS+=(--config p/secrets)
-  CONFIGS+=(--config p/default)
+  # Deep tier — full coverage.
+  # Core security packs: stable, but still probe to detect breakage early.
+  for core_pack in p/owasp-top-ten p/security-audit p/secrets p/default; do
+    add_registry_pack "$core_pack"
+  done
 fi
 
 # ── Language auto-detection ────────────────────────────────────────────
 LANG=""
-if [ -f "$PROJECT_ROOT/package.json" ] || ls "$PROJECT_ROOT"/*.{ts,tsx,js,jsx} &>/dev/null; then
-  CONFIGS+=(--config p/javascript)
-  [ "$MODE" = "deep" ] && CONFIGS+=(--config p/typescript)
+if [ -f "$PROJECT_ROOT/package.json" ] || ls "$PROJECT_ROOT"/*.{ts,tsx,js,jsx} &>/dev/null 2>&1; then
+  add_registry_pack "p/javascript"
+  [ "$MODE" = "deep" ] && add_registry_pack "p/typescript"
+  [ "$MODE" = "deep" ] && add_registry_pack "p/nodejsscan"
   LANG="javascript"
 elif [ -f "$PROJECT_ROOT/requirements.txt" ] || [ -f "$PROJECT_ROOT/pyproject.toml" ]; then
-  CONFIGS+=(--config p/python)
-  [ "$MODE" = "deep" ] && CONFIGS+=(--config p/bandit)
+  add_registry_pack "p/python"
+  [ "$MODE" = "deep" ] && add_registry_pack "p/bandit"
   LANG="python"
 elif [ -f "$PROJECT_ROOT/go.mod" ]; then
-  CONFIGS+=(--config p/golang)
-  [ "$MODE" = "deep" ] && CONFIGS+=(--config p/gosec)
+  add_registry_pack "p/golang"
+  [ "$MODE" = "deep" ] && add_registry_pack "p/gosec"
   LANG="go"
 elif [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
-  CONFIGS+=(--config p/rust)
+  add_registry_pack "p/rust"
   LANG="rust"
 elif [ -f "$PROJECT_ROOT/pom.xml" ] || [ -f "$PROJECT_ROOT/build.gradle" ]; then
-  CONFIGS+=(--config p/java)
+  add_registry_pack "p/java"
   LANG="java"
 elif [ -f "$PROJECT_ROOT/Gemfile" ]; then
-  CONFIGS+=(--config p/ruby)
-  [ "$MODE" = "deep" ] && CONFIGS+=(--config p/brakeman)
+  add_registry_pack "p/ruby"
+  [ "$MODE" = "deep" ] && add_registry_pack "p/brakeman"
   LANG="ruby"
 elif [ -f "$PROJECT_ROOT/composer.json" ]; then
-  CONFIGS+=(--config p/php)
+  add_registry_pack "p/php"
   LANG="php"
 fi
 
 # ── Framework auto-detection (deep mode only) ──────────────────────────
 if [ "$MODE" = "deep" ] && [ -f "$PROJECT_ROOT/package.json" ]; then
   if grep -q '"express"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
-    CONFIGS+=(--config p/express)
+    add_registry_pack "p/express"
   fi
   if grep -q '"next"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
-    CONFIGS+=(--config p/nextjs)
+    add_registry_pack "p/nextjs"
   fi
   if grep -q '"react"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
-    CONFIGS+=(--config p/react)
+    add_registry_pack "p/react"
   fi
 fi
 
 if [ "$MODE" = "deep" ] && [ -f "$PROJECT_ROOT/requirements.txt" ]; then
   if grep -q -E '^(django|Django)' "$PROJECT_ROOT/requirements.txt" 2>/dev/null; then
-    CONFIGS+=(--config p/django)
+    add_registry_pack "p/django"
   fi
   if grep -q -E '^(flask|Flask)' "$PROJECT_ROOT/requirements.txt" 2>/dev/null; then
-    CONFIGS+=(--config p/flask)
+    add_registry_pack "p/flask"
   fi
 fi
 
 # ── IaC auto-detection (deep mode only) ────────────────────────────────
 if [ "$MODE" = "deep" ]; then
-  if ls "$PROJECT_ROOT"/Dockerfile* &>/dev/null; then
-    CONFIGS+=(--config p/dockerfile)
+  if ls "$PROJECT_ROOT"/Dockerfile* &>/dev/null 2>&1; then
+    add_registry_pack "p/dockerfile"
   fi
-  if ls "$PROJECT_ROOT"/*.tf "$PROJECT_ROOT"/terraform/*.tf &>/dev/null; then
-    CONFIGS+=(--config p/terraform)
+  if ls "$PROJECT_ROOT"/*.tf "$PROJECT_ROOT"/terraform/*.tf &>/dev/null 2>&1; then
+    add_registry_pack "p/terraform"
   fi
   if [ -d "$PROJECT_ROOT/k8s" ] || [ -d "$PROJECT_ROOT/kubernetes" ] || [ -d "$PROJECT_ROOT/helm" ]; then
-    CONFIGS+=(--config p/kubernetes)
+    add_registry_pack "p/kubernetes"
   fi
   if [ -d "$PROJECT_ROOT/.github/workflows" ]; then
-    CONFIGS+=(--config p/github-actions)
+    add_registry_pack "p/github-actions"
   fi
 fi
 
 # ── Community rules (deep mode only) ───────────────────────────────────
-if [ "$MODE" = "deep" ]; then
-  for src in trailofbits elttam gitlab; do
-    if [ -d "$CACHE_DIR/$src" ]; then
-      # For gitlab, scope to the detected language subdirectory
-      if [ "$src" = "gitlab" ] && [ -n "$LANG" ] && [ -d "$CACHE_DIR/gitlab/$LANG" ]; then
-        CONFIGS+=(--config "$CACHE_DIR/gitlab/$LANG")
-      elif [ "$src" != "gitlab" ]; then
-        CONFIGS+=(--config "$CACHE_DIR/$src")
-      fi
-    fi
-  done
+#
+# IMPORTANT: community repos have non-rule YAML at their root (.github/,
+# Makefile, config files). Pointing --config at the repo root causes exit 7
+# parse errors. We point at LANGUAGE SUBDIRECTORIES only.
+#
+# Tested working paths (verified against Semgrep 1.159.0):
+#
+#   trailofbits/<lang>  — use language subdirs (javascript, python, go, ruby, swift, etc.)
+#   elttam/rules/<lang> — generic, go, php, yaml (java works but has one broken rule)
+#   elttam/rules-audit/<lang> — javascript, python, go, java, c, csharp, kotlin
+#   gitlab/<lang>       — javascript, python, go, java, c, csharp, scala ONLY
+#                         DO NOT use: gitlab/ci, gitlab/mappings, gitlab/qa,
+#                                     gitlab/rules, gitlab/scripts, gitlab/spec
+#   0xdea/rules         — C/C++ only
+#
+# Run scripts/update-semgrep-rules.sh --test to re-validate after a bump.
+#
+add_community_rules_for_lang() {
+  local lang="$1"
 
-  # 0xdea only for C/C++ projects
-  if [ -d "$CACHE_DIR/0xdea" ] && ls "$PROJECT_ROOT"/**/*.{c,cpp,h,hpp} &>/dev/null 2>&1; then
-    CONFIGS+=(--config "$CACHE_DIR/0xdea")
+  # trailofbits language subdir (each language dir is self-contained)
+  add_community_dir "trailofbits/$lang" "$CACHE_DIR/trailofbits/$lang"
+
+  # trailofbits/generic — language-agnostic rules (always add if present)
+  if [ "$lang" != "generic" ]; then
+    add_community_dir "trailofbits/generic" "$CACHE_DIR/trailofbits/generic"
   fi
 
-  if [ ${#CONFIGS[@]} -lt 5 ]; then
-    echo "⚠️  Community rules not installed. Run hooks/update-semgrep-rules.sh first for deeper coverage."
+  # elttam has two rule collections; add both for the detected language
+  add_community_dir "elttam/rules/$lang"       "$CACHE_DIR/elttam/rules/$lang"
+  add_community_dir "elttam/rules-audit/$lang" "$CACHE_DIR/elttam/rules-audit/$lang"
+
+  # gitlab language subdir — only well-known working subdirs
+  case "$lang" in
+    javascript|python|go|java|c|csharp|scala)
+      add_community_dir "gitlab/$lang" "$CACHE_DIR/gitlab/$lang"
+      ;;
+  esac
+}
+
+if [ "$MODE" = "deep" ]; then
+  if [ -d "$CACHE_DIR/trailofbits" ] || [ -d "$CACHE_DIR/elttam" ] || [ -d "$CACHE_DIR/gitlab" ]; then
+    # Add rules for detected language
+    if [ -n "$LANG" ]; then
+      add_community_rules_for_lang "$LANG"
+      # typescript shares rules with javascript in all community repos
+      if [ "$LANG" = "typescript" ]; then
+        add_community_rules_for_lang "javascript"
+      fi
+    fi
+
+    # 0xdea: C/C++ memory safety rules — only add if project has C/C++ files
+    if [ -d "$CACHE_DIR/0xdea/rules" ]; then
+      if find "$PROJECT_ROOT" -name '*.c' -o -name '*.cpp' -o -name '*.h' \
+           2>/dev/null | grep -q .; then
+        add_community_dir "0xdea/rules" "$CACHE_DIR/0xdea/rules"
+      fi
+    fi
+  else
+    echo ""
+    echo "⚠️  Community rules not installed. Run to get highest-signal rules:"
+    echo "     scripts/update-semgrep-rules.sh"
+    echo "   Then verify with:"
+    echo "     scripts/update-semgrep-rules.sh --test"
+    echo ""
   fi
 fi
 
@@ -208,6 +336,19 @@ elif [ "$AUTOFIX_DRYRUN" = true ]; then
   FLAGS+=(--autofix --dryrun --severity=WARNING --severity=INFO)
 fi
 
+# ── Guard: bail early if no configs resolved ──────────────────────────
+if [ ${#CONFIGS[@]} -eq 0 ]; then
+  echo ""
+  echo "❌ No rule sources resolved. Cannot run scan."
+  echo "   All registry packs returned HTTP 404 and no community rules are cached."
+  echo ""
+  echo "   Immediate fallback: run the safe baseline scan:"
+  echo "     semgrep scan --config auto --json -o docs/security/semgrep-results.json ."
+  echo ""
+  echo "   For community rules: scripts/update-semgrep-rules.sh"
+  exit 1
+fi
+
 # ── Execute ────────────────────────────────────────────────────────────
 echo ""
 echo "╔═══════════════════════════════════════════════════╗"
@@ -219,23 +360,37 @@ echo "  Configs:   ${#CONFIGS[@]} rule sources"
 echo "  Output:    $JSON_OUT"
 echo "  SARIF:     $SARIF_OUT"
 [ -n "$BASELINE" ] && echo "  Baseline:  $BASELINE"
+if [ ${#SKIPPED_PACKS[@]} -gt 0 ]; then
+  echo "  Skipped (unavailable): ${SKIPPED_PACKS[*]}"
+fi
 echo "╚═══════════════════════════════════════════════════╝"
 echo ""
 
-# Run semgrep
+# Run semgrep — all probed configs are known to work, no || true needed.
+# If semgrep returns exit 1 (findings exist) or 0 (no findings), both are fine.
+# Exit 7 (config error) should not happen here since configs were pre-probed.
 semgrep scan "${CONFIGS[@]}" "${FLAGS[@]}" 2>&1 | tee "$LOG_OUT"
 EXIT_CODE=${PIPESTATUS[0]}
 
 echo ""
-if [ $EXIT_CODE -eq 0 ]; then
+if [ "$EXIT_CODE" -eq 0 ] || [ "$EXIT_CODE" -eq 1 ]; then
+  # 0 = clean, 1 = findings found — both are normal exits for semgrep
   ok_count=$(jq '.results | length' "$JSON_OUT" 2>/dev/null || echo "?")
   echo "✓ Scan complete — $ok_count findings"
   echo ""
   echo "Next steps:"
-  echo "  1. Review findings:  jq '.results[] | {file: .path, line: .start.line, rule: .check_id, severity: .extra.severity, message: .extra.message}' $JSON_OUT"
-  echo "  2. Group by severity: jq '[.results[].extra.severity] | group_by(.) | map({severity: .[0], count: length})' $JSON_OUT"
-  echo "  3. Triage in:        docs/security/TRIAGE.md"
-  echo "  4. Full report:      docs/security/SECURITY_AUDIT_$(date +%Y-%m-%d).md"
+  echo "  1. Generate report skeleton:"
+  echo "     python3 scripts/semgrep-to-report-skeleton.py --project '$(basename "$PROJECT_ROOT")'"
+  echo "  2. Review findings:  jq '.results[] | {file: .path, line: .start.line, rule: .check_id, severity: .extra.severity, message: .extra.message}' $JSON_OUT"
+  echo "  3. Group by severity: jq '[.results[].extra.severity] | group_by(.) | map({severity: .[0], count: length})' $JSON_OUT"
+  echo "  4. Triage in:        docs/security/TRIAGE.md"
+  exit 0
+elif [ "$EXIT_CODE" -eq 7 ]; then
+  echo "❌ Semgrep config error (exit 7) — a rule source that passed probing failed at scan time."
+  echo "   This is unexpected. Check $LOG_OUT for details."
+  echo "   Try removing suspect community dirs from: $CACHE_DIR"
+  exit 7
+else
+  echo "❌ Semgrep exited with code $EXIT_CODE — check $LOG_OUT for details."
+  exit "$EXIT_CODE"
 fi
-
-exit $EXIT_CODE

@@ -1,114 +1,313 @@
 # Semgrep Community Rule Sources
 
-**Last updated:** 2026-04-10
+**Last updated:** 2026-04-13
+**Tested against:** Semgrep 1.159.0
 
-Semgrep's official Registry (`p/owasp-top-ten`, `p/security-audit`, etc.) is a solid baseline, but the highest-signal rules come from independent security research firms and community contributors. This guide lists the rule sources to pull in for deep security audits, along with pinning and refresh strategy.
+Semgrep's official registry (`p/owasp-top-ten`, `p/security-audit`, etc.) is a solid
+baseline, but the highest-signal rules come from independent security research firms and
+community contributors. This guide documents what each source **actually contains** —
+tested against real code, not aspirational. Do not add new sources without testing.
 
-## Core Community Sources
+---
 
-### 1. Trail of Bits (HIGHEST PRIORITY)
+## Critical Usage Rule: Language Subdirectories Only
+
+**Never point `--config` at a community repo root.**
+
+Every community repo has non-rule YAML files at its root: GitHub Actions workflows
+(`.github/workflows/*.yml`), Makefiles, CI configs, test fixtures. Semgrep treats these
+as rule files, fails to parse them, and exits with code 7 (config entirely invalid —
+scan does NOT run).
+
+**Always use a language subdirectory**, e.g.:
+```bash
+# ✗ WRONG — exits 7, scan does not run
+semgrep scan --config ~/.semgrep/rules/trailofbits
+
+# ✓ CORRECT — scan runs
+semgrep scan --config ~/.semgrep/rules/trailofbits/go
+semgrep scan --config ~/.semgrep/rules/trailofbits/python
+```
+
+`scripts/semgrep-full-audit.sh` handles subdir selection automatically. Run through
+the script, not manually.
+
+---
+
+## Semgrep Exit Codes
+
+Understanding exit codes is required to correctly interpret scan results:
+
+| Exit code | Meaning | Is the scan result usable? |
+|-----------|---------|---------------------------|
+| `0` | Ran cleanly, no findings | ✓ Yes — codebase is clean |
+| `1` | Ran cleanly, findings found | ✓ Yes — normal result |
+| `2` | Ran with rule warnings — some rules had YAML parse errors, scan still ran | ✓ Yes — findings are real, some rules skipped |
+| `7` | Config entirely invalid — scan did NOT run | ✗ No — check your `--config` path |
+
+**Exit code 2 is usable.** Prior documentation incorrectly treated exit 2 as broken.
+It means the scan ran and produced findings; only some individual rules had parse issues.
+`scripts/semgrep-full-audit.sh` treats exit codes 0, 1, and 2 as success.
+
+---
+
+## Community Rule Cache Location
+
+**Canonical path:** `~/.semgrep/rules/`
+
+```
+~/.semgrep/rules/
+  trailofbits/    — https://github.com/trailofbits/semgrep-rules
+  elttam/         — https://github.com/elttam/semgrep-rules
+  gitlab/         — https://gitlab.com/gitlab-org/security-products/sast-rules
+  0xdea/          — https://github.com/0xdea/semgrep-rules
+```
+
+Install with `scripts/update-semgrep-rules.sh` (clones all four to the canonical path).
+`scripts/semgrep-full-audit.sh` also checks `~/.cache/semgrep-community/` as a legacy
+fallback for older installs.
+
+---
+
+## Source 1: Trail of Bits
+
 **Repo:** https://github.com/trailofbits/semgrep-rules
 **License:** AGPLv3
-**Focus:** Go, Python, JavaScript/TypeScript, Dockerfile, Solidity, C/C++
-**Why:** Trail of Bits is one of the top security research firms in the industry. Their rules come from real audit findings and are battle-tested against real exploits. Extremely high signal-to-noise ratio.
+**Install path:** `~/.semgrep/rules/trailofbits/`
 
-**Notable rule sets:**
-- `go/` — Go-specific: integer overflow, sql injection, unsafe pointer, crypto misuse, goroutine leaks
-- `python/` — pickle deserialization, tempfile race conditions, subprocess injection, yaml unsafe load, XXE
-- `javascript/` — prototype pollution, eval, unsafe regex, XSS in templates
-- `dockerfile/` — missing user, curl piped to bash, apt-get without version pinning
-- `solidity/` — reentrancy, integer overflow (pre-0.8), tx.origin
+Trail of Bits is one of the top security research firms. Their rules come from real audit
+engagements. **However, the rule content is highly specialized — not general web security.**
+Know what you're getting before relying on it.
 
-**Clone command:**
+### What it actually contains (tested)
+
+| Subdir | Rule count | What they cover |
+|--------|-----------|-----------------|
+| `javascript/` | 7 | Apollo/GraphQL CSRF + CORS **ONLY** — not general JS security |
+| `python/` | 24 | ML library safety: pytorch/numpy/pandas unsafe deserialization, pickle |
+| `go/` | 18 | **HIGH VALUE** — concurrency bugs, goroutine leaks, unsafe pointer arithmetic, ETH RPC |
+| `ruby/` | 15 | Rails-specific patterns |
+| `swift/` | varies | iOS-specific patterns |
+| `hcl/` | 9 | Terraform/Vault hardening |
+| `yaml/` | 48 | Infrastructure config: apt/yum/wget/GPG signing |
+| `generic/` | 17 | SSL modes, wget flags — language-agnostic |
+| `solidity/` | varies | Ethereum smart contract: reentrancy, integer overflow |
+
+### When it helps vs. when it doesn't
+
+**Use trailofbits/go** — genuinely high value for Go projects. Concurrency bugs,
+goroutine leaks, and unsafe pointer usage that standard `p/gosec` misses.
+
+**Do NOT expect trailofbits/javascript to catch web vulnerabilities.** It's 7 rules, all
+Apollo/GraphQL CSRF and CORS. On a general Express or Next.js app, expect 0 findings —
+that's correct, not a scan failure.
+
+**Use trailofbits/python** if your codebase uses ML libraries. Not useful for pure web Python.
+
+### Usage
+
 ```bash
-git clone --depth 1 https://github.com/trailofbits/semgrep-rules \
-  ~/.cache/semgrep-community/trailofbits
-```
+# Go projects (high value)
+semgrep scan --config ~/.semgrep/rules/trailofbits/go .
 
-**Usage:**
-```bash
-semgrep scan --config ~/.cache/semgrep-community/trailofbits
+# Python ML projects
+semgrep scan --config ~/.semgrep/rules/trailofbits/python .
 ```
 
 ---
 
-### 2. elttam
+## Source 2: elttam
+
 **Repo:** https://github.com/elttam/semgrep-rules
 **License:** MIT
-**Focus:** JavaScript/TypeScript, taint tracking
-**Why:** elttam is an Australian security firm with a reputation for deep JavaScript expertise. Their taint-tracking rules for Node.js/Express/Next.js catch cases the default Semgrep rules miss — especially prototype pollution sources, NoSQL injection, and SSRF variants.
+**Install path:** `~/.semgrep/rules/elttam/`
 
-**Clone command:**
-```bash
-git clone --depth 1 https://github.com/elttam/semgrep-rules \
-  ~/.cache/semgrep-community/elttam
-```
+### What it actually contains (tested)
 
-**Usage:**
+elttam has two collections. They serve different purposes:
+
+**`rules/` — static SAST rules:**
+
+| Subdir | Status | What they cover |
+|--------|--------|-----------------|
+| `rules/yaml/` | ✓ 16 rules | **K8s security contexts** — `no-security-context`, `run-as-non-root`, `privileged-container` — genuinely useful |
+| `rules/go/` | ✓ 3 rules | Unsafe uintptr conversion, symlink attacks, sprintf format injection |
+| `rules/php/` | ✓ | PHP-specific patterns |
+| `rules/java/` | ✓ exit 2 (one broken rule, scan still ran) | Java patterns |
+| `rules/generic/` | ✓ | Language-agnostic patterns |
+
+**`rules-audit/` — ORM data-leak research rules:**
+
+One rule per language. These detect potential data leaks through ORM fields — they fire
+at **INFO severity** only. Useful for auditing over-exposed model fields, not for
+security alerting.
+
+| Subdir | Status | What they cover |
+|--------|--------|-----------------|
+| `rules-audit/javascript/` | ✓ | ORM field exposure in JS |
+| `rules-audit/python/` | ✓ | ORM field exposure in Python |
+| `rules-audit/go/` | ✓ | ORM field exposure in Go |
+| `rules-audit/java/` | ✓ | ORM field exposure in Java |
+| `rules-audit/c/` | ✓ | C patterns |
+| `rules-audit/csharp/` | ✓ | C# patterns |
+| `rules-audit/kotlin/` | ✓ | Kotlin patterns |
+
+### Usage
+
 ```bash
-semgrep scan --config ~/.cache/semgrep-community/elttam
+# K8s security (concrete value)
+semgrep scan --config ~/.semgrep/rules/elttam/rules/yaml .
+
+# Go unsafe patterns
+semgrep scan --config ~/.semgrep/rules/elttam/rules/go .
+
+# ORM data leak audit (INFO only)
+semgrep scan --config ~/.semgrep/rules/elttam/rules-audit/javascript .
 ```
 
 ---
 
-### 3. GitLab SAST Rules
+## Source 3: GitLab SAST Rules
+
 **Repo:** https://gitlab.com/gitlab-org/security-products/sast-rules
 **License:** MIT
-**Focus:** Multi-language — the rules that power GitLab's commercial SAST product
-**Why:** GitLab maintains these rules for their paying customers, with full CWE mappings and severity levels calibrated to actual production findings. Covers languages beyond the others (PHP, Java, Scala).
+**Install path:** `~/.semgrep/rules/gitlab/`
 
-**Clone command:**
-```bash
-git clone --depth 1 https://gitlab.com/gitlab-org/security-products/sast-rules \
-  ~/.cache/semgrep-community/gitlab
+The most general-purpose of the four community repos. GitLab maintains these to power
+their commercial SAST product. Good signal on common web vulnerabilities.
+
+### What it actually contains (tested)
+
+**Working language subdirs (confirmed exit 0/1/2):**
+
+| Subdir | Rule count | Example findings |
+|--------|-----------|-----------------|
+| `python/` | 68 | MD5 hash usage, `subprocess` with `shell=True`, pickle deserialization |
+| `javascript/` | varies | XSS, prototype pollution, eval injection |
+| `go/` | varies | SQL injection, TLS misconfiguration |
+| `java/` | varies | SQL injection, XXE, deserialization |
+| `c/` | varies | Buffer overflow patterns |
+| `csharp/` | varies | .NET-specific patterns |
+| `scala/` | varies | Scala-specific patterns |
+
+**Subdirs that exit 7 — NEVER USE:**
+
+```
+gitlab/ci/         — CI YAML, not Semgrep rules
+gitlab/mappings/   — Metadata YAML, not Semgrep rules
+gitlab/qa/         — Test scaffolding, not Semgrep rules
+gitlab/rules/      — Top-level config, not Semgrep rules
+gitlab/scripts/    — Shell scripts, not Semgrep rules
+gitlab/spec/       — RSpec specs, not Semgrep rules
 ```
 
-**Usage:**
-```bash
-semgrep scan --config ~/.cache/semgrep-community/gitlab/<language>
-```
+Pointing `--config` at any of the above causes exit 7 and zero findings.
+`scripts/semgrep-full-audit.sh` explicitly allowlists only the working language dirs.
 
-> **Note:** GitLab rules are organized by language (`go/`, `javascript/`, `python/`, etc.). Pick the subdirectory matching the project language rather than scanning the whole repo — some rules are experimental.
+### Usage
+
+```bash
+# Python — good general coverage
+semgrep scan --config ~/.semgrep/rules/gitlab/python .
+
+# Go — complements p/gosec
+semgrep scan --config ~/.semgrep/rules/gitlab/go .
+```
 
 ---
 
-### 4. 0xdea Rules (C/C++ ONLY)
+## Source 4: 0xdea
+
 **Repo:** https://github.com/0xdea/semgrep-rules
 **License:** MIT
-**Focus:** C/C++ memory safety
-**Why:** Memory safety bugs in C/C++ are the single biggest source of CVEs. 0xdea's rules target classic use-after-free, double-free, integer overflow in allocations, format string bugs, and unsafe `memcpy`/`strcpy` patterns that grep can't reliably find.
+**Install path:** `~/.semgrep/rules/0xdea/`
 
-**Clone command:**
-```bash
-git clone --depth 1 https://github.com/0xdea/semgrep-rules \
-  ~/.cache/semgrep-community/0xdea
-```
+Memory safety rules for C/C++. Not useful for any other language.
 
-**Usage (only if project contains C/C++ code):**
+### What it actually contains (tested)
+
+| Subdir | Status | What they cover |
+|--------|--------|-----------------|
+| `rules/` | ✓ | Use-after-free, double-free, integer overflow in allocations, format string bugs, unsafe `memcpy`/`strcpy` |
+
+### When to use
+
+Only include when the project has `.c`, `.cpp`, or `.h` files. `scripts/semgrep-full-audit.sh`
+checks for C/C++ files before adding this source.
+
+**Warning:** Slow on large C/C++ codebases. On a 500K LOC C++ project, expect 5-15 minutes.
+Deep audit tier only — never in CI.
+
+### Usage
+
 ```bash
-semgrep scan --config ~/.cache/semgrep-community/0xdea
+# C/C++ projects only
+semgrep scan --config ~/.semgrep/rules/0xdea/rules .
 ```
 
 ---
 
-## Secondary Sources (Situational)
+## Registry Packs: Dead vs. Alive (Verified 2026-04-13)
 
-### 5. Ajin Abraham / NodeJsScan
-**Repo:** https://github.com/ajinabraham/nodejsscan
-**License:** GPLv3
-**Focus:** Node.js security — extracted rules work standalone with Semgrep
-**Use when:** Node.js project where elttam rules didn't catch enough.
+Some registry packs return HTTP 404 (deprecated or moved to the paid tier). A 404'd pack
+causes semgrep to exit 0 with an empty `results: []` — indistinguishable from "no findings"
+unless you check the scan log. `scripts/semgrep-full-audit.sh` probes every pack before
+using it and logs skipped packs.
 
-### 6. Sourcegraph Security Rules
-**Repo:** https://github.com/returntocorp/semgrep-rules (the official rules repo — also includes community contributions not in the registry)
-**License:** LGPLv2
-**Use when:** You want the bleeding-edge rules that haven't been promoted to the Registry yet.
+### Confirmed dead (exit 7 / HTTP 404)
+
+| Pack | Status |
+|------|--------|
+| `p/express` | ❌ Dead — HTTP 404 |
+| `p/nextjs` | ❌ Dead — HTTP 404 |
+| `p/spring` | ❌ Dead — HTTP 404 |
+
+### Confirmed alive (verified working)
+
+| Category | Packs |
+|----------|-------|
+| Core security | `p/owasp-top-ten`, `p/security-audit`, `p/secrets`, `p/default` |
+| Languages | `p/javascript`, `p/typescript`, `p/python`, `p/golang`, `p/java`, `p/ruby`, `p/php`, `p/rust`, `p/kotlin` |
+| Language-native | `p/bandit` (Python), `p/gosec` (Go), `p/brakeman` (Ruby), `p/nodejsscan` (Node.js) |
+| Frameworks | `p/react`, `p/django`, `p/flask`, `p/fastapi` |
+| IaC | `p/dockerfile`, `p/terraform`, `p/kubernetes`, `p/github-actions` |
+
+### `p/nodejsscan` — important addition
+
+`p/nodejsscan` is confirmed working and fills the gap left by dead `p/express` and `p/nextjs`.
+It finds:
+- Command injection via `child_process.exec(userInput)` → RCE
+- SQL injection in Node.js query strings
+- Hardcoded API keys and secrets
+
+`scripts/semgrep-full-audit.sh` includes `p/nodejsscan` in Node.js framework detection.
+
+---
+
+## Installing Community Rules
+
+```bash
+# Clone all four sources to the canonical cache path
+scripts/update-semgrep-rules.sh
+
+# Validate which subdirs are working (uses exit code verification)
+scripts/update-semgrep-rules.sh --test
+
+# Pull latest + update the lock file
+scripts/update-semgrep-rules.sh --bump
+
+# Verify sources match pinned commits
+scripts/update-semgrep-rules.sh --verify
+
+# Check for stale sources (> 90 days since upstream commit)
+scripts/update-semgrep-rules.sh --check-staleness
+```
 
 ---
 
 ## Rule Pinning Strategy
 
-Community rules change. A rule update can introduce new findings on code that was clean yesterday, or (rarely) remove a rule that was catching a real issue. For repeatable audits, pin to specific commit hashes.
+Community rules change. Pin to specific commit hashes for repeatable audits.
 
 **Pinning file** — `.semgrep/community-rules.lock` (committed to the project):
 
@@ -120,102 +319,100 @@ Community rules change. A rule update can introduce new findings on code that wa
 sources:
   trailofbits:
     repo: https://github.com/trailofbits/semgrep-rules
-    commit: abc123def4567890abc123def4567890abcdef12
-    pinned_at: 2026-01-15
-    notes: "Baseline for Q1 2026 audit cycle"
+    commit: <hash>
+    pinned_at: 2026-04-13
 
   elttam:
     repo: https://github.com/elttam/semgrep-rules
-    commit: 9876543210fedcba9876543210fedcba98765432
-    pinned_at: 2026-01-15
+    commit: <hash>
+    pinned_at: 2026-04-13
 
   gitlab:
     repo: https://gitlab.com/gitlab-org/security-products/sast-rules
-    commit: 1122334455667788990011223344556677889900
-    pinned_at: 2026-01-15
+    commit: <hash>
+    pinned_at: 2026-04-13
 
   0xdea:
     repo: https://github.com/0xdea/semgrep-rules
-    commit: aabbccddeeff00112233445566778899aabbccdd
-    pinned_at: 2026-01-15
+    commit: <hash>
+    pinned_at: 2026-04-13
 ```
 
-**Enforcement** — when the agent runs a deep audit, it should:
-1. Check that each cached rule source matches the pinned commit
-2. If a source is at a different commit, warn: "trailofbits is at commit X, pinned commit is Y. Run `scripts/update-semgrep-rules.sh --verify` or `--bump`."
-3. Do not silently use drifted rules.
+Run `scripts/update-semgrep-rules.sh --bump` to auto-populate real commit hashes.
 
 ---
 
 ## Quarterly Refresh
 
-Community rules get stale. Set a calendar reminder every 90 days to:
-
-1. Run `scripts/update-semgrep-rules.sh --check-staleness` — warns on any source that hasn't been updated upstream in > 90 days
-2. Run `scripts/update-semgrep-rules.sh --bump` — pulls latest commits, updates `.semgrep/community-rules.lock`
+1. `scripts/update-semgrep-rules.sh --check-staleness` — warns on sources > 90 days stale
+2. `scripts/update-semgrep-rules.sh --bump` — pulls latest, updates `.semgrep/community-rules.lock`
 3. Run a full audit immediately after — compare finding count against prior audit
-4. If new findings appear, triage them in `docs/security/TRIAGE.md` before accepting the bump
+4. Triage any new findings in `docs/security/TRIAGE.md` before accepting the bump
 
-**Staleness threshold:** warn at 90 days, fail (refuse to use) at 180 days. A rule source that hasn't been updated in 6 months is probably abandoned.
+**Staleness thresholds:** warn at 90 days, fail at 180 days.
 
 ---
 
 ## Combining with Official Registry Packs
 
-Community rules **supplement** the official packs, they don't replace them. The deep audit should run BOTH:
+Community rules supplement the official packs — they don't replace them:
 
 ```bash
+# semgrep-full-audit.sh does this automatically.
+# Shown here for reference ONLY — always use the script.
 semgrep scan \
   --config p/owasp-top-ten \
   --config p/security-audit \
   --config p/secrets \
-  --config p/<language> \
-  --config p/<framework> \
-  --config ~/.cache/semgrep-community/trailofbits \
-  --config ~/.cache/semgrep-community/elttam \
-  --config ~/.cache/semgrep-community/gitlab/<language> \
+  --config p/golang \
+  --config p/gosec \
+  --config ~/.semgrep/rules/trailofbits/go \
+  --config ~/.semgrep/rules/elttam/rules/go \
+  --config ~/.semgrep/rules/gitlab/go \
   --config .semgrep/project-rules \
-  --json \
-  --sarif \
-  -o docs/security/semgrep-results.json
+  --metrics=off --json -o docs/security/semgrep-results.json .
 ```
 
-Expect some duplicate findings across packs (same issue caught by multiple rules). Semgrep deduplicates based on `check_id + path + line`. Keep all sources configured — duplicates are cheap, missing coverage is expensive.
+Expect duplicate findings across packs — same issue caught by multiple rules.
+Semgrep deduplicates by `check_id + path + line`, so the final count won't double.
 
 ---
 
 ## Per-Project Custom Rules
 
-Community rules catch generic patterns. Every project also has **project-specific anti-patterns** — things that are unique to your codebase's architecture and conventions. Examples:
+Community rules catch generic patterns. Every project has project-specific anti-patterns:
 
-- "All database models must go through `Repository` interface, never call `db.query()` directly"
 - "Auth middleware must be `requireAuth()`, not `authenticate()`"
-- "Never import from `legacy/` directory in new code"
 - "Session tokens must go in `httpOnly` cookies, never localStorage"
+- "Never import from `legacy/` in new code"
 
-**Store these in `.semgrep/project-rules/`** — version-controlled with the project. Every time the security audit finds a new pattern manually, write a custom rule capturing it so the next audit catches it automatically. This is how the audit gets smarter over time.
-
+Store these in `.semgrep/project-rules/` — version-controlled with the project.
+Every time the security audit finds a new pattern manually, capture it as a rule.
 See `semgrep-guide.md` § Writing Custom Rules for syntax.
-
----
-
-## Licensing Notes
-
-- **Trail of Bits** rules are **AGPLv3**. Running them to scan your code is fine. Distributing the rules bundled with a commercial product requires AGPL compliance.
-- **elttam** and **GitLab** rules are **MIT** — no compliance concerns.
-- **0xdea** rules are **MIT**.
-- **NodeJsScan** is **GPLv3** — same as AGPL, distribution concerns, scan usage is fine.
-
-The agent only runs these rules locally to produce findings. The rule content is not redistributed. This is equivalent to running a linter — no license conflict for the project being scanned.
 
 ---
 
 ## Known Gotchas
 
-**Trail of Bits Python rules flag `subprocess` calls aggressively.** If your codebase uses subprocess legitimately (e.g., calling a CLI tool with validated input), expect to suppress some findings with `nosemgrep: python.lang.security.audit.dangerous-subprocess-use.dangerous-subprocess-use` comments and a justification.
+**trailofbits/javascript is NOT general JavaScript security.** It's 7 rules, all
+Apollo/GraphQL CSRF and CORS. Expect 0 findings on most JS codebases — that's correct.
 
-**elttam taint rules require sources to be fully annotated.** If your custom middleware sanitizes input, you may need to add it as a sanitizer in a custom rule for elttam's taint tracking to recognize it.
+**trailofbits/python is NOT general Python web security.** It targets ML library
+safety (pytorch, numpy, pandas). For general Python web security, use `p/python`,
+`p/bandit`, and `gitlab/python`.
 
-**GitLab rules overlap heavily with `p/owasp-top-ten`.** Expect 30-50% duplicate findings on first scan. This is expected — Semgrep deduplicates by location+rule-id, so the final report won't be double-counted.
+**elttam/rules-audit fires INFO only.** These are ORM data-leak research rules —
+one rule per language. They don't produce security findings, just informational
+notes on potentially over-exposed model fields.
 
-**0xdea rules are slow on large C/C++ codebases.** Pattern matching against memory-safety signatures is CPU-intensive. On a 500K LOC C++ project, expect 5-15 minutes. Run it in the deep audit tier only, never in CI.
+**gitlab/python is the richest community source for Python web apps.** 68 rules
+covering MD5, subprocess injection, pickle deserialization, SSRF patterns. Use it.
+
+**Never use gitlab root or non-language subdirs.** `gitlab/ci`, `gitlab/mappings`,
+`gitlab/qa`, `gitlab/rules`, `gitlab/scripts`, `gitlab/spec` all exit 7 (config
+parse error). The scan log will show 0 findings, but the scan never ran.
+
+**Licensing notes:**
+- Trail of Bits: AGPLv3 — running rules to scan is fine; distributing rules bundled in a commercial product requires AGPL compliance
+- elttam, GitLab, 0xdea: MIT — no compliance concerns
+- The agent only runs these rules locally; rule content is not redistributed
