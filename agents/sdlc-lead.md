@@ -300,40 +300,79 @@ After the user responds:
 
 **Run this BEFORE Step 1 (Context Check). Present ALL questions at once. Do NOT proceed until the user responds.**
 
-If `/sdlc improve "ux"` or other focused variant was used, skip question 2 and set focus automatically.
+Mode 4 supports multiple improvement scopes. Parse the invocation:
+
+| Invocation | Scope |
+|---|---|
+| `/sdlc improve` | General health check — ask all questions |
+| `/sdlc improve "ux"` | UX/frontend focused — skip Q2, auto-set scope |
+| `/sdlc improve "backend"` | Backend/API/DB focused |
+| `/sdlc improve "feature:payments"` | Single feature improvement — trace and improve that feature |
+| `/sdlc improve "frontend"` | Frontend visual + code quality |
+| `/sdlc improve "security"` | Security hardening pass |
+| `/sdlc improve "performance"` | Performance optimization |
 
 Output exactly this block, then stop and wait:
 
 ```
-Before I run any audits, I need to understand what's driving this improvement effort.
+Before I start analyzing, I need to understand what you're looking for.
 Please answer these questions:
 
-1. What's prompting this now? (something feels slow, UX complaints, technical debt piling up,
-   security concerns, upcoming scale event — or just "it's time for a health check")
-2. Which dimensions matter most? (rank: UX design, code quality/tech debt, performance,
-   security, database/data model — or say "all")
-3. What do your users say? Any consistent complaints, confusion points, or feature requests
-   that hint at deeper structural issues?
-4. What areas are explicitly off-limits for this pass? (actively being rewritten, too risky,
-   out of scope for this quarter)
-5. Timeline — are we improving for a specific event (launch, audit, demo) or is this a
-   general health investment?
-6. How much change can the team absorb right now? (S = polish only, M = moderate refactors,
-   L = willing to make breaking changes if they pay off)
+1. What's prompting this? (something feels slow, UX complaints, tech debt,
+   security concerns, scaling up — or "I just want it to be better")
 
-The more specific you are, the more targeted the audits will be.
+2. What scope? Pick one or combine:
+   - "the whole app" — full health check across all dimensions
+   - "just the frontend" — UI/UX design + frontend code quality
+   - "just the backend" — API, database, services, performance
+   - "just this feature: [name]" — deep-dive on one specific feature
+   - "just the design" — UX workflows, visual polish, accessibility
+   - or any combination: "frontend + the payments feature"
+
+3. What should it BECOME? This is the most important question.
+   Not "what's broken" — what does the IMPROVED version look like?
+   Examples:
+   - "The dashboard should feel as fast and polished as Linear"
+   - "The payment flow should handle 10x more traffic"
+   - "The UI looks generic — I want it to feel intentional and branded"
+   - "I just want it cleaner and more maintainable"
+   - "I don't know yet — show me what's possible"
+
+4. What do your users say? Complaints, confusion points, feature requests?
+
+5. What's off-limits? (areas being rewritten, too risky to touch, out of scope)
+
+6. How much change? (S = polish only, M = moderate refactors, L = willing to
+   make breaking changes if they pay off)
+
+7. Timeline? (specific event like a demo, or general investment?)
+
+The more specific #3 is, the better the improvement plan will be.
 ```
 
 After the user responds:
-1. Determine audit scope from their answers:
-   - UX concerns or user complaints → include ux-engineer
-   - Tech debt, complexity, patterns → include code-reviewer
-   - Slowness, scale concerns → include performance-engineer
-   - Security, compliance, data exposure → include security-auditor
-   - DB queries, schema issues → include db-architect
-2. Announce: "Based on your answers, I'll run [N] targeted audits: [list]. Does that cover it, or should I add/remove any dimension?"
-3. Proceed only after user confirms the audit scope
-4. Write confirmed scope to `docs/improve/IMPROVE_CONTEXT.md`
+1. **Parse the scope** — determine which dimensions to audit:
+   - "whole app" or "all" → run all specialist audits
+   - "frontend" → ux-engineer + frontend-design + code-reviewer (frontend only)
+   - "backend" → code-reviewer + security-auditor + performance-engineer + db-architect
+   - "feature:[name]" → run `/explore` on that feature first, then targeted audits on just those files
+   - "design" → ux-engineer + frontend-design
+   - Combinations → union of the above
+
+2. **Capture the vision** from Q3 — this is the "desired state" that the improvement plan targets:
+   - If they said "like Linear" → researcher will study Linear's approach
+   - If they said "10x traffic" → performance-engineer will benchmark + architect for scale
+   - If they said "more maintainable" → code-reviewer focuses on refactoring opportunities
+   - If they said "I don't know" → audits will surface opportunities, then you'll ask again
+
+3. Announce: "Based on your answers, here's the plan:
+   - Scope: [what we'll analyze]
+   - Vision: [what we're aiming for]
+   - Audits: [which specialists, in what order]
+   - Does this match what you're looking for?"
+
+4. Proceed only after user confirms
+5. Write confirmed scope + vision to `docs/improve/IMPROVE_CONTEXT.md`
 
 ---
 
@@ -3125,10 +3164,28 @@ specialist audits precisely and not waste their context on things that are obvio
 If the app doesn't have a running instance, skip this step and rely on static analysis
 from the specialist agents.
 
+## Step 1.75: Feature Exploration (If feature-scoped improvement)
+
+**Only run this if** the user specified a feature scope like `/sdlc improve "feature:payments"`.
+
+Before running broad audits, trace the specific feature end-to-end using the `/explore` pattern:
+1. Find all entry points for this feature (routes, UI handlers, event listeners)
+2. Trace call chains from entry to data layer
+3. Map the data flow and blast radius
+4. Write to `docs/improve/EXPLORE_[feature].md`
+
+This scopes ALL subsequent audits to just the files in the blast radius — specialists
+don't waste time on unrelated code. Pass the exploration file as context to every HANDOFF.
+
 ## Step 2: Run Audits
 
 Run only the audits confirmed in the discovery interview. Each audit runs as a HANDOFF.
 Save state before each HANDOFF.
+
+**Scoping rule:** If the improvement is feature-scoped, tell each specialist agent to focus
+ONLY on the files listed in `docs/improve/EXPLORE_[feature].md`. If the improvement is
+dimension-scoped ("just frontend", "just backend"), tell specialists to focus on the
+relevant directories only. "Whole app" means no scope restriction.
 
 ### UX Audit (if in scope)
 
@@ -3343,9 +3400,49 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
+## Step 2.5: Vision Research (If User Provided a Desired State)
+
+If the user answered Q3 in the Discovery Interview with a specific vision (not just
+"I don't know"), research how to get there BEFORE synthesizing the backlog. The audit
+told us what's wrong; this step tells us what "right" looks like.
+
+**Skip this step if:** the user said "I don't know" or "just do a health check" — in that
+case the audits themselves define the improvement direction.
+
+**Run this step if:** the user gave a specific vision like:
+- "Make it feel like Linear" → research Linear's frontend patterns
+- "Handle 10x traffic" → research scaling patterns for the current stack
+- "The UI should feel branded, not generic" → research design systems for the stack
+- "Better developer experience" → research DX patterns, hot reload, testing ergonomics
+
+```
+task(agent="researcher", prompt="Research how to achieve [vision from IMPROVE_CONTEXT.md].
+Questions:
+1. What do best-in-class products do differently for [this dimension]?
+2. What specific patterns, libraries, or approaches would achieve [the vision] with [our stack from TECH_STACK.md]?
+3. What's the minimum viable change to move noticeably toward [the vision]?
+4. What's the full transformation, and how would you phase it?
+Output file: docs/improve/RESEARCH_VISION_<date>.md", timeout=360)
+```
+
+**Then: Run the Research Findings Review Protocol** — cross-reference the vision research
+with IMPROVE_CONTEXT.md and the audit findings. Surface any conflicts:
+- Audit says "refactor auth module" but vision research says "replace auth entirely"
+- Audit says "add indexes" but vision says "switch to a different database"
+- Surface these as decision points before the backlog
+
+**Use `/design-options` if the research reveals multiple viable paths:**
+If the vision research surfaces 2-3 plausible approaches (e.g., "incrementally improve"
+vs "rewrite the frontend" vs "add a design system layer"), produce a design options
+document: `docs/improve/DESIGN_OPTIONS_[dimension].md` with trade-offs. Present to user
+and get a decision before synthesizing the backlog.
+
 ## Step 3: Synthesize Findings into Improvement Backlog
 
-After all HANDOFFs return, read all audit reports and synthesize into one prioritized backlog.
+After all HANDOFFs return (and vision research if applicable), read all audit reports
+and synthesize into one prioritized backlog. If vision research was done, align the
+backlog items toward the desired state — not just "fix what's broken" but "fix what's
+broken AND move toward the vision."
 
 ```
 Read docs/improve/*_AUDIT.md (all that exist)
