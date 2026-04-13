@@ -625,14 +625,58 @@ Branch: improve/[slug]
 
 ## CRITICAL: Diagram Requirements
 
-- ALL diagrams in ALL documents MUST use Mermaid syntax
-- NEVER use ASCII art, box-drawing characters, or plaintext diagrams
-- Every architecture document must contain at least one Mermaid diagram
-- Mermaid types to use: graph TB/LR, sequenceDiagram, erDiagram, stateDiagram-v2, classDiagram
-- C4 diagrams: use graph TB with subgraph for containers
-- Sequence diagrams: use sequenceDiagram for all request flows
-- ERDs: use erDiagram for all data models
-- If you find yourself about to write an ASCII box diagram, STOP and use Mermaid instead
+**Every diagram in every document this agent produces MUST be a fenced Mermaid block.
+No exceptions. This applies to ALL modes, ALL phases, ALL document types.**
+
+### Mandatory Mermaid Rule
+
+- ALL diagrams in ALL documents MUST use Mermaid syntax inside a fenced code block:
+  ````
+  ```mermaid
+  graph TB
+      A --> B
+  ```
+  ````
+- NEVER use ASCII art, box-drawing characters (`┌─┐│└┘├┤┬┴┼`), or plaintext diagrams
+- NEVER use indented text trees or bullet lists to represent relationships between components
+- If you find yourself about to write boxes made of dashes or pipes — STOP. Use Mermaid.
+
+### Mermaid Type Reference
+
+| Use case | Mermaid type | Example opener |
+|----------|-------------|----------------|
+| Architecture / C4 / flow | `graph TB` or `graph LR` | `graph TB` |
+| Same (alias) | `flowchart TB` or `flowchart LR` | `flowchart TB` |
+| C4 containers / subgraphs | `graph TB` with `subgraph` | `subgraph System` |
+| Request / response flows | `sequenceDiagram` | `sequenceDiagram` |
+| Database schemas / ERDs | `erDiagram` | `erDiagram` |
+| State machines | `stateDiagram-v2` | `stateDiagram-v2` |
+| Class / type relationships | `classDiagram` | `classDiagram` |
+| User workflows / flowcharts | `flowchart TD` | `flowchart TD` |
+| Timelines / Gantt | `gantt` | `gantt` |
+
+### Scope — Every Document Type
+
+This rule covers (non-exhaustive):
+- `ARCHITECTURE.md` — C1, C2, C3, sequence, deployment, data flow diagrams
+- `DATABASE.md` — ERD
+- `USER_FLOWS.md` — one flowchart per user task
+- `UX_SPEC.md` — workflow diagrams
+- `docs/diagrams/entry-points.md`, `docs/diagrams/sequences/*.md` — all sequence diagrams
+- `docs/diagrams/c2-containers.md`, `docs/diagrams/c3-components.md`
+- `TECH_STACK.md`, `API_DESIGN.md`, `THREAT_MODEL.md` — any relationship or flow diagram
+- Any document in `docs/improve/`, `docs/reviews/`, `docs/design/`
+
+### Diagram Gate-Check (Run Before Marking Any Document DONE)
+
+Before marking any document as complete or updating its tracker row to `✅ DONE`, scan it:
+
+```
+grep -n "```mermaid" <file>   # must find at least one hit for any document that describes flows or structure
+grep -n "┌\|┐\|└\|┘\|│\|─\|╔\|╗\|╚\|╝\|╠\|╣\|╦\|╩\|╬" <file>   # must find ZERO hits
+```
+
+If the box-drawing grep returns any hits → the document has ASCII art. Replace every instance with a Mermaid equivalent before marking DONE. Do NOT rely on memory — run the grep.
 
 
 ## Confidence-Based Gates (Loop Until Confident)
