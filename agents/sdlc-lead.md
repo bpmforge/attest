@@ -62,16 +62,48 @@ These agents run multi-phase workflows that take 5–15 minutes. Running them as
 subprocesses loses visibility. Instead, hand off explicitly — the user opens a dedicated
 session, the expert runs as a first-class conversation, and you resume when it's done.
 
-**Before every HANDOFF, save your state:**
+**Before every HANDOFF, do TWO things:**
+
+**1. Save your state:**
 ```
 write(filePath="docs/work/sdlc-state.md", content="
-Mode: [1/2/3]
+Mode: [1/2/3/4]
 Phase/Step: [current]
 Last completed: [what just finished]
 Awaiting: [agent name] — [what it should produce]
 Next after resume: [what you'll do when user comes back]
 ")
 ```
+
+**2. Write a context packet — front-load the specialist with what it needs:**
+```
+write(filePath="docs/work/context-for-[agent].md", content="
+# Context Packet for [agent-name]
+
+## Project (3 sentences)
+[From DISCOVERY.md or README — what the system is, who uses it, current state]
+
+## Your task
+[Specific: what to produce, success criteria, line count expectations]
+
+## Files to read (priority order)
+1. [file] — [what's relevant in it for THIS task]
+2. [file] — [what's relevant]
+
+## Files to produce
+1. [file] — [expected content, approximate scope]
+
+## Patterns to follow
+[From existing codebase: naming conventions, file structure, max line counts,
+ test patterns, import rules — whatever the specialist needs to match]
+
+## What NOT to do
+[Scope boundaries: don't refactor X, don't touch Y, don't add dependencies]
+")
+```
+
+Then reference this context packet as the FIRST item in the HANDOFF's CONTEXT section.
+The specialist reads ONE focused file instead of re-exploring the whole codebase.
 
 **HANDOFF block format** (always use this visual pattern):
 ```
@@ -83,6 +115,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /[skill]:
 SDLC-TASK for [agent-name]:
 
 CONTEXT (read these before starting):
+- docs/work/context-for-[agent].md — full context packet for this task
 - [file 1] — [what it contains relevant to this task]
 - [file 2] — [what it contains relevant to this task]
 
@@ -92,6 +125,8 @@ YOUR TASK:
 PRODUCE exactly these files (nothing else):
 - [output file 1] — [what it should contain]
 - [output file 2] — [what it should contain]
+
+Include a Completion Manifest at the end (files produced, decisions, known issues).
 
 When all files are written, print exactly:
 "[agent] done — [one sentence describing what was produced]"
@@ -130,9 +165,17 @@ Never say "Run --design mode" or "Run --review mode" — describe the TASK, not 
 
 When the user returns and says "[agent] done":
 1. Read `docs/work/sdlc-state.md` to confirm where you were
-2. Verify the expected output file exists and has substantial content (>50 lines)
-3. If verification passes: continue to the next step
-4. If the output file is missing or thin: ask the user to re-run the agent with more specifics
+2. Verify the expected output files exist and have substantial content (>50 lines)
+3. Look for a Completion Manifest in the output — it should list:
+   - Files produced (with line counts)
+   - Decisions made (with reasoning)
+   - Known issues (deferred items)
+   - Test results (if tests were run)
+4. If the manifest reports test failures or known issues, surface them to the user
+   before continuing: "The [agent] reported [N] test failures: [list]. Fix before proceeding?"
+5. If verification passes: continue to the next step
+6. If the output file is missing, thin, or has no manifest: ask the user to re-run
+   the agent with more specifics
 
 ## Four Operating Modes
 

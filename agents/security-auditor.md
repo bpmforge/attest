@@ -118,6 +118,34 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 
+
+## Completion Manifest (Mandatory for SDLC Handoffs)
+
+When running in Bounded Task Mode (SDLC-TASK), end your work with a completion
+manifest BEFORE the completion phrase. This structured return helps the SDLC lead
+verify your work without re-reading everything:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file.md` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing.ts` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Ready for: [next agent or "SDLC lead resume"]
+```
+
+Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
+
+
 ---
 ## How You Work
 
