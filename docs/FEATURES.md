@@ -35,6 +35,8 @@ Orchestrates the full SDLC across 4 operating modes. Delegates every technical t
 - **Mode 3 (`/sdlc feature`)** — add a feature. Discovery interview → impact analysis → design → implement on `feat/[slug]` branch → verify → document → squash merge to `main` via PR.
 - **Mode 4 (`/sdlc improve`)** — audit and improve an existing system. Discovery interview determines which dimensions to audit. Runs specialist audits (UX, code quality, performance, security, DB). Synthesizes findings into a prioritized S/M/L backlog. Executes approved items on `improve/[slug]` branch. PR at end. Optional focus: `"ux"`, `"performance"`, `"security"`, `"code-quality"`.
 
+Phase 3 (Design) produces both `docs/API_DESIGN.md` (human-readable narrative) and `docs/api/openapi.yaml` (validated OpenAPI 3.0 spec). The spec is a gate requirement — Phase 3 cannot pass until it exists and passes `swagger-cli validate` with 0 errors.
+
 Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
 
 ### `git-expert` — Git & forge operations (`mode: primary`)
@@ -60,7 +62,12 @@ Three execution modes:
 
 ### `security-auditor` — Security assessments (`mode: primary`)
 
-OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 4-phase orchestrator: understand → automated scan → OWASP + STRIDE manual → verify + report.
+OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 5-phase orchestrator: understand → automated scan → OWASP + STRIDE manual → verify → **attack chain analysis** → report.
+
+- **Phase 5b: Attack Chain Analysis** — After all individual findings are verified, runs a second-order pass that builds a pre-condition/post-condition inventory of every real finding, then tests pairs and triples for exploitable multi-step chains. Each discovered chain (e.g., "Info Disclosure → Credential Reuse → Admin Takeover") gets a `C-N` finding entry in the final report with step-by-step attack narrative, a severity bump rule (often higher than any individual link), and a single "break the chain" remediation priority. Tests 9 classic chain patterns: recon→targeted attack, auth bypass→privilege escalation, XSS→session hijack, SSRF→internal pivot, path traversal→credential theft, misconfiguration→enumeration, weak crypto→forgery, race condition+business logic, CVE+reachability.
+- **Custom gap-filler rules** (98 rules, 6 languages) installed to user's personal store at `~/.config/opencode/.semgrep/` — C#, Kotlin, Swift, Rust, PHP, and C++ bridge rules loaded automatically per detected language.
+- **Offline scanning** — `--offline` flag uses cached registry packs at `~/.semgrep/registry-cache/`. Pre-populate with `scripts/cache-registry-packs.sh`.
+- **Community rules** cached at `~/.semgrep/rules/{trailofbits,elttam,gitlab,0xdea}`. Install with `scripts/update-semgrep-rules.sh`.
 
 ### `code-reviewer` — Code health review (`mode: primary`)
 
