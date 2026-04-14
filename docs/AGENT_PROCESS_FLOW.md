@@ -93,10 +93,17 @@ User: /sdlc init my-app "description"
            │   └── PRODUCE: docs/TEST_STRATEGY.md (framework selection + approach)
            │   └── RETURN: "test-strategy done"
            │
-           ├── IMPLEMENTATION CHECKPOINT
-           │   └── User/developer builds the system
+           ├── IMPLEMENTATION CHECKPOINT (Size S items: user builds directly)
+           │   └── Constraint: use ONLY tech listed in docs/TECH_STACK.md
            │   └── "Write tests alongside each module"
            │   └── RETURN: user says "implementation done"
+           │
+           ├── HANDOFF → coding-agent (Size M items from Mode 4 backlog)
+           │   └── READ: docs/TECH_STACK.md + IMPROVEMENT_[n]_DESIGN.md
+           │   └── VERIFY: all library APIs via Context7 before writing
+           │   └── ENFORCE: anti-slop rules (no over-engineering, no hallucinated APIs)
+           │   └── PRODUCE: implementation files + docs/improve/VERIFY_ITEM_[n].md
+           │   └── RETURN: "coding-agent done — item [n]: [one sentence]"
            │
            ├── ★ NEW: HANDOFF → test-engineer (WRITE ACTUAL E2E TESTS)
            │   └── READ: docs/testing/USE_CASES.md + docs/testing/TEST_PLAN.md

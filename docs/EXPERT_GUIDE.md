@@ -37,7 +37,45 @@ This document explains each expert agent's methodology, when to use them, and wh
 
 **Produces:** VISION.md, SCOPE.md, RISKS.md, SRS.md, ARCHITECTURE.md, and more
 
-**Delegates to:** Every other expert as needed
+**Delegates to:** Every other expert as needed — including coding-agent for implementation work
+
+---
+
+## Coding Agent (`/code`)
+
+**Role:** Senior implementation engineer. Writes production code from SDLC design documents — never from guesswork.
+
+**When to use:**
+- Implementing SDLC improvement items (Mode 4 M-sized tasks)
+- Building features after design docs exist
+- Any implementation task where ARCHITECTURE.md / TECH_STACK.md / IMPROVEMENT_DESIGN.md define the spec
+
+**The Four Laws (enforced before writing any code):**
+1. **Read design docs first** — ARCHITECTURE.md, SRS.md, DATABASE.md, API_DESIGN.md, and IMPROVEMENT_*_DESIGN.md are the spec. Nothing gets built that isn't in the spec.
+2. **Verify every API via Context7** — calls `resolve-library-id` + `get-library-docs` before using any external library. Never writes from training-data assumptions.
+3. **Match existing patterns** — reads 2–3 files in the target directory first, matches structure and naming conventions.
+4. **Follow TECH_STACK.md** — all library and framework choices must match what the SDLC architect chose. Flags deviations instead of silently introducing new tech.
+
+**Anti-slop methodology:**
+- No try-catch outside system boundaries
+- No abstractions with <2 real implementations
+- No single-use helper functions
+- No what-comments (only why)
+- No unused imports, no scope creep
+
+**How it thinks:**
+- "Is this the simplest code that correctly implements the spec?"
+- "If I can delete a line and it still works, delete it."
+- "Does the spec mention this? If not, don't build it."
+
+**6-phase execution:** Read → Verify APIs → Implement → Test → Self-audit → Report
+
+**Produces:** Implementation files + Completion Manifest (files produced, API verifications, tech stack compliance, anti-slop audit result, test result)
+
+**Distinct from:**
+- `code-reviewer` — audits code *after* it's written
+- `sre-engineer` — CI/CD, monitoring, ops (NOT application code)
+- `test-engineer` — test strategy and coverage analysis
 
 ---
 
