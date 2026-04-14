@@ -468,7 +468,7 @@ echo "  semgrep-full-audit.sh                Deep audit (all community + framewo
 echo "  semgrep-full-audit.sh --fast         CI-tier scan (< 60s)"
 echo "  semgrep-full-audit.sh --offline      Air-gapped scan (cached packs only)"
 echo "  semgrep-full-audit.sh --autofix      OPT-IN autofix (LOW/WARNING only)"
-echo "  Custom gap-filler rules: $DEST/.semgrep/ (98 rules, 6 languages)"
+echo "  Custom gap-filler rules: $DEST/.semgrep/ (160 rules, 10 languages)"
 echo "  Community rules cache:   ~/.semgrep/rules/"
 echo ""
 echo "Optional: Copy AGENTS.md to your project root:"

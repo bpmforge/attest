@@ -1,0 +1,376 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # JavaScript / TypeScript Security Rules — Gap Filler
+  #
+  # p/javascript and p/typescript cover basic XSS, prototype pollution,
+  # and some injection. This ruleset fills remaining OWASP gaps:
+  #   A03: SQL injection (node-postgres, mysql2, knex raw), command injection,
+  #        eval/Function constructor, ReDoS, NoSQL injection
+  #   A05: Hardcoded secrets, insecure randomness, dangerous require()
+  #   A07: JWT hardcoded secret
+  #   A08: Insecure deserialization (node-serialize, vm.runInNewContext)
+  #   A09: Sensitive data in console.log
+  #   A10: SSRF (axios, node-fetch, http.get with user URL)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: js-custom.injection.sql-string-concat
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      SQL query built with string concatenation — SQL injection risk.
+      Use parameterized queries: pg: `client.query(sql, [val])`,
+      mysql2: `connection.execute(sql, [val])`, knex: `.where('id', id)`.
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query("..." + $INPUT, ...)
+          - pattern: $DB.query($INPUT + "...", ...)
+          - pattern: $DB.execute("..." + $INPUT, ...)
+          - pattern: $DB.execute($INPUT + "...", ...)
+          - pattern: $DB.raw("..." + $INPUT, ...)
+          - pattern: $DB.raw($INPUT + "...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: js-custom.injection.sql-template-literal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      SQL query built with a template literal containing a variable —
+      SQL injection risk. Use parameterized queries instead.
+    patterns:
+      - pattern-either:
+          - pattern: $DB.query(`...${$INPUT}...`)
+          - pattern: $DB.execute(`...${$INPUT}...`)
+          - pattern: $DB.raw(`...${$INPUT}...`)
+          - pattern: knex.raw(`...${$INPUT}...`)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: js-custom.injection.nosql-where-clause
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      MongoDB `$where` clause with a variable enables JavaScript injection.
+      An attacker can execute arbitrary JS inside MongoDB. Remove `$where`
+      or replace with a safe query operator.
+    patterns:
+      - pattern-either:
+          - pattern: $COLLECTION.find({$where: $INPUT}, ...)
+          - pattern: $COLLECTION.findOne({$where: $INPUT}, ...)
+          - pattern: $COLLECTION.find({"$where": $INPUT}, ...)
+    metadata:
+      cwe: ["CWE-943"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: js-custom.injection.child-process-exec-user-input
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      `child_process.exec()` or `execSync()` called with a value derived
+      from user input — command injection. Use `execFile()` with an
+      explicit argument array, or `spawn()` without shell: true.
+    patterns:
+      - pattern-either:
+          - pattern: exec($INPUT, ...)
+          - pattern: execSync($INPUT, ...)
+          - pattern: exec("..." + $INPUT, ...)
+          - pattern: execSync("..." + $INPUT, ...)
+          - pattern: exec(`...${$INPUT}...`, ...)
+          - pattern: execSync(`...${$INPUT}...`, ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: js-custom.injection.spawn-shell-true
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      `spawn()` or `spawnSync()` called with `shell: true` runs the command
+      through `/bin/sh`. If any argument is user-controlled this is
+      equivalent to `exec()` — command injection. Remove `shell: true`
+      and pass arguments as an array.
+    patterns:
+      - pattern-either:
+          - pattern: spawn($CMD, $ARGS, {shell: true, ...})
+          - pattern: spawnSync($CMD, $ARGS, {shell: true, ...})
+          - pattern: spawn($CMD, $ARGS, {..., shell: true})
+          - pattern: spawnSync($CMD, $ARGS, {..., shell: true})
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Eval / Code Injection ─────────────────────────────────────
+
+  - id: js-custom.injection.eval-user-input
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      `eval()` with a non-literal argument — arbitrary code execution risk.
+      If `$INPUT` is user-controlled, an attacker can run any JavaScript.
+      Remove `eval()` entirely or replace with a safe alternative.
+    patterns:
+      - pattern: eval($INPUT)
+      - pattern-not: eval("...")
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: js-custom.injection.function-constructor
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      `new Function(...)` with a variable body is equivalent to `eval()`.
+      If any argument is user-controlled this enables arbitrary code execution.
+    patterns:
+      - pattern: new Function($INPUT, ...)
+      - pattern-not: new Function("...", ...)
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: js-custom.injection.vm-run-in-context
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      `vm.runInNewContext()` / `vm.runInThisContext()` with a variable does NOT
+      provide a security sandbox — it can be escaped. Never pass user input here.
+    pattern-either:
+      - pattern: vm.runInNewContext($INPUT, ...)
+      - pattern: vm.runInThisContext($INPUT, ...)
+      - pattern: vm.Script($INPUT, ...)
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: js-custom.secrets.hardcoded-jwt-secret
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      JWT signed or verified with a hardcoded string secret.
+      Rotate the secret and load it from an environment variable:
+      `process.env.JWT_SECRET`.
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign($PAYLOAD, "...", ...)
+          - pattern: jwt.verify($TOKEN, "...", ...)
+          - pattern: sign($PAYLOAD, "...", ...)
+          - pattern: verify($TOKEN, "...", ...)
+      - pattern-not-inside: |
+          if (...) { ... }
+    metadata:
+      cwe: ["CWE-798", "CWE-321"]
+      owasp: ["A07:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: js-custom.secrets.hardcoded-api-key
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Hardcoded secret / API key / password in source code.
+      Load credentials from environment variables or a secrets manager.
+    patterns:
+      - pattern-either:
+          - pattern: const $KEY = "..."
+          - pattern: let $KEY = "..."
+          - pattern: var $KEY = "..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: (?i)(password|passwd|secret|api_?key|auth_?token|access_?token|private_?key|client_?secret|bearer)
+      - pattern-not: const $KEY = ""
+      - pattern-not: let $KEY = ""
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: Insecure Randomness ───────────────────────────────────────
+
+  - id: js-custom.crypto.math-random-security
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      `Math.random()` is not cryptographically secure — do not use it
+      for tokens, session IDs, passwords, or nonces. Use
+      `crypto.randomBytes()` or `crypto.randomUUID()` instead.
+    patterns:
+      - pattern: Math.random()
+      - pattern-inside: |
+          $VAR = <... Math.random() ...>
+      - pattern-not-inside: |
+          // ...
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: js-custom.deserialization.node-serialize
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      `node-serialize` unserialize() with user-controlled data enables
+      remote code execution via IIFE gadgets. Do not deserialize untrusted
+      data with this library — use JSON.parse() or a safe alternative.
+    patterns:
+      - pattern-either:
+          - pattern: serialize.unserialize($INPUT)
+          - pattern: unserialize($INPUT)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A09: Sensitive Data in Logs ────────────────────────────────────
+
+  - id: js-custom.logging.sensitive-data-console
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >
+      Sensitive data may be written to console logs. Remove or redact
+      before shipping to production — logs are often aggregated and
+      accessible beyond intended audiences.
+    patterns:
+      - pattern-either:
+          - pattern: console.log(..., $VAR, ...)
+          - pattern: console.error(..., $VAR, ...)
+          - pattern: console.info(..., $VAR, ...)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|token|secret|credit_?card|ssn|social_?security|cvv|pin)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: js-custom.ssrf.axios-user-url
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      `axios` making a request to a URL from a variable — potential SSRF.
+      Validate and allowlist the URL before making the request.
+      Block requests to internal IP ranges (10.x, 172.16.x, 192.168.x).
+    patterns:
+      - pattern-either:
+          - pattern: axios($URL, ...)
+          - pattern: axios.get($URL, ...)
+          - pattern: axios.post($URL, ...)
+          - pattern: axios.put($URL, ...)
+          - pattern: axios.delete($URL, ...)
+          - pattern: axios.request({url: $URL, ...})
+      - pattern-not: axios.get("...", ...)
+      - pattern-not: axios.post("...", ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: js-custom.ssrf.fetch-user-url
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      `fetch()` or `node-fetch` called with a variable URL — potential SSRF.
+      Validate the URL against an allowlist before making the request.
+    patterns:
+      - pattern: fetch($URL, ...)
+      - pattern-not: fetch("...", ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: js-custom.ssrf.http-get-user-url
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      Node.js `http.get()` / `https.get()` called with a variable URL —
+      potential SSRF. Validate URL origin before making the request.
+    pattern-either:
+      - pattern: http.get($URL, ...)
+      - pattern: https.get($URL, ...)
+      - pattern: http.request($URL, ...)
+      - pattern: https.request($URL, ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Path Traversal ────────────────────────────────────────────
+
+  - id: js-custom.path-traversal.fs-read-user-input
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      File system operation with a variable path — path traversal risk.
+      An attacker can read/write files outside the intended directory
+      (e.g., `../../etc/passwd`). Use `path.resolve()` and verify the
+      result starts with the expected base directory.
+    patterns:
+      - pattern-either:
+          - pattern: fs.readFile($PATH, ...)
+          - pattern: fs.readFileSync($PATH, ...)
+          - pattern: fs.createReadStream($PATH, ...)
+          - pattern: fs.writeFile($PATH, ...)
+          - pattern: fs.writeFileSync($PATH, ...)
+      - pattern-not: fs.readFile("...", ...)
+      - pattern-not: fs.readFileSync("...", ...)
+      - pattern-not: fs.writeFile("...", ...)
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Prototype Pollution ────────────────────────────────────────────
+
+  - id: js-custom.injection.object-assign-user-input
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      `Object.assign()` with user-controlled data can pollute the
+      Object prototype if the source contains a `__proto__` key.
+      Validate input or use `Object.create(null)` as the target.
+    patterns:
+      - pattern-either:
+          - pattern: Object.assign($TARGET, $INPUT)
+          - pattern: Object.assign({}, $INPUT)
+      - pattern-not: Object.assign($TARGET, {...})
+    metadata:
+      cwe: ["CWE-1321"]
+      owasp: ["A03:2021"]
+      confidence: LOW
+      category: security

@@ -577,9 +577,7 @@ fi
 #   csharp-security.yml  — 20 rules (p/csharp missing cmd injection, SSRF, XSS)
 #
 # C/C++ gap-filler rules are loaded separately above (cpp-bridge-rules/).
-# Languages with good registry coverage (JS, Python, Go, Java, Ruby, Scala)
-# do not need custom gap-filler rules.
-#
+# Custom gap-filler rules for all supported languages
 CUSTOM_RULES_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CUSTOM_RULES_DIR="$(dirname "$CUSTOM_RULES_DIR")/.semgrep/custom-rules"
 CUSTOM_RULES_LOADED=0
@@ -589,6 +587,10 @@ if [ -d "$CUSTOM_RULES_DIR" ]; then
   for lang in "${LANGS[@]+"${LANGS[@]}"}"; do
     custom_file=""
     case "$lang" in
+      javascript|typescript) custom_file="$CUSTOM_RULES_DIR/javascript-security.yml" ;;
+      python)  custom_file="$CUSTOM_RULES_DIR/python-security.yml" ;;
+      go)      custom_file="$CUSTOM_RULES_DIR/go-security.yml" ;;
+      java)    custom_file="$CUSTOM_RULES_DIR/java-security.yml" ;;
       kotlin)  custom_file="$CUSTOM_RULES_DIR/kotlin-security.yml" ;;
       swift)   custom_file="$CUSTOM_RULES_DIR/swift-security.yml" ;;
       rust)    custom_file="$CUSTOM_RULES_DIR/rust-security.yml" ;;

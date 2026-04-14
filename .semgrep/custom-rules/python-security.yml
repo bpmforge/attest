@@ -1,0 +1,336 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Python Security Rules — Gap Filler
+  #
+  # p/bandit and p/python cover some basics. This ruleset fills remaining
+  # OWASP gaps:
+  #   A03: SQL injection (cursor.execute with f-string/concat), command
+  #        injection (shell=True), eval/exec, template injection
+  #   A05: Hardcoded secrets, debug mode, insecure YAML load
+  #   A02: Weak randomness, MD5/SHA1 for passwords, timing attacks
+  #   A08: pickle deserialization
+  #   A09: Sensitive data in logging
+  #   A10: SSRF (requests with user URL)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: python-custom.injection.sql-string-format
+    languages: [python]
+    severity: ERROR
+    message: >
+      SQL query built with string formatting — SQL injection risk.
+      Use parameterized queries: `cursor.execute(sql, (val,))` where
+      the second argument is a tuple of values, never string-formatted.
+    patterns:
+      - pattern-either:
+          - pattern: $CUR.execute("..." % $INPUT)
+          - pattern: $CUR.execute("...".format(...))
+          - pattern: $CUR.execute(f"...{$INPUT}...")
+          - pattern: $CUR.executemany("..." % $INPUT, ...)
+          - pattern: $CUR.executemany(f"...{$INPUT}...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.injection.sql-concat
+    languages: [python]
+    severity: ERROR
+    message: >
+      SQL query built with string concatenation — SQL injection risk.
+      Use parameterized queries with `?` or `%s` placeholders and a
+      separate values tuple.
+    patterns:
+      - pattern-either:
+          - pattern: $CUR.execute("..." + $INPUT, ...)
+          - pattern: $CUR.execute($INPUT + "...", ...)
+          - pattern: $CUR.execute($QUERY + $INPUT, ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: python-custom.injection.subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: >
+      `subprocess` called with `shell=True` and a non-literal command —
+      command injection risk. Pass a list of arguments instead:
+      `subprocess.run(['cmd', arg1, arg2])` without `shell=True`.
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.run($CMD, ..., shell=True, ...)
+          - pattern: subprocess.call($CMD, ..., shell=True, ...)
+          - pattern: subprocess.Popen($CMD, ..., shell=True, ...)
+          - pattern: subprocess.check_output($CMD, ..., shell=True, ...)
+          - pattern: subprocess.check_call($CMD, ..., shell=True, ...)
+      - pattern-not: subprocess.run("...", ..., shell=True, ...)
+      - pattern-not: subprocess.call("...", ..., shell=True, ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.injection.os-system
+    languages: [python]
+    severity: ERROR
+    message: >
+      `os.system()` with a variable — command injection risk.
+      Use `subprocess.run(['cmd', arg])` with a list (no shell=True).
+    patterns:
+      - pattern: os.system($CMD)
+      - pattern-not: os.system("...")
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Code Injection ────────────────────────────────────────────
+
+  - id: python-custom.injection.eval-user-input
+    languages: [python]
+    severity: ERROR
+    message: >
+      `eval()` with a non-literal argument — arbitrary code execution risk.
+      Remove `eval()` or replace with `ast.literal_eval()` for safe
+      evaluation of Python literals.
+    patterns:
+      - pattern: eval($INPUT)
+      - pattern-not: eval("...")
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: python-custom.injection.exec-user-input
+    languages: [python]
+    severity: ERROR
+    message: >
+      `exec()` with a non-literal argument — arbitrary code execution.
+      Never pass user-controlled data to `exec()`.
+    patterns:
+      - pattern: exec($INPUT)
+      - pattern-not: exec("...")
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: python-custom.deserialization.pickle-load
+    languages: [python]
+    severity: ERROR
+    message: >
+      `pickle.loads()` / `pickle.load()` on untrusted data enables remote
+      code execution — pickle can execute arbitrary Python during deserialization.
+      Use JSON, MessagePack, or another safe format for untrusted data.
+    patterns:
+      - pattern-either:
+          - pattern: pickle.loads($INPUT)
+          - pattern: pickle.load($INPUT)
+          - pattern: cPickle.loads($INPUT)
+          - pattern: cPickle.load($INPUT)
+          - pattern: _pickle.loads($INPUT)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.deserialization.yaml-load-unsafe
+    languages: [python]
+    severity: ERROR
+    message: >
+      `yaml.load()` without `Loader=yaml.SafeLoader` can execute arbitrary
+      Python code via YAML tags. Use `yaml.safe_load()` or pass
+      `Loader=yaml.SafeLoader` explicitly.
+    patterns:
+      - pattern: yaml.load($INPUT)
+      - pattern-not: yaml.load($INPUT, Loader=yaml.SafeLoader)
+      - pattern-not: yaml.load($INPUT, Loader=yaml.BaseLoader)
+      - pattern-not: yaml.load($INPUT, Loader=yaml.FullLoader)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: python-custom.secrets.hardcoded-password
+    languages: [python]
+    severity: ERROR
+    message: >
+      Hardcoded credential in source code. Load from environment variables
+      (`os.environ['SECRET_KEY']`) or a secrets manager.
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "..."
+          - pattern: $VAR = '...'
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_?key|auth_?token|access_?token|private_?key|client_?secret|bearer|database_url)
+      - pattern-not: $VAR = ""
+      - pattern-not: $VAR = ''
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: python-custom.misconfig.flask-debug-mode
+    languages: [python]
+    severity: HIGH
+    message: >
+      Flask running with `debug=True` exposes an interactive debugger
+      with remote code execution capability. Never enable debug mode
+      in production — use environment-based config instead.
+    patterns:
+      - pattern-either:
+          - pattern: app.run(..., debug=True, ...)
+          - pattern: app.run(debug=True)
+    metadata:
+      cwe: ["CWE-94", "CWE-215"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A02: Weak Cryptography ─────────────────────────────────────────
+
+  - id: python-custom.crypto.weak-random
+    languages: [python]
+    severity: HIGH
+    message: >
+      `random` module is not cryptographically secure — do not use
+      `random.random()`, `random.randint()`, etc. for tokens, session
+      IDs, passwords, or nonces. Use `secrets.token_bytes()`,
+      `secrets.token_hex()`, or `os.urandom()` instead.
+    patterns:
+      - pattern-either:
+          - pattern: random.random()
+          - pattern: random.randint($A, $B)
+          - pattern: random.choice($SEQ)
+          - pattern: random.shuffle($LIST)
+          - pattern: random.sample($POP, $K)
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: LOW
+      category: security
+
+  - id: python-custom.crypto.weak-hash-password
+    languages: [python]
+    severity: ERROR
+    message: >
+      MD5 or SHA1 used — these are not safe for password hashing and are
+      considered broken for integrity purposes. Use bcrypt, argon2, or
+      scrypt for passwords; SHA-256/SHA-3 for integrity only.
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+          - pattern: md5(...)
+    metadata:
+      cwe: ["CWE-327", "CWE-328"]
+      owasp: ["A02:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: python-custom.crypto.timing-attack-comparison
+    languages: [python]
+    severity: HIGH
+    message: >
+      Direct string/bytes comparison of secrets with `==` is vulnerable to
+      timing attacks — an attacker can measure response times to infer
+      secret values byte-by-byte. Use `hmac.compare_digest(a, b)` for
+      constant-time comparison of secrets, tokens, and hashes.
+    patterns:
+      - pattern-either:
+          - pattern: $A == $B
+          - pattern: $A != $B
+      - metavariable-regex:
+          metavariable: $A
+          regex: (?i)(token|hash|digest|mac|signature|hmac|password|passwd|secret)
+    metadata:
+      cwe: ["CWE-208"]
+      owasp: ["A02:2021"]
+      confidence: LOW
+      category: security
+
+  # ── A09: Sensitive Data in Logs ────────────────────────────────────
+
+  - id: python-custom.logging.sensitive-data
+    languages: [python]
+    severity: WARNING
+    message: >
+      Sensitive variable may be written to logs. Redact or mask sensitive
+      fields before logging — logs are often stored and aggregated beyond
+      their intended audience.
+    patterns:
+      - pattern-either:
+          - pattern: logging.info(..., $VAR, ...)
+          - pattern: logging.debug(..., $VAR, ...)
+          - pattern: logging.warning(..., $VAR, ...)
+          - pattern: logging.error(..., $VAR, ...)
+          - pattern: logger.info(..., $VAR, ...)
+          - pattern: logger.debug(..., $VAR, ...)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|token|secret|credit_?card|ssn|social_?security|cvv|pin|auth)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: python-custom.ssrf.requests-user-url
+    languages: [python]
+    severity: HIGH
+    message: >
+      `requests` making a call to a variable URL — potential SSRF.
+      Validate the URL against an allowlist and block requests to
+      internal IP ranges (169.254.x.x, 10.x, 172.16.x, 192.168.x).
+    patterns:
+      - pattern-either:
+          - pattern: requests.get($URL, ...)
+          - pattern: requests.post($URL, ...)
+          - pattern: requests.put($URL, ...)
+          - pattern: requests.delete($URL, ...)
+          - pattern: requests.request($METHOD, $URL, ...)
+          - pattern: requests.Session().get($URL, ...)
+      - pattern-not: requests.get("...", ...)
+      - pattern-not: requests.post("...", ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: python-custom.ssrf.urllib-user-url
+    languages: [python]
+    severity: HIGH
+    message: >
+      `urllib` opening a variable URL — potential SSRF. Validate and
+      allowlist the URL before fetching.
+    patterns:
+      - pattern-either:
+          - pattern: urllib.request.urlopen($URL, ...)
+          - pattern: urllib.urlopen($URL, ...)
+      - pattern-not: urllib.request.urlopen("...", ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
