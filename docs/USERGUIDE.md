@@ -232,6 +232,15 @@ Modes: `--owasp`, `--semgrep`, `--threat-model`, `--deps`
 /security --deps                # dependency vulnerability audit
 ```
 
+Runs as a 5-phase orchestrator: understand → automated scan (Semgrep + deps) → OWASP manual (10 passes) → verify findings → **attack chain analysis** → write report.
+
+**Attack chain analysis (Phase 5b):** After all individual findings are verified, the agent builds a pre/post-condition inventory and tests finding pairs and triples for multi-step exploit paths. Chains get their own `C-N` finding entries with combined severity (often higher than any single link) and a "break the chain" remediation priority. Nine chain patterns are tested explicitly: recon→targeted attack, XSS→session hijack, SSRF→pivot, path traversal→credential theft, auth bypass→privilege escalation, and more.
+
+**Semgrep setup:**
+- Custom gap-filler rules (98 rules across C#, Kotlin, Swift, Rust, PHP, C++) installed to `~/.config/opencode/.semgrep/` — loaded automatically per detected language
+- Community rules: `scripts/update-semgrep-rules.sh` clones Trail of Bits, elttam, GitLab, 0xdea to `~/.semgrep/rules/`
+- Offline scanning: `scripts/cache-registry-packs.sh` then `semgrep-full-audit.sh --offline`
+
 Reports use the skeleton-first format — actionable intel first, verbatim code quotes for every finding, concrete exploitation walkthroughs. Output: `docs/security/`.
 
 ### `/review-code`

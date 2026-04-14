@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-04-13
+
+Three targeted enhancements: attack chain analysis in the security auditor, OpenAPI 3.0 spec as an SDLC Phase 3 gate requirement, and semgrep custom rules correctly documented to the user's personal OpenCode store.
+
+### Added
+
+- **Attack chain analysis — `security-auditor` Phase 5b** — New phase runs after all individual findings are verified, before the report is written. Builds a pre-condition/post-condition inventory for every real finding, then tests every pair and triple for multi-step exploitability. Discovers vulnerabilities that exist only when findings are chained — e.g., MEDIUM info disclosure + MEDIUM IDOR = CRITICAL account takeover that neither finding describes alone. Nine classic chain patterns tested explicitly (XSS→session hijack, SSRF→pivot, path traversal→credential theft, auth bypass→privilege escalation, recon→targeted attack, weak crypto→forgery, race condition+business logic, CVE+reachability, misconfiguration→enumeration). Each chain documented as a `C-N` finding with step-by-step attack narrative, combined severity (auto-bumped above highest individual link when applicable), and a "break the chain" remediation priority. Chains written to `docs/security/attack-chains.md` and included as first-class findings in the final report. Reader simulation checklist updated to require chain section presence.
+
+- **OpenAPI 3.0 spec — `sdlc-lead` Phase 3 deliverable** — `docs/api/openapi.yaml` is now a required Phase 3 artifact alongside `docs/API_DESIGN.md`. The api-designer HANDOFF prompt now mandates both files: `API_DESIGN.md` for human-readable narrative and `openapi.yaml` as a valid OpenAPI 3.0 spec with `components/schemas`, `components/securitySchemes`, reusable `$ref` error responses, and no inline schemas for reused types. Phase 3 gate blocks until the spec passes `swagger-cli validate` with 0 errors and every endpoint in `API_DESIGN.md` has a corresponding path entry. Git checkpoint and PR body updated to include the spec.
+
+- **Custom Semgrep rules personal store documentation** — `security-auditor` preflight check (Phase 2, Step 1) now includes a check for `~/.config/opencode/.semgrep/custom-rules` (global install) or `.opencode/.semgrep/custom-rules` (project install). When missing, agent provides recovery instruction (re-run `install.sh`). Phase 2 Step 3 description and OWASP tracker template updated with accurate personal store paths.
+
+### Changed
+
+- `security-auditor` orchestrator plan updated from 4 phases to 5 (adds `attack-chain` between `verify-findings` and `write-report`).
+- `sdlc-lead` Phase 3 deliverables list updated: `docs/API_DESIGN.md` now described as "human-readable contracts" and `docs/api/openapi.yaml` added as "machine-readable OpenAPI 3.0 spec (Swagger-compatible)".
+- `docs/FEATURES.md` and `docs/USERGUIDE.md` updated for all three changes above.
+
 ## [0.9.0] — 2026-04-13
 
 Semgrep security scanning deep upgrade: 98 custom gap-filler rules across 6 languages, offline/air-gapped scanning with registry pack caching, polyglot language detection, and auto-loading custom rulesets per detected language.
