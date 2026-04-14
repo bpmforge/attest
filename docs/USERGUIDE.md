@@ -329,6 +329,8 @@ Starting Q2...
 
 Produces a report with source evaluation (credibility + recency + bias), cross-references, and a final recommendation. Output: `docs/research/`.
 
+**When called from sdlc-lead:** researcher is a heavyweight specialist (multi-phase, 5–15 min). `sdlc-lead` delegates it via HANDOFF — the same pattern as every other specialist. Open a new conversation, paste the HANDOFF prompt, and return with "researcher done" when complete. Do NOT run it as a background task or expect it to complete inline.
+
 ### `/test-expert`
 Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`
 

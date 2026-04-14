@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.11.1] — 2026-04-14
+
+### Fixed
+
+- **Researcher timeout — moved from Tier 1 (task) to Tier 2 (HANDOFF)** — researcher runs multi-phase web research (5–15 min, 300–360 s timeouts) and was incorrectly delegated via `task()` alongside git-expert. This caused silent hangs and timeouts in SDLC flows. Researcher is now a Tier 2 HANDOFF agent, consistent with all other specialists. All 4 delegation sites updated: Phase 0 (competitive landscape), Phase 1 (technical feasibility), Phase 3 Step 1 (framework comparison), Mode 4 Step 2.5 (vision research). Each site now saves `sdlc-state.md` before the HANDOFF and specifies a clean completion phrase. The Research Findings Review Protocol updated to reference the HANDOFF pattern. `AGENT_PROCESS_FLOW.md` and `USERGUIDE.md` updated to reflect the change.
+
+- **Tier 1 clarified** — Tier 1 (`task()`) is now git-expert only. Tier 2 (HANDOFF) is researcher + all 10 other specialists + coding-agent.
+
+---
+
 ## [0.11.0] — 2026-04-14
 
 New `coding-agent` specialist for doc-driven implementation, delegation tracking across all handoffs, and TECH_STACK.md enforcement throughout the SDLC.
