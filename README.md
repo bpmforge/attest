@@ -1,6 +1,6 @@
 # BPM OpenCode Experts
 
-Expert agent system for [OpenCode](https://opencode.ai). **13 specialist agents, 19 skill triggers**, curated reference docs, custom tools, and a full SDLC workflow — all driven by whichever LLM backend you configure (Claude, OpenAI, Gemini, Ollama, LM Studio, 75+ providers).
+Expert agent system for [OpenCode](https://opencode.ai). **14 specialist agents, 20 skill triggers**, curated reference docs, custom tools, and a full SDLC workflow — all driven by whichever LLM backend you configure (Claude, OpenAI, Gemini, Ollama, LM Studio, 75+ providers).
 
 Sibling project: [`claude-experts`](https://github.com/bpmforge/claude-experts) — same experts for Claude Code.
 
@@ -16,11 +16,12 @@ Verify with `/sdlc init my-project "short description"` inside an OpenCode sessi
 
 Uninstall with `./uninstall.sh`.
 
-## Agents (13)
+## Agents (14)
 
 | Agent | Skill | What it does |
 |---|---|---|
 | **sdlc-lead** | `/sdlc` | Orchestrates the full lifecycle — new project, onboard, add feature, improve. Smart routing from natural language. |
+| **coding-agent** | `/code` | Doc-driven implementation engineer. Reads SDLC design docs first, verifies every API via Context7, enforces anti-slop rules (no over-engineering, no hallucinated APIs, no defensive bloat). |
 | **researcher** | `/research` | Competitive analysis, tech feasibility, evidence-based investigation. |
 | **test-engineer** | `/test-expert` | E2E tests, unit tests, test strategy, discovery audits, USE_CASES + TEST_PLAN. |
 | **code-reviewer** | `/review-code` | 7-dimension code health audit, tech debt, pattern drift. |
@@ -34,10 +35,11 @@ Uninstall with `./uninstall.sh`.
 | **sre-engineer** | `/devops` | CI/CD, monitoring, runbooks, incident response, deployment. |
 | **git-expert** | `/git` | Repo bootstrap, branching, commits, PRs, releases, history forensics. |
 
-## Additional Skills (6)
+## Additional Skills (7)
 
 | Skill | What it does |
 |---|---|
+| `/code` | **NEW** — Invoke coding-agent to implement from SDLC design docs. Verifies APIs via Context7, enforces anti-slop rules, produces a Completion Manifest with tech stack compliance. |
 | `/review` | Multi-agent parallel review (code-reviewer + security-auditor + performance-engineer). |
 | `/gate` | Phase gate check — validates exit criteria before advancing SDLC phases. |
 | `/simplify` | Quick code review of recent changes — spot reuse, quality gaps, over-engineering. |
@@ -75,8 +77,8 @@ Or just describe what you want and the SDLC lead figures out the right mode:
 
 | Path | Purpose |
 |---|---|
-| `agents/` | 13 specialist agent definitions |
-| `skills/` | 19 skill triggers (13 agent-backed + 6 standalone) |
+| `agents/` | 14 specialist agent definitions |
+| `skills/` | 20 skill triggers (14 agent-backed + 6 standalone) |
 | `references/` | Canonical checklists the agents read at runtime |
 | `tools/` | Custom TypeScript tools (bash, grep-mcp, semgrep, playwright, etc.) |
 | `commands/` | Slash command definitions (SDLC subcommands) |

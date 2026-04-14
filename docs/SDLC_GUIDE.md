@@ -101,11 +101,14 @@ Phases 0–5, discovery-driven from a blank repo.
 
 **Delegate to:**
 - `/test-expert` — Test strategy BEFORE coding
+- `/code` — Implementation from design docs (coding-agent: doc-driven, API-verified, anti-slop enforced)
 - `/dba` — Database migrations
 - `/containers` — Container setup
 - `/devops` — CI/CD pipeline
 - `/security` — Security audit during development
 - `/review-code` — Code quality review
+
+**Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 
 **Exit criteria:** All components implemented, tests passing, security audit clean
 

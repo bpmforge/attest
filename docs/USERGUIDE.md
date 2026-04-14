@@ -9,6 +9,7 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 - [Typical workflows](#typical-workflows)
 - [Per-expert usage](#per-expert-usage)
   - [`/sdlc` — SDLC workflow (4 modes)](#sdlc)
+  - [`/code` — Doc-driven implementation](#code)
   - [`/git-expert` — Git & forges](#git-expert)
   - [`/security` — Security audit](#security)
   - [`/review-code` — Code health](#review-code)
@@ -94,6 +95,7 @@ Every expert writes its output to a predictable location under `docs/`:
 
 | Expert | Output dir |
 |---|---|
+| `coding-agent` | `docs/improve/VERIFY_ITEM_[n].md` + implementation files |
 | `code-reviewer` | `docs/reviews/CODE_REVIEW_<date>.md` etc. |
 | `security-auditor` | `docs/security/` |
 | `git-expert` | `docs/git/` |
@@ -200,6 +202,52 @@ Gate control:
 ```
 
 Outputs go under `docs/` — `VISION.md`, `SCOPE.md`, `RISKS.md`, `USER_PERSONAS.md`, `SRS.md`, `USER_STORIES.md`, `TECH_STACK.md`, `ARCHITECTURE.md`, `DATABASE.md`, `THREAT_MODEL.md`, `SECURITY_CONTROLS.md`.
+
+---
+
+### `/code`
+
+Invoke the coding agent to implement from SDLC design documents.
+
+```
+/code                             # implement — will ask which design docs to use
+/code implement the auth service  # implement a specific task
+```
+
+**Requires design docs to exist first.** If none exist, run `/sdlc feature "<description>"` first to produce them.
+
+**What happens before a line of code is written:**
+1. Reads all SDLC design docs (ARCHITECTURE.md, SRS.md, TECH_STACK.md, IMPROVEMENT_*_DESIGN.md)
+2. Reads 2–3 existing files in the target directory to match patterns
+3. Verifies every library API via Context7 MCP (`resolve-library-id` + `get-library-docs`)
+
+**Tech stack constraint:** If `docs/TECH_STACK.md` exists, the agent will only use libraries listed there. Any deviation is flagged in the Completion Manifest for your approval — never silently adopted.
+
+**The anti-slop checklist (self-audited before reporting done):**
+- No try-catch outside system boundaries
+- No abstractions with <2 real implementations
+- No single-use helper functions (inlined)
+- No what-comments (only why, when non-obvious)
+- No unused imports
+- No scope beyond what the spec asked for
+- All tech choices match TECH_STACK.md
+
+**Completion Manifest** — at the end of every task the agent produces:
+```
+Files produced:       [path — N lines — what it does]
+API verifications:    [library@version — function verified]
+Tech stack compliance: PASS / [deviations flagged]
+Anti-slop audit:      PASSED / [N issues found and fixed]
+Test result:          [command] → PASS/FAIL
+Deferred:             [anything noticed but out of scope]
+```
+
+**Distinct from:**
+- `/review-code` — audits code *after* it's written
+- `/devops` — CI/CD, ops, deployment (not application code)
+- `/test-expert` — test strategy and coverage analysis
+
+---
 
 ### `/git-expert`
 Modes: `--init`, `--feature`, `--release`, `--recover`, `--inspect`, `--sync`

@@ -4,8 +4,8 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (13)](#agents)
-- [Skills (19)](#skills)
+- [Agents (14)](#agents)
+- [Skills (20)](#skills)
 - [Reference documents (11)](#reference-documents)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
@@ -38,6 +38,32 @@ Orchestrates the full SDLC across 4 operating modes. Delegates every technical t
 Phase 3 (Design) produces both `docs/API_DESIGN.md` (human-readable narrative) and `docs/api/openapi.yaml` (validated OpenAPI 3.0 spec). The spec is a gate requirement — Phase 3 cannot pass until it exists and passes `swagger-cli validate` with 0 errors.
 
 Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
+
+### `coding-agent` — Doc-driven implementation engineer (`mode: primary`)
+
+Implements code from SDLC design documents. Called by `sdlc-lead` via HANDOFF for all implementation work — never invents features, never introduces unlisted tech, never writes from API training-data assumptions.
+
+**Four Laws (enforced before writing any code):**
+1. **Read the design docs first** — ARCHITECTURE.md, SRS.md, DATABASE.md, API_DESIGN.md, IMPROVEMENT_*_DESIGN.md are the spec. Nothing gets built that isn't in the spec.
+2. **Verify every library API via Context7** — calls `resolve-library-id` + `get-library-docs` for every external library before use. If Context7 is unavailable, checks `node_modules/` source directly.
+3. **Match existing patterns** — reads 2–3 existing files in the target directory first; matches their structure, naming, imports, and error-handling style.
+4. **Follow TECH_STACK.md** — reads `docs/TECH_STACK.md` in Phase 1. All library/framework choices must match. Flags deviations in the Completion Manifest rather than silently adopting new tech.
+
+**Anti-slop rules (enforced on every file):**
+- No try-catch outside system boundaries (user input, external APIs, file I/O)
+- No abstractions with fewer than 2 real implementations
+- No single-use helper functions (inline them)
+- No what-comments (only why, only when non-obvious)
+- No unused imports, no scope creep, no speculative generalization
+- Trust the framework — don't re-implement what it provides
+
+**6-phase execution:** Read design docs → Verify APIs via Context7 → Implement → Test → Self-audit → Report
+
+**Produces:** Implementation files + `VERIFY_ITEM_[n].md` Completion Manifest (files produced, API verifications, tech stack compliance, anti-slop audit result, test result, deferred items)
+
+**Distinct from:** `code-reviewer` (audits after implementation), `test-engineer` (test strategy), `sre-engineer` (CI/CD and ops — NOT application code)
+
+---
 
 ### `git-expert` — Git & forge operations (`mode: primary`)
 
@@ -148,6 +174,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | Skill | Agent | Purpose |
 |---|---|---|
 | `/sdlc` | `sdlc-lead` | Full SDLC workflow (init / onboard / feature) |
+| `/code` | `coding-agent` | Implement from SDLC design docs — API verification, anti-slop enforcement, tech stack compliance |
 | `/git-expert` | `git-expert` | Git lifecycle (init / feature / release / recover / inspect / sync) |
 | `/security` | `security-auditor` | OWASP audit, threat model, Semgrep scan |
 | `/review-code` | `code-reviewer` | Code health review (review / debt / consolidate / patterns) |
