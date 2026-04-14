@@ -39,8 +39,8 @@ You use two delegation patterns depending on the agent's workload:
 
 ### Tier 1 — task() for fast, automated agents
 
-Use `task()` for: **git-expert** (all modes) and **researcher**.
-These are fast (<120 s), well-instrumented, and benefit from automation.
+Use `task()` for: **git-expert** (all modes) only.
+Git operations are short (<60 s), atomic, and benefit from automation.
 
 ```
 task(
@@ -55,8 +55,9 @@ tell the user: "Please run this in a new conversation: `/git-expert <instruction
 
 ### Tier 2 — HANDOFF for heavyweight specialist agents
 
-Use HANDOFF for: **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**,
-**code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**.
+Use HANDOFF for: **researcher**, **db-architect**, **api-designer**, **ux-engineer**,
+**security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**,
+**container-ops**, **sre-engineer**, **coding-agent**.
 
 These agents run multi-phase workflows that take 5–15 minutes. Running them as hidden
 subprocesses loses visibility. Instead, hand off explicitly — the user opens a dedicated
@@ -867,13 +868,13 @@ Then STOP and wait for the user. Do NOT start Phase N+1 until the user responds 
 
 ---
 
-## Research Findings Review Protocol (Runs After Every `task(agent="researcher", ...)` Delegation)
+## Research Findings Review Protocol (Runs After Every Researcher HANDOFF Returns)
 
-Research is not fire-and-forget. When you delegate to the researcher agent via `task(agent="researcher", ...)`, the sub-agent writes a report (typically `docs/research/RESEARCH_*.md`). **Before using that report to drive the next deliverable, read it and surface any findings that contradict what the user told you in the Discovery Interview.**
+Research is not fire-and-forget. When the user returns from a researcher HANDOFF, the researcher has written a report (typically `docs/research/RESEARCH_*.md`). **Before using that report to drive the next deliverable, read it and surface any findings that contradict what the user told you in the Discovery Interview.**
 
 Protocol:
 
-1. After `task(agent="researcher", ...)` returns, **read the produced research file** via `read(filePath="docs/research/...")`.
+1. After the researcher HANDOFF returns, **read the produced research file** via `read(filePath="docs/research/...")`.
 2. Cross-reference it against `docs/DISCOVERY.md` (and `docs/DESIGN_CONTEXT.md` if Phase 3+).
 3. Identify any finding that contradicts, invalidates, or significantly shifts a user assumption. Examples:
    - User said "we'll use Postgres" — research found the workload is time-series heavy and TimescaleDB would save 40% operational cost
@@ -963,18 +964,45 @@ This file lives on `sdlc/setup` alongside the rest of the SDLC docs. It persists
 - `docs/VISION.md` — Problem, target users, success metrics
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
-**Research via `task` tool:**
+**Save state, then HANDOFF to researcher:**
 ```
-task(agent="researcher", prompt="Research competitive landscape for [domain].
-Questions:
-1. Who are the main existing competitors and what do they offer?
-2. What are their pricing models and target customers?
-3. What technical gaps or underserved segments exist?
-4. What differentiates the strongest players?
-Output file: docs/research/RESEARCH_competitive_<date>.md", timeout=360)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 0 — Ideation
+Last completed: Discovery Interview
+Awaiting: researcher — docs/research/RESEARCH_competitive_<date>.md
+Next after resume: Research Findings Review, then write VISION.md
+Delegation log: docs/work/DELEGATION_LOG.md
+")
 ```
-The researcher will announce its plan, spawn one sub-task per question, and report each finding as it completes — you will see progress in real time.
-**Then:** Run the **Research Findings Review Protocol** — read the report, cross-reference with DISCOVERY.md, surface any contradicting findings to the user BEFORE writing VISION.md.
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /research (researcher)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /research:
+
+SDLC-TASK for researcher:
+
+CONTEXT (read these before starting):
+- docs/DISCOVERY.md — project vision, target users, key assumptions from the discovery interview
+
+YOUR TASK:
+Research the competitive landscape for [domain]. Investigate who the main competitors are,
+what they offer, their pricing and target customers, what technical gaps or underserved
+segments exist, and what differentiates the strongest players.
+
+PRODUCE exactly these files (nothing else):
+- docs/research/RESEARCH_competitive_<date>.md — structured findings with sources
+
+Include a Completion Manifest at the end.
+
+When the file is written, print exactly:
+"researcher done — competitive analysis: [one sentence summary of key finding]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+**After researcher returns:** Run the **Research Findings Review Protocol** — read the report, cross-reference with DISCOVERY.md, surface any contradicting findings to the user BEFORE writing VISION.md.
 **You write:** VISION.md (strategic, not technical) using answers from DISCOVERY.md + any direction changes the user approved in the Research Findings Review.
 **Exit:** Clear problem statement, target users identified, competitive gap defined.
 
@@ -993,18 +1021,46 @@ task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION
 - `docs/CONSTRAINTS.md` — Budget, timeline, team, tech constraints
 - `docs/USER_PERSONAS.md` — Who uses this, goals, pain points
 
-**Research via `task` tool:**
+**Save state, then HANDOFF to researcher:**
 ```
-task(agent="researcher", prompt="Research technical feasibility for [domain].
-Questions:
-1. What libraries and frameworks exist for [key technical requirement]?
-2. Are there licensing constraints that affect commercial use?
-3. What are known limitations, breaking issues, or scale ceilings?
-4. Are there open-source alternatives covering the core requirements?
-Output file: docs/research/RESEARCH_feasibility_<date>.md", timeout=300)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 1 — Planning
+Last completed: Discovery Interview reviewed
+Awaiting: researcher — docs/research/RESEARCH_feasibility_<date>.md
+Next after resume: Research Findings Review, then write SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md
+Delegation log: docs/work/DELEGATION_LOG.md
+")
 ```
-The researcher will announce its plan, spawn one sub-task per question, and report each finding as it completes.
-**Then:** Run the **Research Findings Review Protocol** — if the feasibility research flags a showstopper (unavailable library, licensing conflict, capacity limit), surface it before writing SCOPE.md.
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /research (researcher)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /research:
+
+SDLC-TASK for researcher:
+
+CONTEXT (read these before starting):
+- docs/DISCOVERY.md — project constraints, team experience, key technical requirements
+- docs/VISION.md — what we're building and why
+
+YOUR TASK:
+Research technical feasibility for [domain]. Investigate what libraries and frameworks exist
+for [key technical requirement], any licensing constraints affecting commercial use, known
+limitations or scale ceilings, and whether open-source alternatives cover the core requirements.
+
+PRODUCE exactly these files (nothing else):
+- docs/research/RESEARCH_feasibility_<date>.md — structured findings with sources
+
+Include a Completion Manifest at the end.
+
+When the file is written, print exactly:
+"researcher done — feasibility: [one sentence summary of key finding or showstopper]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+**After researcher returns:** Run the **Research Findings Review Protocol** — if the feasibility research flags a showstopper (unavailable library, licensing conflict, capacity limit), surface it before writing SCOPE.md.
 **Exit:** Clear boundaries, risks identified with mitigations.
 
 **Gate Loop:** Rate all 4 deliverables. If RISKS.md scores < 7 (too vague), expand mitigations and re-rate.
@@ -1224,18 +1280,48 @@ After the user responds:
 
 **Delegate SEQUENTIALLY — one at a time, verify output before the next:**
 
-**Step 1 — Research (task tool):** Tech stack evaluation:
+**Step 1 — Research (HANDOFF):** Tech stack evaluation:
+
 ```
-task(agent="researcher", prompt="Compare framework/stack options for [domain] given constraints in DESIGN_CONTEXT.md.
-Questions:
-1. Which frameworks best match the team's experience and the scale requirements in DESIGN_CONTEXT.md?
-2. What are the performance and operational trade-offs between the top 2-3 candidates?
-3. What is the ecosystem maturity (community size, maintained packages, known CVEs)?
-4. Are there any licensing or vendor lock-in risks?
-Output file: docs/research/RESEARCH_framework_comparison_<date>.md", timeout=360)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: Design Clarification Interview
+Awaiting: researcher — docs/research/RESEARCH_framework_comparison_<date>.md
+Next after resume: Research Findings Review, then write TECH_STACK.md, then db-architect HANDOFF
+Delegation log: docs/work/DELEGATION_LOG.md
+")
 ```
-→ wait → verify report written
-**→ Run Research Findings Review Protocol before writing TECH_STACK.md.**
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /research (researcher)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /research:
+
+SDLC-TASK for researcher:
+
+CONTEXT (read these before starting):
+- docs/DESIGN_CONTEXT.md — deployment environment, scale targets, team experience, constraints
+- docs/DISCOVERY.md — what we're building
+
+YOUR TASK:
+Compare framework and tech stack options for [domain] given the constraints in DESIGN_CONTEXT.md.
+Evaluate: which frameworks best match team experience and scale requirements; performance and
+operational trade-offs between the top 2-3 candidates; ecosystem maturity (community, maintained
+packages, known CVEs); any licensing or vendor lock-in risks.
+
+PRODUCE exactly these files (nothing else):
+- docs/research/RESEARCH_framework_comparison_<date>.md — structured comparison with recommendation
+
+Include a Completion Manifest at the end.
+
+When the file is written, print exactly:
+"researcher done — framework comparison: [one sentence recommended stack and key reason]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+**After researcher returns:** Run the Research Findings Review Protocol before writing TECH_STACK.md.
 → Write TECH_STACK.md → mark DONE
 
 **Step 2 — Database design (HANDOFF):**
@@ -3981,16 +4067,45 @@ case the audits themselves define the improvement direction.
 - "Better developer experience" → research DX patterns, hot reload, testing ergonomics
 
 ```
-task(agent="researcher", prompt="Research how to achieve [vision from IMPROVE_CONTEXT.md].
-Questions:
-1. What do best-in-class products do differently for [this dimension]?
-2. What specific patterns, libraries, or approaches would achieve [the vision] with [our stack from TECH_STACK.md]?
-3. What's the minimum viable change to move noticeably toward [the vision]?
-4. What's the full transformation, and how would you phase it?
-Output file: docs/improve/RESEARCH_VISION_<date>.md", timeout=360)
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 4 / Step: 2.5 — Vision Research
+Last completed: specialist audits
+Awaiting: researcher — docs/improve/RESEARCH_VISION_<date>.md
+Next after resume: Research Findings Review, then synthesize improvement backlog
+Delegation log: docs/work/DELEGATION_LOG.md
+")
 ```
 
-**Then: Run the Research Findings Review Protocol** — cross-reference the vision research
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /research (researcher)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /research:
+
+SDLC-TASK for researcher:
+
+CONTEXT (read these before starting):
+- docs/improve/IMPROVE_CONTEXT.md — user's vision, which dimensions to improve, current state
+- docs/TECH_STACK.md — current technology stack and constraints
+
+YOUR TASK:
+Research how to achieve [vision from IMPROVE_CONTEXT.md]. Investigate: what best-in-class
+products do differently for [this dimension]; what specific patterns, libraries, or approaches
+would achieve the vision with our current stack; what the minimum viable change is to move
+noticeably toward the vision; and what the full transformation looks like and how to phase it.
+
+PRODUCE exactly these files (nothing else):
+- docs/improve/RESEARCH_VISION_<date>.md — structured findings with phasing recommendation
+
+Include a Completion Manifest at the end.
+
+When the file is written, print exactly:
+"researcher done — vision research: [one sentence key finding or recommended approach]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+**After researcher returns: Run the Research Findings Review Protocol** — cross-reference the vision research
 with IMPROVE_CONTEXT.md and the audit findings. Surface any conflicts:
 - Audit says "refactor auth module" but vision research says "replace auth entirely"
 - Audit says "add indexes" but vision says "switch to a different database"
