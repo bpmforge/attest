@@ -303,3 +303,58 @@ rules:
       owasp: ["A01:2021"]
       confidence: MEDIUM
       category: security
+
+  # ── A03: JPA Native Query Injection ───────────────────────────────
+
+  - id: java-custom.injection.jpa-native-query-concat
+    languages: [java]
+    severity: ERROR
+    message: >
+      JPA `createNativeQuery()` with string concatenation — SQL injection.
+      Use named parameters: `createNativeQuery("... WHERE id = :id")`
+      then `query.setParameter("id", value)`.
+    patterns:
+      - pattern-either:
+          - pattern: $EM.createNativeQuery("..." + $INPUT)
+          - pattern: $EM.createNativeQuery($INPUT + "...")
+          - pattern: $EM.createQuery("..." + $INPUT)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Insecure Cookie ───────────────────────────────────────────
+
+  - id: java-custom.misconfig.cookie-not-secure
+    languages: [java]
+    severity: HIGH
+    message: >
+      `Cookie.setSecure(false)` or missing `setHttpOnly(true)` — the
+      cookie can be transmitted over HTTP and read by JavaScript.
+      Always call `cookie.setSecure(true)` and `cookie.setHttpOnly(true)`
+      for session and auth cookies.
+    patterns:
+      - pattern: $COOKIE.setSecure(false)
+    metadata:
+      cwe: ["CWE-614"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A08: BinaryFormatter ───────────────────────────────────────────
+
+  - id: java-custom.deserialization.xmldecoder
+    languages: [java]
+    severity: ERROR
+    message: >
+      `XMLDecoder.readObject()` on untrusted XML — arbitrary Java object
+      deserialization and code execution. Never use XMLDecoder with
+      user-supplied input. Use JAXB or another safe XML binding library.
+    patterns:
+      - pattern: (XMLDecoder $DEC).readObject()
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security

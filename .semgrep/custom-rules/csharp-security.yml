@@ -459,3 +459,56 @@ rules:
       owasp: ["A05:2021"]
       confidence: MEDIUM
       category: security
+
+  # ── A03: SQL String Interpolation ─────────────────────────────────
+
+  - id: csharp-custom.injection.sql-string-interpolation
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      SQL query built with C# string interpolation (`$"...{var}..."`) —
+      SQL injection risk. Use parameterized queries with `SqlParameter`
+      or an ORM (Entity Framework, Dapper with `@param` syntax).
+    patterns:
+      - pattern-either:
+          - pattern: $CMD.CommandText = $"...{$INPUT}..."
+          - pattern: new SqlCommand($"...{$INPUT}...", ...)
+          - pattern: $CONN.Execute($"...{$INPUT}...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: csharp-custom.deserialization.binary-formatter
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      `BinaryFormatter.Deserialize()` is insecure and obsolete (removed in
+      .NET 9). It enables arbitrary code execution via gadget chains.
+      Use `System.Text.Json`, `XmlSerializer`, or `MessagePack` instead.
+    patterns:
+      - pattern: (BinaryFormatter $FMT).Deserialize(...)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: csharp-custom.deserialization.netdatacontract-serializer
+    languages: [csharp]
+    severity: ERROR
+    message: >
+      `NetDataContractSerializer.ReadObject()` deserializes arbitrary .NET
+      types — remote code execution via gadget chains. Replace with
+      `DataContractSerializer` with a known-types allowlist, or use
+      `System.Text.Json`.
+    patterns:
+      - pattern: (NetDataContractSerializer $SER).ReadObject(...)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security

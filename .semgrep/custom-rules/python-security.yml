@@ -334,3 +334,90 @@ rules:
       owasp: ["A10:2021"]
       confidence: MEDIUM
       category: security
+
+  # ── A03: Django/Jinja2 Injection ───────────────────────────────────
+
+  - id: python-custom.injection.django-raw-sql
+    languages: [python]
+    severity: ERROR
+    message: >
+      Django ORM `raw()` with string interpolation or concatenation —
+      SQL injection risk. Use parameterized `raw()`:
+      `Model.objects.raw("SELECT ... WHERE id = %s", [user_id])`.
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.objects.raw(f"...{$INPUT}...")
+          - pattern: $MODEL.objects.raw("..." + $INPUT)
+          - pattern: $MODEL.objects.raw("...%s..." % $INPUT)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.injection.jinja2-render-string
+    languages: [python]
+    severity: ERROR
+    message: >
+      `render_template_string()` with user-controlled input — Server-Side
+      Template Injection (SSTI). An attacker can execute arbitrary Python
+      via Jinja2 template syntax (e.g., `{{config.__class__}}`).
+      Never render user-supplied strings as Jinja2 templates.
+    patterns:
+      - pattern: render_template_string($INPUT, ...)
+      - pattern-not: render_template_string("...", ...)
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.injection.assert-security-check
+    languages: [python]
+    severity: HIGH
+    message: >
+      `assert` used for a security or auth check — assertions are stripped
+      when Python runs with the `-O` (optimize) flag, silently bypassing
+      the check. Use an explicit `if not ...: raise` instead.
+    patterns:
+      - pattern: assert $CONDITION, $MSG
+      - metavariable-regex:
+          metavariable: $MSG
+          regex: (?i)(auth|permission|access|forbidden|unauthorized|not allowed|invalid token|must be|require)
+    metadata:
+      cwe: ["CWE-617"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: python-custom.deserialization.marshal-loads
+    languages: [python]
+    severity: ERROR
+    message: >
+      `marshal.loads()` on untrusted data — arbitrary code execution risk.
+      Marshal is designed for Python internal use (`.pyc` files) and must
+      never be used to deserialize untrusted input. Use JSON instead.
+    patterns:
+      - pattern: marshal.loads($INPUT)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: python-custom.misconfig.flask-cookie-no-secure
+    languages: [python]
+    severity: HIGH
+    message: >
+      Flask `set_cookie()` without `secure=True` and `httponly=True` —
+      the cookie can be intercepted over HTTP and read by JavaScript.
+      Always set both flags for session and auth cookies.
+    patterns:
+      - pattern: $RESP.set_cookie($NAME, ...)
+      - pattern-not: $RESP.set_cookie($NAME, ..., secure=True, ...)
+      - pattern-not: $RESP.set_cookie($NAME, ..., httponly=True, ...)
+    metadata:
+      cwe: ["CWE-614", "CWE-1004"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security

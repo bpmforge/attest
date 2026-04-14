@@ -288,3 +288,56 @@ rules:
       owasp: ["A03:2021"]
       confidence: LOW
       category: security
+
+  # ── Resource Management ────────────────────────────────────────────
+
+  - id: go-custom.resource.defer-in-loop
+    languages: [go]
+    severity: WARNING
+    message: >
+      `defer` inside a loop body — `defer` executes when the surrounding
+      function returns, not when the loop iteration ends. Resources (files,
+      connections) accumulate until the function exits, causing leaks.
+      Close resources explicitly at the end of each iteration instead.
+    patterns:
+      - pattern: |
+          for ... {
+            ...
+            defer $F(...)
+            ...
+          }
+    metadata:
+      cwe: ["CWE-400"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: go-custom.misconfig.http-client-no-timeout
+    languages: [go]
+    severity: HIGH
+    message: >
+      `&http.Client{}` without a `Timeout` field — outbound HTTP requests
+      have no deadline and can hang indefinitely, exhausting goroutines.
+      Set an explicit timeout: `&http.Client{Timeout: 30 * time.Second}`.
+    patterns:
+      - pattern: &http.Client{}
+    metadata:
+      cwe: ["CWE-400"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: go-custom.misconfig.cookie-no-secure
+    languages: [go]
+    severity: HIGH
+    message: >
+      `http.Cookie` without `Secure: true` and `HttpOnly: true` — the
+      cookie can be sent over HTTP and read by JavaScript. Always set
+      both flags for session and auth cookies.
+    patterns:
+      - pattern: http.Cookie{..., Secure: false, ...}
+    metadata:
+      cwe: ["CWE-614", "CWE-1004"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security

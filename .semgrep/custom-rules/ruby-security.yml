@@ -1,0 +1,194 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Ruby / Rails Security Rules — Gap Filler
+  #
+  # p/ruby and p/brakeman cover some Rails basics. This ruleset fills
+  # remaining OWASP gaps:
+  #   A03: SQL injection (ActiveRecord string interpolation, find_by_sql),
+  #        command injection (backticks, system(), Open3), eval
+  #   A05: Hardcoded secrets
+  #   A08: Marshal.load deserialization, YAML.load unsafe
+  #   A09: Sensitive data in Rails logger
+  #   A10: SSRF (Net::HTTP with user URL)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: ruby-custom.injection.activerecord-string-interpolation
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      ActiveRecord query with string interpolation or concatenation —
+      SQL injection risk. Use parameterized forms:
+      `where("name = ?", name)` or `where(name: name)` instead.
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.where("...#{$INPUT}...")
+          - pattern: $MODEL.where("..." + $INPUT)
+          - pattern: $MODEL.find_by_sql("...#{$INPUT}...")
+          - pattern: $MODEL.find_by_sql("..." + $INPUT)
+          - pattern: $MODEL.order("...#{$INPUT}...")
+          - pattern: $MODEL.having("...#{$INPUT}...")
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: ruby-custom.injection.execute-sql-interpolation
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      Raw SQL executed with string interpolation — SQL injection risk.
+      Use `sanitize_sql_array` or ActiveRecord parameterized queries.
+    patterns:
+      - pattern-either:
+          - pattern: ActiveRecord::Base.execute("...#{$INPUT}...")
+          - pattern: $CONN.execute("...#{$INPUT}...")
+          - pattern: $CONN.execute("..." + $INPUT)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: ruby-custom.injection.backtick-user-input
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      Backtick command execution with string interpolation — command
+      injection risk. Use `Open3.capture2e(['cmd', arg1, arg2])` with
+      an explicit argument array instead.
+    patterns:
+      - pattern: "`...#{$INPUT}...`"
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: ruby-custom.injection.system-user-input
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      `system()` or `%x{}` with string interpolation — command injection
+      risk. Pass an argument array: `system('cmd', arg1, arg2)` without
+      shell interpretation.
+    patterns:
+      - pattern-either:
+          - pattern: system("...#{$INPUT}...")
+          - pattern: system("..." + $INPUT)
+          - pattern: exec("...#{$INPUT}...")
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: ruby-custom.deserialization.marshal-load
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      `Marshal.load()` on untrusted data enables remote code execution —
+      Ruby Marshal can execute arbitrary code during deserialization.
+      Use JSON, MessagePack, or another safe serialization format for
+      untrusted input.
+    patterns:
+      - pattern-either:
+          - pattern: Marshal.load($INPUT)
+          - pattern: Marshal.restore($INPUT)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: ruby-custom.deserialization.yaml-load-unsafe
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      `YAML.load()` on untrusted data can execute arbitrary Ruby objects
+      via YAML tags. Use `YAML.safe_load()` which only permits basic types.
+    patterns:
+      - pattern: YAML.load($INPUT)
+      - pattern-not: YAML.load($INPUT, permitted_classes: ...)
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: ruby-custom.secrets.hardcoded-credential
+    languages: [ruby]
+    severity: ERROR
+    message: >
+      Hardcoded credential in source code. Load from Rails credentials
+      (`Rails.application.credentials.secret_key`) or environment
+      variables (`ENV['SECRET_KEY']`).
+    patterns:
+      - pattern-either:
+          - pattern: $VAR = "..."
+          - pattern: $VAR = '...'
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_?key|auth_?token|access_?token|private_?key|client_?secret|jwt_?secret)
+      - pattern-not: $VAR = ""
+      - pattern-not: $VAR = ''
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A09: Sensitive Data in Logs ────────────────────────────────────
+
+  - id: ruby-custom.logging.sensitive-data
+    languages: [ruby]
+    severity: WARNING
+    message: >
+      Sensitive variable may be written to Rails logs. Use
+      `Rails.application.config.filter_parameters` to automatically
+      filter sensitive fields from all log output.
+    patterns:
+      - pattern-either:
+          - pattern: Rails.logger.info(...$VAR...)
+          - pattern: Rails.logger.debug(...$VAR...)
+          - pattern: logger.info(...$VAR...)
+          - pattern: puts $VAR
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|token|secret|credit_?card|ssn|cvv|pin|auth)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: ruby-custom.ssrf.net-http-user-url
+    languages: [ruby]
+    severity: HIGH
+    message: >
+      `Net::HTTP.get()` / `URI.open()` called with a variable URL —
+      potential SSRF. Validate the URL against an allowlist and block
+      requests to internal IP ranges.
+    patterns:
+      - pattern-either:
+          - pattern: Net::HTTP.get(URI($URL))
+          - pattern: Net::HTTP.get_response(URI($URL))
+          - pattern: URI.open($URL)
+          - pattern: open($URL)
+      - pattern-not: Net::HTTP.get(URI("..."))
+      - pattern-not: URI.open("...")
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
