@@ -596,6 +596,7 @@ if [ -d "$CUSTOM_RULES_DIR" ]; then
       rust)    custom_file="$CUSTOM_RULES_DIR/rust-security.yml" ;;
       php)     custom_file="$CUSTOM_RULES_DIR/php-security.yml" ;;
       csharp)  custom_file="$CUSTOM_RULES_DIR/csharp-security.yml" ;;
+      ruby)    custom_file="$CUSTOM_RULES_DIR/ruby-security.yml" ;;
     esac
     if [ -n "$custom_file" ] && [ -f "$custom_file" ]; then
       CONFIGS+=(--config "$custom_file")

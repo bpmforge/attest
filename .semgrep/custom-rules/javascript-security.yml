@@ -374,3 +374,61 @@ rules:
       owasp: ["A03:2021"]
       confidence: LOW
       category: security
+
+  # ── Prototype Pollution (direct) ───────────────────────────────────
+
+  - id: js-custom.injection.proto-property-assignment
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: >
+      Direct `__proto__` assignment from a variable — prototype pollution.
+      An attacker can inject properties onto Object.prototype affecting
+      all objects in the process. Validate input and never allow keys
+      like `__proto__`, `constructor`, or `prototype` from user data.
+    patterns:
+      - pattern-either:
+          - pattern: $OBJ.__proto__ = $INPUT
+          - pattern: $OBJ["__proto__"] = $INPUT
+    metadata:
+      cwe: ["CWE-1321"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── Missing Security Middleware ────────────────────────────────────
+
+  - id: js-custom.misconfig.express-no-helmet
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: >
+      Express app created without `helmet` middleware — security headers
+      (CSP, HSTS, X-Frame-Options, etc.) are not set. Add:
+      `const helmet = require('helmet'); app.use(helmet());` near the
+      top of your middleware stack.
+    patterns:
+      - pattern: express()
+      - pattern-not-inside: |
+          app.use(helmet(...))
+          ...
+    metadata:
+      cwe: ["CWE-16"]
+      owasp: ["A05:2021"]
+      confidence: LOW
+      category: security
+
+  # ── Insecure Cookie ────────────────────────────────────────────────
+
+  - id: js-custom.misconfig.express-cookie-no-secure
+    languages: [javascript, typescript]
+    severity: HIGH
+    message: >
+      Express `res.cookie()` without `secure: true` and `httpOnly: true` —
+      the cookie can be sent over HTTP and read by JavaScript. Always
+      set both flags for session and auth cookies.
+    patterns:
+      - pattern: res.cookie($NAME, $VAL, {..., secure: false, ...})
+    metadata:
+      cwe: ["CWE-614", "CWE-1004"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
