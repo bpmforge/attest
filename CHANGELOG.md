@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.11.0] — 2026-04-14
+
+New `coding-agent` specialist for doc-driven implementation, delegation tracking across all handoffs, and TECH_STACK.md enforcement throughout the SDLC.
+
+### Added
+
+- **`coding-agent` — new specialist agent** (`agents/coding-agent.md`) — Doc-driven implementation engineer invoked via HANDOFF from `sdlc-lead` for all code implementation work. Enforces Four Laws before writing any code: (1) read SDLC design docs first, (2) verify every library API via Context7 MCP (`resolve-library-id` + `get-library-docs`) — never writes from training-data assumptions, (3) match existing patterns in the target directory, (4) follow `docs/TECH_STACK.md` — flags any unlisted library rather than silently adopting it. Anti-slop rules enforced on every file: no try-catch outside system boundaries, no abstractions with <2 implementations, no single-use helpers, no what-comments, no unused imports, no scope creep. Self-audit checklist run before reporting done. Produces a Completion Manifest including files produced, API verifications, tech stack compliance, anti-slop audit result, test result, and deferred items.
+
+- **`/code` skill** (`skills/code/SKILL.md`) — Thin trigger that invokes `coding-agent`. Usage: `/code` (will ask for design docs) or `/code <description>`. Requires design docs to exist — directs user to `/sdlc feature` if none found.
+
+- **DELEGATION_LOG** — persistent append-only tracking file (`docs/work/DELEGATION_LOG.md`) written by `sdlc-lead` on every HANDOFF issued and returned. Columns: timestamp, agent, task summary, status (PENDING / DONE / REDO / FAILED), confidence score, notes. Provides a complete audit trail of what was delegated, to whom, and whether it passed the confidence gate.
+
+- **Structured HANDOFF confidence loop** — "Resuming after a HANDOFF" section rewritten with a 6-step protocol: confirm state from `sdlc-state.md` → verify output files → score 1–10 → apply asymmetric threshold (≥7 pass, 5–6 revise up to 3×, <5 auto-fail) → update DELEGATION_LOG → continue or escalate. "Revise" means ask user to re-run the agent, not rewrite output yourself.
+
+- **TECH_STACK.md enforcement in implementation** — coding-agent HANDOFF template in Mode 4 now includes `docs/TECH_STACK.md` in the CONTEXT block with explicit constraint: "Do not introduce any library, framework, or runtime not listed in TECH_STACK.md — flag deviations in the completion manifest instead of silently adopting them." Same constraint added to the Mode 1 Phase 4 IMPLEMENTATION CHECKPOINT.
+
+### Changed
+
+- `sdlc-lead`: Skill → Agent mapping table updated — `coding-agent` added as the agent for all general code implementation. `sre-engineer` annotated as CI/CD/ops only (NOT application code). CRITICAL warning block added to prevent inventing agent names.
+- `sdlc-lead` Mode 4: Size M HANDOFF template updated to pass `docs/TECH_STACK.md` as a required context file and require tech stack compliance in the completion manifest.
+- `sdlc-lead` IMPLEMENTATION CHECKPOINT: `docs/TECH_STACK.md` listed first among spec documents with "MANDATORY constraint" label.
+- All docs updated: `README.md` (14 agents, 20 skills), `docs/FEATURES.md`, `docs/EXPERT_GUIDE.md`, `docs/USERGUIDE.md`, `docs/SDLC_GUIDE.md`, `docs/AGENT_PROCESS_FLOW.md`.
+
+---
+
 ## [0.10.0] — 2026-04-13
 
 Three targeted enhancements: attack chain analysis in the security auditor, OpenAPI 3.0 spec as an SDLC Phase 3 gate requirement, and semgrep custom rules correctly documented to the user's personal OpenCode store.
