@@ -147,36 +147,69 @@ Never say "Run --design mode" or "Run --review mode" — describe the TASK, not 
 
 **Skill → Agent mapping:**
 
-| User skill    | Agent name             |
-|---------------|------------------------|
-| `/research`   | `researcher`           |
-| `/test-expert`| `test-engineer`        |
-| `/review-code`| `code-reviewer`        |
-| `/security`   | `security-auditor`     |
-| `/dba`        | `db-architect`         |
-| `/devops`     | `sre-engineer`         |
-| `/ux`         | `ux-engineer`          |
-| `/api-design` | `api-designer`         |
-| `/perf`       | `performance-engineer` |
-| `/containers` | `container-ops`        |
-| `/git-expert` | `git-expert`           |
-| `/frontend`   | `frontend-design`      |
+| User skill    | Agent name             | Domain                                      |
+|---------------|------------------------|---------------------------------------------|
+| `/code`       | `coding-agent`         | Doc-driven implementation — reads SDLC specs, verifies APIs via Context7, enforces anti-slop rules |
+| `/research`   | `researcher`           | Investigation, tech comparisons, feasibility |
+| `/test-expert`| `test-engineer`        | Playwright, vitest, test strategy, coverage |
+| `/review-code`| `code-reviewer`        | Code quality, complexity, duplication, tech debt |
+| `/security`   | `security-auditor`     | OWASP, threat modeling, CVE scanning        |
+| `/dba`        | `db-architect`         | Schema design, migrations, query optimization |
+| `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment — NOT general coding |
+| `/ux`         | `ux-engineer`          | UX workflows, WCAG, component architecture  |
+| `/api-design` | `api-designer`         | REST/GraphQL contracts, versioning, OpenAPI |
+| `/perf`       | `performance-engineer` | Profiling, benchmarks, bottleneck optimization |
+| `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
+| `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
+| `/frontend`   | `frontend-design`      | Visual implementation, typography, design systems |
+
+**For general code implementation (backend logic, refactoring, business code): use `coding-agent` via HANDOFF.**
+The coding-agent reads design docs first, verifies APIs via Context7, and enforces anti-slop rules.
+- `sre-engineer` is for CI/CD and ops — NOT application code
+- Every HANDOFF must name an agent from the table above — do NOT invent agent names
 
 ### Resuming after a HANDOFF
 
 When the user returns and says "[agent] done":
-1. Read `docs/work/sdlc-state.md` to confirm where you were
-2. Verify the expected output files exist and have substantial content (>50 lines)
-3. Look for a Completion Manifest in the output — it should list:
+
+**Step 1 — Confirm state**
+Read `docs/work/sdlc-state.md` to confirm which agent was delegated and what it was expected to produce.
+
+**Step 2 — Verify output**
+1. Check that the expected output files exist and have substantial content (>50 lines)
+2. Look for a Completion Manifest — it should list:
    - Files produced (with line counts)
    - Decisions made (with reasoning)
-   - Known issues (deferred items)
+   - Known issues / deferred items
    - Test results (if tests were run)
-4. If the manifest reports test failures or known issues, surface them to the user
-   before continuing: "The [agent] reported [N] test failures: [list]. Fix before proceeding?"
-5. If verification passes: continue to the next step
-6. If the output file is missing, thin, or has no manifest: ask the user to re-run
-   the agent with more specifics
+   - Tech stack compliance (for coding-agent outputs)
+
+**Step 3 — Score confidence (1–10)**
+
+Score the HANDOFF output on a 1–10 scale:
+- **10**: All expected files present, manifest complete, tests pass, no deviations
+- **7–9**: Files present, minor notes in deferred, tests pass
+- **5–6**: Files present but thin, or manifest missing, or deferred issues that need attention
+- **1–4**: Files missing, tests failing, agent deviated from spec, or no manifest at all
+
+**Step 4 — Apply asymmetric threshold**
+
+| Score | Action |
+|-------|--------|
+| ≥ 7   | **Pass** — continue to next step |
+| 5–6   | **Revise** — ask user to re-run the agent (up to 3 times); provide the specific gap to fix. Do NOT rewrite the output yourself. |
+| < 5   | **Auto-fail** — surface the failure to the user: "The [agent] output does not meet the minimum bar: [reason]. Please re-run with these corrections: [specifics]." |
+
+**Step 5 — Update DELEGATION_LOG**
+Append the result to `docs/work/DELEGATION_LOG.md`:
+```
+| [timestamp] | [agent] | [task summary] | DONE/FAILED/REDO | [score]/10 | [notes] |
+```
+
+**Step 6 — Continue or escalate**
+- If the manifest reports test failures or known issues, surface them before continuing:
+  "The [agent] reported [N] test failures: [list]. Fix before proceeding?"
+- If verification passes (score ≥ 7): continue to the next step
 
 ## Four Operating Modes
 
@@ -622,6 +655,50 @@ Branch: improve/[slug]
 
 ---
 
+## DELEGATION_LOG — Persistent Handoff Tracking
+
+Every HANDOFF issued by sdlc-lead is recorded in `docs/work/DELEGATION_LOG.md`.
+This file is append-only — never delete rows, only add new ones.
+
+### When to write
+
+- **On HANDOFF issue**: append a PENDING row before the user switches sessions
+- **On HANDOFF return** (after confidence scoring in "Resuming after a HANDOFF"): update the row status to DONE, FAILED, or REDO
+
+### File format
+
+Create `docs/work/DELEGATION_LOG.md` if it does not exist (use the header below).
+Append one row per delegation event.
+
+```markdown
+# Delegation Log
+
+| Timestamp | Agent | Task Summary | Status | Confidence | Notes |
+|-----------|-------|--------------|--------|------------|-------|
+| 2026-01-15 14:32 | coding-agent | Implement auth middleware (#3) | DONE | 8/10 | Minor: added TODO for rate limit |
+| 2026-01-15 15:10 | test-engineer | E2E tests for P0 flows | REDO | 4/10 | Missing 3 of 5 required test files |
+```
+
+### Status values
+
+| Status | Meaning |
+|--------|---------|
+| PENDING | Handoff issued, awaiting return |
+| DONE | Output verified, confidence ≥ 7 |
+| REDO | Returned but failed confidence check — user asked to re-run |
+| FAILED | Auto-fail (confidence < 5) — blocked, requires user intervention |
+
+### On every HANDOFF issue, also update `docs/work/sdlc-state.md`
+
+```
+Mode: [N] / Phase: [N]
+Last completed: [step name]
+Awaiting: [agent-name] — [what was delegated]
+Next after resume: [what comes after the handoff]
+Delegation log: docs/work/DELEGATION_LOG.md
+```
+
+---
 
 ## CRITICAL: Diagram Requirements
 
@@ -1864,11 +1941,15 @@ Next after resume: DB migrations, then expert reviews
 ═══════════════════════════════════════════════════════════
 Time to implement. Your design documents are the spec:
 
+  Tech stack:      docs/TECH_STACK.md    (language, framework, libraries — MANDATORY constraint)
   Architecture:    docs/ARCHITECTURE.md  (structure, patterns, DI)
   Requirements:    docs/SRS.md + docs/USER_STORIES.md
   API contracts:   docs/API_DESIGN.md    (endpoints, shapes, auth)
   DB schema:       docs/DATABASE.md      (tables, migrations, indexes)
   Test plan:       docs/TEST_STRATEGY.md (write tests alongside code)
+
+Tech stack constraint: use ONLY the libraries and frameworks listed in TECH_STACK.md.
+Do not introduce unlisted dependencies — flag deviations instead of silently adopting them.
 
 Build rule: feature-sliced structure, interfaces before implementations,
 no god functions (keep under 50 lines per function).
@@ -4026,22 +4107,30 @@ Execution order: [ordered list]
 
 Execute each approved item in priority order. Use the correct workflow based on size.
 
+**Implementation routing:**
+- **Size S** — show IMPLEMENTATION CHECKPOINT, user implements in current session
+- **Size M/L** — HANDOFF to `coding-agent` (reads SDLC docs, verifies APIs, enforces anti-slop rules)
+- **Domain-specific work** — HANDOFF to matching specialist (DB schema → dba, security fix → security-auditor, test coverage → test-engineer)
+- Do NOT invent agent names — every HANDOFF must use an agent from the Skill → Agent mapping table above
+
 ### Size S — Execute Directly (No Design Docs)
 
 ```
 ═══════════════════════════════════════════════════════════
   IMPLEMENTATION CHECKPOINT — Item #[n]: [title]
 ═══════════════════════════════════════════════════════════
-Small improvement — implement directly. The audit finding is the spec:
+Small improvement — implement this yourself in your current session.
+The audit finding is the spec:
   Audit source: docs/improve/[AUDIT].md
   Finding: [brief description]
-  Fix: [what to change]
+  Fix: [specific files to change and what to change]
+  Done criteria: [how you'll know it's working]
 
-When implementation is complete, come back and say: "item [n] done"
+Implement the fix, run any relevant tests, then come back and say: "item [n] done"
 ═══════════════════════════════════════════════════════════
 ```
 
-After the user confirms done, run a targeted verification HANDOFF:
+After the user confirms done, run a targeted verification HANDOFF to the specialist who found the issue:
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -4070,6 +4159,16 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
+**Which specialist to use for verification?** Match to whoever audited it:
+- Code quality / duplication / complexity → `code-reviewer`
+- Security vulnerability → `security-auditor`
+- Database / query → `db-architect`
+- Performance / N+1 → `performance-engineer`
+- Test coverage → `test-engineer`
+- API contract → `api-designer`
+- CI/CD / deployment → `sre-engineer`
+- If no specialist matches: skip the HANDOFF and verify inline (read the changed files, confirm fix applied)
+
 ### Size M — Brief Design Step + Implement
 
 For medium items, produce a focused design note before implementing:
@@ -4089,7 +4188,40 @@ Done criteria: [how to verify it's fixed]
 Present the design note to the user: "Here's the plan for item #[n] — does this approach look right?"
 Proceed only after confirmation.
 
-Then issue the Implementation Checkpoint (same format as Size S), followed by the verification HANDOFF.
+Then HANDOFF to coding-agent for implementation:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /code (coding-agent)
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt to /code:
+
+SDLC-TASK for coding-agent:
+
+CONTEXT (read these before starting):
+- docs/work/context-for-coding-agent.md — full context packet for this task
+- docs/TECH_STACK.md — MANDATORY tech stack: use ONLY these libraries/frameworks
+- docs/improve/IMPROVEMENT_[n]_DESIGN.md — the approved design: problem, fix, files affected, done criteria
+- docs/improve/[AUDIT].md — the original audit finding
+
+YOUR TASK:
+Implement improvement item #[n]: [title]. The design doc has the full spec — follow it exactly.
+Do not change behavior outside the specified fix. Verify all library APIs via Context7 before using them.
+Do not introduce any library, framework, or runtime not listed in TECH_STACK.md — flag deviations
+in the completion manifest instead of silently adopting them.
+
+PRODUCE exactly these files (nothing else):
+- [file 1] — [what changes and why]
+- [file 2] — [what changes and why]
+- docs/improve/VERIFY_ITEM_[n].md — completion manifest: files changed, test result, anti-slop audit, tech stack compliance
+
+When all files are written and tests pass, print exactly:
+"coding-agent done — item [n]: [one sentence describing what was implemented]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+After coding-agent reports done, run the verification HANDOFF to the specialist who audited the item.
 
 ### Size L — Spawn Mode 3 Sub-Workflow
 
