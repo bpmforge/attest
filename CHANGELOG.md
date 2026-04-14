@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [1.0.0] — 2026-04-13
+## [0.10.0] — 2026-04-13
 
 Three targeted enhancements: attack chain analysis in the security auditor, OpenAPI 3.0 spec as an SDLC Phase 3 gate requirement, and semgrep custom rules correctly documented to the user's personal OpenCode store.
 
