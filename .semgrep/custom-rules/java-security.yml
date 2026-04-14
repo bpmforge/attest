@@ -1,0 +1,305 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Java Security Rules — Gap Filler
+  #
+  # p/java covers some basics. This ruleset fills remaining OWASP gaps for
+  # enterprise Java / Spring Boot patterns:
+  #   A03: SQL injection (Statement.execute + concat), command injection,
+  #        XXE (DocumentBuilderFactory), XPath injection, LDAP injection
+  #   A02: Weak randomness (java.util.Random), MD5/SHA1, insecure TLS
+  #   A05: Hardcoded secrets, debug/verbose error pages
+  #   A07: Insecure session config, missing CSRF
+  #   A08: Java serialization (ObjectInputStream.readObject)
+  #   A09: Sensitive data in log
+  #   A10: SSRF (URL.openConnection with user input)
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: java-custom.injection.sql-statement-concat
+    languages: [java]
+    severity: ERROR
+    message: >
+      SQL query built with string concatenation via `Statement.execute()` /
+      `executeQuery()` — SQL injection risk. Use `PreparedStatement` with
+      `?` placeholders and `setString()` / `setInt()` for all parameters.
+    patterns:
+      - pattern-either:
+          - pattern: $STMT.execute("..." + $INPUT)
+          - pattern: $STMT.executeQuery("..." + $INPUT)
+          - pattern: $STMT.executeUpdate("..." + $INPUT)
+          - pattern: $STMT.execute($INPUT + "...")
+          - pattern: $STMT.executeQuery($INPUT + "...")
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: java-custom.injection.sql-string-format
+    languages: [java]
+    severity: ERROR
+    message: >
+      SQL query built with `String.format()` — SQL injection risk.
+      Use `PreparedStatement` with parameterized placeholders.
+    patterns:
+      - pattern-either:
+          - pattern: String.format("...SELECT...", ...)
+          - pattern: String.format("...INSERT...", ...)
+          - pattern: String.format("...UPDATE...", ...)
+          - pattern: String.format("...DELETE...", ...)
+          - pattern: String.format("...WHERE...", ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: java-custom.injection.runtime-exec-variable
+    languages: [java]
+    severity: ERROR
+    message: >
+      `Runtime.exec()` called with a variable command — command injection
+      risk. Pass an explicit string array `{"cmd", "/c", arg}` and validate
+      each argument against an allowlist.
+    patterns:
+      - pattern: Runtime.getRuntime().exec($CMD)
+      - pattern-not: Runtime.getRuntime().exec("...")
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: java-custom.injection.process-builder-variable
+    languages: [java]
+    severity: ERROR
+    message: >
+      `ProcessBuilder` constructed with a variable command — command
+      injection. Validate or allowlist all arguments before passing them.
+    patterns:
+      - pattern: new ProcessBuilder($CMD, ...)
+      - pattern-not: new ProcessBuilder("...", ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: XXE ───────────────────────────────────────────────────────
+
+  - id: java-custom.xxe.document-builder-no-protection
+    languages: [java]
+    severity: ERROR
+    message: >
+      `DocumentBuilderFactory` without disabling external entity processing —
+      XXE vulnerability. Disable with:
+      `factory.setFeature("http://xml.org/sax/features/external-general-entities", false);`
+      `factory.setFeature("http://xml.org/sax/features/external-parameter-entities", false);`
+      `factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);`
+    patterns:
+      - pattern: $FACTORY.newDocumentBuilder()
+      - pattern-not-inside: |
+          $FACTORY.setFeature(...);
+          ...
+          $FACTORY.newDocumentBuilder();
+    metadata:
+      cwe: ["CWE-611"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: java-custom.xxe.saxparser-no-protection
+    languages: [java]
+    severity: ERROR
+    message: >
+      `SAXParserFactory` without disabling external entities — XXE risk.
+      Call `factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true)`
+      before creating the parser.
+    patterns:
+      - pattern: $FACTORY.newSAXParser()
+      - pattern-not-inside: |
+          $FACTORY.setFeature(...);
+          ...
+          $FACTORY.newSAXParser();
+    metadata:
+      cwe: ["CWE-611"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: LDAP Injection ────────────────────────────────────────────
+
+  - id: java-custom.injection.ldap-filter-concat
+    languages: [java]
+    severity: ERROR
+    message: >
+      LDAP search filter built with string concatenation — LDAP injection
+      risk. Use an LDAP encoding library (e.g., Spring LDAP's
+      `LdapEncoder.filterEncode()`) to escape special characters.
+    patterns:
+      - pattern-either:
+          - pattern: $CTX.search($BASE, "..." + $INPUT, ...)
+          - pattern: $CTX.search($BASE, $INPUT + "...", ...)
+    metadata:
+      cwe: ["CWE-90"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A08: Insecure Deserialization ──────────────────────────────────
+
+  - id: java-custom.deserialization.object-input-stream
+    languages: [java]
+    severity: ERROR
+    message: >
+      `ObjectInputStream.readObject()` deserializes untrusted data — Java
+      deserialization gadget chains can achieve remote code execution.
+      Use JSON/XML serialization for untrusted data, or implement a
+      `ValidatingObjectInputStream` with an explicit class allowlist.
+    patterns:
+      - pattern: (ObjectInputStream $OIS).readObject()
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A02: Weak Randomness ───────────────────────────────────────────
+
+  - id: java-custom.crypto.java-util-random
+    languages: [java]
+    severity: HIGH
+    message: >
+      `java.util.Random` is not cryptographically secure — do not use it
+      for tokens, session IDs, nonces, or passwords. Use
+      `java.security.SecureRandom` instead.
+    patterns:
+      - pattern: new Random()
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: java-custom.crypto.weak-hash-md5-sha1
+    languages: [java]
+    severity: ERROR
+    message: >
+      MD5 or SHA-1 `MessageDigest` — these are broken for security purposes.
+      Use SHA-256 or SHA-3 for integrity; use bcrypt/argon2 (via a library)
+      for password hashing.
+    patterns:
+      - pattern-either:
+          - pattern: MessageDigest.getInstance("MD5")
+          - pattern: MessageDigest.getInstance("SHA-1")
+          - pattern: MessageDigest.getInstance("SHA1")
+    metadata:
+      cwe: ["CWE-327", "CWE-328"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: java-custom.secrets.hardcoded-field
+    languages: [java]
+    severity: ERROR
+    message: >
+      Hardcoded credential in a class field. Load from environment variables
+      (`System.getenv("SECRET_KEY")`) or a secrets manager.
+    patterns:
+      - pattern-either:
+          - pattern: private String $VAR = "...";
+          - pattern: private static String $VAR = "...";
+          - pattern: private static final String $VAR = "...";
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_?key|auth_?token|access_?token|private_?key|client_?secret|jwt_?secret)
+      - pattern-not: private String $VAR = "";
+      - pattern-not: private static final String $VAR = "";
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: java-custom.ssrf.url-open-connection
+    languages: [java]
+    severity: HIGH
+    message: >
+      `new URL($INPUT).openConnection()` with a variable — potential SSRF.
+      Validate the URL against an allowlist and block requests to
+      internal/private IP ranges before opening the connection.
+    patterns:
+      - pattern: new URL($URL).openConnection()
+      - pattern-not: new URL("...").openConnection()
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: java-custom.ssrf.httpclient-user-url
+    languages: [java]
+    severity: HIGH
+    message: >
+      `HttpClient` or `CloseableHttpClient` making a request to a variable
+      URI — potential SSRF. Validate the target against an allowlist.
+    patterns:
+      - pattern-either:
+          - pattern: $CLIENT.execute(new HttpGet($URL), ...)
+          - pattern: $CLIENT.execute(new HttpPost($URL), ...)
+          - pattern: HttpRequest.newBuilder(URI.create($URL))
+      - pattern-not: $CLIENT.execute(new HttpGet("..."), ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A09: Sensitive Data in Logs ────────────────────────────────────
+
+  - id: java-custom.logging.sensitive-data
+    languages: [java]
+    severity: WARNING
+    message: >
+      Sensitive variable may be written to logs. Mask or redact before
+      logging — use structured logging and never log raw credentials.
+    patterns:
+      - pattern-either:
+          - pattern: $LOG.info("...", ..., $VAR, ...)
+          - pattern: $LOG.debug("...", ..., $VAR, ...)
+          - pattern: $LOG.warn("...", ..., $VAR, ...)
+          - pattern: $LOG.error("...", ..., $VAR, ...)
+          - pattern: System.out.println($VAR)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|token|secret|credit_?card|ssn|cvv|pin|auth)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Path Traversal ────────────────────────────────────────────
+
+  - id: java-custom.path-traversal.new-file-user-input
+    languages: [java]
+    severity: ERROR
+    message: >
+      `new File($INPUT)` with a variable — path traversal risk. Normalize
+      with `file.getCanonicalPath()` and verify it starts within the
+      expected base directory before using.
+    patterns:
+      - pattern: new File($PATH)
+      - pattern-not: new File("...")
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security

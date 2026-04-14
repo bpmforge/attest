@@ -1,0 +1,290 @@
+rules:
+  # ═══════════════════════════════════════════════════════════════════════
+  # Go Security Rules — Gap Filler
+  #
+  # p/golang and p/gosec cover some basics. This ruleset fills remaining
+  # OWASP gaps specific to Go microservice patterns:
+  #   A03: SQL injection (fmt.Sprintf in queries), command injection,
+  #        template injection (text/template vs html/template)
+  #   A02: Weak randomness (math/rand vs crypto/rand), insecure TLS
+  #   A05: Hardcoded secrets, HTTP server without timeouts
+  #   A09: Sensitive data in log
+  #   A10: SSRF (http.Get with user URL)
+  #   Plus Go-specific: insecure TLS skip verify, integer overflow in conversions
+  # ═══════════════════════════════════════════════════════════════════════
+
+  # ── A03: SQL Injection ─────────────────────────────────────────────
+
+  - id: go-custom.injection.sql-sprintf
+    languages: [go]
+    severity: ERROR
+    message: >
+      SQL query built with `fmt.Sprintf` — SQL injection risk.
+      Use parameterized queries: `db.Query(sql, arg1, arg2)` where
+      placeholders are `$1`/`?` and values are separate arguments.
+    patterns:
+      - pattern-either:
+          - pattern: fmt.Sprintf("...SELECT...", $INPUT, ...)
+          - pattern: fmt.Sprintf("...INSERT...", $INPUT, ...)
+          - pattern: fmt.Sprintf("...UPDATE...", $INPUT, ...)
+          - pattern: fmt.Sprintf("...DELETE...", $INPUT, ...)
+          - pattern: fmt.Sprintf("...WHERE...", $INPUT, ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  - id: go-custom.injection.sql-string-concat
+    languages: [go]
+    severity: ERROR
+    message: >
+      SQL query assembled via string concatenation — SQL injection risk.
+      Use `db.QueryContext` / `db.ExecContext` with `$1` placeholders and
+      pass values as separate arguments.
+    patterns:
+      - pattern-either:
+          - pattern: $DB.Query("..." + $INPUT, ...)
+          - pattern: $DB.QueryContext($CTX, "..." + $INPUT, ...)
+          - pattern: $DB.Exec("..." + $INPUT, ...)
+          - pattern: $DB.ExecContext($CTX, "..." + $INPUT, ...)
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Command Injection ─────────────────────────────────────────
+
+  - id: go-custom.injection.exec-command-variable
+    languages: [go]
+    severity: ERROR
+    message: >
+      `exec.Command()` with a variable as the command name or first
+      argument — potential command injection. Validate that the command
+      is from a fixed allowlist before executing.
+    patterns:
+      - pattern: exec.Command($CMD, ...)
+      - pattern-not: exec.Command("...", ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  - id: go-custom.injection.exec-command-concat
+    languages: [go]
+    severity: ERROR
+    message: >
+      Shell argument built with string concatenation passed to `exec.Command`.
+      An attacker may inject shell metacharacters. Pass arguments as
+      separate strings to `exec.Command` — never concatenate.
+    patterns:
+      - pattern: exec.Command($CMD, "..." + $INPUT, ...)
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A03: Template Injection ────────────────────────────────────────
+
+  - id: go-custom.injection.text-template-user-input
+    languages: [go]
+    severity: HIGH
+    message: >
+      `text/template` does NOT auto-escape HTML — using it to render
+      user-controlled data in a web context causes XSS. Use
+      `html/template` instead, which escapes context-appropriately.
+    patterns:
+      - pattern: $T.Execute($W, $DATA)
+      - pattern-inside: |
+          import "text/template"
+          ...
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A02: Weak Randomness ───────────────────────────────────────────
+
+  - id: go-custom.crypto.math-rand-security
+    languages: [go]
+    severity: HIGH
+    message: >
+      `math/rand` is not cryptographically secure — do not use it for
+      tokens, session IDs, nonces, or passwords. Import `crypto/rand`
+      and use `rand.Read()` or `rand.Int()` from that package instead.
+    patterns:
+      - pattern-either:
+          - pattern: rand.Int()
+          - pattern: rand.Int63()
+          - pattern: rand.Int31()
+          - pattern: rand.Intn($N)
+          - pattern: rand.Float64()
+          - pattern: rand.New(rand.NewSource($SEED))
+      - pattern-inside: |
+          import "math/rand"
+          ...
+    metadata:
+      cwe: ["CWE-338"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A02: Insecure TLS ──────────────────────────────────────────────
+
+  - id: go-custom.tls.insecure-skip-verify
+    languages: [go]
+    severity: ERROR
+    message: >
+      `InsecureSkipVerify: true` disables TLS certificate validation —
+      the connection is vulnerable to MITM attacks. Remove this flag;
+      if testing with self-signed certs, use a custom `RootCAs` pool.
+    patterns:
+      - pattern: tls.Config{..., InsecureSkipVerify: true, ...}
+    metadata:
+      cwe: ["CWE-295"]
+      owasp: ["A02:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A05: Hardcoded Secrets ─────────────────────────────────────────
+
+  - id: go-custom.secrets.hardcoded-const
+    languages: [go]
+    severity: ERROR
+    message: >
+      Hardcoded credential as a `const` or variable initializer.
+      Load secrets from environment variables (`os.Getenv("SECRET")`)
+      or a secrets manager.
+    patterns:
+      - pattern-either:
+          - pattern: const $VAR = "..."
+          - pattern: var $VAR = "..."
+          - pattern: $VAR := "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|secret|api_?key|auth_?token|access_?token|private_?key|client_?secret|jwt_?secret|database_?url)
+      - pattern-not: const $VAR = ""
+      - pattern-not: var $VAR = ""
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A05: HTTP Server Without Timeouts ──────────────────────────────
+
+  - id: go-custom.misconfig.http-server-no-timeout
+    languages: [go]
+    severity: HIGH
+    message: >
+      `http.ListenAndServe()` with no timeout configuration — the server
+      is vulnerable to slow-loris and resource exhaustion attacks.
+      Use `&http.Server{ReadTimeout: ..., WriteTimeout: ..., IdleTimeout: ...}`
+      and call `server.ListenAndServe()` instead.
+    patterns:
+      - pattern-either:
+          - pattern: http.ListenAndServe($ADDR, $HANDLER)
+          - pattern: http.ListenAndServeTLS($ADDR, $CERT, $KEY, $HANDLER)
+    metadata:
+      cwe: ["CWE-400"]
+      owasp: ["A05:2021"]
+      confidence: HIGH
+      category: security
+
+  # ── A09: Sensitive Data in Logs ────────────────────────────────────
+
+  - id: go-custom.logging.sensitive-data
+    languages: [go]
+    severity: WARNING
+    message: >
+      Sensitive variable may be written to logs. Redact or mask before
+      logging — structured loggers should use `zap.String("password", "[REDACTED]")`
+      rather than logging the actual value.
+    patterns:
+      - pattern-either:
+          - pattern: log.Printf(..., $VAR, ...)
+          - pattern: log.Println(..., $VAR, ...)
+          - pattern: log.Print(..., $VAR, ...)
+          - pattern: fmt.Println(..., $VAR, ...)
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i)(password|passwd|token|secret|credit_?card|ssn|cvv|pin|auth)
+    metadata:
+      cwe: ["CWE-532"]
+      owasp: ["A09:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A10: SSRF ──────────────────────────────────────────────────────
+
+  - id: go-custom.ssrf.http-get-user-url
+    languages: [go]
+    severity: HIGH
+    message: >
+      `http.Get()` / `http.Post()` called with a variable URL — potential
+      SSRF. Validate the URL against an allowlist and reject requests to
+      internal IP ranges before making the call.
+    patterns:
+      - pattern-either:
+          - pattern: http.Get($URL)
+          - pattern: http.Post($URL, $CT, $BODY)
+          - pattern: $CLIENT.Get($URL)
+          - pattern: $CLIENT.Post($URL, $CT, $BODY)
+      - pattern-not: http.Get("...")
+      - pattern-not: http.Post("...", ...)
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── A03: Path Traversal ────────────────────────────────────────────
+
+  - id: go-custom.path-traversal.os-open-user-input
+    languages: [go]
+    severity: ERROR
+    message: >
+      `os.Open()`, `os.ReadFile()`, or `os.Create()` with a variable path —
+      path traversal risk. Use `filepath.Clean()` and verify the resolved
+      path starts with the intended base directory before opening.
+    patterns:
+      - pattern-either:
+          - pattern: os.Open($PATH)
+          - pattern: os.ReadFile($PATH)
+          - pattern: os.Create($PATH)
+          - pattern: os.OpenFile($PATH, ...)
+      - pattern-not: os.Open("...")
+      - pattern-not: os.ReadFile("...")
+      - pattern-not: os.Create("...")
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021"]
+      confidence: MEDIUM
+      category: security
+
+  # ── Integer Conversion Safety ──────────────────────────────────────
+
+  - id: go-custom.integer.conversion-no-bounds-check
+    languages: [go]
+    severity: WARNING
+    message: >
+      Integer type conversion without bounds checking — may overflow or
+      truncate silently. For user-supplied values, validate the range
+      before converting (e.g., confirm value fits in int32 before casting).
+    patterns:
+      - pattern-either:
+          - pattern: int32($VAR)
+          - pattern: int16($VAR)
+          - pattern: int8($VAR)
+          - pattern: uint32($VAR)
+          - pattern: uint16($VAR)
+          - pattern: uint8($VAR)
+    metadata:
+      cwe: ["CWE-190"]
+      owasp: ["A03:2021"]
+      confidence: LOW
+      category: security
