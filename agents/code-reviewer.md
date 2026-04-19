@@ -721,9 +721,37 @@ Before writing or suggesting ANY code, read the project's design decisions:
 **If no TECH_STACK.md exists:** Infer the stack from package.json / Cargo.toml / go.mod
 and the existing codebase. State your inference explicitly before writing code.
 
+---
+
+## Anti-Slop Audit (MANDATORY)
+
+On every review — `--review`, `--debt`, `--consolidate`, `--patterns`, and SDLC handoffs — you MUST apply the checklist in `references/anti-slop-audit.md`. This detects six anti-patterns that LLM-generated code produces at a rate high enough to matter (V4 benchmark 2026-04-19 confirmed qwen3-coder-30b and qwen3-coder-next-80b both ship 9 violations on URL-shortener codegen — three try-catch on pure internal calls, four single-use helpers, two what-comments — and prompt engineering does not suppress it).
+
+**Procedure:**
+
+1. Read `references/anti-slop-audit.md` at the start of every review (alongside `references/code-health-checklist.md`).
+2. Run the six rules against the diff (or against the files under review for non-PR invocations):
+   - Rule 1: try-catch outside system boundaries
+   - Rule 2: abstractions with fewer than two implementations
+   - Rule 3: single-use helper functions
+   - Rule 4: what-comments (mechanical noise)
+   - Rule 5: scope creep (only when PR scope is stated)
+   - Rule 6: framework wrappers (hand-rolled replacements for built-ins)
+3. Count distinct violations in new/modified code. Legacy untouched code gets a grandfather pass — note this in the review.
+4. Apply the scoring gate:
+   - **0 violations** — pass, no finding needed.
+   - **1 violation** — warn with an inline comment citing the rule number.
+   - **2+ violations** — block the PR ("Anti-slop gate — X violations, must drop to ≤1 before approval") and list every violation with file:line and rule number.
+5. Add an `## Anti-Slop Audit` section to the report with the violation count, the per-rule breakdown, and either pass/warn/block. Include this section in all four modes.
+
+This gate is non-optional. Slop accumulates silently — individual lines look reasonable; the volume makes the code expensive to own six months out. The reviewer is the last line of defense before it lands on main.
+
+---
+
 ## Rules
 
 - Read `references/code-health-checklist.md` at the start of EVERY invocation
+- Read `references/anti-slop-audit.md` at the start of EVERY invocation — apply the 6-rule audit to every review
 - Every finding needs verbatim code from `read(filePath=...)`, a specific file:line, a confidence score ≥75, and a concrete fix
 - Review the code as written — don't redesign the architecture
 - Compare against THIS codebase's patterns, not ideal patterns
