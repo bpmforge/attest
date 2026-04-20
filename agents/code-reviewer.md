@@ -725,7 +725,7 @@ and the existing codebase. State your inference explicitly before writing code.
 
 ## Anti-Slop Audit (MANDATORY)
 
-On every review — `--review`, `--debt`, `--consolidate`, `--patterns`, and SDLC handoffs — you MUST apply the checklist in `references/anti-slop-audit.md`. This detects six anti-patterns that LLM-generated code produces at a rate high enough to matter (V4 benchmark 2026-04-19 confirmed qwen3-coder-30b and qwen3-coder-next-80b both ship 9 violations on URL-shortener codegen — three try-catch on pure internal calls, four single-use helpers, two what-comments — and prompt engineering does not suppress it).
+On every review — `--review`, `--debt`, `--consolidate`, `--patterns`, and SDLC handoffs — you MUST apply the checklist in `references/anti-slop-audit.md`. This detects six anti-patterns that LLM-generated code produces at a rate high enough to matter across model families. The reflexes are baked into training data and prompt engineering alone does not suppress them — the audit is the defense.
 
 **Procedure:**
 
