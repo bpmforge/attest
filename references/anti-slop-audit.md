@@ -4,9 +4,9 @@ Reference used by the `code-reviewer` agent on every review. Detects six anti-pa
 
 ## Rationale
 
-The V4 benchmark (2026-04-19) confirmed that both `qwen3-coder-30b` and `qwen3-coder-next-80b` ship identical slop on URL-shortener code generation: 9 violations per response — three try-catch blocks wrapping pure internal calls, four single-use helper functions, two "what" comments. Prompt engineering does not suppress the pattern because the behavior is baked into the training data. Humans miss it because individually each line looks reasonable; it is the accumulation that makes the code expensive to own.
+LLMs trained on public code corpora inherit a consistent set of defensive-programming reflexes — try-catch blocks wrapping pure internal calls, single-use helper functions, "what" comments, premature abstractions — that individually look reasonable but accumulate into code that is expensive to own. These reflexes appear across model families and model sizes. Prompt engineering alone does not suppress them because the behavior is trained, not instructed.
 
-This checklist gives the reviewer a deterministic list of things to hunt for so slop can be caught at merge time instead of during the next refactor.
+This checklist gives the reviewer a deterministic list of things to hunt for so slop can be caught at merge time instead of during the next refactor. It applies equally to code written by humans and code emitted by agents; the audit target is the output, not the author.
 
 ---
 
