@@ -582,6 +582,26 @@ One row per required diagram. Gate CANNOT pass until every row is ✅ DONE with 
 > **Add one Sequence row per P0 use case from USE_CASES.md.**
 > Populate C3 rows with actual service names from TECH_STACK.md/ARCHITECTURE.md.
 
+## Synthesis Documents (Phase 3 — orchestrator-written)
+
+These are NOT specialist handoffs. The sdlc-lead writes them directly after all Phase 3 handoffs return. Gate CANNOT pass until every row is ✅ DONE.
+
+| Document | Status | Score | Notes |
+|----------|--------|-------|-------|
+| ARCHITECTURE.md | ⏳ PENDING | — | C4 diagrams + modular design decisions, reconciles TECH_STACK + DATABASE + API_DESIGN + THREAT_MODEL |
+| PARALLELIZATION_MAP.md | ⏳ PENDING | — | Module Inventory + Waves; every module from ARCHITECTURE.md § Implementation View has a row; Phase 4 reads this file |
+
+## Phase 4 Wave Execution (populated from PARALLELIZATION_MAP.md)
+
+| Wave | Modules | Mode [S/P] | Status | Verify scores |
+|------|---------|------------|--------|---------------|
+| 1 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
+| 2 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
+| 3 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
+
+> Mode column: `S` = sequential (one agent at a time) or `P` = parallel (all wave HANDOFFs emitted at once). User chooses per-wave during Execution Mode Selection.
+> Verify scores: one score per module in the wave, all must be ≥ 7 before advancing.
+
 ## Gate Bypass Log
 
 | Phase | Date | Reason | Approved by |
@@ -2003,11 +2023,12 @@ Architecture Diagram Inventory — Phase 3 Pre-Gate:
 - API_DESIGN.md has example request/response payloads for every endpoint, not just schemas
 - `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry — the spec CANNOT be a subset of the design doc
 - THREAT_MODEL.md has mitigations, not just threats listed
+- `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table (every module in ARCHITECTURE.md § Implementation View has a row with directory, contract artifact, dependencies, wave number) AND a Waves section listing Wave 1..N. If empty, missing, or the Module Inventory has fewer rows than ARCHITECTURE.md lists modules, the Phase 3 gate CANNOT pass — Phase 4's Execution Mode Selection reads this file as its first step.
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, and `docs/design/UX_SPEC.md` MUST all exist and have passed the UX gate-loop (asymmetric thresholds, each document ≥ 7). If missing, the Phase 3 gate CANNOT pass. If NOT UI-bearing, ARCHITECTURE.md § Logical View must explicitly say "No UI — UX branch not applicable".
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, docs/api/openapi.yaml, THREAT_MODEL.md, docs/diagrams/, docs/design/ if UI-bearing) to the sdlc/setup branch. Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, OpenAPI spec, threat model'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 3 (ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, docs/api/openapi.yaml, THREAT_MODEL.md, docs/PARALLELIZATION_MAP.md, docs/diagrams/, docs/design/ if UI-bearing) to the sdlc/setup branch. Conventional commit: 'docs(phase-3): add design artifacts — architecture, tech stack, DB, API, OpenAPI spec, threat model, parallelization map'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance to Phase 4 — architecture decisions have the biggest downstream impact, so user confirmation here is especially important.
 
