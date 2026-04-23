@@ -2,6 +2,38 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — 2026-04-22
+
+Strict delegation policy for sdlc-lead, modular-parallel architecture requirements in Phase 3, and opt-in parallel wave execution in Phase 4. Closes the two remaining INLINE audit leaks where the orchestrator was doing specialist work directly.
+
+### Added
+
+- **`docs/PARALLELIZATION_MAP.md` — new Phase 3 deliverable** — Module Inventory table (every module has a row with directory, contract artifact, dependencies, wave number) plus a Waves section grouping independent modules. Phase 4 Execution Mode Selection reads this file as its first step. The Phase 3 gate refuses to pass if the map is missing or the Module Inventory has fewer rows than `ARCHITECTURE.md` lists modules.
+
+- **Phase 4 Execution Mode Selection** — before emitting any Wave 1 HANDOFFs, sdlc-lead asks the user per-wave whether to run Sequential (default, safer) or Parallel (opt-in, faster). The choice is recorded in `docs/work/sdlc-state.md` and the Phase 4 Wave Execution table in the SDLC_TRACKER.
+
+- **Parallel wave protocol** — when a wave is marked `[P]`, sdlc-lead emits one message containing every module's HANDOFF as separate blocks. Each HANDOFF names the module's directory as the exclusive write-scope and tells the agent that wave-peers are running concurrently. Wave N+1 does not start until every Wave-N agent prints its completion phrase, every output passes verification ≥ 7, and a write-scope collision check (`git status` for overlapping files) is clean.
+
+- **Modular Design Requirements — items 6–8** — architecture MUST define service-boundary criteria (each module is independently buildable with a frozen contract), write-scope isolation (enforced during Phase 4, each module owns `src/<module>/` exclusively), and contract-first ordering (API/event contracts frozen in Phase 3 before any Phase 4 implementation starts — modules can then implement against mocks of each other).
+
+- **Strict Scope Rules — 5-point policy across all 12 specialists** — added to the Bounded Task Mode section of `api-designer`, `db-architect`, `researcher`, `test-engineer`, `ux-engineer`, `security-auditor`, `code-reviewer`, `sre-engineer`, `performance-engineer`, `container-ops`, `coding-agent`, and `frontend-design`. Non-negotiable rules: write-scope isolation, no extra files beyond PRODUCE, verbatim completion phrase (for sdlc-lead's resume logic), no scope expansion (observations go to "Known issues / deferred", not silent fixes), stop means stop (no "anything else?" after completion phrase). Rules exist because sdlc-lead coordinates multiple specialists — including parallel waves — and depends on every specialist staying inside its lane.
+
+- **Mode 1 SDLC_TRACKER — Synthesis Documents + Phase 4 Wave Execution sections** — tracker template now has explicit rows for the two orchestrator-written synthesis docs (ARCHITECTURE.md, PARALLELIZATION_MAP.md) and a Phase 4 Wave Execution table with wave number, modules, execution mode, status, and per-module verify scores.
+
+### Changed
+
+- **sdlc-lead becomes a strict master-tracker / documentation-master** — Rules list rewritten to make delegation non-negotiable. The only documents sdlc-lead writes directly are trackers (`SDLC_TRACKER.md`, `DELEGATION_LOG.md`, `docs/work/sdlc-state.md`), synthesis docs (`ARCHITECTURE.md`, `PARALLELIZATION_MAP.md`, `VISION.md`, use case catalogs, `DESIGN_CONTEXT.md`, improvement backlogs). Everything else is a HANDOFF, including discovery audits, navigating running apps, checking HTTP responses, writing code, designing schemas, running tests. The policy is enforced by explicit callout: *"If you catch yourself about to `Read` a source file to analyze it, STOP — that's a HANDOFF."*
+
+- **`frontend-design` Bounded Task Mode brought to parity** — previously had 1 reference to Bounded Task Mode versus 3–4 in sibling specialists. Now includes the full "Skip all of the following" list, the expanded Execute-in-order procedure, and the new Strict Scope Rules section.
+
+### Fixed
+
+- **Phase 4 discovery audit — INLINE → HANDOFF (test-engineer/ux-engineer)** — previously sdlc-lead navigated every app route itself checking for console errors and 4xx/5xx responses, violating the strict-delegation policy. Now issued as a HANDOFF producing `docs/audits/discovery-<date>.md` with per-route status, severity, and a summary table.
+
+- **Mode 4 Step 1.5 Discovery Audit — INLINE → HANDOFF (test-engineer/ux-engineer)** — same pattern in improvement mode before specialist audits start. Now a HANDOFF producing `docs/improve/DISCOVERY_PRE.md` with route findings and a "prioritize" recommendation scoping the Step 2 audits.
+
+---
+
 ## [0.11.1] — 2026-04-14
 
 ### Fixed
