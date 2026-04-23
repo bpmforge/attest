@@ -593,14 +593,15 @@ These are NOT specialist handoffs. The sdlc-lead writes them directly after all 
 
 ## Phase 4 Wave Execution (populated from PARALLELIZATION_MAP.md)
 
-| Wave | Modules | Mode [S/P] | Status | Verify scores |
-|------|---------|------------|--------|---------------|
-| 1 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
-| 2 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
-| 3 | [fill from PARALLELIZATION_MAP.md] | — | ⏳ PENDING | — |
+| Wave | Modules | Depends on waves | Mode [S/P] | Round status (code/review/runtime) | Per-module RUNTIME verdicts |
+|------|---------|------------------|------------|-------------------------------------|------------------------------|
+| 1 | [fill from PARALLELIZATION_MAP.md] | — | — | ⏳/⏳/⏳ | — |
+| 2 | [fill from PARALLELIZATION_MAP.md] | [prior waves] | — | ⏳/⏳/⏳ | — |
+| 3 | [fill from PARALLELIZATION_MAP.md] | [prior waves] | — | ⏳/⏳/⏳ | — |
 
-> Mode column: `S` = sequential (one agent at a time) or `P` = parallel (all wave HANDOFFs emitted at once). User chooses per-wave during Execution Mode Selection.
-> Verify scores: one score per module in the wave, all must be ≥ 7 before advancing.
+> Mode column: `S` = sequential (one agent at a time) or `P` = parallel (three rounds of N HANDOFFs — code → review → runtime). User chooses per-wave during Execution Mode Selection.
+> Round status: three ticks covering Round 1 (code), Round 2 (review), Round 3 (runtime). A wave advances only when all three are ✅.
+> Per-module RUNTIME verdicts: one PASS/FAIL entry per module in the wave — every entry must be PASS before Wave N+1 starts.
 
 ## Gate Bypass Log
 
@@ -2078,47 +2079,63 @@ Phase 4 execution plan:
 
 For each module in the wave: emit one HANDOFF, wait for "done", run Step 4 verify + confidence score, THEN emit the next HANDOFF. Exactly the pattern used in every other phase.
 
-### Parallel Wave (opt-in)
+### Parallel Wave (opt-in) — each module runs its own full mini-lifecycle
 
-Emit ONE message containing every HANDOFF block for every module in the wave, clearly numbered. Example for a 3-module wave:
+A parallel wave runs THREE rounds per module: **code → review → runtime**. Every module in the wave produces its own `CODE_REVIEW_<module>_<date>.md` and `RUNTIME_<module>_<date>.md`. A wave does not advance until every module has its own runtime verdict `PASS`. Rounds are emitted as separate messages so each specialist sees only its own scope.
+
+**Round 1 — Code (N parallel coding-agent HANDOFFs):**
+
+Emit ONE message containing every coding HANDOFF for the wave. Example for a 3-module wave:
 
 ```
 ═══════════════════════════════════════════════════════════
-  WAVE 2 — PARALLEL (3 HANDOFFs — open 3 OpenCode sessions)
+  WAVE 2 — ROUND 1: CODE (3 HANDOFFs — open 3 OpenCode sessions)
 ═══════════════════════════════════════════════════════════
-These 3 agents are independent — no shared write-scope, no cross-module imports.
+These 3 modules are independent — no shared write-scope, no cross-module imports.
 Open three separate OpenCode sessions and paste ONE handoff prompt into each.
-Report back with all three completion phrases before I emit Wave 3.
+Report back with all three completion phrases before I emit Round 2.
 
 Write-scope (ENFORCED):
-  HANDOFF #1 (coding-agent → auth):      src/auth/          ONLY
-  HANDOFF #2 (coding-agent → users):     src/users/         ONLY
-  HANDOFF #3 (coding-agent → notifications): src/notifications/ ONLY
+  HANDOFF #1 (coding-agent → auth):          src/auth/           ONLY
+  HANDOFF #2 (coding-agent → users):         src/users/          ONLY
+  HANDOFF #3 (coding-agent → notifications): src/notifications/  ONLY
 
 If any agent needs to change a file outside its assigned directory, it MUST
 stop and flag the cross-cutting concern — do not edit cross-module.
 
 ───── HANDOFF #1 ─────
-[full handoff prompt for module 1]
+[coding-agent prompt for module 1 — completion phrase: "code done — auth module: [summary]"]
 ───── HANDOFF #2 ─────
-[full handoff prompt for module 2]
+[coding-agent prompt for module 2 — completion phrase: "code done — users module: [summary]"]
 ───── HANDOFF #3 ─────
-[full handoff prompt for module 3]
+[coding-agent prompt for module 3 — completion phrase: "code done — notifications module: [summary]"]
 ═══════════════════════════════════════════════════════════
 ```
 
-**Parallel wave gate (mandatory before Wave N+1):**
-1. Every Wave-N agent must report its completion phrase
-2. Every Wave-N output passes the standard verify + confidence ≥ 7 check (apply the "Resuming after a HANDOFF" protocol to each agent's output individually)
-3. Cross-check: did any two agents write to the same file? If yes, surface the conflict to the user — resolve before advancing
-4. Only then emit Wave N+1
+Round 1 gate: every module's completion phrase present, no write-scope collisions (`git status` shows no overlap).
+
+**Round 2 — Review (N parallel code-reviewer HANDOFFs):**
+
+Emit ONE message with N code-reviewer HANDOFFs, one per module. Each produces `docs/reviews/CODE_REVIEW_<module>_<date>.md` with verdict APPROVED / NEEDS REVISION / REJECT. Completion phrase: `"review done — <module>: <verdict>"`. Round 2 gate: every review APPROVED (NEEDS REVISION means loop back to a coding-agent HANDOFF for that module only — other modules proceed to Round 3).
+
+**Round 3 — Runtime (N parallel coding-agent HANDOFFs, runtime-validation scope):**
+
+Emit ONE message with N runtime-validation HANDOFFs, one per module. Each runs the full runtime gate (build → lint/typecheck → start → module-level smoke → regression smoke) scoped to its module and produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
+
+Round 3 gate (mandatory before Wave N+1):
+1. Every module reported its runtime completion phrase
+2. Every `RUNTIME_<module>_<date>.md` has verdict `PASS`
+3. No two agents wrote to the same file across the wave
+4. Update the SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE | per-module scores`
+
+A module that fails Round 3 blocks only itself — fix that module and re-run its Round 3 HANDOFF while other modules' PASS verdicts remain valid.
 
 **When to refuse parallel and force sequential:**
 - The wave contains any module that writes to `src/shared/`, `src/common/`, or root-level config (tsconfig, package.json, etc.)
 - Two modules in the wave both depend on a contract that hasn't been frozen yet
 - PARALLELIZATION_MAP.md lists the modules in different waves (don't cross wave boundaries for convenience)
 
-Delegate implementation work via HANDOFF — one specialist at a time within a sequential wave, or the whole wave at once in a parallel wave.
+Delegate implementation work via HANDOFF — one specialist at a time within a sequential wave, or three rounds of N HANDOFFs in a parallel wave.
 
 **1. Test strategy first — before any code:**
 
@@ -3485,6 +3502,50 @@ After drafting the impact analysis:
 3. Re-rate until >= 7 or 3 passes done
 4. If still uncertain: ask the user "I found X but I'm not sure about Y — does this feature also touch [area]?"
 
+## Step 1.5: Sub-component Decomposition (mandatory check)
+
+Before designing, decide whether the feature is **atomic** (one component, linear flow) or **splits into independent sub-components** that can each run the full Mode-3 lifecycle in parallel. A feature splits when the impact analysis touches modules with clear contracts between them — e.g., "notifications" = schema + API + worker + UI.
+
+Ask the user:
+
+```
+Impact analysis touches: [modules from EXPLORE_[feature].md].
+Do these form independent sub-components that can build in parallel?
+  [A] Atomic — one linear flow (default for small features)
+  [S] Split — N sub-components, each gets its own branch + mini-lifecycle
+```
+
+**If [A] Atomic:** continue to Step 2 unchanged.
+
+**If [S] Split:** produce `docs/features/<slug>/COMPONENT_DAG.md` (same format Phase 4 uses for modules):
+
+```markdown
+# Component DAG — <feature name>
+
+| Sub-component | Directory            | Depends on | Wave | Contract artifact |
+|---------------|----------------------|------------|------|-------------------|
+| schema        | db/migrations/       | —          | 1    | docs/features/<slug>/schema.sql |
+| api           | src/api/notifs/      | schema     | 2    | docs/features/<slug>/api.yaml |
+| worker        | src/workers/notifs/  | schema     | 2    | docs/features/<slug>/events.md |
+| ui            | src/ui/notifs/       | api        | 3    | — |
+
+## Waves
+- **Wave 1 (sequential):** schema — must land before dependents
+- **Wave 2 (parallel-safe):** api, worker — both need schema, neither each other
+- **Wave 3:** ui — needs api frozen
+```
+
+Rules (identical to Phase 4's parallelization rules, applied at feature scope):
+- Two sub-components share a wave only if NEITHER depends on the other AND their directories do not overlap
+- Contracts for a wave must be frozen BEFORE the wave starts (schema committed, OpenAPI section written, event shape locked) — if not, carve out an earlier wave that produces just the contract
+- Sub-components that touch `src/shared/`, root-level config, or unfrozen contracts MUST go sequential
+
+Branching: the parent branch `feat/<slug>` is cut first (Step 3.1). Each sub-component cuts its own branch `feat/<slug>/<sub-slug>` FROM the parent. Each sub-component runs Steps 2–5 on its own branch in its own OpenCode session, producing `docs/reviews/RUNTIME_<slug>_<sub-slug>_<date>.md`. A sub-component merges back into `feat/<slug>` when its runtime passes; `feat/<slug>` merges to `main` only when every sub-component's runtime is PASS.
+
+Execution mode per wave: ask the user `[S]equential` or `[P]arallel` for each wave (same pattern as Mode 1 Phase 4 Execution Mode Selection). Record in `docs/work/sdlc-state.md`. Parallel waves use the **three-round pattern** (code → review → runtime) defined in Mode 1 Phase 4 § Parallel Wave — apply it verbatim, substituting `module` → `sub-component`.
+
+**Iterate Steps 2–5 per sub-component in wave order.** Substitute `[feature name]` → `[feature name]: [sub-component]` and `feat/[slug]` → `feat/<slug>/<sub-slug>` inside each HANDOFF prompt. Do not advance to the next wave until every current-wave sub-component's runtime is PASS.
+
 ## Step 2: Design the Feature
 
 ### Design Clarification Questions (If Not Already Answered)
@@ -3943,13 +4004,34 @@ Update existing docs to reflect the new feature:
 task(agent="git-expert", prompt="Commit any updated docs/ files from this feature (ARCHITECTURE.md, API docs, sequence diagrams, UX_SPEC.md if changed). Conventional commit: 'docs(feature/[name]): update architecture and UX docs to reflect [feature name]'. Push to the feature branch.", timeout=60)
 ```
 
-**Mark PR ready + merge to `main` (task tool — fast):**
-All reviews passed — promote the PR from draft to ready and merge:
+**Runtime validation gate — the product must actually run (BLOCKING):**
+
+Tests green and reviews approved do not prove the app boots. Missing env vars,
+broken migrations, import cycles, bad container wiring, and UI regressions all
+surface only at runtime. **Do not merge until a clean run is confirmed.**
+
 ```
-task(agent="git-expert", prompt="Run --feature mode (merge phase): mark the feat/[slug] PR as ready for review (remove draft status). After merge approval, merge the branch into main using squash merge. Delete the feature branch after merge. Confirm the merge SHA.", timeout=120)
+task(agent="coding-agent", prompt="Runtime validation for feat/[slug]. Execute in order, stop at first failure.
+ 1. BUILD — run the project's build command(s) (npm run build, tsc, cargo build, docker build — whichever applies). Report pass/fail with last 30 lines of output.
+ 2. LINT/TYPECHECK — run `npm run lint` and any typecheck step (tsc --noEmit, mypy, etc.). Must pass clean.
+ 3. START — boot the app (dev server, container, or CLI entrypoint). Confirm it comes up with no errors in the first 15 seconds and stays up.
+ 4. FEATURE SMOKE — exercise the happy path of [feature name] end-to-end against the running app (HTTP request, UI click-through via the browser if frontend, CLI call — whichever matches). Verify behavior matches the acceptance criteria.
+ 5. REGRESSION SMOKE — exercise 1-2 unrelated golden paths that existed before this feature to confirm no regression.
+ Produce docs/reviews/RUNTIME_<feature>_<date>.md with: build output summary, startup log snippet, smoke commands + actual results, verdict (PASS or FAIL — list exactly what broke with file:line if known).
+ When the file is written, print exactly: 'runtime done — [PASS or FAIL, one sentence]' then stop.", timeout=600)
 ```
 
-After the merge is confirmed: announce to the user "Feature `[name]` merged to main. Run `/sdlc gate` to check if a release is ready."
+**If verdict is FAIL: DO NOT MERGE.** Return to implementation, fix the defects,
+re-run reviews if the fix is non-trivial, then re-run this gate. A feature that
+does not run cleanly is not done — shipping it to `main` is a P0 defect.
+
+**Mark PR ready + merge to `main` (task tool — fast, only after runtime PASS):**
+Runtime PASS confirmed and all reviews approved — promote the PR from draft to ready and merge:
+```
+task(agent="git-expert", prompt="Run --feature mode (merge phase): confirm docs/reviews/RUNTIME_<feature>_<date>.md exists with verdict PASS — if missing or FAIL, abort and report. Then mark the feat/[slug] PR as ready for review (remove draft status). After merge approval, merge the branch into main using squash merge. Delete the feature branch after merge. Confirm the merge SHA.", timeout=120)
+```
+
+After the merge is confirmed: announce to the user "Feature `[name]` merged to main (runtime PASS, merge SHA [sha]). Run `/sdlc gate` to check if a release is ready."
 
 
 # MODE 4: Audit & Improve Existing System (`/sdlc improve`)

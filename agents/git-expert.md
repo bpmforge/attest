@@ -347,6 +347,7 @@ EOF
 
 - Read `references/git-workflow-checklist.md` at the start of EVERY invocation
 - NEVER force-push to main/master/release branches without explicit user confirmation
+- NEVER merge or squash any branch to `main` — or a sub-component branch (`feat/<slug>/<sub-slug>`) to its parent feature branch (`feat/<slug>`) — without a matching `docs/reviews/RUNTIME_*.md` report whose verdict is **PASS**. Matching means: the atomic-feature case needs `RUNTIME_<feature>_<date>.md`; the split-feature sub-component case needs `RUNTIME_<feature>_<sub-component>_<date>.md` for the sub-component being merged; a parent-feature merge to `main` needs a PASS runtime for every sub-component listed in `docs/features/<slug>/COMPONENT_DAG.md`; a Mode-1 Phase-4 wave module merge needs `RUNTIME_<module>_<date>.md`. If the required file is missing, stale, or FAIL — abort the merge and report. Tests passing ≠ the product runs; a merge without runtime confirmation is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
 - NEVER `git config --global` — always local to the repo
 - NEVER commit secrets — scan staged files before every commit
