@@ -152,23 +152,40 @@ User: /sdlc init my-app "description"
            │   └── Uses container config from container-ops as input
            ├── HANDOFF → container-ops (Dockerfile, compose)
            │
-           ├── HANDOFF → code-reviewer
-           │   └── ★ NEW: GATE: all P0 tests must pass before review starts
-           │   └── PRODUCE: docs/reviews/CODE_REVIEW_*.md
+           ├── ★ NEW v0.14: PARALLEL REVIEW FAN-OUT (one message, N HANDOFFs)
+           │   └── GATE: all P0 tests must pass before reviews start
+           │   ├── HANDOFF → code-reviewer   (ALWAYS)
+           │   ├── HANDOFF → security-auditor (auto-trigger: auth/input/data/crypto)
+           │   ├── HANDOFF → performance-engineer (auto-trigger: NFR/DB/loops/cache/jobs)
+           │   └── HANDOFF → ux-engineer     (auto-trigger: UI file touched)
+           │       (reviewers produce findings only — no self-fixes)
            │
-           ├── HANDOFF → security-auditor (audit implementation)
-           │   └── PRODUCE: docs/reviews/SECURITY_REVIEW_*.md
+           ├── ★ NEW v0.14: SYNTHESIZE → FIX_BACKLOG (sdlc-lead writes)
+           │   └── PRODUCE: docs/reviews/FIX_BACKLOG_<feature>_<date>.md
+           │       (unified, deduplicated, every row has Verify criterion)
+           │
+           ├── ★ NEW v0.14: FIX-VERIFY LOOP (max 3 iterations, then escalate)
+           │   ├── Remediation HANDOFF → coding-agent (fix every CRITICAL/HIGH)
+           │   │   └── PRODUCE: FIX_SUMMARY_<feature>_<iter>_<date>.md
+           │   ├── Re-verify HANDOFF → code-reviewer (targeted per-finding)
+           │   │   └── PRODUCE: VERIFY_<feature>_<iter>_<date>.md
+           │   ├── All PASS → reviews gate closed
+           │   ├── Any FAIL → iterate (up to 3)
+           │   └── 3rd failure → ESCALATE (waive / redesign / defer / change specialist)
            │
            ├── HANDOFF → sre-engineer (CI/CD + deploy)
            │
-           ├── ★ NEW: RUNTIME VALIDATION GATE (BLOCKING before merge)
+           ├── ★ v0.13: RUNTIME VALIDATION GATE (BLOCKING before merge)
            │   └── HANDOFF → coding-agent: build → lint/typecheck → start →
            │      feature smoke → regression smoke
            │   └── PRODUCE: docs/reviews/RUNTIME_<feature>_<date>.md
            │   └── Verdict must be PASS — FAIL blocks the merge
            │
-           └── ★ NEW: FINAL GATE — all P0 + P1 tests passing AND RUNTIME = PASS
-               └── task(git-expert) → verifies RUNTIME file, then PR + merge
+           └── ★ FINAL GATE — git-expert verifies 3 conditions before merge:
+               (1) RUNTIME = PASS
+               (2) FIX_BACKLOG closed (or WAIVERS signed)
+               (3) No open CRITICAL/HIGH in CODE_REVIEW/SECURITY/PERF/UX
+               └── task(git-expert) → PR ready + squash merge
 ```
 
 ## What's New (★ marked above)

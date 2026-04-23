@@ -964,6 +964,212 @@ STOP and wait. Update `docs/DISCOVERY.md` with any new answers before producing 
 
 ---
 
+## Fix-Verify Loop Protocol (Reviews → Fixes → Re-verification)
+
+Every review stage (code-review, security, performance, accessibility) follows the same structural loop: **parallel review fan-out → synthesize findings → remediation → targeted re-verification → gate**. Referenced by Mode 3 Step 4, Mode 1 Phase 4 Parallel Wave Round 2, and Mode 1 Phase 5.
+
+### Severity → Action Matrix (canonical)
+
+| Severity | Merge to `main` | Fix required | Track as |
+|----------|-----------------|--------------|----------|
+| **CRITICAL** | ❌ BLOCKED | YES — before merge | Fix this session |
+| **HIGH** | ❌ BLOCKED | YES — before merge, or written waiver from user | Fix this session (or waiver log) |
+| **MEDIUM** | ✅ OK | NO — but logged | `docs/reviews/TECH_DEBT_<date>.md` post-launch backlog |
+| **LOW** | ✅ OK | NO | Informational (inline code comment OK to resolve later) |
+
+A "waiver" is an explicit user decision recorded in `docs/reviews/WAIVERS_<feature>_<date>.md` with: finding summary, reason for accepting, compensating control (if any), review date for revisiting. sdlc-lead never waives — only the user does.
+
+### Step 1: Parallel Review Fan-out
+
+Reviews of the same code are independent and run concurrently. Emit ONE message containing every review HANDOFF that applies:
+
+```
+═══════════════════════════════════════════════════════════
+  PARALLEL REVIEWS — [N] HANDOFFs (open [N] OpenCode sessions)
+═══════════════════════════════════════════════════════════
+These reviews are independent — same code, different lenses. Open [N] separate
+OpenCode sessions and paste ONE handoff prompt into each. Report back with all
+[N] completion phrases before I synthesize findings.
+
+Reviews queued (decided by auto-trigger rules below):
+  HANDOFF #1 — code-reviewer   (always runs)
+  HANDOFF #2 — security-auditor (auto-triggered — see rules)
+  HANDOFF #3 — performance-engineer (auto-triggered — see rules)
+  HANDOFF #4 — ux-engineer     (auto-triggered — UI-bearing only)
+
+───── HANDOFF #1 ─────
+[code-review prompt — completion: "review done — <verdict>"]
+───── HANDOFF #2 ─────
+[security prompt — completion: "security done — <verdict>"]
+───── HANDOFF #3 ─────
+[perf prompt — completion: "perf done — <verdict>"]
+═══════════════════════════════════════════════════════════
+```
+
+**Auto-trigger rules (sdlc-lead evaluates before emitting the fan-out):**
+
+- **code-review** — ALWAYS runs on any implementation change.
+- **security-auditor** — AUTO-triggers when the impact analysis / PARALLELIZATION_MAP lists: authentication/session code, authorization/RBAC, user-input handlers, file upload/parsing, SQL/ORM queries, crypto/signing/hashing, external API callouts with credentials, dependency additions, or any `auth/`, `api/`, `input/`, `uploads/`, `crypto/` directory. If NONE trigger, sdlc-lead skips security and notes "security review not triggered — no security-sensitive surfaces touched" in the tracker.
+- **performance-engineer** — AUTO-triggers when impact touches: code paths with NFR targets in SRS.md, database queries (new or modified), loops over data collections, caching/invalidation logic, background jobs, or any endpoint on a hot path identified in ARCHITECTURE.md § Performance. Perf agent **produces findings only** — it does NOT self-optimize. Optimization flows through the remediation HANDOFF like any other finding.
+- **ux-engineer** — AUTO-triggers when impact touches any UI component, route, or design token. Non-UI features skip this.
+
+### Step 2: Synthesize into Unified FIX_BACKLOG
+
+After every review's completion phrase is received, sdlc-lead reads each review file and synthesizes one unified backlog. This is an orchestrator-written synthesis document (no specialist writes it).
+
+```
+write(filePath="docs/reviews/FIX_BACKLOG_<feature>_<date>.md", content="
+# Fix Backlog — <feature>
+Generated: <date> — iteration <N>/3
+Sources: CODE_REVIEW_<feature>_<date>.md, SECURITY_<feature>_<date>.md, PERF_<feature>_<date>.md, UX_<feature>_<date>.md
+
+## Merge-blocking (CRITICAL + HIGH)
+
+| # | Source | Severity | File:line | Finding | Fix | Verify criterion |
+|---|--------|----------|-----------|---------|-----|------------------|
+| 1 | security | CRITICAL | src/auth/session.ts:42 | Session token stored in localStorage | Move to httpOnly cookie | token not in localStorage after login |
+| 2 | code     | HIGH     | src/api/users.ts:88 | Unhandled promise rejection | Wrap in try/catch + log | no unhandled-rejection warning in test |
+| 3 | perf     | HIGH     | src/db/queries.ts:203 | N+1 query in list endpoint | Add include eager-load | P50 latency < 200ms at 100 users |
+
+## Non-blocking (MEDIUM — track as tech debt)
+
+| # | Source | File:line | Finding | Tech-debt note |
+|---|--------|-----------|---------|----------------|
+| ... |
+
+## Informational (LOW)
+
+| # | Source | File:line | Finding |
+|---|--------|-----------|---------|
+
+## Waivers (CRITICAL/HIGH accepted by user with compensating control)
+
+| # | Source | Finding | Accepted by | Reason | Review date |
+|---|--------|---------|-------------|--------|-------------|
+| (none)
+")
+```
+
+Rules:
+- Deduplicate: if two reviewers flagged the same file:line with overlapping diagnoses, merge into one row with both sources listed.
+- Every merge-blocking row MUST have a **Verify criterion** — an observable check (a passing test, a metric threshold, a grep that returns nothing). Without it, re-verification is subjective.
+- If the backlog is EMPTY (no CRITICAL/HIGH findings), skip the fix loop and mark reviews gate passed.
+
+### Step 3: Remediation HANDOFF (coding-agent)
+
+One HANDOFF to coding-agent with the FIX_BACKLOG as input:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /code (coding-agent) — REMEDIATION
+═══════════════════════════════════════════════════════════
+
+SDLC-TASK for coding-agent:
+
+CONTEXT (read these before starting):
+- docs/reviews/FIX_BACKLOG_<feature>_<date>.md — the unified backlog; fix every row in the "Merge-blocking" section
+- The specific source files cited at file:line in each row
+- Each row's **Verify criterion** is what you must make observable
+
+YOUR TASK:
+Fix every CRITICAL and HIGH row in FIX_BACKLOG. Do NOT touch the MEDIUM/LOW rows
+— those are deferred. For each fix:
+  1. Apply the minimum change at the cited file:line that satisfies the Verify criterion.
+  2. Do not refactor surrounding code beyond the fix.
+  3. If a fix requires a design change, STOP and report — do not redesign alone.
+
+PRODUCE exactly this file:
+- docs/reviews/FIX_SUMMARY_<feature>_<iteration>_<date>.md — one row per fix:
+  `| # | File:line changed | Change summary | Status (FIXED / DEFERRED / BLOCKED-needs-design) |`
+
+When the file is written, print exactly:
+"fix done — [N fixed, M deferred, K blocked]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+### Step 4: Re-verification HANDOFF (code-reviewer)
+
+Targeted re-verification — check ONLY the findings in the backlog, don't re-do the full review:
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /review-code (code-reviewer) — TARGETED VERIFY
+═══════════════════════════════════════════════════════════
+
+SDLC-TASK for code-reviewer:
+
+CONTEXT (read these before starting):
+- docs/reviews/FIX_BACKLOG_<feature>_<date>.md — the backlog being verified
+- docs/reviews/FIX_SUMMARY_<feature>_<iteration>_<date>.md — what coding-agent changed
+- Each backlog row's Verify criterion
+
+YOUR TASK:
+For every merge-blocking row in the backlog, check whether the Verify criterion
+is now satisfied. Do NOT scan for new findings — this is verification only.
+
+PRODUCE exactly this file:
+- docs/reviews/VERIFY_<feature>_<iteration>_<date>.md — `| # | File:line | Verify criterion | Result (PASS / FAIL / INCONCLUSIVE) | Evidence |`
+
+When the file is written, print exactly:
+"verify done — [N PASS, M FAIL, K INCONCLUSIVE]"
+Then stop. Do not ask for follow-up.
+═══════════════════════════════════════════════════════════
+```
+
+Security findings MAY need security-auditor for re-verification instead of code-reviewer (e.g. "token not in localStorage" is generic; "crypto primitive correctness" needs the security specialist). Route each finding's re-verification to its original specialist when the check requires domain knowledge.
+
+### Step 5: Gate + Iteration Cap
+
+After VERIFY_<iteration> is written:
+
+1. **All PASS** → reviews gate passes. Proceed to the runtime gate (v0.13.0) and then merge.
+2. **Any FAIL** → iterate: update FIX_BACKLOG with remaining FAIL rows, run Step 3 (remediation) again, then Step 4 (re-verify) again.
+3. **Hard cap: 3 iterations per feature.** After the 3rd failed verification, STOP and escalate:
+
+```
+═══════════════════════════════════════════════════════════
+  FIX-VERIFY ESCALATION — 3 iterations exhausted
+═══════════════════════════════════════════════════════════
+
+After 3 fix/verify cycles these findings are still not resolved:
+  - [finding #X from FIX_BACKLOG] — last result: FAIL — [evidence]
+  - [finding #Y]                    — last result: INCONCLUSIVE — [evidence]
+
+Options:
+  [A] Accept as known limitation — user signs a waiver
+      (records entry in docs/reviews/WAIVERS_<feature>_<date>.md)
+  [B] Redesign the approach — return to Step 2 (Design) with this
+      finding as a new constraint; restart the implementation
+  [C] Defer as tech debt — move to docs/reviews/TECH_DEBT_<date>.md
+      and block the feature from merging for this release
+  [D] Change specialist — try a different agent for remediation
+      (e.g. security-auditor writes the fix directly instead of coding-agent)
+
+Which option? [A / B / C / D]
+```
+
+Then STOP and wait. Do not loop a 4th time.
+
+### Tracker Hookup
+
+The SDLC_TRACKER gains per-feature fix-loop rows:
+
+```
+| Feature | Iteration | FIX_BACKLOG rows | Last verify result | Status |
+|---------|-----------|------------------|--------------------|--------|
+| [name]  | 1/3       | 3 blocking       | 2 PASS, 1 FAIL     | 🔄 iterating |
+| [name]  | 2/3       | 1 blocking       | 1 PASS             | ✅ passed — runtime next |
+```
+
+Iteration count = `⚠️ BLOCKED | awaiting user decision` when cap is hit.
+
+### Why this exists
+
+Before v0.14.0, reviews ran sequentially and findings lived in three separate docs; there was no template for "take these findings and fix them," re-verification re-ran full reviews wasting tokens, and nothing capped the loop. Result: review handoffs oscillated until sdlc-lead improvised an ad-hoc fix prompt or the user intervened. The protocol turns it into a structured pipeline with a hard stop.
+
+---
+
 # MODE 1: New Project (`/sdlc init`)
 
 **Start with the Mode 1 Discovery Interview above. Do not skip it.**
@@ -2114,9 +2320,9 @@ stop and flag the cross-cutting concern — do not edit cross-module.
 
 Round 1 gate: every module's completion phrase present, no write-scope collisions (`git status` shows no overlap).
 
-**Round 2 — Review (N parallel code-reviewer HANDOFFs):**
+**Round 2 — Review (N parallel HANDOFFs, then Fix-Verify Loop per module):**
 
-Emit ONE message with N code-reviewer HANDOFFs, one per module. Each produces `docs/reviews/CODE_REVIEW_<module>_<date>.md` with verdict APPROVED / NEEDS REVISION / REJECT. Completion phrase: `"review done — <module>: <verdict>"`. Round 2 gate: every review APPROVED (NEEDS REVISION means loop back to a coding-agent HANDOFF for that module only — other modules proceed to Round 3).
+Emit ONE message with every triggered review HANDOFF per module (code-reviewer always; security / perf / ux per the auto-trigger rules in Fix-Verify Loop Protocol § Step 1). Completion phrases: `"review done — <module>: <verdict>"`, `"security done — <module>: <verdict>"`, etc. After all completion phrases return, run the Fix-Verify Loop Protocol (§ Steps 2–5) **per module** — each module produces its own `FIX_BACKLOG_<module>_<date>.md`, iterates up to 3 times with per-module remediation + re-verification, and passes when every merge-blocking row in its backlog is VERIFY=PASS. A module stuck after 3 iterations emits the escalation block for that module only; peer modules advance to Round 3.
 
 **Round 3 — Runtime (N parallel coding-agent HANDOFFs, runtime-validation scope):**
 
@@ -2610,109 +2816,70 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ## Phase 5: Review — DID it work?
 
-Run all review handoffs sequentially. Update state before each one.
+Reviews run as a **parallel fan-out**, then findings flow through the Fix-Verify Loop Protocol (§ top of this file). Separate post-review audits (tech-debt, coverage, containers) run sequentially after the fix loop passes.
 
-**1. Security final:**
+**1. Parallel review fan-out (security + perf + code-review + ux):**
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
 Mode: 1 / Phase: 5 — Review
 Last completed: Phase 4 gate passed
-Awaiting: security-auditor — docs/reviews/SECURITY_FINAL_<date>.md
-Next after resume: performance benchmark handoff
+Awaiting: parallel fan-out — security + perf + code-review + ux
+Next after resume: synthesize FIX_BACKLOG_RELEASE_<date>.md
 ")
 ```
 
+Emit ONE message with every applicable review HANDOFF. User opens N OpenCode sessions concurrently.
+
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /security (security-auditor)
+  PHASE 5 PARALLEL REVIEWS — [N] HANDOFFs
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
+───── HANDOFF #1 → /security (security-auditor) ─────
 SDLC-TASK for security-auditor:
+CONTEXT: entire codebase (src/) + docs/THREAT_MODEL.md + docs/API_DESIGN.md.
+YOUR TASK: Full OWASP Top 10 audit across the entire codebase. Cover all 10 categories. For each finding, include verbatim code quote + file:line + severity + fix. Findings only — do NOT fix.
+PRODUCE: docs/reviews/SECURITY_FINAL_<date>.md — findings sorted by severity, CRITICAL at top, summary table by OWASP category, verdict (READY / BLOCKED).
+Print exactly: "security done — [CRITICAL count, HIGH count, verdict]"
 
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-- docs/THREAT_MODEL.md — threats that must be mitigated before release
-- docs/API_DESIGN.md — all endpoints and their auth requirements
-
-YOUR TASK:
-Run a full OWASP Top 10 audit across the entire codebase. Cover all 10
-categories. For each finding include a verbatim code quote with file:line,
-severity, and a specific fix. The release criterion is zero CRITICAL findings.
-
-PRODUCE exactly this file:
-- docs/reviews/SECURITY_FINAL_<date>.md — all findings sorted by severity,
-  CRITICAL findings in their own section at the top, a summary table of
-  finding counts per OWASP category, and an overall release verdict
-  (READY / BLOCKED — list what must be fixed)
-
-When the file is written, print exactly:
-"security done — [one sentence: CRITICAL count, HIGH count, release verdict]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-**2. Performance benchmark:**
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /perf (performance-engineer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
-
+───── HANDOFF #2 → /perf (performance-engineer) ─────
 SDLC-TASK for performance-engineer:
+CONTEXT: docs/SRS.md NFR targets + the full codebase.
+YOUR TASK: Benchmark against every NFR target with representative load. Report measured vs. target per NFR. For each missed target, include root cause + specific fix recommendation with file:line + expected delta. Findings only — do NOT self-optimize.
+PRODUCE: docs/reviews/PERF_FINAL_<date>.md — table per NFR (target, measured, PASS/FAIL), flame graph or profiling evidence for FAILs, verdict (RELEASE-READY / BLOCKED).
+Print exactly: "perf done — [N/M NFR targets passed]"
 
-CONTEXT (read these before starting):
-- docs/SRS.md — all NFR performance targets (response time, throughput, uptime)
-- The full codebase to benchmark
-
-YOUR TASK:
-Benchmark the entire application against every NFR performance target in
-docs/SRS.md. Test each target with representative load. Report measured values
-vs. targets. For any missed target, identify the root cause.
-
-PRODUCE exactly this file:
-- docs/reviews/PERF_FINAL_<date>.md — a table of every NFR target with
-  measured value and PASS/FAIL, flame graph or profiling evidence for any
-  failures, and an overall verdict (RELEASE-READY / BLOCKED)
-
-When the file is written, print exactly:
-"perf done — [one sentence: how many NFR targets passed/failed]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-**3. Code review final:**
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /review-code (code-reviewer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
-
+───── HANDOFF #3 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
+CONTEXT: entire codebase (src/) + docs/ARCHITECTURE.md.
+YOUR TASK: Full 7-dimension health review across the codebase. Flag every CRITICAL/HIGH with file:line + fix.
+PRODUCE: docs/reviews/CODE_REVIEW_FINAL_<date>.md — findings per dimension, health scores 1-10 per dimension, verdict (APPROVED / NEEDS REVISION / REJECT), top 5 priority fixes.
+Print exactly: "review done — [verdict and top issue]"
 
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-- docs/ARCHITECTURE.md — patterns and structure the code should follow
+───── HANDOFF #4 → /ux (ux-engineer)  [if UI-bearing] ─────
+SDLC-TASK for ux-engineer:
+CONTEXT: UI source files + docs/design/UX_SPEC.md + docs/design/STYLE_GUIDE.md.
+YOUR TASK: Full WCAG 2.2 AA audit — alt text, keyboard nav, color contrast, ARIA, focus order, responsive. File:line + fix per finding. Findings only — do NOT fix.
+PRODUCE: docs/reviews/UX_AUDIT_<date>.md — findings by severity (CRITICAL first), summary counts, verdict (RELEASE-READY / BLOCKED).
+Print exactly: "ux done — [CRITICAL/HIGH count and release verdict]"
 
-YOUR TASK:
-Run a full 7-dimension code health review across the entire codebase. Dimensions:
-complexity, duplication/DRY, error handling (silent failure hunter), type safety,
-pattern consistency, naming quality, comment accuracy. Flag every CRITICAL or HIGH
-finding with file:line and a specific fix.
-
-PRODUCE exactly this file:
-- docs/reviews/CODE_REVIEW_FINAL_<date>.md — findings per dimension, overall
-  health scores (1-10 per dimension), a verdict (APPROVED / NEEDS REVISION / REJECT),
-  and the top 5 highest-priority fixes
-
-When the file is written, print exactly:
-"review done — [one sentence: overall verdict and top issue]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
+
+**2. Synthesize → FIX_BACKLOG_RELEASE (see Fix-Verify Loop Protocol § Step 2):**
+
+After every review's completion phrase returns, write `docs/reviews/FIX_BACKLOG_RELEASE_<date>.md` using the protocol's format. Deduplicate; every merge-blocking row must have a Verify criterion.
+
+If "Merge-blocking" is empty → reviews gate passes. Skip to block 4.
+
+**3. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
+
+Iterate up to 3 times:
+- Remediation HANDOFF (coding-agent given FIX_BACKLOG_RELEASE).
+- Targeted re-verification HANDOFF (code-reviewer or original specialist).
+- All PASS → release gate passes. Any FAIL → iterate.
+- After 3 failed cycles → emit the escalation block, STOP, wait for user decision [A/B/C/D].
 
 **4. Tech debt register:**
 
@@ -2775,39 +2942,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
-**6. Accessibility audit (if UI-bearing):**
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /ux (ux-engineer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
-
-SDLC-TASK for ux-engineer:
-
-CONTEXT (read these before starting):
-- The UI source files (components/, pages/, views/ directory)
-- docs/design/UX_SPEC.md — intended user workflows and component inventory
-- docs/design/STYLE_GUIDE.md — design standards the UI should follow
-
-YOUR TASK:
-Audit the entire UI for WCAG 2.2 AA accessibility compliance. Check every
-component and page for: missing alt text, keyboard navigation traps, insufficient
-color contrast, missing ARIA labels, focus order issues, and responsive breakpoint
-failures. For each finding include the file:line and a concrete fix.
-
-PRODUCE exactly this file:
-- docs/reviews/UX_AUDIT_<date>.md — findings sorted by severity (CRITICAL first),
-  each with file:line and fix, a summary count by severity, and a verdict
-  (RELEASE-READY / BLOCKED — list what must be fixed for AA compliance)
-
-When the file is written, print exactly:
-"ux done — [one sentence: CRITICAL/HIGH count and release verdict]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-**7. Container optimization:**
+**6. Container optimization:**
 
 ```
 ═══════════════════════════════════════════════════════════
@@ -2838,12 +2973,42 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
-**8. Release — only after ALL above pass (task tool — fast):**
+**7. Phase 5 Release Gate (BLOCKING before block 8):**
+
+Before handing off to `--release`, verify every exit condition is met. Emit this block explicitly and record the result:
+
+```
+═══════════════════════════════════════════════════════════
+  PHASE 5 RELEASE GATE
+═══════════════════════════════════════════════════════════
+
+Required conditions (ALL must be true):
+  [✓/✗] docs/reviews/FIX_BACKLOG_RELEASE_<date>.md exists
+  [✓/✗] Latest VERIFY_RELEASE_<iteration>_<date>.md: every merge-blocking row = PASS
+         OR every unresolved row has a signed WAIVERS_RELEASE_<date>.md entry
+         with compensating control
+  [✓/✗] docs/reviews/SECURITY_FINAL_<date>.md verdict = READY
+  [✓/✗] docs/reviews/PERF_FINAL_<date>.md verdict = RELEASE-READY
+  [✓/✗] docs/reviews/CODE_REVIEW_FINAL_<date>.md verdict = APPROVED (or APPROVED WITH SUGGESTIONS)
+  [✓/✗] docs/reviews/UX_AUDIT_<date>.md verdict = RELEASE-READY (if UI-bearing; else N/A)
+  [✓/✗] docs/reviews/COVERAGE_<date>.md: no critical-path coverage gap
+  [✓/✗] docs/reviews/CONTAINER_AUDIT_<date>.md: no CRITICAL CVE in base images
+  [✓/✗] Full test suite: all P0 + P1 passing
+  [✓/✗] Runtime validation (Phase 4 Round 3 or equivalent): all PASS
+
+If ANY condition is [✗], STOP. Record the blockers and surface to the user:
+  "Release gate BLOCKED: [list]. Resolve or sign a waiver before cutting release."
+
+If ALL conditions are [✓], proceed to block 8.
+═══════════════════════════════════════════════════════════
+```
+
+**8. Release — only after Release Gate passes (task tool — fast):**
 ```
 task(agent="git-expert", prompt="--release: compute next semver from conventional commits, generate CHANGELOG entry, create signed annotated tag, push to all remotes, draft GitHub + Gitea releases.", timeout=120)
 ```
 
-**Exit:** No CRITICAL/HIGH findings, performance meets NFRs, accessibility passes, release cut
+**Exit:** Release Gate all green (every verdict READY/APPROVED/RELEASE-READY with no open CRITICAL/HIGH), release cut
 
 
 # MODE 2: Onboard to Existing Project (`/sdlc onboard`)
@@ -3812,75 +3977,70 @@ After "implementation done":
    If existing tests broke, the feature introduced a regression — fix before review.
 3. Only after both gates pass: proceed to code review.
 
-**4. Code review (HANDOFF):**
+**4. Parallel reviews — fan-out (see Fix-Verify Loop Protocol § Step 1):**
+
+Before emitting, evaluate the auto-trigger rules against the impact analysis:
+- **code-reviewer** — ALWAYS runs.
+- **security-auditor** — runs if the impact analysis lists any auth, session, authorization, user-input, file-upload, SQL/ORM, crypto, or external-API-with-credentials surface.
+- **performance-engineer** — runs if the impact touches a path with an NFR target in SRS.md, DB queries (new or modified), loops over collections, caching, or background jobs.
+- **ux-engineer** — runs if any UI file is in the impact.
+
+Emit ONE message containing every triggered HANDOFF as separate blocks. User opens N OpenCode sessions concurrently. Report back with all N completion phrases before synthesis.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /review-code (code-reviewer)
+  PARALLEL REVIEWS — [N] HANDOFFs (open [N] OpenCode sessions)
 ═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
+───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
+CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
+YOUR TASK: 7-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy). File:line + severity + fix per finding.
+PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
+Print exactly: "review done — [verdict and top finding]"
 
-CONTEXT (read these before starting):
-- The [feature name] implementation files: [list from impact analysis]
-- docs/ARCHITECTURE.md — patterns this code should follow
+───── HANDOFF #2 → /security (security-auditor)  [if triggered] ─────
+SDLC-TASK for security-auditor:
+CONTEXT: [feature] implementation files + docs/reviews/SECURITY_DESIGN_<feature>_<date>.md (design-time risks to verify mitigated).
+YOUR TASK: Verify every design-time risk is mitigated. Scan for new vulnerabilities (auth, access control, injection, data handling). Produce findings ONLY — do NOT fix.
+PRODUCE: docs/reviews/SECURITY_<feature>_<date>.md — file:line + severity (CRITICAL/HIGH/MEDIUM/LOW) + fix per finding, verdict (APPROVED / BLOCKED).
+Print exactly: "security done — [finding counts + verdict]"
 
-YOUR TASK:
-Review the [feature name] implementation across 7 dimensions: complexity,
-duplication/DRY, error handling (silent failures), type safety, pattern
-consistency with the existing codebase, naming quality, and comment accuracy.
-For every CRITICAL or HIGH finding include file:line and a specific fix.
+───── HANDOFF #3 → /perf (performance-engineer)  [if triggered] ─────
+SDLC-TASK for performance-engineer:
+CONTEXT: docs/SRS.md NFR targets + the changed endpoints/queries.
+YOUR TASK: Measure baseline and verify against each NFR target. Report findings ONLY — do NOT self-optimize (optimization flows through the remediation HANDOFF). If a target is missed, include a specific fix recommendation with expected delta.
+PRODUCE: docs/reviews/PERF_<feature>_<date>.md — baseline, target, measured, PASS/FAIL per target, recommended fix with file:line for each FAIL.
+Print exactly: "perf done — [N/M targets pass]"
 
-PRODUCE exactly this file:
-- docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with
-  severity and file:line, a verdict (APPROVED / NEEDS REVISION / REJECT),
-  and a list of required fixes before merge
-
-When the file is written, print exactly:
-"review done — [one sentence: verdict and most critical finding]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-**5. UX review (HANDOFF, if feature has UI components):**
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /ux (ux-engineer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
-
+───── HANDOFF #4 → /ux (ux-engineer)  [if UI-bearing] ─────
 SDLC-TASK for ux-engineer:
+CONTEXT: [feature] UI changes + docs/design/STYLE_GUIDE.md + docs/design/UX_SPEC.md.
+YOUR TASK: Check component conformance + WCAG 2.2 AA + flow vs spec + accessibility regression.
+PRODUCE: docs/reviews/UX_REVIEW_<feature>_<date>.md — file:line + severity + fix per finding.
+Print exactly: "ux done — [finding counts, CRITICAL/HIGH block merge]"
 
-CONTEXT (read these before starting):
-- The UI changes for [feature name] (files from the impact analysis)
-- docs/design/STYLE_GUIDE.md — component patterns this UI must follow
-- docs/design/UX_SPEC.md — the intended workflow for this feature
-
-YOUR TASK:
-Review the [feature name] UI changes. Check: (1) do components follow
-docs/design/STYLE_GUIDE.md patterns or introduce new inconsistent styles?
-(2) are all WCAG 2.2 AA requirements met — keyboard navigation, alt text,
-color contrast, ARIA labels? (3) does the actual flow match the intended
-flow in docs/design/UX_SPEC.md? (4) any accessibility regressions vs. existing UI?
-
-PRODUCE exactly this output:
-- A findings list with file:line and severity (CRITICAL/HIGH/MEDIUM/LOW) for
-  every issue found. Include a one-line fix for each.
-  Write findings to: docs/reviews/UX_REVIEW_<feature>_<date>.md
-
-When the file is written, print exactly:
-"ux done — [one sentence: finding counts by severity, CRITICAL/HIGH block merge]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
-If ux-engineer reports CRITICAL or HIGH findings, fix them before proceeding to the PR.
+**5. Synthesize → FIX_BACKLOG (see Fix-Verify Loop Protocol § Step 2):**
 
-**6. Git commit + PR (task tool — fast):**
+After every review's completion phrase returns, read each review file and write `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` (format in the protocol). Deduplicate findings that multiple reviewers flagged on the same file:line. Every merge-blocking row MUST have an observable Verify criterion.
+
+If the FIX_BACKLOG "Merge-blocking" section is empty → reviews gate passes. Skip to block 7.
+
+**6. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
+
+Iterate up to 3 times:
+- Emit the Remediation HANDOFF (coding-agent given FIX_BACKLOG) → wait for "fix done".
+- Emit the targeted Re-verification HANDOFF (code-reviewer — or original specialist for domain-specific checks) → wait for "verify done".
+- If all PASS → reviews gate passes, proceed to block 7.
+- If any FAIL → update FIX_BACKLOG with remaining rows, iterate.
+- After 3 failed cycles → emit the escalation block (§ Step 5), STOP, wait for user decision [A/B/C/D].
+
+**7. Git commit + PR (task tool — fast):**
 ```
-task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, any UX changes made.", timeout=120)
+task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, fix-verify iteration count, any UX changes made.", timeout=120)
 ```
 
 **Verify modular structure:**
@@ -3891,103 +4051,12 @@ task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split c
 
 ## Step 4: Verify
 
-- Run full test suite (existing + new tests pass)
+Reviews ran in Step 3 as a parallel fan-out and flowed through the Fix-Verify Loop. Step 4 is now just the final pre-merge sanity checks:
 
-If security-sensitive:
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /security (security-auditor)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
-
-SDLC-TASK for security-auditor:
-
-CONTEXT (read these before starting):
-- The [feature name] implementation files: [list from impact analysis]
-- docs/reviews/SECURITY_DESIGN_<feature>_<date>.md — risks identified at design
-  time that must be verified as mitigated
-
-YOUR TASK:
-Verify the [feature name] implementation is secure. Check that every risk from
-the design-time security review has been mitigated. Then scan the implementation
-for any new vulnerabilities introduced: auth/access control, injection in user
-inputs, and insecure data handling.
-
-PRODUCE exactly this file:
-- docs/reviews/SECURITY_<feature>_<date>.md — design risks and whether each was
-  mitigated, new findings from the implementation with file:line and fix, and a
-  merge verdict (APPROVED / BLOCKED — list what must be fixed)
-
-When the file is written, print exactly:
-"security done — [one sentence: finding counts and merge verdict]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-If performance-sensitive:
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /perf (performance-engineer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
-
-SDLC-TASK for performance-engineer:
-
-CONTEXT (read these before starting):
-- docs/SRS.md — the NFR performance targets this feature must meet
-- The [feature name] implementation (the specific endpoint or query changed)
-
-YOUR TASK:
-Measure the performance of the [feature name] changes against the NFR targets
-in docs/SRS.md. Profile the specific endpoint/query that was changed. Measure
-the baseline, then verify it meets the target. If it misses the target, optimize
-and re-measure — always show before/after numbers.
-
-PRODUCE exactly this file:
-- docs/reviews/PERF_<feature>_<date>.md — baseline measurement, NFR target,
-  measured value, PASS/FAIL verdict, and any optimizations applied with delta
-
-When the file is written, print exactly:
-"perf done — [one sentence: measured value vs target, pass or fail]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-If UI feature, final accessibility check:
-
-```
-═══════════════════════════════════════════════════════════
-  HANDOFF → /ux (ux-engineer)
-═══════════════════════════════════════════════════════════
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
-
-SDLC-TASK for ux-engineer:
-
-CONTEXT (read these before starting):
-- The [feature name] UI changes (files from the impact analysis)
-- docs/reviews/UX_REVIEW_<feature>_<date>.md — issues flagged in earlier review
-
-YOUR TASK:
-Final accessibility check on the [feature name] UI. Verify that all CRITICAL
-and HIGH issues from the earlier UX review have been fixed. Then do a fresh
-WCAG 2.2 AA pass on the updated components to confirm no new violations were
-introduced.
-
-PRODUCE exactly this output:
-- A verdict on each previously flagged issue: FIXED or STILL PRESENT
-- Any new WCAG 2.2 AA violations found, with file:line
-- Final verdict: APPROVED or BLOCKED (CRITICAL/HIGH = blocked)
-  Write to: docs/reviews/UX_FINAL_<feature>_<date>.md
-
-When the file is written, print exactly:
-"ux done — [one sentence: prior issues resolved, new issues found, final verdict]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
-```
-
-- Check: Does the feature work end-to-end?
+- Run full test suite (existing + new tests pass — no regressions)
+- Confirm `FIX_BACKLOG_<feature>_<date>.md` exists and its "Merge-blocking" section is either empty or every row has a PASS in the latest `VERIFY_<feature>_<iteration>_<date>.md`
+- Confirm no CRITICAL/HIGH waivers were signed without a compensating control documented in `WAIVERS_<feature>_<date>.md`
+- Check: Does the feature work end-to-end? (this is verified by the runtime gate in Step 5)
 - Check: Did we break anything? (regression test)
 
 ## Step 5: Document

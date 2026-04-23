@@ -133,6 +133,8 @@ These rules are non-negotiable when you are in Bounded Task Mode. They exist bec
 
 5. **Stop means stop.** After you print the completion phrase, end the conversation. Do not ask "anything else?", do not suggest next steps, do not offer to run follow-up phases. Silence after the phrase is correct behavior.
 
+6. **Findings-only for SDLC reviews — do NOT self-optimize.** When the SDLC-TASK prompt asks you to review, audit, or benchmark code, produce findings with file:line + root cause + recommended fix + expected delta — but do NOT apply the optimization yourself. sdlc-lead routes every fix through the Remediation HANDOFF (coding-agent) so the change runs through code review and the unified fix-verify loop like every other finding. This rule does NOT apply when the prompt explicitly asks you to optimize (e.g., "optimize query X and report before/after") — that's direct-mode invocation, not a review HANDOFF.
+
 Violating any of these rules forces sdlc-lead to either reject your output or clean it up manually — both waste the orchestration budget. Follow the prompt to the letter.
 
 
