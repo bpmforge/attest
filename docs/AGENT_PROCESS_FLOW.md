@@ -108,11 +108,18 @@ User: /sdlc init my-app "description"
            │   ├── Sequential mode: emit ONE coding-agent HANDOFF per module,
            │   │  wait for "done" + verify ≥ 7 before next
            │   │
-           │   └── Parallel mode: emit ALL wave HANDOFFs in ONE message
-           │       (user opens N OpenCode sessions concurrently)
-           │       └── Each HANDOFF: write-scope = src/<module>/ ONLY
-           │       └── Gate before next wave: every agent "done" AND each verify ≥ 7
-           │           AND no write-scope collisions (git status check)
+           │   └── Parallel mode: THREE rounds per wave (code → review → runtime)
+           │       (user opens N OpenCode sessions concurrently per round)
+           │       ├── Round 1 (code): N coding-agent HANDOFFs
+           │       │   └── Each HANDOFF: write-scope = src/<module>/ ONLY
+           │       │   └── Gate: all "code done" + no write-scope collisions
+           │       ├── Round 2 (review): N code-reviewer HANDOFFs
+           │       │   └── PRODUCE: docs/reviews/CODE_REVIEW_<module>_<date>.md
+           │       │   └── Gate: every module verdict = APPROVED
+           │       └── Round 3 (runtime): N runtime-validation HANDOFFs
+           │           └── PRODUCE: docs/reviews/RUNTIME_<module>_<date>.md
+           │           └── Gate: every module verdict = PASS
+           │           └── Module FAIL blocks only itself — peers advance
            │
            ├── HANDOFF → coding-agent (one per module, with write-scope isolation)
            │   └── READ: docs/TECH_STACK.md + ARCHITECTURE.md + module contract
@@ -154,8 +161,14 @@ User: /sdlc init my-app "description"
            │
            ├── HANDOFF → sre-engineer (CI/CD + deploy)
            │
-           └── ★ NEW: FINAL GATE — all P0 + P1 tests passing
-               └── task(git-expert) → PR + merge
+           ├── ★ NEW: RUNTIME VALIDATION GATE (BLOCKING before merge)
+           │   └── HANDOFF → coding-agent: build → lint/typecheck → start →
+           │      feature smoke → regression smoke
+           │   └── PRODUCE: docs/reviews/RUNTIME_<feature>_<date>.md
+           │   └── Verdict must be PASS — FAIL blocks the merge
+           │
+           └── ★ NEW: FINAL GATE — all P0 + P1 tests passing AND RUNTIME = PASS
+               └── task(git-expert) → verifies RUNTIME file, then PR + merge
 ```
 
 ## What's New (★ marked above)

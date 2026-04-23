@@ -108,7 +108,7 @@ Phases 0–5, discovery-driven from a blank repo.
 **Execution mode — sdlc-lead asks the user per-wave before emitting HANDOFFs:**
 
 - **Sequential (default)** — modules built one agent at a time, verify each before the next. Safer, easier to recover from failure.
-- **Parallel (opt-in per wave)** — sdlc-lead emits every module's HANDOFF in one message; user opens N OpenCode sessions concurrently. Wave N+1 does not start until every Wave-N agent prints its completion phrase AND verification ≥ 7 AND a write-scope collision check passes. Faster, but requires modules whose write-scopes don't overlap.
+- **Parallel (opt-in per wave) — three rounds per wave: code → review → runtime.** Round 1 emits N `coding-agent` HANDOFFs (one per module) in a single message. Round 2 emits N `code-reviewer` HANDOFFs producing `docs/reviews/CODE_REVIEW_<module>_<date>.md`. Round 3 emits N runtime-validation HANDOFFs producing `docs/reviews/RUNTIME_<module>_<date>.md`. Every module must be green in all three rounds before Wave N+1 starts. A Round 3 FAIL blocks only the failing module; peers keep their PASS verdicts.
 
 Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's assigned module directory is exclusive; cross-module changes must be flagged as deferred, not edited. `src/shared/` writes always run in their own wave, never concurrently.
 
@@ -160,15 +160,18 @@ Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces
 
 ## Mode 3: Add Feature (`/sdlc feature`)
 
-Add a feature to a working system without breaking it. Creates `feat/[slug]` branch. Ends with a PR merged to `main`.
+Add a feature to a working system without breaking it. Creates `feat/[slug]` branch. Ends with a runtime-validated PR squash-merged to `main`.
 
 **Steps:**
 1. Discovery interview — understand the feature before touching code
 2. Impact analysis — what does this touch? what's the blast radius?
-3. Design — sequence diagram, DB changes, API changes, test plan
-4. Implement — branch-first, tests first, code review + security check before PR
-5. Verify — security audit, performance check, accessibility pass (if UI)
-6. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
+3. **Sub-component decomposition** — Atomic (linear flow) or Split? Split features produce `docs/features/<slug>/COMPONENT_DAG.md` with sub-components, dependencies, waves, and frozen contracts. Each sub-component cuts `feat/<slug>/<sub-slug>` from the parent branch and runs the full Mode-3 lifecycle (Steps 4–7) on its own branch.
+4. Design — sequence diagram, DB changes, API changes, test plan
+5. Implement — branch-first, tests first, code review + security check
+6. Verify — security audit, performance check, accessibility pass (if UI)
+7. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
+8. **Runtime validation gate (BLOCKING before merge)** — build → lint/typecheck → start → feature smoke → regression smoke. Produces `docs/reviews/RUNTIME_<feature>_<date>.md`. Verdict must be PASS or the merge aborts. In split features, each sub-component produces its own `RUNTIME_<slug>_<sub-slug>_<date>.md`; the parent merges to `main` only when every sub-component is PASS.
+9. Merge — `git-expert` verifies the RUNTIME file exists with PASS, then marks the PR ready and squash-merges. Branch deleted after merge.
 
 ---
 

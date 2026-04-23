@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] — 2026-04-23
+
+Runtime validation gate before every merge, per-component parallelism with full mini-lifecycle per module, and sub-component decomposition for Mode 3 features. Closes the gap where tests-green PRs were merging to `main` without a confirmed clean run, and where Phase 4 parallel waves only parallelized coding while reviews and runtime ran once at the end.
+
+### Added
+
+- **Runtime validation gate — MANDATORY before every merge.** Mode 3 Step 5 now includes a blocking runtime gate before `git-expert` is allowed to squash-merge. `coding-agent` runs: build → lint/typecheck → start → feature smoke → regression smoke, producing `docs/reviews/RUNTIME_<feature>_<date>.md` with verdict PASS or FAIL. FAIL blocks the merge — fix, re-review if non-trivial, re-run the gate. A green test suite and approved review are not proof the app boots; this gate exists because a merge without runtime confirmation is a P0 defect (missing env vars, broken migrations, import cycles, misconfigured services all surface only at runtime).
+
+- **git-expert merge rule — matching `RUNTIME_*.md` required to squash to `main`.** New NEVER-rule in `git-expert.md`: any merge to `main`, any sub-component merge to its parent feature branch, and any Phase 4 wave module merge requires a matching `docs/reviews/RUNTIME_*.md` with verdict PASS. Missing, stale, or FAIL → abort and report. The merge-phase `task(git-expert, ...)` prompt in `sdlc-lead` now explicitly tells git-expert to verify this file before marking the PR ready.
+
+- **Mode 3 Step 1.5 — Sub-component Decomposition.** After impact analysis, sdlc-lead asks whether the feature is Atomic (linear flow, as before) or Split. Split features produce `docs/features/<slug>/COMPONENT_DAG.md` (same format as Phase 4's `PARALLELIZATION_MAP.md`) with sub-components, directories, dependencies, wave numbers, and frozen contracts. Each sub-component cuts its own branch `feat/<slug>/<sub-slug>` from the parent `feat/<slug>`, runs the full Mode-3 lifecycle (Steps 2–5) in its own OpenCode session, produces `RUNTIME_<slug>_<sub-slug>_<date>.md`, and merges back to the parent when its runtime passes. The parent merges to `main` only when every sub-component is PASS.
+
+- **Phase 4 Parallel Wave — three-round per-module pattern (code → review → runtime).** Parallel waves were previously coding-only with shared reviews at the end. Now each parallel wave runs three rounds, one message per round: Round 1 emits N `coding-agent` HANDOFFs (one per module), Round 2 emits N `code-reviewer` HANDOFFs producing `docs/reviews/CODE_REVIEW_<module>_<date>.md`, Round 3 emits N runtime-validation HANDOFFs producing `docs/reviews/RUNTIME_<module>_<date>.md`. The wave advances only after every module is green in all three rounds. A Round 3 FAIL blocks only the failing module — fix and re-run that module's HANDOFF while peers' PASS verdicts stay valid.
+
+### Changed
+
+- **SDLC_TRACKER Phase 4 Wave Execution table** — gained `Depends on waves` column and per-round status (code / review / runtime) plus per-module RUNTIME verdicts. A wave row is only ✅ DONE when all three rounds are green AND every per-module RUNTIME verdict is PASS.
+
+- **Mode 3 merge prompt to git-expert** — no longer just "mark ready + squash." It now instructs git-expert to first confirm the RUNTIME report exists with PASS, abort if missing or FAIL, and report the merge SHA after success.
+
 ## [0.12.0] — 2026-04-22
 
 Strict delegation policy for sdlc-lead, modular-parallel architecture requirements in Phase 3, and opt-in parallel wave execution in Phase 4. Closes the two remaining INLINE audit leaks where the orchestrator was doing specialist work directly.
