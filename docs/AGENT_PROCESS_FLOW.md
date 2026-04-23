@@ -88,37 +88,52 @@ User: /sdlc init my-app "description"
            │   └── PRODUCE: docs/THREAT_MODEL.md
            │   └── RETURN: "security done — N threats found"
            │
-           └── SDLC lead writes ARCHITECTURE.md
+           └── SDLC lead writes synthesis docs (orchestrator-written, NOT handoffs)
+               ├── docs/ARCHITECTURE.md (C4 diagrams + modular design decisions)
+               └── docs/PARALLELIZATION_MAP.md (module inventory + Phase 4 waves)
                └── Gate → Check-In → Merge sdlc/setup → main
 
-    Phase 4: Implementation
+    Phase 4: Implementation (wave-based, Sequential default or Parallel opt-in)
+           │
+           ├── EXECUTION MODE SELECTION (read PARALLELIZATION_MAP.md)
+           │   └── SDLC lead asks user per-wave: Sequential [S] or Parallel [P]?
+           │   └── Choice recorded in docs/work/sdlc-state.md + SDLC_TRACKER
            │
            ├── HANDOFF → test-engineer
            │   └── PRODUCE: docs/TEST_STRATEGY.md (framework selection + approach)
            │   └── RETURN: "test-strategy done"
            │
-           ├── IMPLEMENTATION CHECKPOINT (Size S items: user builds directly)
-           │   └── Constraint: use ONLY tech listed in docs/TECH_STACK.md
-           │   └── "Write tests alongside each module"
-           │   └── RETURN: user says "implementation done"
+           ├── WAVE LOOP (for each wave in PARALLELIZATION_MAP.md)
+           │   │
+           │   ├── Sequential mode: emit ONE coding-agent HANDOFF per module,
+           │   │  wait for "done" + verify ≥ 7 before next
+           │   │
+           │   └── Parallel mode: emit ALL wave HANDOFFs in ONE message
+           │       (user opens N OpenCode sessions concurrently)
+           │       └── Each HANDOFF: write-scope = src/<module>/ ONLY
+           │       └── Gate before next wave: every agent "done" AND each verify ≥ 7
+           │           AND no write-scope collisions (git status check)
            │
-           ├── HANDOFF → coding-agent (Size M items from Mode 4 backlog)
-           │   └── READ: docs/TECH_STACK.md + IMPROVEMENT_[n]_DESIGN.md
+           ├── HANDOFF → coding-agent (one per module, with write-scope isolation)
+           │   └── READ: docs/TECH_STACK.md + ARCHITECTURE.md + module contract
            │   └── VERIFY: all library APIs via Context7 before writing
-           │   └── ENFORCE: anti-slop rules (no over-engineering, no hallucinated APIs)
-           │   └── PRODUCE: implementation files + docs/improve/VERIFY_ITEM_[n].md
-           │   └── RETURN: "coding-agent done — item [n]: [one sentence]"
+           │   └── ENFORCE: anti-slop rules + Strict Scope Rules (no extra files,
+           │      no cross-module writes, exact completion phrase)
+           │   └── PRODUCE: implementation files under src/<module>/ only
+           │   └── RETURN: "coding-agent done — <module>: [one sentence]"
            │
-           ├── ★ NEW: HANDOFF → test-engineer (WRITE ACTUAL E2E TESTS)
+           ├── HANDOFF → test-engineer (WRITE ACTUAL E2E TESTS)
            │   └── READ: docs/testing/USE_CASES.md + docs/testing/TEST_PLAN.md
            │   └── PRODUCE: e2e/use-cases/*.spec.ts — one per P0 use case
            │   └── PRODUCE: e2e/use-cases/_fixtures.ts — shared helpers
            │   └── RUN: full test suite, report pass/fail
            │   └── RETURN: "e2e-tests done — N/M passing"
            │
-           ├── ★ NEW: SDLC lead runs DISCOVERY AUDIT
-           │   └── Walk all pages, collect errors, produce report
-           │   └── Triage: fix blockers before reviews
+           ├── HANDOFF → test-engineer (DISCOVERY AUDIT — was INLINE, now delegated)
+           │   └── Walk all pages/routes on running app, collect errors
+           │   └── PRODUCE: docs/audits/discovery-<date>.md
+           │   └── RETURN: "discovery done — N routes, M critical, K high"
+           │   └── SDLC lead triages: fix critical via coding-agent before reviews
            │
            ├── HANDOFF → db-architect (migration verification)
            ├── HANDOFF → api-designer (contract verification)
