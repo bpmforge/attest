@@ -78,10 +78,12 @@ Phases 0–5, discovery-driven from a blank repo.
 ### Phase 3: Design — HOW do we build it?
 
 **Deliverables:**
-- `docs/ARCHITECTURE.md` — C4 diagrams, ADRs, service boundaries
+- `docs/ARCHITECTURE.md` — C4 diagrams, ADRs, service boundaries (orchestrator synthesis)
+- `docs/PARALLELIZATION_MAP.md` — module inventory + Phase 4 wave plan (orchestrator synthesis)
 - `docs/TECH_STACK.md` — Language, frameworks, libraries + justification
 - `docs/DATABASE.md` — ERD, schema DDL, indexes, migrations
 - `docs/API_DESIGN.md` — Endpoint contracts, RBAC, examples
+- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/design/` — UX spec, style guide, design principles (if UI-bearing)
 
@@ -91,7 +93,11 @@ Phases 0–5, discovery-driven from a blank repo.
 - `/security` — Threat model from architecture
 - `/ux --design` — Component architecture (if UI-bearing)
 
-**Exit criteria:** All components documented, data flows diagrammed, modular structure defined
+**Modular-parallel architecture (mandatory):** every module must be independently buildable — owns its directory tree (`src/<module>/`), exposes a frozen contract (OpenAPI path group, gRPC service, event schema, or public interface file), has zero direct imports from another module's internals, and is listed in `PARALLELIZATION_MAP.md` with explicit dependencies. Shared code (`src/shared/`) is built in its own wave, never concurrently.
+
+**Contract-first ordering:** API contracts + event schemas are frozen at the end of Phase 3 before any Phase 4 implementation starts. This lets modules implement against mocks of each other without blocking.
+
+**Exit criteria:** All components documented, data flows diagrammed, modular structure defined, `PARALLELIZATION_MAP.md` Module Inventory populated for every module in ARCHITECTURE.md § Implementation View.
 
 **After Phase 3 gate passes:** `sdlc/setup` branch is merged to `main` via PR. Phase 4 feature branches cut from updated `main`.
 
@@ -99,9 +105,16 @@ Phases 0–5, discovery-driven from a blank repo.
 
 ### Phase 4: Implementation — BUILD it
 
+**Execution mode — sdlc-lead asks the user per-wave before emitting HANDOFFs:**
+
+- **Sequential (default)** — modules built one agent at a time, verify each before the next. Safer, easier to recover from failure.
+- **Parallel (opt-in per wave)** — sdlc-lead emits every module's HANDOFF in one message; user opens N OpenCode sessions concurrently. Wave N+1 does not start until every Wave-N agent prints its completion phrase AND verification ≥ 7 AND a write-scope collision check passes. Faster, but requires modules whose write-scopes don't overlap.
+
+Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's assigned module directory is exclusive; cross-module changes must be flagged as deferred, not edited. `src/shared/` writes always run in their own wave, never concurrently.
+
 **Delegate to:**
 - `/test-expert` — Test strategy BEFORE coding
-- `/code` — Implementation from design docs (coding-agent: doc-driven, API-verified, anti-slop enforced)
+- `/code` — Implementation from design docs (coding-agent: doc-driven, API-verified, anti-slop enforced, write-scope isolated)
 - `/dba` — Database migrations
 - `/containers` — Container setup
 - `/devops` — CI/CD pipeline
@@ -110,7 +123,7 @@ Phases 0–5, discovery-driven from a blank repo.
 
 **Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 
-**Exit criteria:** All components implemented, tests passing, security audit clean
+**Exit criteria:** All components implemented, tests passing, security audit clean, every wave verified before advancing.
 
 ---
 
