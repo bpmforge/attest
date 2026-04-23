@@ -129,15 +129,24 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 
 ### Phase 5: Review — DID it work?
 
-**Delegate ALL reviews:**
-- `/security` — Full OWASP audit
-- `/perf` — Performance vs NFR targets
+Reviews run as a **parallel fan-out** via the Fix-Verify Loop Protocol. Findings synthesize into a unified `FIX_BACKLOG_RELEASE_<date>.md`; fixes flow through a dedicated remediation HANDOFF; targeted re-verification closes the loop; hard cap of 3 iterations with escalation if still failing.
+
+**Blocking reviews (parallel fan-out, one message):**
+- `/security` — Full OWASP audit (findings only; does NOT self-fix)
+- `/perf` — Performance vs NFR targets (findings only; does NOT self-optimize)
 - `/review-code` — Full codebase quality review
+- `/ux` — Accessibility audit (if UI-bearing)
+
+**Fix-Verify Loop (after fan-out):** sdlc-lead synthesizes FIX_BACKLOG → remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF → repeat up to 3 iterations. Every CRITICAL/HIGH merge-blocking row must PASS or be waived (via `WAIVERS_RELEASE_<date>.md`) before the Release Gate.
+
+**Post-review audits (sequential, non-blocking):**
 - `/test-expert` — Coverage analysis
-- `/ux --audit` — Accessibility audit (if UI-bearing)
+- `/review-code --debt` — Tech debt register for post-launch backlog
 - `/containers` — Image optimization + CVE scan
 
-**Exit criteria:** No CRITICAL/HIGH findings, performance meets NFRs
+**Release Gate (BLOCKING before `--release`):** 10 required conditions. Fix-verify loop closed, every review verdict READY/APPROVED/RELEASE-READY, runtime PASS, test suite P0+P1 green, no CRITICAL CVE in containers. Any blocker stops release and surfaces to the user.
+
+**Exit criteria:** Release Gate all green.
 
 ---
 
@@ -165,13 +174,14 @@ Add a feature to a working system without breaking it. Creates `feat/[slug]` bra
 **Steps:**
 1. Discovery interview — understand the feature before touching code
 2. Impact analysis — what does this touch? what's the blast radius?
-3. **Sub-component decomposition** — Atomic (linear flow) or Split? Split features produce `docs/features/<slug>/COMPONENT_DAG.md` with sub-components, dependencies, waves, and frozen contracts. Each sub-component cuts `feat/<slug>/<sub-slug>` from the parent branch and runs the full Mode-3 lifecycle (Steps 4–7) on its own branch.
+3. **Sub-component decomposition** — Atomic (linear flow) or Split? Split features produce `docs/features/<slug>/COMPONENT_DAG.md` with sub-components, dependencies, waves, and frozen contracts. Each sub-component cuts `feat/<slug>/<sub-slug>` from the parent branch and runs the full Mode-3 lifecycle (Steps 4–9) on its own branch.
 4. Design — sequence diagram, DB changes, API changes, test plan
-5. Implement — branch-first, tests first, code review + security check
-6. Verify — security audit, performance check, accessibility pass (if UI)
-7. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
-8. **Runtime validation gate (BLOCKING before merge)** — build → lint/typecheck → start → feature smoke → regression smoke. Produces `docs/reviews/RUNTIME_<feature>_<date>.md`. Verdict must be PASS or the merge aborts. In split features, each sub-component produces its own `RUNTIME_<slug>_<sub-slug>_<date>.md`; the parent merges to `main` only when every sub-component is PASS.
-9. Merge — `git-expert` verifies the RUNTIME file exists with PASS, then marks the PR ready and squash-merges. Branch deleted after merge.
+5. Implement — branch-first, tests first, code written against design
+6. **Parallel review fan-out** — code-review (always) + security (if auth/input/data/crypto) + perf (if NFR-tracked / DB / loops / caching / jobs) + ux (if UI) emit together in ONE message; user opens N concurrent OpenCode sessions; reviewers produce findings only (no self-fixes).
+7. **Fix-Verify loop** — sdlc-lead synthesizes `FIX_BACKLOG_<feature>_<date>.md` from every review. CRITICAL/HIGH rows get a remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF → iterate up to 3 times. After 3 failed cycles → escalation prompt (waive / redesign / defer / change specialist).
+8. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
+9. **Runtime validation gate (BLOCKING before merge)** — build → lint/typecheck → start → feature smoke → regression smoke. Produces `docs/reviews/RUNTIME_<feature>_<date>.md`. Verdict must be PASS or the merge aborts. In split features, each sub-component produces its own `RUNTIME_<slug>_<sub-slug>_<date>.md`; the parent merges to `main` only when every sub-component is PASS.
+10. Merge — `git-expert` verifies RUNTIME = PASS, FIX_BACKLOG closed (or waivers signed), no open CRITICAL/HIGH review verdicts, then marks the PR ready and squash-merges. Branch deleted after merge.
 
 ---
 

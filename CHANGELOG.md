@@ -2,6 +2,40 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] — 2026-04-23
+
+Structured Fix-Verify Loop across every review stage. Parallel review fan-out, unified FIX_BACKLOG, dedicated remediation + re-verification HANDOFF templates, hard 3-iteration cap with escalation, canonical severity→action matrix, and expanded git-expert merge enforcement. Closes the gap where review findings had no structured path back into code and where reviews ran sequentially instead of concurrently.
+
+### Added
+
+- **Fix-Verify Loop Protocol (shared, near the top of `sdlc-lead.md`).** Canonical five-step pipeline — **parallel fan-out → synthesize FIX_BACKLOG → remediation HANDOFF → targeted re-verification HANDOFF → gate**. Referenced by Mode 3 Step 4, Mode 1 Phase 4 Parallel Wave Round 2, and Mode 1 Phase 5. Single source of truth for how findings turn into code changes.
+
+- **Severity → Action matrix (canonical).** `CRITICAL` / `HIGH` block merge to `main` and require fix-this-session (or a signed waiver). `MEDIUM` is tracked as tech debt — merge-OK. `LOW` is informational. Waivers are recorded in `docs/reviews/WAIVERS_<feature>_<date>.md` with compensating control + review date; sdlc-lead never waives, only the user does.
+
+- **Auto-trigger rules for security + perf + ux.** sdlc-lead decides which reviews to run based on the impact analysis: security runs when auth/session/authorization/user-input/file-upload/SQL/crypto/external-API-with-credentials surfaces are touched; performance runs when NFR-tracked paths, DB queries, loops, caching, or background jobs are touched; ux runs on any UI file. code-review always runs. Removes the human judgment call and the recurring "forgot to run /security" miss.
+
+- **Unified `FIX_BACKLOG_<feature>_<date>.md`.** Orchestrator-written synthesis of every review's findings into one table with severity, file:line, finding, recommended fix, and an observable **Verify criterion** (passing test, metric threshold, grep that returns nothing). Deduplicates cases where two reviewers flagged the same file:line.
+
+- **Remediation HANDOFF template.** Dedicated template that hands the FIX_BACKLOG to coding-agent with rules: fix only CRITICAL+HIGH rows, minimum change at cited file:line, stop and report if a fix needs a design change. Produces `FIX_SUMMARY_<feature>_<iteration>_<date>.md`.
+
+- **Targeted Re-verification HANDOFF template.** code-reviewer (or the original specialist for domain-specific checks) verifies ONLY the findings in the backlog — does not re-scan for new issues. Produces `VERIFY_<feature>_<iteration>_<date>.md` with per-row PASS/FAIL/INCONCLUSIVE and evidence. Targeted verification saves tokens vs. re-running a full 7-dimension review.
+
+- **Hard 3-iteration cap + escalation block.** If the 3rd verification still has any FAIL, sdlc-lead STOPS the loop and emits a four-option escalation prompt: (A) sign a waiver, (B) redesign, (C) defer to tech debt, (D) change specialist. No 4th iteration without explicit user direction.
+
+- **Phase 5 Release Gate.** New explicit gate block emitted before `--release`: 10 required conditions including FIX_BACKLOG closed, every review verdict READY/APPROVED/RELEASE-READY, runtime PASS, test suite P0+P1 green, no CRITICAL CVE in containers. Any `[✗]` stops release and reports blockers.
+
+### Changed
+
+- **Mode 3 Step 4 rewritten as parallel fan-out.** code-review + security + perf + ux (when triggered) emit together in ONE message → user opens N concurrent OpenCode sessions → sdlc-lead synthesizes FIX_BACKLOG → Fix-Verify loop → merge. Previously ran sequentially with each review in its own section; Step 4's conditional "if security-sensitive / if perf-sensitive" blocks are gone.
+
+- **Mode 1 Phase 5 rewritten as parallel fan-out.** security-final + perf-final + code-review-final + ux-audit fan out together; tech-debt, coverage, and container-audit remain sequential post-review audits (they examine different concerns than the four blocking reviews). Phase 5 ends with the explicit Release Gate.
+
+- **Mode 1 Phase 4 Parallel Wave Round 2 unified.** Round 2 now emits every triggered review (code + security + perf + ux per module), feeds findings into a per-module FIX_BACKLOG, and runs the Fix-Verify loop per module (3 iterations max). A module stuck after 3 cycles emits the escalation block for that module only; peer modules advance to Round 3 runtime.
+
+- **git-expert merge rule expanded.** The merge-to-`main` refusal now requires three conditions (previously just one): (1) matching `RUNTIME_*.md` = PASS; (2) Fix-verify loop closed (empty backlog OR latest VERIFY all PASS OR signed waivers); (3) no open CRITICAL/HIGH in CODE_REVIEW/SECURITY/PERF/UX verdicts. Missing or failing any → abort and report exactly which condition blocks.
+
+- **performance-engineer — findings-only for SDLC reviews.** Bounded Task Mode gains a new Strict Scope Rule: when the SDLC-TASK prompt asks you to review/audit/benchmark, produce findings with recommended fix + expected delta — do NOT self-optimize. Fixes flow through the Remediation HANDOFF so the change runs through code review like every other finding. Direct `/perf` invocation with an explicit "optimize X" prompt is unchanged.
+
 ## [0.13.0] — 2026-04-23
 
 Runtime validation gate before every merge, per-component parallelism with full mini-lifecycle per module, and sub-component decomposition for Mode 3 features. Closes the gap where tests-green PRs were merging to `main` without a confirmed clean run, and where Phase 4 parallel waves only parallelized coding while reviews and runtime ran once at the end.
