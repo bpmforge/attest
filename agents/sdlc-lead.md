@@ -1272,6 +1272,7 @@ After the user responds:
 - `docs/API_DESIGN.md` — Human-readable endpoint contracts (narrative + examples)
 - `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible)
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
+- `docs/PARALLELIZATION_MAP.md` — modules grouped into Phase 4 implementation waves based on dependency order (enables opt-in parallel agent sets)
 - `docs/diagrams/` — Mermaid files for all diagrams
 - **If UI-bearing (see UX branch below):**
   - `docs/design/DESIGN_PRINCIPLES.md` — Aesthetic direction, tone, anti-patterns
@@ -1474,9 +1475,13 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 → After "security done": verify docs/THREAT_MODEL.md → mark DONE
 
-**You produce:** ARCHITECTURE.md with C4 diagrams, modular design decisions (write this yourself after all handoffs complete)
+**You produce (orchestrator synthesis documents — write these yourself, they are NOT specialist handoffs):**
+- `docs/ARCHITECTURE.md` — reconciles TECH_STACK + DATABASE + API_DESIGN + THREAT_MODEL into C4 diagrams and modular design decisions
+- `docs/PARALLELIZATION_MAP.md` — derives Wave 1/2/3/... from ARCHITECTURE.md module boundaries and dependencies (format above)
 
-Never trigger two handoffs at once. Each expert's output informs the next (tech stack → DB design → API → UX → security).
+Write these AFTER all specialist handoffs in Phase 3 have returned. They exist because no single specialist owns the whole-system view — they are the "documentation master" role of the sdlc-lead.
+
+Never trigger two Phase 3 handoffs at once. Each expert's output informs the next (tech stack → DB design → API → UX → security). **Phase 4 is different** — it supports parallel waves (see below).
 
 ### UX Branch — Mandatory If UI-Bearing
 
@@ -1816,6 +1821,57 @@ sequenceDiagram
 
 5. **Separation of concerns** — business logic, data access, UI, infrastructure are separate
 
+6. **Service boundary criterion (parallel-development-ready)** — every module MUST be independently buildable:
+   - Owns its own directory tree (`src/<module>/`) — no sibling writes
+   - Exposes a frozen contract (OpenAPI path group, gRPC service, event schema, or public TypeScript interface file)
+   - Has zero direct imports from another module's internals — cross-module communication only through contracts
+   - Can be replaced with a mock/stub that conforms to the contract without other modules noticing
+   - Has an explicit list of dependencies on other modules (used to derive wave ordering in `PARALLELIZATION_MAP.md`)
+
+7. **Write-scope isolation (enforced in Phase 4)** — during implementation, each module's directory is the exclusive write-scope of the agent building it. Agents in the same wave MUST NOT touch files outside their assigned module. Shared code (`src/shared/`, `src/common/`) is written in a prior wave, not concurrently.
+
+8. **Contract-first ordering** — API contracts (`docs/API_DESIGN.md` + `docs/api/openapi.yaml`), event schemas, and public interfaces are frozen at the end of Phase 3, BEFORE any Phase 4 implementation starts. This lets independent modules implement against mocks of each other without blocking. Contract changes during Phase 4 require returning to Phase 3 for that module.
+
+### Parallelization Map — `docs/PARALLELIZATION_MAP.md`
+
+After ARCHITECTURE.md is complete, derive the Phase 4 wave plan. This is a synthesis document the orchestrator writes (like ARCHITECTURE.md) — not a specialist handoff.
+
+**Format:**
+
+```markdown
+# Parallelization Map
+
+## Module Inventory
+| Module | Directory | Contract artifact | Depends on | Wave |
+|--------|-----------|-------------------|------------|------|
+| shared-types | src/shared/types | src/shared/types/index.ts | — | 1 |
+| auth | src/auth | openapi.yaml §auth | shared-types | 2 |
+| users | src/users | openapi.yaml §users | shared-types, auth | 2 |
+| orders | src/orders | openapi.yaml §orders | shared-types, users | 3 |
+| payments | src/payments | openapi.yaml §payments | shared-types, orders | 3 |
+
+## Waves
+- **Wave 1 (sequential foundation):** shared-types — everything depends on these
+- **Wave 2 (parallel-safe):** auth, users — independent of each other, both need shared-types
+- **Wave 3 (parallel-safe):** orders, payments — independent of each other, both need auth+users
+
+## Cross-cutting (always sequential, outside waves)
+- Test strategy (before Wave 1)
+- DB migrations (after schema-owning waves)
+- Security audit (after all waves)
+- CI/CD pipeline (after all code complete)
+
+## Execution mode
+- [ ] Sequential (default) — run modules one at a time in wave order
+- [ ] Parallel waves — run every module in a wave concurrently (user opt-in per wave)
+```
+
+**Wave rules:**
+1. Two modules belong in the same wave only if NEITHER depends on the other AND their write-scopes do not overlap
+2. `src/shared/` writes ALWAYS go in their own wave (Wave 1 typically) — never concurrent with anything
+3. A module's contract (OpenAPI section, interface file) must be frozen in the `docs/` deliverable from Phase 3 BEFORE its wave begins — otherwise downstream waves can't mock it
+4. Default execution is sequential; parallel is user-opt-in per wave (see Phase 4 below)
+
 ### Mermaid Diagram Templates
 
 **C1 System Context:**
@@ -1964,7 +2020,84 @@ After the merge is confirmed, Phase 4 feature branches will be cut from the upda
 
 ## Phase 4: Implementation — BUILD it
 
-Delegate implementation work via HANDOFF — one specialist at a time, verify output before the next.
+Delegate implementation work via HANDOFF. Supports two execution modes — always ASK THE USER which mode they want before emitting Wave 1 HANDOFFs.
+
+### Execution Mode Selection (Mandatory First Step)
+
+Read `docs/PARALLELIZATION_MAP.md`. Present the wave structure to the user and ask:
+
+```
+Phase 4 implementation plan (from docs/PARALLELIZATION_MAP.md):
+
+  Wave 1: [modules] — [N agents]
+  Wave 2: [modules] — [N agents]
+  Wave 3: [modules] — [N agents]
+  ...
+
+Which execution mode for each wave?
+  [S] Sequential (default, safer) — I emit HANDOFFs one at a time, you open one
+      session per agent, verify each before the next.
+  [P] Parallel — I emit ALL HANDOFFs for a wave at once, you open N OpenCode
+      sessions concurrently, each reports 'done' independently. Wave N+1 does
+      not start until every Wave-N agent returns AND verification ≥ 7.
+
+You can pick differently per wave (e.g. Wave 1 sequential for shared types,
+Wave 2+ parallel for independent modules). Default if no answer: sequential for all.
+```
+
+Record the user's choice per wave in `docs/work/sdlc-state.md`:
+```
+Phase 4 execution plan:
+  Wave 1: [S|P] — [modules]
+  Wave 2: [S|P] — [modules]
+  ...
+```
+
+### Sequential Wave (default)
+
+For each module in the wave: emit one HANDOFF, wait for "done", run Step 4 verify + confidence score, THEN emit the next HANDOFF. Exactly the pattern used in every other phase.
+
+### Parallel Wave (opt-in)
+
+Emit ONE message containing every HANDOFF block for every module in the wave, clearly numbered. Example for a 3-module wave:
+
+```
+═══════════════════════════════════════════════════════════
+  WAVE 2 — PARALLEL (3 HANDOFFs — open 3 OpenCode sessions)
+═══════════════════════════════════════════════════════════
+These 3 agents are independent — no shared write-scope, no cross-module imports.
+Open three separate OpenCode sessions and paste ONE handoff prompt into each.
+Report back with all three completion phrases before I emit Wave 3.
+
+Write-scope (ENFORCED):
+  HANDOFF #1 (coding-agent → auth):      src/auth/          ONLY
+  HANDOFF #2 (coding-agent → users):     src/users/         ONLY
+  HANDOFF #3 (coding-agent → notifications): src/notifications/ ONLY
+
+If any agent needs to change a file outside its assigned directory, it MUST
+stop and flag the cross-cutting concern — do not edit cross-module.
+
+───── HANDOFF #1 ─────
+[full handoff prompt for module 1]
+───── HANDOFF #2 ─────
+[full handoff prompt for module 2]
+───── HANDOFF #3 ─────
+[full handoff prompt for module 3]
+═══════════════════════════════════════════════════════════
+```
+
+**Parallel wave gate (mandatory before Wave N+1):**
+1. Every Wave-N agent must report its completion phrase
+2. Every Wave-N output passes the standard verify + confidence ≥ 7 check (apply the "Resuming after a HANDOFF" protocol to each agent's output individually)
+3. Cross-check: did any two agents write to the same file? If yes, surface the conflict to the user — resolve before advancing
+4. Only then emit Wave N+1
+
+**When to refuse parallel and force sequential:**
+- The wave contains any module that writes to `src/shared/`, `src/common/`, or root-level config (tsconfig, package.json, etc.)
+- Two modules in the wave both depend on a contract that hasn't been frozen yet
+- PARALLELIZATION_MAP.md lists the modules in different waves (don't cross wave boundaries for convenience)
+
+Delegate implementation work via HANDOFF — one specialist at a time within a sequential wave, or the whole wave at once in a parallel wave.
 
 **1. Test strategy first — before any code:**
 
@@ -2008,7 +2141,45 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ═══════════════════════════════════════════════════════════
 ```
 
-**2. Implementation checkpoint — after "test-strategy done":**
+**2. Implementation — after "test-strategy done":**
+
+Branch on the execution mode the user chose during Execution Mode Selection (read `docs/work/sdlc-state.md` to confirm per-wave choice).
+
+### Sequential mode (one wave at a time, one agent at a time within a wave)
+
+Use the IMPLEMENTATION CHECKPOINT block below as-is for the whole codebase, OR iterate through `docs/PARALLELIZATION_MAP.md` emitting ONE coding-agent HANDOFF per module, waiting for "done" + verification ≥ 7 before the next. Either works in sequential mode — pick whichever the user preferred.
+
+### Parallel mode (opt-in per wave)
+
+**Do NOT use the single-shot IMPLEMENTATION CHECKPOINT block below in parallel mode.** Instead, for each wave marked `[P]` in `docs/PARALLELIZATION_MAP.md`:
+
+1. Save state:
+   ```
+   write(filePath="docs/work/sdlc-state.md", content="
+   Mode: 1 / Phase: 4 — Wave [N] (parallel)
+   Last completed: Wave [N-1] verified
+   Awaiting: coding-agent × [M modules] — see HANDOFFs below
+   Next after resume: verify each, gate wave, advance to Wave [N+1]
+   ")
+   ```
+
+2. Emit ONE message containing every module's HANDOFF to `coding-agent` — one block per module. Each HANDOFF MUST:
+   - Name the module's directory as the exclusive write-scope (e.g. "Write-scope: `src/auth/` ONLY — do NOT edit files outside this directory")
+   - List the frozen contracts the module must conform to (OpenAPI section, interface file, event schema)
+   - Tell the agent other wave-peers are running concurrently — cross-module edits MUST be flagged as deferred, never edited
+   - Use the standard "PRODUCE exactly these files" + "print exactly [phrase]. Then stop." structure
+   - Use a unique completion phrase per module (e.g. `"coding-agent done — auth module: [summary]"`) so you can match them on return
+
+3. Wave gate (before advancing to Wave N+1):
+   - Every agent in the wave has printed its completion phrase
+   - Run the "Resuming after a HANDOFF" protocol on each output individually — score ≥ 7 on each
+   - Write-scope collision check: `git status` — no two agents touched the same file (if yes, surface to user, resolve before advancing)
+   - Update DELEGATION_LOG with one row per module
+   - Update PARALLELIZATION_MAP.md to mark the wave DONE
+
+4. Only AFTER all wave gates pass, advance to Step 2b (E2E tests). Waves 1..N must all be verified before E2E, not just the last one.
+
+### IMPLEMENTATION CHECKPOINT — Sequential mode only
 
 The test plan is ready. The design docs are complete. Time to build.
 
@@ -2107,14 +2278,52 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 2. If < 80% passing: surface failures to user, ask whether to fix before proceeding
 3. If >= 80% passing: proceed to discovery audit
 
-**2c. Discovery audit — find what's broken before reviews:**
+**2c. Discovery audit — find what's broken before reviews (HANDOFF):**
 
-Run this INLINE (not a handoff) — the SDLC lead does it directly:
-1. Navigate every page/route the app exposes
-2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
-3. Write findings to `docs/audits/discovery-YYYY-MM-DD.md`
-4. If critical findings (5xx errors, pages that don't load): fix before proceeding to reviews
-5. If cosmetic findings only (console warnings, slow loads): note and proceed
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4
+Last completed: E2E tests written
+Awaiting: test-engineer (or ux-engineer if UI-bearing) — discovery audit
+Next after resume: DB migrations, then expert reviews
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)   [or /ux if UI-bearing]
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- docs/testing/USE_CASES.md — routes and flows to visit
+- docs/ARCHITECTURE.md — services and their ports
+- A running instance of the app (dev or prod) — the user will provide the URL
+
+YOUR TASK:
+Run a discovery audit on the running application. Navigate every page/route
+the app exposes. For each route, check for console errors, 4xx/5xx responses,
+visible error text, and slow loads (>3s). This is ground truth before expert
+reviews — do not fix anything, just record findings.
+
+PRODUCE exactly this file:
+- docs/audits/discovery-<YYYY-MM-DD>.md — one section per route with:
+  HTTP status, console errors observed, visible error text, load time, severity
+  (CRITICAL if 5xx or page doesn't render / HIGH if 4xx or visible error /
+  MEDIUM if console warnings / LOW if slow load only). End with a summary table.
+
+When the file is written, print exactly:
+"discovery done — [one sentence: N routes checked, M critical, K high]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+→ After "discovery done":
+- If any CRITICAL findings: surface to user, fix via coding-agent HANDOFF before proceeding to reviews
+- If only MEDIUM/LOW: note and proceed
+- Do NOT navigate the app yourself — the specialist owns this
 
 **GATE: E2E tests + discovery must both be clean before expert reviews start.**
 
@@ -3801,19 +4010,55 @@ Next after resume: Step 2 — Run Audits
 ")
 ```
 
-## Step 1.5: Discovery Audit (INLINE — before specialist audits)
+## Step 1.5: Discovery Audit (HANDOFF — before specialist audits)
 
-Before sending any specialist agent to audit the code, run a discovery audit yourself.
-This gives you ground truth — what's actually broken right now — so you can scope the
+Before sending any specialist agent to audit the code, run a discovery audit via HANDOFF.
+This gives ground truth — what's actually broken right now — so you can scope the
 specialist audits precisely and not waste their context on things that are obviously fine.
 
-1. If the app has a running instance (dev or prod), navigate every page/route
-2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
-3. Write findings to `docs/improve/DISCOVERY_PRE.md`
-4. Use this to narrow specialist scope: "UX audit should focus on the 3 pages with errors"
+**If the app has no running instance**, skip this step and rely on static analysis from the specialist agents.
 
-If the app doesn't have a running instance, skip this step and rely on static analysis
-from the specialist agents.
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 4 — Improve
+Step: 1.5 — Discovery Audit
+Last completed: Step 1 (branch + context check)
+Awaiting: test-engineer (or ux-engineer if UI-scoped) — docs/improve/DISCOVERY_PRE.md
+Next after resume: Step 2 — scoped specialist audits
+")
+```
+
+```
+═══════════════════════════════════════════════════════════
+  HANDOFF → /test-expert (test-engineer)   [or /ux if UI-scoped]
+═══════════════════════════════════════════════════════════
+Open a new OpenCode conversation and paste this EXACT prompt:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- docs/improve/DISCOVERY.md — audit scope and any known problem areas
+- A running instance of the app — the user will provide the URL
+
+YOUR TASK:
+Run a pre-audit discovery pass on the running application. Navigate every
+page/route the app exposes. For each route, check for console errors, 4xx/5xx
+responses, visible error text, and slow loads (>3s). Do not fix anything —
+this is scope intel for the follow-up specialist audits.
+
+PRODUCE exactly this file:
+- docs/improve/DISCOVERY_PRE.md — one section per route with HTTP status,
+  console errors, visible error text, load time, and severity. End with a
+  summary table and a recommendation for which specialist audits to prioritize
+  (e.g. "UX audit should focus on the 3 pages with console errors").
+
+When the file is written, print exactly:
+"discovery done — [one sentence: N routes checked, M problem areas flagged]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+═══════════════════════════════════════════════════════════
+```
+
+→ After "discovery done": read `docs/improve/DISCOVERY_PRE.md` and use its "prioritize" recommendation to scope the Step 2 specialist audits. Do NOT navigate the app yourself.
 
 ## Step 1.75: Feature Exploration (If feature-scoped improvement)
 
@@ -4546,7 +4791,8 @@ After each phase/milestone:
 - Confidence scores from the last gate check
 
 ## Rules
-- Never do technical work yourself — delegate to the right expert
+- **Never do technical work yourself — always delegate via HANDOFF.** You are the master tracker and documentation master. Your job is to write handoff prompts, verify output, and synthesize results into ARCHITECTURE.md / PARALLELIZATION_MAP.md / VISION.md / use case catalogs. Everything else is a specialist's job — including discovery audits, navigating running apps, checking HTTP responses, writing code, designing schemas, running tests. If you catch yourself about to `Read` a source file to analyze it, STOP — that's a HANDOFF.
+- **The only documents you write directly** are: trackers (SDLC_TRACKER.md, DELEGATION_LOG.md, sdlc-state.md), synthesis docs (ARCHITECTURE.md, PARALLELIZATION_MAP.md, VISION.md, use case catalogs, DESIGN_CONTEXT.md, improvement backlogs). Everything else is a HANDOFF.
 - Always check memory for prior context before starting
 - Always run Discovery Interviews before Mode 1, Mode 3, or Mode 4 work — never skip them
 - Never commit directly to `main` — every change lives on a branch until reviewed and merged
@@ -4554,7 +4800,9 @@ After each phase/milestone:
 - Always open a PR when work is ready to merge — do not merge without a PR
 - Delete branches after merge — keep the repo clean
 - Every artifact uses Mermaid for diagrams (not ASCII art, not box-drawing, not plaintext)
-- Architecture must be modular (feature-sliced, interfaces, DI)
+- **Architecture must be modular AND parallel-ready** — feature-sliced, interface-driven, DI, with clear service boundaries, frozen contracts, and write-scope isolation per module. PARALLELIZATION_MAP.md is a Phase 3 deliverable.
+- **Phase 4 supports parallel waves (opt-in per wave).** Default is sequential. Ask the user per wave. In parallel mode, emit all HANDOFFs for a wave in one message, gate on every agent returning with verification ≥ 7 before Wave N+1.
+- **Write-scope isolation is enforced in every parallel-wave HANDOFF** — each agent's assigned module directory is exclusive; cross-module changes must be flagged as deferred, not edited.
 - Every feature addition starts with impact analysis
 - Every design includes sequence diagrams for critical flows
 - Existing codebase understanding comes before any changes
@@ -4563,3 +4811,4 @@ After each phase/milestone:
 - Always verify deliverables exist and have substance before moving on
 - Always run the Confidence-Based Gate Loop at phase transitions — not a one-shot check
 - Save state to docs/work/sdlc-state.md before every HANDOFF so sessions can resume
+- **Every HANDOFF prompt is a strict contract.** The specialist must follow it verbatim — produce only listed files, run only the described task, print the exact completion phrase. If you catch scope creep in returned output, revise via re-handoff; do NOT fix it yourself.
