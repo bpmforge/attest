@@ -150,11 +150,18 @@ Reviews run as a **parallel fan-out** via the Fix-Verify Loop Protocol. Findings
 
 ---
 
-## Mode 2: Onboard (`/sdlc onboard`)
+## Mode 2: Onboard (`/sdlc onboard [--quick | --deep]`)
 
 Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces documentation that makes the next person's onboarding 10x faster. All docs committed via PR to `main`.
 
-**Produces:**
+**Depth flags (v0.15.0):**
+
+| Flag | Scope | Time |
+|------|-------|------|
+| `--quick` (default) | Single-pass high-level docs | ~15 min |
+| `--deep` | Ralph Wiggum inventory loop — every route / table / service / P0 flow / entry point as an inventory row, one artifact per row, iterates until validators exit clean | ~45-90 min |
+
+**Produces (quick mode):**
 - `docs/LANDSCAPE.md` — Tech stack, project size, directory structure, UI detection
 - `docs/ARCHITECTURE.md` — High-level architecture with C4 diagrams
 - `docs/diagrams/entry-points.md` — Sequence diagrams for every route/entry point
@@ -164,6 +171,21 @@ Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces
 - `docs/ONBOARDING.md` — How to run, test, add features
 - `docs/git/HISTORY_INSPECTION_<date>.md` — Git history analysis (hot files, patterns)
 - `docs/design/UX_AUDIT.md` — UX audit (if UI-bearing)
+
+**Deep mode additionally produces:**
+- `docs/onboard/INVENTORY.md` — Every unit of the codebase as a row (ROUTE / TABLE / SERVICE / FLOW / ENTRY); status tracked per row
+- One artifact per inventory row (API_DESIGN row, ERD node, C3 section, sequence diagram, entry-point doc)
+- Passing validator: `./scripts/validators/validate-phase-gate.sh onboard-deep` exits 0
+
+**Deep-mode sub-skills** — thin triggers for the individual Ralph Wiggum steps:
+
+| Skill | Step | Purpose |
+|-------|------|---------|
+| `/onboard-inventory` | D1 | Enumerate units into `docs/onboard/INVENTORY.md` |
+| `/onboard-verify`    | D3 | Run all onboard validators, report gaps |
+| `/onboard-gap-fill`  | D4 | Emit focused HANDOFFs for uncovered rows only |
+
+Canonical protocol: `agents/shared/RALPH_WIGGUM_LOOP.md` (inventory → discover → verify → gap → repeat, 3-iteration cap).
 
 ---
 
@@ -227,13 +249,33 @@ All findings include severity (Critical/High/Medium/Low), effort estimate (S/M/L
 
 ## Gate Management
 
-Before advancing any phase or milestone, sdlc-lead runs a confidence-based gate:
+Before advancing any phase or milestone, sdlc-lead runs gate checks in two forms:
 
+**Automated validators (v0.15.0)** — deterministic coverage checks via `scripts/validators/`:
+
+| Phase | Validator chain |
+|-------|-----------------|
+| `phase-3` | architecture + api-coverage + erd-coverage + sequence-coverage |
+| `onboard-deep` | inventory + architecture + erd-coverage + sequence-coverage |
+| `security-deep` | owasp + attack-chains |
+| `phase-5` release | FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS |
+
+Orchestrated via `./scripts/validators/validate-phase-gate.sh <phase>` — exit 0 = clean, 1 = gaps, 2 = validator error. Or call `/gate` for a user-friendly wrapper.
+
+**Post-HANDOFF gates** — after every specialist HANDOFF, `./scripts/validators/run-handoff-gates.sh` runs three gates in order: scope (git writes confined to assigned directory), manifest (required sections + completion phrase), coverage (domain-specific validator). Any failure returns REVISE to the specialist.
+
+**Confidence gates** — used only for artifacts validators cannot check mechanically (narratives, research summaries):
 - Score **< 5** on any dimension → automatic fail, surface the gap
 - Score **5–6** → revise that dimension (max 3 passes)
 - Score **≥ 7** → pass
 
 If a gate fails, the agent tells you exactly what's missing. Use `/sdlc status` to see current gate state.
+
+**Shared protocols** — every specialist reads these canonical files:
+- `agents/shared/BOUNDED_TASK_CONTRACT.md` — 5 scope rules (write-scope, no extras, verbatim completion, no expansion, stop-means-stop)
+- `agents/shared/HANDOFF_TEMPLATES.md` — canonical HANDOFF block templates
+- `agents/shared/FIX_VERIFY_LOOP.md` — review → FIX_BACKLOG → remediate → re-verify pipeline
+- `agents/shared/RALPH_WIGGUM_LOOP.md` — inventory-driven deep-verification loop
 
 ---
 

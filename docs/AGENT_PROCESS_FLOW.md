@@ -277,6 +277,62 @@ SDLC lead reads this, verifies files exist + have content, runs the test command
 
 ---
 
+## Post-HANDOFF Automated Gates (v0.15.0)
+
+After EVERY specialist HANDOFF returns and before accepting the work, the orchestrator runs three automated gates via `./scripts/validators/run-handoff-gates.sh`:
+
+```
+run-handoff-gates.sh \
+  --scope <assigned-dir> [--scope <dir2> ...] \
+  --manifest <manifest-path> \
+  [--coverage validate-<name>.sh]
+```
+
+Three gates, any failure aborts the rest:
+
+| Gate | Script | What it checks |
+|------|--------|----------------|
+| 1. Scope | `validate-scope.sh` | `git status --porcelain` confined to assigned dir(s) + `docs/work/**` + `docs/reviews/**` |
+| 2. Manifest | `validate-completion-manifest.sh` | Required sections + completion phrase |
+| 3. Coverage | domain validator | Coverage fact (architecture / api / erd / owasp / inventory) |
+
+**HANDOFF type → `--coverage` mapping:**
+
+| HANDOFF type | `--coverage` arg |
+|--------------|------------------|
+| api-designer | `validate-api-coverage.sh` |
+| db-architect | `validate-erd-coverage.sh` |
+| architecture synthesis | `validate-architecture.sh` |
+| security-auditor --deep | `validate-owasp.sh` |
+| onboard --deep | `validate-inventory.sh` |
+| code/refactor | omit |
+
+Any gate failure returns the HANDOFF with REVISE status + the specific gap. No orchestrator judgment required. Replaces the manual "read the manifest and decide" step.
+
+---
+
+## Ralph Wiggum Loop (Deep Verification)
+
+Used by `/sdlc onboard --deep` and `/security --deep`. Canonical protocol: `agents/shared/RALPH_WIGGUM_LOOP.md`.
+
+```
+1. INVENTORY   → enumerate the universe (one row per unit: route, table, service, flow, entry)
+2. DISCOVER    → produce one artifact per inventory row (parallel waves by category)
+3. VERIFY      → validator script confirms 100% coverage
+4. GAP         → re-discover ONLY the uncovered rows (one row = one HANDOFF)
+5. REPEAT      → until coverage = 100% OR 3 iterations (then escalate)
+```
+
+Replaces confidence-score self-evaluation with coverage-percentage facts. Either every row has an artifact or it does not — no feeling, no interpretation.
+
+**For `/sdlc onboard --deep`:** inventory file is `docs/onboard/INVENTORY.md`. Validator is `validate-phase-gate.sh onboard-deep`.
+
+**For `/security --deep`:** inventory is the OWASP tracker + semgrep rule-file coverage + 9 attack-chain patterns. Validator is `validate-phase-gate.sh security-deep`.
+
+Three sub-skills trigger the individual onboard-deep steps: `/onboard-inventory` (D1), `/onboard-verify` (D3), `/onboard-gap-fill` (D4).
+
+---
+
 ## Mode 3: Feature Addition — Agent Flow
 
 ```

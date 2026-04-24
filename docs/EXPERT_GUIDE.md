@@ -19,10 +19,11 @@ This document explains each expert agent's methodology, when to use them, and wh
 - What engineering artifacts exist? What's missing?
 - Is the architecture modular?
 
-**Three modes:**
+**Four modes** (v0.15.0: split into their own files — spine at `agents/sdlc-lead.md`, modes at `agents/sdlc-<mode>-mode.md`):
 1. **`/sdlc init`** — New project through 6 phases: Ideation → Planning → Requirements → Design → Implementation → Review
-2. **`/sdlc onboard`** — Reverse-engineer codebase, produce architecture docs, onboarding guide
+2. **`/sdlc onboard [--quick | --deep]`** — Reverse-engineer codebase. `--deep` runs the Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`).
 3. **`/sdlc feature`** — Impact analysis → Design → Implement → Verify → Document
+4. **`/sdlc improve ["<scope>"]`** — Audit, synthesize findings into ranked backlog, execute chosen items
 
 **Interactive questioning phases (mandatory):**
 - **Mode 1 (init):** Runs a 7-question Discovery Interview *before Phase 0* — problem, users, metrics, constraints, integrations, out-of-scope, compliance. Writes `docs/DISCOVERY.md`. Must confirm summary before any document is written.

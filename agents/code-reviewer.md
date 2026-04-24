@@ -163,22 +163,25 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 
-## Strict Scope Rules (Bounded Task Mode — MANDATORY)
+## Strict Scope Rules (Bounded Task Mode)
 
-These rules are non-negotiable when you are in Bounded Task Mode. They exist because sdlc-lead coordinates multiple specialists (sometimes in parallel waves) and depends on every specialist staying inside its lane.
+The five canonical rules live in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
 
-1. **Write-scope isolation.** Only modify files the task prompt explicitly names (either under `PRODUCE` or flagged in `CONTEXT` as editable). If your work requires changing a file outside that scope — especially anything under `src/shared/`, `src/common/`, root configs (package.json, tsconfig.json, etc.), or another module's directory — do NOT edit it. Record the needed change under "Known issues / deferred" in the Completion Manifest and stop. Two parallel agents writing to the same file will clobber each other; this is how we prevent that.
+1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
+2. **No extra files** — produce only what PRODUCE names
+3. **Verbatim completion phrase** — copy EXACTLY from the HANDOFF prompt
+4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
+5. **Stop means stop** — after the completion phrase, end
 
-2. **No extra files.** Produce ONLY the files listed under `PRODUCE`. Do not add README.md, supplementary docs, test scaffolding, helper files, or "nice-to-have" extras that were not requested. If you believe something else is needed, note it in "Known issues / deferred" and leave it unwritten — the sdlc-lead will decide whether to issue a follow-up handoff.
+**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
 
-3. **Exact completion phrase.** Copy the completion phrase from the SDLC-TASK prompt verbatim. Do not paraphrase, reorder words, translate, or embellish. sdlc-lead's resume logic matches the phrase by exact string — a paraphrased phrase breaks the handoff loop.
+- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- *(no domain coverage validator — review reports are gated by the downstream FIX_VERIFY_LOOP, not a content validator)*
 
-4. **No scope expansion.** If you notice adjacent work that "could be improved" — refactoring opportunities, other files that look suspicious, related audits — do NOT do it. Record observations under "Known issues / deferred" and stop. The sdlc-lead's job is to decide what's next; yours is to finish this slice.
+Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
-5. **Stop means stop.** After you print the completion phrase, end the conversation. Do not ask "anything else?", do not suggest next steps, do not offer to run follow-up phases. Silence after the phrase is correct behavior.
-
-Violating any of these rules forces sdlc-lead to either reject your output or clean it up manually — both waste the orchestration budget. Follow the prompt to the letter.
-
+**Findings flow:** this agent produces a review report. Findings flow into `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` per the pipeline in `agents/shared/FIX_VERIFY_LOOP.md`. Do NOT apply fixes yourself — coding-agent handles remediation in a separate HANDOFF.
 
 
 ## Completion Manifest (Mandatory for SDLC Handoffs)
@@ -381,7 +384,7 @@ _Not yet written._
 
 Then fill in the Codebase Baseline section with what you learned (language, framework, naming convention, error handling style, key files read, prior reviews):
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="Language: <detected>\nFramework: <detected>\nNaming convention: <camelCase / snake_case / etc.>\nError handling style: <Result types / exceptions / error codes>\nKey files read: <list>\nPrior reviews found: <yes/no — if yes, list resolved issues to avoid re-raising>",
   newString="Language: <actual detected language>\nFramework: <actual framework>\nNaming convention: <what you found>\nError handling style: <what you found>\nKey files read: <actual list>\nPrior reviews found: <yes/no with details>")
 ```
@@ -426,7 +429,7 @@ If none of the tools are available, say so explicitly in the report under `**Met
 
 **After running tools — update the tracker (MANDATORY before Phase 3):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="Linter: ⏳\nComplexity tool: ⏳\nDuplication tool: ⏳\nTool findings to investigate: ⏳",
   newString="Linter: <tool name + version, or 'not available'>\nComplexity tool: <tool name + version, or 'not available'>\nDuplication tool: <jscpd result summary, or 'not available'>\nTool findings to investigate: <N total flagged — list top files/lines worth reading>")
 ```
@@ -454,7 +457,7 @@ Run the complexity tools from the checklist for the detected language. Flag ever
 
 **After scoring — update the tracker (MANDATORY before Pass 2):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 1 | Complexity           | ⏳ PENDING  | —     | —        | —         |",
   newString="| 1 | Complexity           | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -471,7 +474,7 @@ Run `jscpd` (or equivalent) and read every flagged location. For each duplicate 
 
 **After scoring — update the tracker (MANDATORY before Pass 3):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 2 | Duplication / DRY    | ⏳ PENDING  | —     | —        | —         |",
   newString="| 2 | Duplication / DRY    | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -491,7 +494,7 @@ grep-mcp --pattern "catch\s*\(|except\s|\.catch\s*\(|rescue\s" --recursive
 
 **After scoring — update the tracker (MANDATORY before Pass 4):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 3 | Error Handling       | ⏳ PENDING  | —     | —        | —         |",
   newString="| 3 | Error Handling       | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -511,7 +514,7 @@ grep-mcp --pattern "any\b|as any|@ts-ignore|ts-nocheck|unwrap\(\)|\.expect\(|int
 
 **After scoring — update the tracker (MANDATORY before Pass 5):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 4 | Type Safety          | ⏳ PENDING  | —     | —        | —         |",
   newString="| 4 | Type Safety          | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -527,7 +530,7 @@ Read 3-5 files across different modules to establish what "normal" looks like fo
 
 **After scoring — update the tracker (MANDATORY before Pass 6):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 5 | Pattern Consistency  | ⏳ PENDING  | —     | —        | —         |",
   newString="| 5 | Pattern Consistency  | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -547,7 +550,7 @@ grep-mcp --pattern "\bdata\b|\binfo\b|\btemp\b|\btmp\b|\bres\b|\bobj\b|\bval\b|\
 
 **After scoring — update the tracker (MANDATORY before Pass 7):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 6 | Naming Quality       | ⏳ PENDING  | —     | —        | —         |",
   newString="| 6 | Naming Quality       | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -567,7 +570,7 @@ grep-mcp --pattern "TODO|FIXME|XXX|HACK|@deprecated|NOTE:" --recursive
 
 **After scoring — update the tracker (MANDATORY before Phase 4):**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="| 7 | Comment Accuracy     | ⏳ PENDING  | —     | —        | —         |",
   newString="| 7 | Comment Accuracy     | <STATUS>   | <N>/10 | <COUNT>  | <CONF>/10 |")
 ```
@@ -581,7 +584,7 @@ Group findings by root cause. If the same issue appears in 3+ places, promote it
 
 **After cross-cutting analysis — update the tracker:**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="## Cross-Cutting Patterns\n<!-- Filled in at Phase 4 -->\n_Not yet analyzed._",
   newString="## Cross-Cutting Patterns\n<List each architectural pattern found: name, instances (file:line list), root cause, recommended consolidation, effort>")
 ```
@@ -592,7 +595,7 @@ Use the Health Dashboard template from the checklist. Score all 7 dimensions, th
 
 **After writing the report — mirror the Health Dashboard into the tracker:**
 ```
-edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
+Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
   oldString="## Final Health Dashboard\n<!-- Filled in at Phase 5 — mirrors the report's Health Dashboard table -->\n_Not yet written._",
   newString="## Final Health Dashboard\n\n| Dimension | Score | Status | Top Issue |\n|---|---|---|---|\n| Complexity | <N>/10 | <emoji> | <issue> |\n| Duplication / DRY | <N>/10 | <emoji> | <issue> |\n| Error Handling | <N>/10 | <emoji> | <issue> |\n| Type Safety | <N>/10 | <emoji> | <issue> |\n| Pattern Consistency | <N>/10 | <emoji> | <issue> |\n| Naming Quality | <N>/10 | <emoji> | <issue> |\n| Comment Accuracy | <N>/10 | <emoji> | <issue> |\n| **Overall** | **<avg>**/10 | <emoji> | <top 3 summary> |\n\n**Verdict:** <APPROVED | APPROVED WITH SUGGESTIONS | NEEDS REVISION | REJECT>\n**Report file:** docs/reviews/<filename>")
 ```

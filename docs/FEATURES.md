@@ -193,6 +193,71 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/design-options` | `sdlc-lead` (inline) | Generate 2-3 architecture alternatives with trade-offs before committing |
 | `/frontend` | `frontend-design` | Visual polish, design tokens, typography, color, spacing, motion |
 | `/steward` | `sdlc-lead` (inline) | Audit CLAUDE.md / AGENTS.md alignment, capture session learnings |
+| `/onboard-inventory` | `researcher` | Ralph Wiggum D1 — enumerate units into `docs/onboard/INVENTORY.md` |
+| `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
+| `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
+
+**23 skills total** (14 agent-backed + 9 utility/sub-skills).
+
+---
+
+## Shared protocols (v0.15.0)
+
+Canonical reference files every specialist reads. Single source of truth — update once, propagates everywhere.
+
+| File | Purpose |
+|------|---------|
+| `agents/shared/BOUNDED_TASK_CONTRACT.md` | The five scope rules every specialist follows in Bounded Task Mode (write-scope isolation, no extras, verbatim completion phrase, no scope expansion, stop-means-stop) |
+| `agents/shared/HANDOFF_TEMPLATES.md` | Canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template + post-HANDOFF gate docs |
+| `agents/shared/FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
+| `agents/shared/RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
+
+---
+
+## Validators (v0.15.0)
+
+Nine bash validators + a gate orchestrator in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+
+| Script | Checks |
+|--------|--------|
+| `validate-architecture.sh` | 6 diagram types, Mermaid syntax, HLA overview, no placeholders |
+| `validate-owasp.sh` | All 10 OWASP categories present, confidence >= 7, attack-chains.md present |
+| `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md AND openapi.yaml |
+| `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
+| `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
+| `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
+| `validate-scope.sh` | Post-HANDOFF git-scope enforcement |
+| `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase |
+| `validate-phase-gate.sh` | Orchestrator — chains the right validators for a given phase |
+| `run-handoff-gates.sh` | Three-gate runner (scope + manifest + coverage) with any-failure-aborts semantics |
+
+Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
+
+---
+
+## Depth modes (v0.15.0)
+
+`--quick` and `--deep` flags on `/sdlc onboard` and `/security`:
+
+| Skill | `--quick` (default) | `--deep` |
+|-------|---------------------|----------|
+| `/sdlc onboard` | 7-step high-level pass (~15 min) | Ralph Wiggum inventory loop (~45-90 min) |
+| `/security` | Phases 1-3: understand + scan + OWASP once-over (~10 min) | Ralph Wiggum loop over OWASP + semgrep rule files + iterative attack-chain (~45-90 min) |
+
+Deep modes block until their corresponding validator gate exits clean.
+
+---
+
+## Platform support
+
+| Platform | Status |
+|----------|--------|
+| macOS (bash 3.2.57+) | Supported |
+| Linux (bash 4+) | Supported |
+| Windows via WSL2 | Supported |
+| Windows native (PowerShell/cmd) | NOT supported — use WSL2 |
+
+`install.sh` refuses to run on native Windows and points to the WSL2 install docs.
 
 ---
 
