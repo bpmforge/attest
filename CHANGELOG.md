@@ -2,6 +2,68 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.15.0] — 2026-04-24
+
+Strict-refactor release. Replaces large monolithic prompts + manual enforcement with small targeted prompts + automated validators. sdlc-lead.md drops from 4986 lines to 386 (router only); modes and shared protocols live in their own files. Introduces the Ralph Wiggum inventory loop for exhaustive verification (inventory -> discover -> verify -> gap -> repeat, 3-iteration cap) and the `--quick` / `--deep` depth flags for onboarding and security. Nine bash validators automate completeness checks that previously required orchestrator judgment, plus a three-gate post-HANDOFF runner that proves every delegated task stayed in scope and produced a valid manifest.
+
+### Added
+
+- **`scripts/validators/`** — nine bash validators + shared `_lib.sh`:
+  - `validate-architecture.sh` — 6 diagram types, Mermaid syntax, HLA overview, no placeholders
+  - `validate-owasp.sh` — all 10 OWASP categories present, confidence >= 7, attack-chains.md present
+  - `validate-api-coverage.sh` — every route in source has a row in API_DESIGN.md AND openapi.yaml (Express/Fastify/Next app router/FastAPI/Flask/Go net-http detection)
+  - `validate-erd-coverage.sh` — every table/model in source has an ERD entry (Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL detection)
+  - `validate-sequence-coverage.sh` — every P0 use case in USE_CASES.md has a sequence diagram
+  - `validate-inventory.sh` — every row in INVENTORY.md has a corresponding artifact
+  - `validate-scope.sh` — post-HANDOFF git-scope enforcement (`git status --porcelain` confined to assigned directories)
+  - `validate-completion-manifest.sh` — HANDOFF manifest schema + completion phrase
+  - `validate-phase-gate.sh` — orchestrator that chains the right validators for a given phase (phase-0..5, onboard-deep, security-deep)
+  - `run-handoff-gates.sh` — three-gate orchestrator (scope + manifest + coverage) with any-failure-aborts semantics
+  - Every validator emits a JSON envelope to stdout, a human-readable gap list to stderr, and exits 0 / 1 / 2. Bash 3.2 compatible (macOS default).
+
+- **`agents/shared/`** — canonical shared protocols:
+  - `BOUNDED_TASK_CONTRACT.md` (71 lines) — single source of truth for scope rules every specialist follows in Bounded Task Mode. Enables delete-duplicates-from-every-specialist follow-up.
+  - `HANDOFF_TEMPLATES.md` (201 lines) — canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template + post-HANDOFF gate documentation.
+  - `FIX_VERIFY_LOOP.md` (152 lines) — canonical five-step pipeline (parallel fan-out -> FIX_BACKLOG -> remediation -> re-verification -> gate), severity matrix, merge gate, escalation block. Extracted from sdlc-lead.md.
+  - `RALPH_WIGGUM_LOOP.md` — canonical inventory-driven deep-verification loop reused by onboard-deep and security-deep.
+
+- **Four mode files** extracted from the sdlc-lead monolith:
+  - `agents/sdlc-init-mode.md` (1850 lines) — Mode 1 new project, Phases 0-5
+  - `agents/sdlc-onboard-mode.md` (823 lines) — Mode 2 onboard, 7-step + Ralph Wiggum deep section
+  - `agents/sdlc-feature-mode.md` (483 lines) — Mode 3 add feature
+  - `agents/sdlc-improve-mode.md` (890 lines) — Mode 4 audit & improve
+
+- **Ralph Wiggum Deep Mode for `/sdlc onboard --deep`** — step D1-D5 flow appended to sdlc-onboard-mode.md with inventory producer HANDOFF, parallel DISCOVER waves per category, validator-driven VERIFY, focused one-row gap-fill HANDOFFs, and 3-iteration cap.
+
+- **Depth Modes for `/security`** — new Depth Modes section in security-auditor.md. `--quick` (default) runs phases 1-3 once; `--deep` runs the Ralph Wiggum loop over every OWASP category, every custom semgrep rule file, and iteratively over 9 attack-chain patterns until a full pass finds no new chains. Gate: `validate-phase-gate.sh security-deep` exit 0.
+
+- **Three new onboard sub-skills** (thin triggers):
+  - `/onboard-inventory` — trigger for step D1
+  - `/onboard-verify` — trigger for step D3 (runs `validate-phase-gate.sh onboard-deep`)
+  - `/onboard-gap-fill` — trigger for step D4 (focused per-row HANDOFFs)
+
+- **Platform support block** in README.md and install.sh preflight refusing native Windows and pointing to WSL2.
+
+- **`docs/STRICT_REFACTOR_PLAN.md`** — durable record of the 5-wave plan.
+
+### Changed
+
+- **`agents/sdlc-lead.md`: 4986 lines -> 386 lines.** Router + shared protocols only. Modes extracted to `sdlc-<mode>-mode.md`. Resume protocol step 2 rewritten to call `run-handoff-gates.sh` with a HANDOFF-type -> coverage-validator mapping table. No behavioral regression — same flow, just delegated.
+
+- **`commands/sdlc-onboard.md`** — gains `--quick` / `--deep` flags with guidance on when to pick deep.
+
+- **`skills/gate/SKILL.md`** — rewritten from confidence-score self-evaluation to call `validate-phase-gate.sh <phase>`. Output is the validator's JSON gap list, not a subjective rating.
+
+- **`skills/security/SKILL.md`** — depth-flag matrix + guidance on when deep makes sense.
+
+- **Gate verdict mechanism** — every phase advance now blocked by `validate-phase-gate.sh <phase>` exit code. Confidence-score loops remain ONLY for artifacts validators cannot check (narratives, summaries, research reports).
+
+### Fixed
+
+- **bash 3.2 parser bugs** in validator scripts — triple-backticks inside `[[ ]]` comparisons and double-quoted strings mis-parse on macOS. Fix: bind to variables via `printf '%s' '...'` first. Also stripped em-dashes and box-drawing unicode from code bodies (kept in output via format strings).
+
+---
+
 ## [0.14.0] — 2026-04-23
 
 Structured Fix-Verify Loop across every review stage. Parallel review fan-out, unified FIX_BACKLOG, dedicated remediation + re-verification HANDOFF templates, hard 3-iteration cap with escalation, canonical severity→action matrix, and expanded git-expert merge enforcement. Closes the gap where review findings had no structured path back into code and where reviews ran sequentially instead of concurrently.

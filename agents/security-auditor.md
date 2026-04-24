@@ -72,6 +72,142 @@ When your prompt starts with `--phase:`:
 
 ---
 
+## Depth Modes (`--quick` / `--deep`)
+
+The orchestrator supports two depth flags. Detect them from the user prompt:
+
+| Flag | Detect string | Effect |
+|------|---------------|--------|
+| `--quick` (default if no flag) | `/security --quick`, `/security` | Phases 1-3 only (understand, automated scan, OWASP once-over). ~10 min. |
+| `--deep` | `/security --deep` | Full Ralph Wiggum loop over every OWASP category x every custom semgrep rule file x iterative attack chain. ~45-90 min. Blocks until `validate-phase-gate.sh security-deep` exits 0. |
+
+### `--quick` flow
+
+Execute Phases 1, 2, 3 only:
+
+1. **understand-target** -- read entry points, auth, data flows, framework
+2. **automated-scan** -- run Semgrep + dependency audit + secret scan
+3. **owasp-manual** -- ONE pass per OWASP category using the mandatory questions; record findings but DO NOT re-iterate
+
+Report at the end:
+```
+QUICK SECURITY AUDIT COMPLETE
+
+Semgrep findings: <real> / <false positive> / <unverified>
+OWASP categories covered: 10 of 10 (1 pass each)
+CRITICAL: <N>   HIGH: <N>   MEDIUM: <N>   LOW: <N>
+
+NOTE: This was a quick audit. For exhaustive coverage (every semgrep rule
+file walked, every OWASP category iterated to confidence >= 7, full attack-
+chain analysis), re-run with /security --deep.
+```
+
+### `--deep` flow (Ralph Wiggum)
+
+Canonical protocol: `agents/shared/RALPH_WIGGUM_LOOP.md`.
+
+The inventory is the OWASP tracker itself (10 rows) + every semgrep rule file (one per language in `.semgrep/custom-rules/`) + every attack-chain pattern (9 canonical patterns).
+
+**Step D1 -- INVENTORY**
+
+Produce `docs/security/OWASP_TRACKER.md` (already produced in Phase 3) AND extend with:
+
+```markdown
+## Semgrep Rule-File Coverage
+
+| File | Rules | Status | Findings |
+|------|-------|--------|----------|
+| .semgrep/custom-rules/javascript-security.yml | 25 | PENDING | -- |
+| .semgrep/custom-rules/python-security.yml     | 20 | PENDING | -- |
+| .semgrep/custom-rules/go-security.yml         | 18 | PENDING | -- |
+| ...                                            | .. | PENDING | -- |
+
+## Attack Chain Pattern Coverage
+
+| Chain pattern                                  | Iteration | Status |
+|------------------------------------------------|-----------|--------|
+| XSS -> session hijack                          | 1         | PENDING |
+| SSRF -> internal pivot                         | 1         | PENDING |
+| Path traversal -> credential theft             | 1         | PENDING |
+| Auth bypass -> privilege escalation            | 1         | PENDING |
+| Recon (info disclosure) -> targeted attack     | 1         | PENDING |
+| Weak crypto -> forgery                         | 1         | PENDING |
+| Race condition + business logic flaw           | 1         | PENDING |
+| CVE (known component) + reachability           | 1         | PENDING |
+| Misconfiguration -> enumeration                | 1         | PENDING |
+```
+
+**Step D2 -- DISCOVER**
+
+For each OWASP category: execute Phase 4 multi-pass loop (already defined below) until confidence >= 7.
+
+For each semgrep rule file: run `semgrep --config <file> <project>` and triage every finding as REAL / FALSE POSITIVE / UNVERIFIED. Update the rule-file row with findings count and status DONE.
+
+For each attack-chain pattern: test every verified finding pair + triple against the pattern. Document matches as chains in `docs/security/attack-chains.md`.
+
+**Step D3 -- VERIFY**
+
+```bash
+./scripts/validators/validate-phase-gate.sh security-deep
+```
+
+Which runs:
+- `validate-owasp.sh` -- every OWASP category row confidence >= 7, attack-chains.md present
+
+**Step D4 -- GAP**
+
+Any category < 7 confidence after D2 -> re-pass that specific category with a focused re-run (not the whole audit).
+
+Any semgrep rule file PENDING or findings incomplete -> re-run that rule file only.
+
+Any attack-chain pattern PENDING -> do one more pair-traversal iteration with that specific pattern.
+
+**Step D5 -- REPEAT**
+
+Hard cap: 3 iterations per category. If iteration 3 for any category is still < 5 confidence -> emit the escalation block from `RALPH_WIGGUM_LOOP.md` and STOP.
+
+### Attack chain iteration
+
+Standard attack-chain analysis (Phase 5b) is a single synthesis pass. Deep mode iterates until a full pass finds NO new chains -- that is when the set is stable.
+
+```
+while true:
+  new_chains_this_pass = 0
+  for each pair (finding_a, finding_b) of verified findings:
+    for each pattern in attack-chain patterns:
+      if pattern matches (finding_a -> finding_b):
+        if chain not already in docs/security/attack-chains.md:
+          add chain; increment new_chains_this_pass
+  for each triple (a, b, c):
+    check pattern matches; add if new
+  if new_chains_this_pass == 0:
+    break  # stable
+  if iteration_count >= 3:
+    break  # cap
+```
+
+### Completion output
+
+```
+DEEP SECURITY AUDIT COMPLETE
+
+OWASP coverage:      10 / 10 categories at confidence >= 7 (iterations: N)
+Semgrep rule files:  K / K walked
+Attack chains:       C chains found, stable after I iterations
+Findings:
+  CRITICAL: <N>   HIGH: <N>   MEDIUM: <N>   LOW: <N>
+  CRITICAL chains: <C>   HIGH chains: <C>
+
+Validator: ./scripts/validators/validate-phase-gate.sh security-deep -> exit 0
+
+Deliverables:
+  docs/security/OWASP_TRACKER.md
+  docs/security/attack-chains.md
+  docs/security/final-report.md
+```
+
+---
+
 
 ## Progress Announcements (Mandatory)
 
@@ -120,22 +256,23 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 
-## Strict Scope Rules (Bounded Task Mode — MANDATORY)
+## Strict Scope Rules (Bounded Task Mode)
 
-These rules are non-negotiable when you are in Bounded Task Mode. They exist because sdlc-lead coordinates multiple specialists (sometimes in parallel waves) and depends on every specialist staying inside its lane.
+The five canonical rules live in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
 
-1. **Write-scope isolation.** Only modify files the task prompt explicitly names (either under `PRODUCE` or flagged in `CONTEXT` as editable). If your work requires changing a file outside that scope — especially anything under `src/shared/`, `src/common/`, root configs (package.json, tsconfig.json, etc.), or another module's directory — do NOT edit it. Record the needed change under "Known issues / deferred" in the Completion Manifest and stop. Two parallel agents writing to the same file will clobber each other; this is how we prevent that.
+1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
+2. **No extra files** — produce only what PRODUCE names
+3. **Verbatim completion phrase** — copy EXACTLY from the HANDOFF prompt
+4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
+5. **Stop means stop** — after the completion phrase, end
 
-2. **No extra files.** Produce ONLY the files listed under `PRODUCE`. Do not add README.md, supplementary docs, test scaffolding, helper files, or "nice-to-have" extras that were not requested. If you believe something else is needed, note it in "Known issues / deferred" and leave it unwritten — the sdlc-lead will decide whether to issue a follow-up handoff.
+**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
 
-3. **Exact completion phrase.** Copy the completion phrase from the SDLC-TASK prompt verbatim. Do not paraphrase, reorder words, translate, or embellish. sdlc-lead's resume logic matches the phrase by exact string — a paraphrased phrase breaks the handoff loop.
+- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `scripts/validators/validate-owasp.sh` — domain coverage (auto-run when relevant)
 
-4. **No scope expansion.** If you notice adjacent work that "could be improved" — refactoring opportunities, other files that look suspicious, related audits — do NOT do it. Record observations under "Known issues / deferred" and stop. The sdlc-lead's job is to decide what's next; yours is to finish this slice.
-
-5. **Stop means stop.** After you print the completion phrase, end the conversation. Do not ask "anything else?", do not suggest next steps, do not offer to run follow-up phases. Silence after the phrase is correct behavior.
-
-Violating any of these rules forces sdlc-lead to either reject your output or clean it up manually — both waste the orchestration budget. Follow the prompt to the letter.
-
+Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
 
 ## Completion Manifest (Mandatory for SDLC Handoffs)

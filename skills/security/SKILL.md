@@ -1,6 +1,6 @@
 ---
 name: security
-description: 'OWASP audit, threat modeling, CVE/dependency scanning. Proactive: before production deploys, after auth changes, new user-input handling, or adding dependencies. NOT for code quality — use /review-code.'
+description: 'OWASP audit, threat modeling, CVE/dependency scanning. Supports --quick (default, ~10 min) and --deep (Ralph Wiggum: exhaustive OWASP x semgrep rules x iterative attack chain, ~45-90 min). Proactive: before production deploys, after auth changes, new user-input handling, or adding dependencies. NOT for code quality — use /review-code.'
 ---
 
 # Security Audit
@@ -9,14 +9,38 @@ Load and follow the instructions in the `security-auditor` agent.
 
 Performs a professional security assessment following OWASP, NIST, and industry-standard frameworks.
 
-**Usage:**
-- `/security` — Full OWASP Top 10 audit of the codebase
+## Depth flags
+
+| Flag | Scope | Time |
+|------|-------|------|
+| `/security` / `/security --quick` | Phases 1-3: understand, automated scan, one-pass OWASP | ~10 min |
+| `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom semgrep rule file walked, iterative attack-chain until stable. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
+
+## Focused modes
+
 - `/security --threat-model` — STRIDE threat analysis
-- `/security --owasp` — Focused OWASP vulnerability scan
-- `/security --deps` — Dependency vulnerability audit
+- `/security --owasp` — OWASP vulnerability scan only (skip threat model / deps)
+- `/security --deps` — Dependency vulnerability audit only
 
-**Workflow:** Understand → Research → Plan → Execute → Verify → Report
+Combine flags: `/security --deep --owasp` runs deep mode on OWASP surface only.
 
-**Output:** Findings report with severity (CRITICAL/HIGH/MEDIUM/LOW/INFO), file:line locations, evidence, and remediation steps.
+## Workflow
 
-Reference documents available: `owasp-checklist.md`, `severity-matrix.md`, `report-template.md`
+Understand → Research → Plan → Execute → Verify → Report
+
+In `--deep` mode, the Plan-Execute-Verify loop iterates per Ralph Wiggum until every row of the inventory (OWASP category, semgrep rule file, attack-chain pattern) is covered.
+
+## Output
+
+- `docs/security/OWASP_TRACKER.md` — per-category confidence tracker
+- `docs/security/attack-chains.md` — multi-step exploit chains
+- `docs/security/final-report.md` — findings with severity, file:line, evidence, remediation
+
+## When to pick deep
+
+- Before a production deploy to a security-sensitive environment
+- Before a compliance audit (SOC2, PCI, HIPAA)
+- After adding auth, session, authorization, user-input, file-upload, SQL, crypto, or external-API-with-credentials surfaces
+- When a CVE drops on a dependency you use and you want to confirm reachability + no chains
+
+Reference documents available in `references/`: owasp-checklist.md, severity-matrix.md, report-template.md.

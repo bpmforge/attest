@@ -132,17 +132,24 @@ Include:
 
 Then print the exact completion phrase specified in the task. Then stop.
 
-### Strict Scope Rules (SDLC-TASK Mode — MANDATORY)
+### Strict Scope Rules (Bounded Task Mode)
 
-These rules are non-negotiable when running under SDLC-TASK. They exist because sdlc-lead coordinates multiple specialists (sometimes in parallel waves) and depends on every agent staying inside its lane.
+The five canonical rules live in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
 
-1. **Write-scope isolation.** Only modify files the task prompt explicitly names (either under `PRODUCE` or flagged in `CONTEXT` as editable). If your work requires changing a file outside that scope — especially anything under `src/shared/`, `src/common/`, root configs (package.json, tsconfig.json, Dockerfile, CI workflows), or another module's directory — do NOT edit it. Record the needed change under "Known issues / deferred" in the Completion Manifest and stop. Two parallel coding-agent sessions writing to `src/shared/` concurrently will clobber each other; this rule is how we prevent that.
-2. **No extra files.** Produce ONLY the files listed under `PRODUCE`. Do not add README.md, supplementary docs, unlisted test files, helper files, or "nice-to-have" extras. If you believe something else is needed, note it in "Known issues / deferred" — sdlc-lead will decide whether to issue a follow-up handoff.
-3. **Exact completion phrase.** Copy the completion phrase from the SDLC-TASK prompt verbatim. Do not paraphrase or embellish. sdlc-lead's resume logic matches by exact string.
-4. **No scope expansion.** If you notice adjacent improvements, refactoring opportunities, or other code smells — do NOT fix them. Record observations under "Known issues / deferred" and stop.
-5. **Stop means stop.** After the completion phrase, end the conversation. No "anything else?", no suggested next steps.
+1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
+2. **No extra files** — produce only what PRODUCE names
+3. **Verbatim completion phrase** — copy EXACTLY from the HANDOFF prompt
+4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
+5. **Stop means stop** — after the completion phrase, end
 
-Violating any of these forces sdlc-lead to reject or manually clean up your output — both waste the orchestration budget. Follow the prompt to the letter.
+**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
+
+- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `scripts/validators/validate-scope.sh` — domain coverage (auto-run when relevant)
+
+Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
+
 
 ---
 

@@ -108,14 +108,28 @@ Every expert writes its output to a predictable location under `docs/`:
 
 These directories are gitignored by default — they are per-project generated reports, not shared source.
 
-### Confidence gates
+### Confidence gates + automated validators (v0.15.0)
 
-Every agent ends with an asymmetric confidence gate:
+Gates run in two forms, depending on whether the artifact is mechanically validatable:
+
+**Automated validators** (deterministic coverage checks) — `scripts/validators/` has 9 validators plus a gate orchestrator. Used for any artifact where "covered or not" is an objective question: architecture diagrams, OWASP tracker rows, API route coverage, ERD table coverage, sequence-diagram coverage, inventory-row coverage, post-HANDOFF scope + manifest. Each returns exit 0 (clean) / 1 (gap) / 2 (validator errored). The `/gate` skill wraps `validate-phase-gate.sh <phase>` for the active phase.
+
+**Confidence gates** (subjective 1-10 score) — used only for artifacts validators cannot check mechanically: narratives, research summaries, rationale. Asymmetric:
 - Score < 5 on any dimension = automatic fail, surface the gap, do NOT iterate
 - Score 5-6 = revise that specific dimension (max 3 revision passes)
 - Score ≥ 7 = pass
 
-When an expert says "gate failed", it's telling you the report isn't ready. Ask it to address the specific gap.
+When a validator says clean, the gate passes — do not second-guess. When a validator reports gaps, close the gap; do not override.
+
+### Post-HANDOFF gates
+
+After every specialist HANDOFF returns, the orchestrator runs three automated gates via `scripts/validators/run-handoff-gates.sh` before accepting the work:
+
+1. **Scope** — `validate-scope.sh` confirms git writes stayed inside the assigned directory
+2. **Manifest** — `validate-completion-manifest.sh` confirms the required sections + completion phrase
+3. **Coverage** — domain-specific validator (architecture / api-coverage / erd-coverage / owasp / inventory) when applicable
+
+Any gate failure returns the HANDOFF with REVISE status + the specific gap. No orchestrator judgment required.
 
 ---
 
@@ -129,9 +143,21 @@ When an expert says "gate failed", it's telling you the report isn't ready. Ask 
 
 ### Existing codebase you don't understand
 ```
-/sdlc onboard
+/sdlc onboard             # default: --quick pass, ~15 min
+/sdlc onboard --quick     # explicit quick pass, 7-step high-level
+/sdlc onboard --deep      # Ralph Wiggum inventory loop, ~45-90 min
 ```
 `sdlc-lead` creates a `docs/onboard` branch, runs `git-expert --inspect` first (hot files, commit history), detects if the project has a UI, then produces architecture docs and an onboarding guide. If UI-bearing, `ux-engineer --audit` runs automatically. All produced docs are committed via PR to `main`.
+
+**`--deep` mode** (`agents/shared/RALPH_WIGGUM_LOOP.md`) runs the quick pass first, then enumerates every unit of the codebase — routes, tables, services, P0 flows, entry points — into `docs/onboard/INVENTORY.md`, produces one artifact per row, and re-iterates on any uncovered rows. Blocks until `./scripts/validators/validate-phase-gate.sh onboard-deep` exits clean. Three sub-skills trigger the individual steps:
+
+| Skill | Step | Effect |
+|-------|------|--------|
+| `/onboard-inventory` | D1 | Produce `docs/onboard/INVENTORY.md` |
+| `/onboard-verify`    | D3 | Run validators, report gaps |
+| `/onboard-gap-fill`  | D4 | Emit focused HANDOFFs for uncovered rows only |
+
+Reach for `--deep` before contract bids, diligence reviews, security-sensitive takeovers.
 
 ### Add a feature to an existing project
 ```
@@ -271,14 +297,22 @@ Safety rails (always enforced, cannot be bypassed silently):
 Reference: `references/git-workflow-checklist.md`. Output: `docs/git/*.md`.
 
 ### `/security`
-Modes: `--owasp`, `--semgrep`, `--threat-model`, `--deps`
+**Depth flags:** `--quick` (default) / `--deep`
+**Focused modes:** `--owasp`, `--semgrep`, `--threat-model`, `--deps`
 
 ```
-/security --owasp               # OWASP Top 10 pass
-/security --semgrep             # deep static analysis (auto-installs semgrep)
-/security --threat-model        # STRIDE threat model
-/security --deps                # dependency vulnerability audit
+/security                       # --quick by default: phases 1-3, ~10 min
+/security --quick               # explicit: single-pass OWASP + semgrep scan
+/security --deep                # Ralph Wiggum loop: ~45-90 min, all OWASP + all semgrep rules + iterative attack-chain
+/security --owasp               # OWASP Top 10 pass only
+/security --semgrep             # deep static analysis only
+/security --threat-model        # STRIDE threat model only
+/security --deps                # dependency vulnerability audit only
 ```
+
+**`--quick`** (default) — phases 1-3: understand → automated scan → OWASP once-over. ~10 min.
+
+**`--deep`** — full Ralph Wiggum loop over every OWASP category iterated to confidence ≥ 7, every custom semgrep rule file walked, iterative attack-chain until a full pass finds no new chains. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. Use before production deploys, compliance audits, post auth/crypto/input changes, CVE-reachability checks.
 
 Runs as a 5-phase orchestrator: understand → automated scan (Semgrep + deps) → OWASP manual (10 passes) → verify findings → **attack chain analysis** → write report.
 
