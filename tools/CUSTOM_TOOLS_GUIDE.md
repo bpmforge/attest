@@ -28,7 +28,17 @@ They auto-load from `~/.config/opencode/tools/` without any config changes neede
 | `bash.ts` | Shell command with stdout/stderr capture and configurable timeout |
 | `run.ts` | Alias for bash.ts — same functionality |
 
-### Search & Analysis
+### Web Research
+
+| Tool | Purpose |
+|------|---------|
+| `web-search.ts` | Search DuckDuckGo — returns titles, URLs, snippets. No browser, no API key. Fast. |
+| `web-fetch.ts` | Fetch a URL with stealth Playwright — returns clean article text (no nav/ads/scripts, up to 16K chars) |
+| `playwright-web.ts` | Low-level browser control via playwright-cli — `open`, `goto`, `snapshot`, `extract`, `go-back`, `close` |
+
+**Typical research pattern:** `web_search("query 2026")` → find URLs → `web_fetch(url)` → read content
+
+### Code Search & Analysis
 
 | Tool | Purpose |
 |------|---------|
@@ -43,7 +53,6 @@ They auto-load from `~/.config/opencode/tools/` without any config changes neede
 |------|---------|
 | `test-runner.ts` | Run tests with auto-detected framework (npm/jest/vitest/mocha); captures pass/fail counts |
 | `playwright-test.ts` | Run Playwright E2E tests with file/pattern filtering (180s timeout) |
-| `playwright-web.ts` | Browser for web research — navigate URLs, snapshot pages, search Bing via playwright-cli |
 
 ### Deployment
 
