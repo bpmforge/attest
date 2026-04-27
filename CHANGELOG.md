@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.16.0] — 2026-04-27
+
+Research-tooling overhaul + universal loop-prevention. The legacy DDG-only `web-search.ts` / `web-fetch.ts` tools are deleted in favor of the new **playwright-search MCP** (auto-installed by `install.sh`), giving every agent in the project free, multi-engine web research with paragraph-level relevance ranking. Use-case testing surfaced three distinct loop classes that were causing real failures with local LLMs (LM Studio + Qwen3-coder); all three are now blocked by a shared `LOOP_PREVENTION.md` referenced from every agent prompt.
+
+### Added
+
+- **`agents/shared/LOOP_PREVENTION.md`** — single source of truth for loop-prevention rules. Covers three failure classes:
+  - **Failure loop** — same tool error 3+ times → 3-strikes STOP
+  - **Schema-validation loop** — model emits malformed tool args (e.g. `glob({pattern: undefined})`), gets a Zod error, retries identical broken call → never retry the same broken call; switch tool or surface
+  - **Success loop** — every call succeeds but the model never stops fetching (re-fetches same URLs, keeps wanting "one more source") → hard caps: 15 total / 4 per work-unit / 1 per URL / diminishing-returns check
+  - Universal STOP triggers + a required template for surfacing partial results to the user. Every agent must apply these.
+- **`agents/shared/RESEARCH_TOOLS.md`** — single-source reference doc agents Read at runtime. Documents the playwright-search MCP tool surface, per-agent when-to-use guidance, query tips.
+- **playwright-search MCP auto-install in `install.sh`** — clones from GitHub to `~/.local/share/playwright-search` (override via `PLAYWRIGHT_SEARCH_DIR`), runs `npm install && npm run build`, merges the MCP into `opencode.json` via `jq`. Skip with `--no-playwright-search`. Idempotent.
+- **Iterative-loop research workflow** in `agents/researcher.md` — explicit pass-1-broad / pass-2+-refined pattern with a "Learned so far / Still missing" ledger between passes. New Step 2.5 question-completion gate blocks synthesis until every decomposed question reaches DONE; report template requires `#### Qn:` subsections per question.
+- **Cross-agent research surface** — `web_research / web_search / web_fetch` (via `playwright-search_*` MCP tool names) made available to and documented in 11 agents that benefit from web lookups before deciding: coding-agent, api-designer, security-auditor, db-architect, performance-engineer, container-ops, frontend-design, ux-engineer, sre-engineer, test-engineer, code-reviewer.
+
+### Removed
+
+- **`tools/web-search.ts` and `tools/web-fetch.ts`** — replaced by playwright-search MCP. The legacy tools were DDG-only with no captcha awareness, and their hyphenated names were being picked over the MCP-prefixed equivalents by smaller models. The replacements are multi-engine, captcha-aware, paragraph-ranked, and cached.
+- **`install.sh` playwright-npm install step** — previously installed `playwright` into the opencode node_modules for the deleted `web-fetch.ts`. `@playwright/cli` is still installed (for `tools/playwright-web.ts`).
+
+### Changed
+
+- **`tools/CUSTOM_TOOLS_GUIDE.md`** — Web Research section rewritten to point at the MCP tools.
+- **`examples/opencode.json`** — adds the `playwright-search` MCP entry alongside `context7` and `mempalace`.
+- **`README.md`** — new "Install flags" table (`--no-playwright-search`, `PLAYWRIGHT_SEARCH_DIR=...`) and "What others need" subsection. Recipients get one-command install with the MCP wired in automatically.
+
 ## [0.15.0] — 2026-04-24
 
 Strict-refactor release. Replaces large monolithic prompts + manual enforcement with small targeted prompts + automated validators. sdlc-lead.md drops from 4986 lines to 386 (router only); modes and shared protocols live in their own files. Introduces the Ralph Wiggum inventory loop for exhaustive verification (inventory -> discover -> verify -> gap -> repeat, 3-iteration cap) and the `--quick` / `--deep` depth flags for onboarding and security. Nine bash validators automate completeness checks that previously required orchestrator judgment, plus a three-gate post-HANDOFF runner that proves every delegated task stayed in scope and produced a valid manifest.

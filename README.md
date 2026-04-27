@@ -63,7 +63,7 @@ Or describe what you want in plain English — the SDLC lead detects intent and 
 - [docs/SDLC_GUIDE.md](docs/SDLC_GUIDE.md) — full SDLC workflow
 - [docs/AGENT_PROCESS_FLOW.md](docs/AGENT_PROCESS_FLOW.md) — step-by-step agent orchestration
 - [scripts/validators/README.md](scripts/validators/README.md) — validator contract
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v0.15.0 strict-refactor)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v0.16.0 research + loop-prevention)
 
 ## Remote LM Studio on macOS (Sequoia+)
 
