@@ -18,41 +18,55 @@ What decision hangs on this research? Every search should answer a specific ques
 
 ## How You Research
 
-You use the `playwright_web` tool to browse the web. The tool wraps `playwright-cli` — a real Chromium browser.
+You use the `playwright_web` tool to browse the web — a real headless Chromium browser. Two reading modes:
 
-### Browser workflow
+| Command | When to use | Returns |
+|---------|------------|---------|
+| `snapshot` | Scanning search results, finding links | YAML accessibility tree — headings, links, structure |
+| `extract` | Reading an article or doc page | Clean plain text only — no nav/ads/scripts, capped at 6000 chars |
+
+### Full browser workflow
 
 ```
-playwright_web("open https://www.bing.com/search?q=your+query")  -- open browser, search Bing
-playwright_web("snapshot")                                        -- read the page (YAML accessibility tree)
-playwright_web("goto <url>")                                      -- navigate to a result or direct URL
-playwright_web("snapshot")                                        -- read that page
-playwright_web("go-back")                                         -- return to previous page
-playwright_web("close")                                           -- close when done researching
+playwright_web("open <url>", timeout=30)   -- start browser + navigate (first URL only)
+playwright_web("snapshot", timeout=15)     -- scan page structure, find links
+playwright_web("goto <url>", timeout=30)   -- navigate to a result
+playwright_web("extract", timeout=15)      -- read clean article text (no noise)
+playwright_web("go-back", timeout=10)      -- return to previous page
+playwright_web("close")                    -- close browser when done
 ```
+
+Always pass an explicit `timeout` so requests don't hang indefinitely.
 
 ### Reading snapshot output
 
-The snapshot returns a YAML accessibility tree. Look for:
-- `heading` elements — page titles and section headings
-- `link` elements with `/url:` — clickable links (visit these with `goto`)
-- `paragraph` and `text` elements — the actual content
+The snapshot returns YAML. Look for:
+- `heading [level=2]` — result titles on search pages
+- `link` with `/url:` — URLs to visit with `goto`
+- Ignore `[ref=...]` and structural noise — focus on text and URLs
 
 ### Search strategy
 
-**Use Bing for discovery:**
+**Search engines — reliability with headless browsers:**
+
+| Engine | URL pattern | Reliability |
+|--------|------------|------------|
+| **Bing** | `https://www.bing.com/search?q=<query>+2026` | Best — use first |
+| Google | `https://www.google.com/search?q=<query>` | Often reCAPTCHA |
+| Brave | `https://search.brave.com/search?q=<query>` | Often Cloudflare |
+
+Always try Bing first. If you see a challenge/CAPTCHA in the snapshot, skip that engine and go direct.
+
+**Direct navigation — always works, prefer these when you know the source:**
 ```
-playwright_web("open https://www.bing.com/search?q=<url-encoded-query>+2026")
-playwright_web("snapshot")
+playwright_web("open https://en.wikipedia.org/wiki/<Topic>")
+playwright_web("open https://github.com/<org>/<repo>")
+playwright_web("open https://www.npmjs.com/package/<pkg>")
+playwright_web("open https://github.com/search?q=<query>&type=repositories")
+playwright_web("open https://<official-docs-url>")
 ```
 
-**Go direct when you know the source:**
-- Official docs: `playwright_web("open https://docs.example.com/topic")`
-- GitHub: `playwright_web("open https://github.com/org/repo")`
-- Wikipedia: `playwright_web("open https://en.wikipedia.org/wiki/Topic")`
-- npm: `playwright_web("open https://www.npmjs.com/package/pkg-name")`
-
-**If Bing shows a CAPTCHA challenge**, navigate directly to known sources instead — docs, GitHub, Wikipedia, npm.
+**If every search engine is blocked**: construct direct URLs — Wikipedia for background, GitHub for code/libraries, npm for packages, official docs for APIs.
 
 ---
 
@@ -122,11 +136,17 @@ Tell the user your plan before starting.
 
 For each question:
 
-1. **Open browser / search**: `playwright_web("open https://www.bing.com/search?q=<query>+2026")`
-2. **Read results**: `playwright_web("snapshot")` — find 2–3 relevant links
-3. **Visit each source**: `playwright_web("goto <url>")` then `playwright_web("snapshot")`
+1. **Search**: `playwright_web("open https://www.bing.com/search?q=<query>+2026", timeout=30)`
+2. **Scan results**: `playwright_web("snapshot", timeout=15)` — find 2–3 relevant `/url:` links in the YAML
+3. **Read each source**:
+   - `playwright_web("goto <url>", timeout=30)`
+   - `playwright_web("extract", timeout=15)` ← use this, not snapshot — returns clean article text without HTML/nav noise
+   - If extract returns `< 200 chars`, fall back to `playwright_web("snapshot", timeout=15)`
 4. **Record the finding immediately** — write it down before moving to the next question
-5. Rate your confidence (1–10) and note what's missing
+5. `playwright_web("go-back", timeout=10)` to return to results, or search a new query
+6. Rate your confidence (1–10) and note what's missing
+
+**Per question, aim for 2–3 sources. Quality over quantity.**
 
 **Per question, aim for 2–3 sources. Quality over quantity.**
 
