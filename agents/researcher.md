@@ -195,6 +195,34 @@ Confidence thresholds:
 - `≥ 8` — mark question DONE, move to next
 - Hit 4 passes still `< 8` — surface the gap, don't fake confidence
 
+### Hard exit rule — 3 strikes (MANDATORY)
+
+**This rule overrides everything else. Apply it before reasoning about confidence or refining queries.**
+
+If a tool call returns:
+- 0 results, OR
+- "rate-limited" / "blocked" / "challenge" / "no results found", OR
+- the same error twice in a row,
+
+…**count it as a strike**. After **3 strikes within a single research task** (any combination of failed tool calls), you MUST stop and surface the situation to the user verbatim:
+
+```
+RESEARCH BLOCKED — tool calls have failed 3+ times in a row.
+- Last error: <paste the actual tool error or empty-result indicator>
+- Last query attempted: <paste the query>
+- Likely cause: <pick: rate limit, captcha, network, tool misconfiguration>
+- What I have so far: <bullet list of what was actually learned, even partial>
+- What I cannot answer: <list the unanswered questions>
+
+I am stopping here per the 3-strikes rule. Re-running with a different
+network, after a cooldown, or after re-registering the playwright-search
+MCP may help.
+```
+
+**Do not call the same tool with the same (or trivially similar) query more than twice.** If `web_research("X")` returned empty, do NOT immediately try `web_research("X review")` then `web_research("X 2025")` then `web_research("X 2025 review")` — that's the loop pattern that wastes the user's time. Instead: vary the *engine* (try `web_search` if `web_research` is failing), vary the *URL* (try `web_fetch` on a known doc URL directly), or vary the *type* of query (broaden vs. narrow). If two genuinely different attempts both fail, that's strikes 1 and 2; the third strike is your STOP signal.
+
+If you find yourself thinking "let me try a different search query" for the third time, you've hit the strike count. STOP.
+
 ### Step 2.5: Question-completion gate (MANDATORY before synthesis)
 
 **Do not proceed to synthesis until every question has been answered.** A common failure mode is to do a thorough job on Q1, then skip Q2 and Q3 because Q1's findings feel "comprehensive enough." Reject that impulse — the plan is the contract.

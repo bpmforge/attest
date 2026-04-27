@@ -30,13 +30,20 @@ They auto-load from `~/.config/opencode/tools/` without any config changes neede
 
 ### Web Research
 
+Web search + page extraction now live in the `playwright-search` MCP server (registered project-wide via `opencode.json`). All agents call these tools by their MCP-prefixed names:
+
 | Tool | Purpose |
 |------|---------|
-| `web-search.ts` | Search DuckDuckGo — returns titles, URLs, snippets. No browser, no API key. Fast. |
-| `web-fetch.ts` | Fetch a URL with stealth Playwright — returns clean article text (no nav/ads/scripts, up to 16K chars) |
-| `playwright-web.ts` | Low-level browser control via playwright-cli — `open`, `goto`, `snapshot`, `extract`, `go-back`, `close` |
+| `playwright-search_web_research(query, top=3, relevance_query?)` | Multi-engine search (DDG + Brave + Bing) → dedup → fetch → extract via Mozilla Readability → paragraph-rank by query relevance → return `[Source N]` blocks |
+| `playwright-search_web_search(query, limit=10)` | Multi-engine titles + URLs + snippets only (triage) |
+| `playwright-search_web_fetch(url, max_chars=8000, relevance_query?)` | Single URL → clean article text via Mozilla Readability, with 24h disk cache |
+| `playwright-web.ts` | Low-level browser control via playwright-cli — `open`, `goto`, `snapshot`, `extract`, `go-back`, `close` (used when an agent needs to interact with a page, not just read it) |
 
-**Typical research pattern:** `web_search("query 2026")` → find URLs → `web_fetch(url)` → read content
+**Typical research pattern:** `playwright-search_web_research("query 2026", top=3)` → returns 3 deduplicated sources with extracted content in one call.
+
+> **Removed in v0.16:** the legacy `web-search.ts` and `web-fetch.ts` tools were deleted. They were DDG-html-only with no captcha awareness and would loop on rate-limit. Use the playwright-search MCP tools above — same surface, multi-engine, captcha-aware, faster (HTTP-first), and cached.
+
+See `agents/shared/RESEARCH_TOOLS.md` for per-agent guidance on when to reach for these.
 
 ### Code Search & Analysis
 

@@ -178,61 +178,24 @@ fi
 
 echo ""
 
-# --- Playwright Web Research Setup ---
-# web-search.ts and web-fetch.ts tools require:
-#   1. @playwright/cli   — global binary for playwright_web tool (browser control)
-#   2. playwright npm    — Node API for web-fetch.ts (stealth content extraction)
-#   3. Chromium browsers — one per above (different builds, both needed)
-echo "Setting up Playwright for web research tools..."
+# --- Playwright CLI Setup (for the playwright-web browser-control tool) ---
+# Web search + page extraction live in the playwright-search MCP (set up below).
+# @playwright/cli is still needed by tools/playwright-web.ts for ad-hoc browser
+# automation by agents.
+echo "Setting up @playwright/cli for the playwright-web tool..."
 
-PLAYWRIGHT_CLI_OK=false
-PLAYWRIGHT_NPM_OK=false
-
-# 1. playwright-cli global binary
 if command -v playwright-cli &>/dev/null; then
   PCLI_VER=$(playwright-cli --version 2>/dev/null | head -1)
   echo "  playwright-cli $PCLI_VER — already installed ✓"
-  PLAYWRIGHT_CLI_OK=true
-else
-  if command -v npm &>/dev/null; then
-    echo "  Installing @playwright/cli globally..."
-    npm install -g @playwright/cli@latest --silent 2>/dev/null \
-      && PLAYWRIGHT_CLI_OK=true \
-      && echo "  @playwright/cli installed ✓" \
-      || echo "  ⚠️ npm install -g @playwright/cli failed — install manually"
-  else
-    echo "  ⚠️ npm not found — install manually: npm install -g @playwright/cli@latest"
-  fi
-fi
-
-# 2. playwright-cli chromium browser
-if [ "$PLAYWRIGHT_CLI_OK" = true ]; then
-  echo "  Installing playwright-cli chromium browser..."
-  playwright-cli install-browser chromium 2>/dev/null \
+elif command -v npm &>/dev/null; then
+  echo "  Installing @playwright/cli globally..."
+  npm install -g @playwright/cli@latest --silent 2>/dev/null \
+    && echo "  @playwright/cli installed ✓" \
+    && playwright-cli install-browser chromium 2>/dev/null \
     && echo "  playwright-cli chromium ✓" \
-    || echo "  ⚠️ playwright-cli install-browser failed — run manually: playwright-cli install-browser chromium"
-fi
-
-# 3. playwright npm package in ~/.config/opencode node_modules (needed by web-fetch.ts)
-if [ "$MODE" = "global" ] && [ -d "$DEST/node_modules" ]; then
-  if [ -d "$DEST/node_modules/playwright" ]; then
-    echo "  playwright npm package — already present ✓"
-    PLAYWRIGHT_NPM_OK=true
-  else
-    echo "  Installing playwright npm package (for web-fetch.ts)..."
-    (cd "$DEST" && npm install playwright --silent 2>/dev/null) \
-      && PLAYWRIGHT_NPM_OK=true \
-      && echo "  playwright npm package installed ✓" \
-      || echo "  ⚠️ playwright npm install failed — run manually: cd $DEST && npm install playwright"
-  fi
-fi
-
-# 4. playwright Node API chromium browser (separate from playwright-cli's browser)
-if [ "$PLAYWRIGHT_NPM_OK" = true ]; then
-  echo "  Installing playwright Node API chromium browser..."
-  (cd "$DEST" && npx playwright install chromium 2>/dev/null) \
-    && echo "  playwright chromium ✓" \
-    || echo "  ⚠️ npx playwright install chromium failed — run manually: cd $DEST && npx playwright install chromium"
+    || echo "  ⚠️ npm install -g @playwright/cli failed — install manually"
+else
+  echo "  ⚠️ npm not found — install manually: npm install -g @playwright/cli@latest"
 fi
 
 echo ""
