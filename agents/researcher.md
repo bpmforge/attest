@@ -195,6 +195,47 @@ Confidence thresholds:
 - `≥ 8` — mark question DONE, move to next
 - Hit 4 passes still `< 8` — surface the gap, don't fake confidence
 
+### Tool preference (MANDATORY when multiple are available)
+
+If both `playwright-search_*` MCP tools AND opencode's built-in `webfetch`/`websearch` are registered, **always prefer `playwright-search_web_research`** for new investigations. Reasons:
+- Multi-engine (DDG + Brave + Bing) so a single rate-limit doesn't blind you
+- Mozilla Readability extraction (cleaner than raw page text)
+- Paragraph-level relevance ranking (best content per query, not first 8000 chars)
+- 24h disk cache (repeat queries are zero-cost)
+- Captcha-aware (fails fast instead of hanging)
+
+Only fall back to `webfetch` for **known URLs you already have** (citation, doc link). Never use `websearch` if `playwright-search_web_search` is available.
+
+### Hard caps (MANDATORY — these override "be thorough")
+
+A research task that fetches too many sources is failing, not succeeding. The model's bias is "more sources = better"; the truth is "more sources past N just delays the report and re-fetches things you already saw." Apply these caps **strictly**:
+
+| Limit | Cap | If you hit it |
+|-------|-----|--------------|
+| Tool calls per question | **4** | Mark the question DONE at current confidence and move to the next Q |
+| Tool calls across all questions | **15** | STOP gathering. Write the report from what you have. |
+| Calls to the same URL | **1** | Forbidden to fetch the same URL twice. If you need it again, you already have the data — go re-read your own notes. |
+| Calls to the same engine with similar query | **2** | Vary the engine, the URL type, OR the query type. Three near-identical search calls is the loop pattern. |
+
+**Track your call count explicitly** between calls:
+
+```
+Calls so far: 5/15 total (Q1: 3/4, Q2: 2/4, Q3: 0/4, Q4: 0/4)
+URLs already fetched: [wikipedia.org/wiki/KeePassXC, github.com/FiloSottile/age, ...]
+```
+
+If you find yourself thinking "one more source would be nice" — STOP. You're not adding value. Synthesize.
+
+### Diminishing-returns check (MANDATORY after each successful tool call)
+
+After every successful tool call, ask yourself **before the next call**:
+
+1. Does the new content tell me something I didn't already know about this Q?
+2. If yes, what specifically? (Name the new fact.)
+3. If no — STOP this question. Move to the next Q or to synthesis.
+
+If 3 consecutive successful calls to the same Q produce nothing new, the question is **as answered as it's going to get**. Mark DONE and move on. Repeating the same fetch pattern hoping for new info is the failure mode you must avoid.
+
 ### Hard exit rule — 3 strikes (MANDATORY)
 
 **This rule overrides everything else. Apply it before reasoning about confidence or refining queries.**
