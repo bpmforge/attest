@@ -1,7 +1,8 @@
 {
   "type": "module",
   "dependencies": {
-    "@opencode-ai/plugin": "1.4.0"
+    "@opencode-ai/plugin": "1.4.0",
+    "playwright": "^1.59.1"
   },
   "scripts": {
     "test": "node --experimental-strip-types scripts/test.ts",
