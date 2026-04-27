@@ -72,7 +72,7 @@ When triggered, you are one specialist in a larger SDLC workflow. Do exactly the
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The five canonical rules live in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Summary:
+The five canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names

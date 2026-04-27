@@ -6,6 +6,33 @@ There are three loop classes that have caused real failures in production. Each 
 
 ---
 
+## Tool selection cheat-sheet (read this FIRST — most loops start here)
+
+Before calling any tool, match the verb in your task to the right tool. **Most schema-validation loops start by calling the wrong tool with arguments that make sense for a different tool.**
+
+| You want to… | Use this tool | Example |
+|--------------|---------------|---------|
+| Read a markdown reference doc, agent prompt, or any file | `read` | `read({file_path: "~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md"})` |
+| Run a slash command (e.g., `/sdlc init`, `/security`) | `skill` | `skill({name: "sdlc"})` |
+| List files matching a pattern | `glob` | `glob({pattern: "**/*.md"})` |
+| Search file contents | `grep` | `grep({pattern: "TODO", path: "src"})` |
+| Run a shell command | `bash` (or `run`) | `bash({command: "ls -la"})` |
+| Write a new file | `write` | `write({file_path: "...", content: "..."})` |
+| Edit existing file | `edit` | `edit({file_path: "...", old_string: "...", new_string: "..."})` |
+| Fetch a URL | `webfetch` | `webfetch({url: "https://..."})` |
+| Search the web | `playwright-search_web_research` (or `websearch`) | `playwright-search_web_research({query: "..."})` |
+
+**Common confusions that trigger loops:**
+
+- `skill` is for slash commands by **name**, not for "loading" reference docs. Reference docs are files — use `read`.
+- "See `agents/shared/X.md`" / "consult X" / "per the contract in X" all mean **`read` that file**, not "load it as a skill".
+- Relative paths like `agents/shared/X.md` resolve from your install dir. If unsure, prefix with `~/.config/opencode/` (opencode) or `~/.claude/` (Claude Code) and use the absolute path. Or list the dir first via `ls`.
+- A tool with required args you can't fill is the wrong tool. Pick a different one — don't pass `undefined` and hope.
+
+If after 2 tool calls you can't find the right tool for a task, **stop and surface to user** (see Class 2 rule below). Don't bluff.
+
+---
+
 ## Class 1: Failure loop (tool errors repeating)
 
 **Pattern:** Same tool call returns the same error 3+ times. Model retries hoping for a different result.
@@ -41,27 +68,37 @@ TASK BLOCKED — tool calls have failed 3+ times in a row.
 - `"Invalid input: expected string, received undefined"`
 - `"Required field 'X' is missing"`
 - `"Expected number, got string"`
+- `"The X argument must be of type string. Received undefined"`
 
-Model retries the SAME malformed call, gets the SAME validation error, retries again.
+Model retries the SAME malformed call, gets the SAME validation error, retries again. **Or switches to a different tool but emits the same shape of broken call (e.g., calls `skill` with no name, then `write` with no file path).** That counts the same — it's not the tool that's looping, it's your tool-call construction.
 
-**Why this happens:** Local LLMs (Qwen, Gemma, Nemotron, smaller models generally) sometimes emit incomplete tool-call JSON — missing required args, wrong types, or `undefined` values. The model doesn't always understand the validation error and repeats the broken call verbatim.
+**Why this happens:** Local LLMs (Qwen, Gemma, Nemotron, smaller models generally) sometimes emit incomplete tool-call JSON — missing required args, wrong types, or `undefined` values. The model often *sees* the error but cannot break out of the pattern; it will narrate "I keep calling tools without proper arguments" while continuing to call them with no arguments.
 
-**Rule — schema errors are 1 strike each, and they count:**
+**Rule — 2 strikes you stop. Schema errors are unforgiving.**
 
-If a tool returns a schema/validation error:
+After **2 schema-validation errors in a single task** (any tools, any errors, even different ones), STOP. Do not keep "trying" — the next call will fail the same way for the same reason. If you've articulated "I keep calling tools without arguments" or "let me try again" or "I keep getting errors" you have **already hit the loop signal — STOP NOW**.
 
-1. **Read the error.** It tells you exactly what's wrong (`expected string`, `pattern is required`, etc.).
-2. **Fix the call OR switch tools.** If you can't construct valid args, the tool is wrong for the job.
-3. **Never retry the same malformed call twice.** That's the loop.
-
-If you've hit a schema error and don't know how to fix it, STOP and surface to user with:
+When you hit the 2-strike limit, copy-paste this template VERBATIM with the blanks filled:
 
 ```
-TOOL CALL MALFORMED — could not construct valid arguments.
-- Tool: <name>
-- Required schema: <what the error says is required>
-- What I tried: <the args I sent>
-- Why I'm stuck: <the reasoning gap>
+[BLOCKED — schema-validation loop]
+- I attempted: <list the 2 tool calls and their schema errors>
+- Pattern: <what's missing in my calls — usually a required arg I don't know>
+- Likely cause: <pick: I lack a piece of context the prompt didn't give me / the tool I picked doesn't match the task / a referenced file path is wrong or relative-vs-absolute confusion>
+- What I have so far: <bullets of progress, even partial>
+- What I cannot complete: <the unfinished items>
+
+I am stopping per the 2-strikes schema rule. Recommend: the user clarifies <specific input> or suggests a different tool.
+```
+
+After printing this template, **stop calling tools** and end the turn. The user will read your message and unblock you.
+
+**Common causes of this loop, and how to spot them:**
+
+- The agent prompt referenced a path like `agents/shared/X.md` (relative) but you're not sure where it resolves. **Use the absolute path:** `~/.config/opencode/agents/shared/X.md` (opencode) or `~/.claude/agents/shared/X.md` (Claude Code). If you're not sure which, list both directories first via `ls`.
+- You tried to call a `skill` tool but didn't have a skill name. The `skill` tool is for invoking slash commands by name — not for loading reference docs. To read a doc, use `read` with a file path.
+- You tried to write a file but had no path. The `write` tool needs `file` (or `file_path`) and `content` — both required.
+- A tool's required arg is unclear from your context. Don't guess — surface to user.
 - Workaround attempt: <if any>
 
 Recommend: ask the user to either (a) clarify the input, (b) suggest a different tool, or (c) take this step manually.

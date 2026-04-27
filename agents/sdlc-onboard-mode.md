@@ -16,7 +16,7 @@ the next person's onboarding 10x faster.
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, read `agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
@@ -644,7 +644,7 @@ Mode 2 Completion:
 
 When the user invokes onboard with `--deep`, the standard 7-step flow above runs FIRST as the baseline. Then the Ralph Wiggum loop runs SECOND to verify exhaustive coverage.
 
-Canonical protocol: `agents/shared/RALPH_WIGGUM_LOOP.md`.
+Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 
 ## When to recommend deep mode
 
