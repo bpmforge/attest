@@ -43,7 +43,7 @@ They auto-load from `~/.config/opencode/tools/` without any config changes neede
 |------|---------|
 | `test-runner.ts` | Run tests with auto-detected framework (npm/jest/vitest/mocha); captures pass/fail counts |
 | `playwright-test.ts` | Run Playwright E2E tests with file/pattern filtering (180s timeout) |
-| `playwright-web.ts` | Playwright browser automation with optional URL |
+| `playwright-web.ts` | Browser for web research — navigate URLs, snapshot pages, search Bing via playwright-cli |
 
 ### Deployment
 
