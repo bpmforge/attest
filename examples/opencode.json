@@ -12,6 +12,12 @@
       "type": "local",
       "command": ["python", "-m", "mempalace.mcp_server"],
       "enabled": true
+    },
+    "playwright-search": {
+      "_comment": "Free local web research — multi-engine search + page extraction (Mozilla Readability) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch. Build with `npm run build` in /Users/user/Code/playwright-search, then point command at dist/mcp.js. For dev, use tsx: ['npx','tsx','/Users/user/Code/playwright-search/src/mcp.ts'].",
+      "type": "local",
+      "command": ["node", "/Users/user/Code/playwright-search/dist/mcp.js"],
+      "enabled": true
     }
   },
 
