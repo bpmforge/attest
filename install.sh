@@ -41,22 +41,25 @@ fi
 MODE="global"
 METHOD="copy"
 INSTALL_SEMGREP=false
+INSTALL_PWS=true
 
 for arg in "$@"; do
   case $arg in
-    --project)    MODE="project" ;;
-    --link)       METHOD="link" ;;
-    --uninstall)  MODE="uninstall" ;;
-    --semgrep)    INSTALL_SEMGREP=true ;;
+    --project)              MODE="project" ;;
+    --link)                 METHOD="link" ;;
+    --uninstall)            MODE="uninstall" ;;
+    --semgrep)              INSTALL_SEMGREP=true ;;
+    --no-playwright-search) INSTALL_PWS=false ;;
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
       echo ""
       echo "Usage:"
-      echo "  ./install.sh              Install globally to ~/.config/opencode/"
-      echo "  ./install.sh --project    Install to .opencode/ in current directory"
-      echo "  ./install.sh --link       Symlink instead of copy (for development)"
-      echo "  ./install.sh --semgrep    Also install Semgrep + community rule repos"
-      echo "  ./install.sh --uninstall  Remove installed files"
+      echo "  ./install.sh                       Install globally to ~/.config/opencode/"
+      echo "  ./install.sh --project             Install to .opencode/ in current directory"
+      echo "  ./install.sh --link                Symlink instead of copy (for development)"
+      echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
+      echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
+      echo "  ./install.sh --uninstall           Remove installed files"
       exit 0
       ;;
   esac
@@ -289,6 +292,78 @@ else
 CONFIGEOF
   echo "  Created $CONFIG_FILE with Context7 MCP configured"
 fi
+
+echo ""
+
+# --- playwright-search MCP Setup ---
+if [ "$INSTALL_PWS" = true ]; then
+  echo "Setting up playwright-search MCP (multi-engine web research + page extraction)..."
+
+  PWS_DIR="${PLAYWRIGHT_SEARCH_DIR:-$HOME/.local/share/playwright-search}"
+  PWS_REPO="https://github.com/bpmforge/playwright-search.git"
+
+  if ! command -v node &>/dev/null; then
+    echo "  ⚠️  node not found — skipping playwright-search MCP install"
+    echo "     Install Node 20+ then re-run, or pass --no-playwright-search to silence this"
+  else
+    if [ -d "$PWS_DIR/.git" ]; then
+      echo "  playwright-search already cloned at $PWS_DIR"
+      (cd "$PWS_DIR" && git pull --ff-only --quiet) 2>/dev/null \
+        && echo "    pulled latest" \
+        || echo "    skipped pull (uncommitted changes or not on main branch)"
+    else
+      echo "  Cloning $PWS_REPO -> $PWS_DIR ..."
+      mkdir -p "$(dirname "$PWS_DIR")"
+      git clone --quiet --depth 1 "$PWS_REPO" "$PWS_DIR" \
+        && echo "    cloned ✓" \
+        || { echo "    ⚠️  clone failed — check network / repo URL"; INSTALL_PWS=false; }
+    fi
+
+    if [ "$INSTALL_PWS" = true ]; then
+      if [ ! -f "$PWS_DIR/dist/mcp.js" ] || [ "$PWS_DIR/src/mcp.ts" -nt "$PWS_DIR/dist/mcp.js" ]; then
+        echo "  Building playwright-search (this also installs Chromium ~170MB the first time)..."
+        (cd "$PWS_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3
+        if [ -f "$PWS_DIR/dist/mcp.js" ]; then
+          echo "    build ✓"
+        else
+          echo "    ⚠️  build failed — run manually: cd $PWS_DIR && npm install && npm run build"
+          INSTALL_PWS=false
+        fi
+      else
+        echo "  Build is current"
+      fi
+    fi
+
+    if [ "$INSTALL_PWS" = true ] && [ -f "$CONFIG_FILE" ]; then
+      if command -v jq &>/dev/null; then
+        PWS_CFG="$(jq -nc --arg path "$PWS_DIR/dist/mcp.js" \
+          '{type: "local", command: ["node", $path], enabled: true}')"
+        if jq -e '.mcp."playwright-search"' "$CONFIG_FILE" &>/dev/null; then
+          jq --argjson cfg "$PWS_CFG" '.mcp."playwright-search" = $cfg' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Updated playwright-search MCP path in $CONFIG_FILE"
+        else
+          jq --argjson cfg "$PWS_CFG" '.mcp = (.mcp // {}) + {"playwright-search": $cfg}' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Added playwright-search MCP to $CONFIG_FILE"
+        fi
+      else
+        echo "  ⚠️  jq not installed — add this manually to $CONFIG_FILE under \"mcp\":"
+        echo ''
+        echo '    "playwright-search": {'
+        echo '      "type": "local",'
+        echo "      \"command\": [\"node\", \"$PWS_DIR/dist/mcp.js\"],"
+        echo '      "enabled": true'
+        echo '    }'
+        echo ''
+      fi
+    fi
+  fi
+else
+  echo "Skipping playwright-search MCP (--no-playwright-search set)"
+fi
+
+echo ""
 
 # --- Semgrep Setup ---
 echo "Checking for Semgrep (security scanning)..."

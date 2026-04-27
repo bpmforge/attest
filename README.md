@@ -16,11 +16,35 @@ The install script handles everything automatically:
 - Copies agents, skills, tools, and hooks to `~/.config/opencode/`
 - Installs npm tool dependencies (`@opencode-ai/plugin`, `playwright`, etc.)
 - Installs `@playwright/cli` globally and its Chromium browser
-- Installs the Playwright Node API Chromium browser (used by `web_search` / `web_fetch`)
-- Configures Context7 MCP for live library docs lookup
-- Optionally installs Semgrep and community rule sets (prompted, or pass `--semgrep`)
+- Configures **Context7 MCP** for live library docs lookup
+- Clones, builds, and registers **playwright-search MCP** (`web_research` / `web_search` / `web_fetch`) at `~/.local/share/playwright-search` — multi-engine web research with paragraph-level relevance ranking, available to every agent in the project
+- Optionally installs Semgrep and community rule sets (`--semgrep`)
+
+### Install flags
+
+| Flag | Effect |
+|------|--------|
+| `--project` | Install to `.opencode/` in current directory (project-scoped) instead of global `~/.config/opencode/` |
+| `--link` | Symlink agents/skills instead of copying — edits to this repo update the live install (dev mode) |
+| `--semgrep` | Also install Semgrep + community rule repos |
+| `--no-playwright-search` | Skip cloning/building the playwright-search MCP (use if you don't have Node 20+, or already manage it yourself) |
+| `--uninstall` | Remove installed files |
+
+Override the playwright-search install location: `PLAYWRIGHT_SEARCH_DIR=~/code/pws ./install.sh`
 
 Requires macOS, Linux, or Windows with WSL2. Uninstall with `./uninstall.sh`.
+
+### What others need
+
+If you're handing this off, the recipient just needs:
+
+```bash
+git clone https://github.com/bpmforge/bpm-opencode-experts.git
+cd bpm-opencode-experts
+./install.sh
+```
+
+…plus Node 20+ on PATH (for the playwright-search MCP), and `jq` (for safe JSON merging into `opencode.json`). The script clones playwright-search from GitHub, builds it, and wires the MCP into their `opencode.json`. No manual config required.
 
 ## First command
 
