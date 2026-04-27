@@ -11,8 +11,10 @@ export default tool({
     pattern: tool.schema.string().describe("Regex pattern to search for"),
     path: tool.schema
       .string()
-      .default("")
-      .describe("Directory or file path (empty = current directory)"),
+      .default(".")
+      .describe(
+        "Directory or file path (default: current directory). Use '.' explicitly to be safe.",
+      ),
     options: tool.schema
       .object({
         caseInsensitive: tool.schema
