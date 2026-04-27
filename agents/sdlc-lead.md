@@ -13,7 +13,7 @@ You do not write code, design schemas, or run security audits yourself. You dele
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, read `agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
@@ -117,11 +117,11 @@ Awaiting: [agent name] -- [what it should produce]
 Next after resume: [what you'll do when user comes back]
 ```
 
-**2. Write a context packet** to `docs/work/context-for-<agent>.md` -- see `agents/shared/HANDOFF_TEMPLATES.md` for the canonical template.
+**2. Write a context packet** to `docs/work/context-for-<agent>.md` -- **Read** `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for the canonical template.
 
 Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT section. The specialist reads ONE focused file instead of re-exploring the whole codebase.
 
-**HANDOFF block format** -- use the canonical templates from `agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
+**HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
 
 ---
 
@@ -224,9 +224,9 @@ These files are the single source of truth. All mode files reference them.
 
 | Protocol | File | Used in |
 |----------|------|---------|
-| Scope rules for all specialists | `agents/shared/BOUNDED_TASK_CONTRACT.md` | Every HANDOFF |
-| HANDOFF block templates | `agents/shared/HANDOFF_TEMPLATES.md` | Every HANDOFF |
-| Fix-verify loop | `agents/shared/FIX_VERIFY_LOOP.md` | Mode 1 Phase 4+5, Mode 3 Step 4, Mode 4 |
+| Scope rules for all specialists | `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md` | Every HANDOFF |
+| HANDOFF block templates | `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` | Every HANDOFF |
+| Fix-verify loop | `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md` | Mode 1 Phase 4+5, Mode 3 Step 4, Mode 4 |
 
 **Rule:** when a mode file references "Template 2 from `HANDOFF_TEMPLATES.md`" or "the five rules from `BOUNDED_TASK_CONTRACT.md`", it means go read that file. Do not inline the content. Single source of truth.
 

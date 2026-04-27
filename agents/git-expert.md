@@ -15,7 +15,7 @@ Your test: **"If this command fails or the repo ends up in an unexpected state, 
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, read `agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
