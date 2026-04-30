@@ -12,7 +12,9 @@ cd bpm-opencode-experts
 ./install.sh
 ```
 
-Common flags: `--project` (install into `.opencode/` instead of global), `--link` (symlink for dev), `--semgrep` (auto-install Semgrep), `--pullmd` (add pullmd MCP for JS-heavy / Cloudflare / Reddit page extraction), `--no-playwright-search` (skip the search MCP), `--uninstall`. Requires macOS, Linux, or WSL2.
+Common flags: `--project` (install into `.opencode/` instead of global), `--link` (symlink for dev), `--semgrep` (auto-install Semgrep), `--pullmd` (add pullmd MCP for JS-heavy / Cloudflare / Reddit page extraction — works with Docker or Podman), `--no-playwright-search` (skip the search MCP), `--uninstall`. Requires macOS, Linux, or WSL2.
+
+`--pullmd` optional env overrides: `PULLMD_PORT=3001` (host port), `PULLMD_DIR=<path>` (clone location), `COMPOSE_CMD='podman compose'` (force compose engine). Reddit API creds and `DISABLE_PUBLIC_HISTORY` are set via a `.env` file in `PULLMD_DIR` — run `./install.sh --pullmd --help` for details.
 
 ## First command
 

@@ -61,7 +61,19 @@ for arg in "$@"; do
       echo "  ./install.sh --link                Symlink instead of copy (for development)"
       echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
-      echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback) via Docker"
+      echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback)"
+      echo "                                     Works with Docker or Podman. Auto-detects:"
+      echo "                                       docker compose  (Docker Desktop / Engine v2)"
+      echo "                                       podman compose  (Podman 4.x built-in)"
+      echo "                                       podman-compose  (pip install podman-compose)"
+      echo "                                       docker-compose  (Docker Compose v1 legacy)"
+      echo "                                     Optional env overrides:"
+      echo "                                       PULLMD_DIR=<path>       clone destination"
+      echo "                                       PULLMD_PORT=33000       host port (default 33000)"
+      echo "                                       COMPOSE_CMD=<cmd>       override compose command"
+      echo "                                     Optional features (create .env in PULLMD_DIR first):"
+      echo "                                       REDDIT_CLIENT_ID/SECRET — native Reddit API (faster)"
+      echo "                                       DISABLE_PUBLIC_HISTORY=true — hide /history for shared installs"
       echo "  ./install.sh --uninstall           Remove installed files"
       exit 0
       ;;
@@ -337,66 +349,137 @@ fi
 echo ""
 
 # --- pullmd MCP Setup (optional) ---
+# pullmd: URL → clean markdown via 4-stage pipeline
+# (Reddit handler → Cloudflare native MD → Readability+Trafilatura → headless Playwright)
+# Three containers: pullmd + trafilatura + playwright sidecar.
+# Default port: 33000 (5-digit, avoids conflicts with busy dev ports like 3000/8080/5000).
 if [ "$INSTALL_PULLMD" = true ]; then
-  echo "Setting up pullmd (URL→markdown fallback via Docker)..."
-
   PULLMD_DIR="${PULLMD_DIR:-$HOME/.local/share/pullmd}"
+  PULLMD_PORT="${PULLMD_PORT:-33000}"
   PULLMD_REPO="https://github.com/AeternaLabsHQ/pullmd.git"
+  PULLMD_OK=false
 
-  if ! command -v docker &>/dev/null; then
-    echo "  ⚠️  docker not found — skipping pullmd install"
-    echo "     Install Docker Desktop or podman-docker shim, then re-run with --pullmd"
+  # ── Detect compose engine ───────────────────────────────────────────
+  # Priority: user override → docker compose v2 → podman compose → podman-compose → docker-compose v1
+  if [ -n "${COMPOSE_CMD:-}" ]; then
+    echo "Setting up pullmd (URL→markdown fallback) using '$COMPOSE_CMD' ..."
+  elif docker compose version &>/dev/null 2>&1; then
+    COMPOSE_CMD="docker compose"
+    echo "Setting up pullmd (URL→markdown fallback) using Docker Compose v2..."
+  elif command -v podman &>/dev/null && podman compose version &>/dev/null 2>&1; then
+    COMPOSE_CMD="podman compose"
+    echo "Setting up pullmd (URL→markdown fallback) using Podman Compose..."
+  elif command -v podman-compose &>/dev/null; then
+    COMPOSE_CMD="podman-compose"
+    echo "Setting up pullmd (URL→markdown fallback) using podman-compose..."
+  elif command -v docker-compose &>/dev/null; then
+    COMPOSE_CMD="docker-compose"
+    echo "Setting up pullmd (URL→markdown fallback) using Docker Compose v1..."
   else
+    COMPOSE_CMD=""
+    echo "  ⚠️  No container compose engine found — skipping pullmd install."
+    echo "     Install one of:"
+    echo "       Docker Desktop (Mac/Windows) or Docker Engine (Linux) — includes 'docker compose'"
+    echo "       Podman 4.x  — includes 'podman compose'"
+    echo "       pip install podman-compose  — works with existing Podman"
+    echo "     Then re-run with --pullmd.  Override: COMPOSE_CMD='podman compose' ./install.sh --pullmd"
+    INSTALL_PULLMD=false
+  fi
+
+  # ── macOS Podman: ensure machine is running ─────────────────────────
+  if [ "$INSTALL_PULLMD" = true ] && [[ "$COMPOSE_CMD" == podman* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+    if ! podman machine info &>/dev/null 2>&1; then
+      echo "  ⚠️  Podman machine not running on macOS."
+      echo "     Start it first:  podman machine start"
+      echo "     Then re-run:     ./install.sh --pullmd"
+      INSTALL_PULLMD=false
+    else
+      echo "  Podman machine running ✓"
+    fi
+  fi
+
+  # ── Clone or update repo ─────────────────────────────────────────────
+  if [ "$INSTALL_PULLMD" = true ]; then
     if [ -d "$PULLMD_DIR/.git" ]; then
       echo "  pullmd already cloned at $PULLMD_DIR"
       (cd "$PULLMD_DIR" && git pull --ff-only --quiet) 2>/dev/null \
         && echo "    pulled latest" \
         || echo "    skipped pull (uncommitted changes or not on main branch)"
     else
-      echo "  Cloning $PULLMD_REPO -> $PULLMD_DIR ..."
+      echo "  Cloning $PULLMD_REPO → $PULLMD_DIR ..."
       mkdir -p "$(dirname "$PULLMD_DIR")"
       git clone --quiet --depth 1 "$PULLMD_REPO" "$PULLMD_DIR" \
         && echo "    cloned ✓" \
         || { echo "    ⚠️  clone failed — check network / repo URL"; INSTALL_PULLMD=false; }
     fi
+  fi
 
-    if [ "$INSTALL_PULLMD" = true ]; then
-      echo "  Bringing up pullmd container (this may pull ~500MB on first run)..."
-      (cd "$PULLMD_DIR" && docker compose up -d 2>&1) | tail -3
-      # Health check — give it a few seconds to bind
-      sleep 3
-      if curl -sf http://localhost:3000/api/config >/dev/null 2>&1; then
-        echo "    pullmd up ✓ (http://localhost:3000)"
+  # ── Write port to .env if non-default ────────────────────────────────
+  # Existing .env (with Reddit creds etc.) is preserved; PORT is added/updated.
+  if [ "$INSTALL_PULLMD" = true ] && [ "$PULLMD_PORT" != "33000" ]; then
+    ENV_FILE="$PULLMD_DIR/.env"
+    if [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
+      # Use python3 (macOS safe) or perl to do in-place line replace
+      python3 -c "
+import re, pathlib
+p = pathlib.Path('$ENV_FILE')
+p.write_text(re.sub(r'^PORT=.*', 'PORT=$PULLMD_PORT', p.read_text(), flags=re.M))
+"
+    else
+      echo "PORT=$PULLMD_PORT" >> "$PULLMD_DIR/.env"
+    fi
+    echo "  Port set to $PULLMD_PORT via $PULLMD_DIR/.env"
+  fi
+
+  # ── Start containers ──────────────────────────────────────────────────
+  if [ "$INSTALL_PULLMD" = true ]; then
+    echo "  Starting pullmd containers (first run pulls ~500 MB — 3 images)..."
+    if (cd "$PULLMD_DIR" && PORT="$PULLMD_PORT" $COMPOSE_CMD up -d 2>&1); then
+      PULLMD_URL="http://localhost:${PULLMD_PORT}"
+      echo "  Waiting for pullmd to be ready..."
+      retries=0
+      until curl -sf "${PULLMD_URL}/api/config" >/dev/null 2>&1 || [ "$retries" -ge 12 ]; do
+        sleep 2; retries=$(( retries + 1 ))
+      done
+      if curl -sf "${PULLMD_URL}/api/config" >/dev/null 2>&1; then
+        echo "  pullmd up ✓ (${PULLMD_URL})"
+        PULLMD_OK=true
       else
-        echo "    ⚠️  pullmd container started but /api/config did not respond yet"
-        echo "       Check: cd $PULLMD_DIR && docker compose logs pullmd"
+        echo "  ⚠️  Containers started but /api/config not responding after ~24s."
+        echo "     Check: cd $PULLMD_DIR && $COMPOSE_CMD logs pullmd"
+        echo "     MCP will still be registered; start containers before opencode next time."
       fi
+    else
+      echo "  ⚠️  $COMPOSE_CMD up -d failed — check: cd $PULLMD_DIR && $COMPOSE_CMD logs"
     fi
 
-    if [ "$INSTALL_PULLMD" = true ] && [ -f "$CONFIG_FILE" ]; then
-      # Container is up — safe to flip enabled:true (or insert the block enabled).
+    # ── Wire MCP into opencode.json ────────────────────────────────────
+    if [ -f "$CONFIG_FILE" ]; then
       if command -v jq &>/dev/null; then
-        PULLMD_CFG='{"type": "remote", "url": "http://localhost:3000/mcp", "enabled": true}'
+        PULLMD_MCP_CFG="{\"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true}"
         if jq -e '.mcp."pullmd"' "$CONFIG_FILE" &>/dev/null; then
-          jq --argjson cfg "$PULLMD_CFG" '.mcp."pullmd" = $cfg' \
+          jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp."pullmd" = $cfg' \
             "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-          echo "  Updated pullmd MCP entry in $CONFIG_FILE (enabled)"
+          echo "  Updated pullmd MCP in $CONFIG_FILE (port $PULLMD_PORT, enabled)"
         else
-          jq --argjson cfg "$PULLMD_CFG" '.mcp = (.mcp // {}) + {"pullmd": $cfg}' \
+          jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp = (.mcp // {}) + {"pullmd": $cfg}' \
             "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-          echo "  Added pullmd MCP to $CONFIG_FILE (enabled)"
+          echo "  Added pullmd MCP to $CONFIG_FILE (port $PULLMD_PORT, enabled)"
         fi
       else
-        echo "  ⚠️  jq not installed — add this manually to $CONFIG_FILE under \"mcp\":"
-        echo ''
-        echo '    "pullmd": {'
-        echo '      "type": "remote",'
-        echo '      "url": "http://localhost:3000/mcp",'
-        echo '      "enabled": true'
-        echo '    }'
-        echo ''
+        echo "  ⚠️  jq not installed — add manually to $CONFIG_FILE under \"mcp\":"
+        echo "    \"pullmd\": { \"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true }"
       fi
     fi
+
+    echo ""
+    echo "  Optional .env settings (create/edit $PULLMD_DIR/.env, then re-run compose):"
+    echo "    REDDIT_CLIENT_ID=<id>       Native Reddit API — faster, avoids HTML scraping"
+    echo "    REDDIT_CLIENT_SECRET=<sec>  (get free creds at reddit.com/prefs/apps)"
+    echo "    REDDIT_USER_AGENT=<agent>   e.g. 'pullmd/1.0 by yourusername'"
+    echo "    DISABLE_PUBLIC_HISTORY=true Hide /history and /archive on shared instances"
+    echo "    PORT=<n>                    Change host port (default 33000)"
+    echo "  Apply: cd $PULLMD_DIR && $COMPOSE_CMD up -d --force-recreate"
   fi
 else
   echo "Skipping pullmd MCP (pass --pullmd to install)"
@@ -596,11 +679,21 @@ else
   echo "            cd $DEST && npm install playwright && npx playwright install chromium"
 fi
 
-# MCP
+# MCP — Context7
 if [ -f "$GLOBAL_DIR/opencode.json" ] && grep -q "context7" "$GLOBAL_DIR/opencode.json" 2>/dev/null; then
   echo "  ✓  MCP: Context7 configured"
 else
   echo "  ⚠️  MCP: Context7 not configured — check $GLOBAL_DIR/opencode.json"
+fi
+
+# MCP — pullmd
+if [ "${PULLMD_OK:-false}" = true ]; then
+  echo "  ✓  MCP: pullmd running (http://localhost:${PULLMD_PORT:-33000}) — pullmd_read_url, pullmd_get_share"
+elif [ "$INSTALL_PULLMD" = true ]; then
+  echo "  ⚠️  MCP: pullmd registered but not confirmed running"
+  echo "       Start: cd ${PULLMD_DIR:-~/.local/share/pullmd} && ${COMPOSE_CMD:-docker compose} up -d"
+else
+  echo "  —  MCP: pullmd not installed (re-run with --pullmd for URL→markdown fallback)"
 fi
 
 # Semgrep binary
@@ -666,7 +759,14 @@ echo "  deploy, log-parser, pomodoro, task — productivity"
 echo "  See tools/CUSTOM_TOOLS_GUIDE.md for LM Studio setup"
 echo ""
 echo "MCP Servers configured:"
-echo "  Context7 — Live library documentation lookup (auto-configured)"
+echo "  Context7          — Live library docs lookup (always installed)"
+echo "  playwright-search — Multi-engine web research + paragraph-ranked extraction"
+if [ "${PULLMD_OK:-false}" = true ]; then
+  echo "  pullmd            — URL→markdown (4-stage pipeline) at http://localhost:${PULLMD_PORT:-33000}/mcp"
+  echo "                      Manage: cd ${PULLMD_DIR:-~/.local/share/pullmd} && ${COMPOSE_CMD:-docker compose} [up -d | down | logs]"
+else
+  echo "  pullmd            — NOT installed (re-run with --pullmd; needs Docker or Podman)"
+fi
 echo ""
 echo "Semgrep audit scripts (installed to $DEST/scripts/):"
 echo "  update-semgrep-rules.sh              Clone/update community rule repos"
