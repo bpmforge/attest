@@ -260,7 +260,13 @@ Before advancing any phase or milestone, sdlc-lead runs gate checks in two forms
 | `security-deep` | owasp + attack-chains |
 | `phase-5` release | FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS |
 
-Orchestrated via `./scripts/validators/validate-phase-gate.sh <phase>` — exit 0 = clean, 1 = gaps, 2 = validator error. Or call `/gate` for a user-friendly wrapper.
+Orchestrated via `./scripts/validators/validate-phase-gate.sh <phase>` — exit 0 = clean, 1 = gaps, 2 = validator error.
+
+**User-facing wrappers:**
+
+- `/sdlc gate` — SDLC-aware: reads `docs/work/sdlc-state.md` and auto-picks the phase. Use during normal SDLC work.
+- `/gate <phase-arg>` — direct: spot-check a specific phase. Same validator, no state lookup.
+- `/gate approve` / `/gate bypass` — gate state changes; bypass writes a waiver to `docs/reviews/WAIVERS_<phase>_<date>.md` and only the user signs it.
 
 **Post-HANDOFF gates** — after every specialist HANDOFF, `./scripts/validators/run-handoff-gates.sh` runs three gates in order: scope (git writes confined to assigned directory), manifest (required sections + completion phrase), coverage (domain-specific validator). Any failure returns REVISE to the specialist.
 
@@ -272,10 +278,13 @@ Orchestrated via `./scripts/validators/validate-phase-gate.sh <phase>` — exit 
 If a gate fails, the agent tells you exactly what's missing. Use `/sdlc status` to see current gate state.
 
 **Shared protocols** — every specialist reads these canonical files:
+- `agents/shared/SCOPE_BOUNDARY.md` — stay-in-lane rule for direct-mode invocations; per-agent in-scope vs. refer-back table
 - `agents/shared/BOUNDED_TASK_CONTRACT.md` — 5 scope rules (write-scope, no extras, verbatim completion, no expansion, stop-means-stop)
 - `agents/shared/HANDOFF_TEMPLATES.md` — canonical HANDOFF block templates
 - `agents/shared/FIX_VERIFY_LOOP.md` — review → FIX_BACKLOG → remediate → re-verify pipeline
 - `agents/shared/RALPH_WIGGUM_LOOP.md` — inventory-driven deep-verification loop
+- `agents/shared/LOOP_PREVENTION.md` — tool-selection cheat-sheet + 3 loop classes + BLOCKED template
+- `agents/shared/RESEARCH_TOOLS.md` — research-tool surface and fallback chain
 
 ---
 

@@ -173,7 +173,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 
 | Skill | Agent | Purpose |
 |---|---|---|
-| `/sdlc` | `sdlc-lead` | Full SDLC workflow (init / onboard / feature) |
+| `/sdlc` | `sdlc-lead` | Full SDLC workflow (init / onboard / feature / **improve** / gate / status) |
 | `/code` | `coding-agent` | Implement from SDLC design docs — API verification, anti-slop enforcement, tech stack compliance |
 | `/git-expert` | `git-expert` | Git lifecycle (init / feature / release / recover / inspect / sync) |
 | `/security` | `security-auditor` | OWASP audit, threat model, Semgrep scan |
@@ -197,20 +197,23 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 
-**23 skills total** (14 agent-backed + 9 utility/sub-skills).
+**24 skills total** (14 agent-backed + 10 utility/sub-skills).
 
 ---
 
-## Shared protocols (v0.15.0)
+## Shared protocols
 
 Canonical reference files every specialist reads. Single source of truth — update once, propagates everywhere.
 
 | File | Purpose |
 |------|---------|
+| `agents/shared/SCOPE_BOUNDARY.md` | Stay-in-lane rule for direct-mode invocations (`/research`, `/code`, etc.) — per-agent in-scope / refer-back table + canonical SCOPE-BOUNDARY block to print when a request belongs to another specialist |
 | `agents/shared/BOUNDED_TASK_CONTRACT.md` | The five scope rules every specialist follows in Bounded Task Mode (write-scope isolation, no extras, verbatim completion phrase, no scope expansion, stop-means-stop) |
 | `agents/shared/HANDOFF_TEMPLATES.md` | Canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template + post-HANDOFF gate docs |
 | `agents/shared/FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
 | `agents/shared/RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
+| `agents/shared/LOOP_PREVENTION.md` | Tool-selection cheat-sheet + the three loop classes (failure / schema-validation / success) + the BLOCKED-template format. Cheat-sheet is also inlined at the top of every SDLC mode file. |
+| `agents/shared/RESEARCH_TOOLS.md` | The mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP). Built-in `webfetch` / `websearch` are disabled at the config layer in `examples/opencode.json`. |
 
 ---
 
@@ -314,14 +317,27 @@ Slash command definitions in `commands/` — subcommands of `/sdlc`:
 | Command | Purpose |
 |---|---|
 | `sdlc-init.md` | `/sdlc init <name> "<desc>"` — start a new project |
-| `sdlc-onboard.md` | `/sdlc onboard` — understand an existing codebase |
-| `sdlc-feature.md` | `/sdlc feature <name>` — add a feature to existing project |
+| `sdlc-onboard.md` | `/sdlc onboard [--quick \| --deep]` — understand an existing codebase |
+| `sdlc-feature.md` | `/sdlc feature "<description>"` — add a feature to existing project |
+| `sdlc-improve.md` | `/sdlc improve ["<focus>"]` — audit-driven improvement; runs UX / code-quality / perf / security / DB audits, synthesizes a sized backlog, routes execution through `coding-agent` or Mode 3 sub-workflows |
+| `sdlc-gate.md` | `/sdlc gate` — SDLC-aware gate check; auto-detects current phase from `docs/work/sdlc-state.md` and runs the matching validators |
 | `sdlc-status.md` | `/sdlc status` — show current phase + gate state |
+
+---
+
+## Plugins
+
+`plugins/expert-hooks.ts` — single opencode plugin auto-loaded from `~/.config/opencode/plugins/`. Hooks into the two main lifecycle events:
+
+| Event | What runs |
+|-------|-----------|
+| `tool.execute.before` | **Block dangerous bash** (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl\|bash`, etc.). **Block writes to credential files** (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Throws to abort the call. |
+| `tool.execute.after` (write/edit only) | **format → lint → type-check → secret-scan**, all in parallel: prettier / black+isort / gofmt / rustfmt; eslint / ruff; `tsc --noEmit`; regex scan for hardcoded API keys, AWS creds, PEM keys, DB connection strings. Findings surface via `console.warn` — informational, never block. Missing formatters silently skipped. |
+
+Ports the high-value subset of the claude-experts hook catalog. **Not** ported (different abstractions): `commit-validator.sh` (use a project-level git pre-commit hook), `test-on-stop.sh` (no clean opencode session-idle semantic), `session-start.sh` (opencode lacks a UserPromptSubmit equivalent).
 
 ---
 
 ## Hooks
 
-Event hooks in `hooks/` run on session lifecycle events. Receive JSON on stdin; exit 2 to block an operation.
-
-See [EXPERT_GUIDE.md](EXPERT_GUIDE.md) for the full hook catalog.
+Currently empty. The original `hooks/pre-operation.sh` was an orphan superseded by `tools/loop-detector.ts` and the schema guards in `tools/{append,bash,run,write}.ts`. Loop prevention now lives in those tools + the inlined LOOP_PREVENTION cheat-sheet at the top of every SDLC mode file. Quality + safety automation lives in the plugin above.

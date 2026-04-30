@@ -34,18 +34,22 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 ```bash
 git clone https://github.com/bpmforge/bpm-opencode-experts.git
 cd bpm-opencode-experts
-./install.sh                  # copies agents, skills, tools into ~/.config/opencode/
+./install.sh                  # copies agents, skills, tools, plugins into ~/.config/opencode/
 ./install.sh --link           # symlink instead of copy (for development — edits apply immediately)
 ./install.sh --semgrep        # also auto-install Semgrep + community rule repos
+./install.sh --pullmd         # also clone + start pullmd MCP via Docker (URL→markdown fallback)
 ./install.sh --project        # install into .opencode/ in current directory instead of global
+./install.sh --no-playwright-search  # skip the playwright-search MCP install
 ```
 
 The installer:
-- Copies (or symlinks) `agents/`, `skills/`, `references/`, `commands/`, `hooks/`, `scripts/` into `~/.config/opencode/`
-- Installs the custom TypeScript tools in `tools/` and runs `npm install` for dependencies
-- Safely merges Context7 MCP config into your existing `opencode.json`
+- Copies (or symlinks) `agents/`, `skills/`, `references/`, `commands/`, `tools/`, `plugins/`, `scripts/` into `~/.config/opencode/`
+- Installs the custom TypeScript tools and runs `npm install` for dependencies
+- Safely merges Context7 MCP + playwright-search MCP config into your existing `opencode.json`
+- **Disables opencode's built-in `webfetch` / `websearch`** in the reference `examples/opencode.json` so research goes through our MCPs (see [Research backbone](#research-backbone))
+- Auto-loads the `expert-hooks` plugin (formatting / lint / type-check / secret-scan + dangerous-command blocking + `.env` write blocking)
 - Checks for Semgrep (and optionally installs it) for `security-auditor`
-- Prompts to clone 4 community Semgrep rule repos (~10-50 MB each)
+- Optionally clones + boots pullmd via Docker as a research fallback (`--pullmd`)
 
 Uninstall with `./uninstall.sh`.
 
@@ -130,6 +134,48 @@ After every specialist HANDOFF returns, the orchestrator runs three automated ga
 3. **Coverage** — domain-specific validator (architecture / api-coverage / erd-coverage / owasp / inventory) when applicable
 
 Any gate failure returns the HANDOFF with REVISE status + the specific gap. No orchestrator judgment required.
+
+### Scope boundary (stay-in-lane)
+
+Each primary agent has a defined domain. If you ask `/research` to write code, or `/code` to design a schema, the agent prints a **SCOPE-BOUNDARY** block naming the right specialist (or `/sdlc` for orchestration) and stops — it does not freelance into another lane.
+
+```
+═══════════════════════════════════════════════════════════
+  SCOPE BOUNDARY — this is not <my-domain> work
+═══════════════════════════════════════════════════════════
+You asked: <one-line summary>
+This belongs to: <agent name> (skill: /<skill>)
+Recommended next step:
+  Option A — open a new session and run: /<skill> <prompt>
+  Option B — go back to /sdlc and let the lead orchestrate this
+═══════════════════════════════════════════════════════════
+```
+
+**Why this matters:** scope creep across specialists is the #1 cause of muddy outputs. A researcher writing code skips the design-docs check; a coding-agent designing scope freelances on what to build; sdlc-lead reading source files bypasses the audit pipeline. Each specialist is sharp because it does one thing. The rule is at `agents/shared/SCOPE_BOUNDARY.md`.
+
+Phrases like "review for gaps", "audit this", "what could we improve", "make it better", "evaluate", "find problems" route into Mode 4 (`/sdlc improve`) — never freelanced as one-shot reviews.
+
+### Research backbone
+
+Web research goes through **our** MCP servers. The reference `examples/opencode.json` disables opencode's built-in `webfetch` and `websearch` (`"tools": { "webfetch": false, "websearch": false }`) so the LLM cannot drift back to them — they're not in the tool list at all.
+
+**Fallback chain — in order:**
+
+1. `playwright-search_web_research(...)` — multi-engine search (DDG + Brave + Bing) → paragraph-ranked extraction → 24h cache. Default for any new investigation.
+2. `playwright-search_web_fetch(url, ...)` — for known URLs.
+3. `pullmd_read_url(url, render="force")` — fallback when (2) returns garbage / empty / errors. Especially for JS-heavy SPAs, Cloudflare-protected pages, and Reddit threads (pullmd has a 4-stage pipeline: Reddit handler → Cloudflare native MD → Readability + Trafilatura → headless Playwright). Install with `./install.sh --pullmd`.
+4. If everything fails → surface `RESEARCH BLOCKED`. No silent retries against built-ins that aren't there.
+
+The full surface is documented at `agents/shared/RESEARCH_TOOLS.md`. Every agent — researcher and specialists alike — uses this chain.
+
+### Lifecycle plugin
+
+`plugins/expert-hooks.ts` runs as an opencode plugin. Two hooks:
+
+- **`tool.execute.before`** — blocks dangerous bash commands (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl|bash`, etc.) and writes to credential files (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Throws to abort the call.
+- **`tool.execute.after`** (write/edit only) — runs format → lint → type-check → secret-scan in parallel. Findings surface via `console.warn` so the LLM sees them; missing formatters silently skipped; nothing blocks.
+
+You don't invoke this directly — it just runs. To disable, remove `plugins/expert-hooks.ts` from `~/.config/opencode/plugins/`.
 
 ---
 
