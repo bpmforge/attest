@@ -19,11 +19,15 @@ This document explains each expert agent's methodology, when to use them, and wh
 - What engineering artifacts exist? What's missing?
 - Is the architecture modular?
 
-**Four modes** (v0.15.0: split into their own files — spine at `agents/sdlc-lead.md`, modes at `agents/sdlc-<mode>-mode.md`):
+**Four modes** (split into their own files — spine at `agents/sdlc-lead.md`, modes at `agents/sdlc-<mode>-mode.md`):
 1. **`/sdlc init`** — New project through 6 phases: Ideation → Planning → Requirements → Design → Implementation → Review
 2. **`/sdlc onboard [--quick | --deep]`** — Reverse-engineer codebase. `--deep` runs the Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`).
 3. **`/sdlc feature`** — Impact analysis → Design → Implement → Verify → Document
-4. **`/sdlc improve ["<scope>"]`** — Audit, synthesize findings into ranked backlog, execute chosen items
+4. **`/sdlc improve ["<scope>"]`** — Audit, synthesize findings into ranked backlog, execute chosen items. Routes Size-L items into Mode 3 sub-workflows.
+
+**Plus two utility commands:** `/sdlc gate` (SDLC-aware gate check, auto-detects phase from `docs/work/sdlc-state.md`) and `/sdlc status` (phase progress overview without running validators).
+
+**Natural-language router (mandatory):** Phrases like "review for gaps", "audit this", "what could we improve", "make it better", "find problems", "evaluate" are force-routed into Mode 4 — never freelanced as a one-shot review. Single-file/PR/function asks bypass Mode 4 and go to `/review-code` directly.
 
 **Interactive questioning phases (mandatory):**
 - **Mode 1 (init):** Runs a 7-question Discovery Interview *before Phase 0* — problem, users, metrics, constraints, integrations, out-of-scope, compliance. Writes `docs/DISCOVERY.md`. Must confirm summary before any document is written.
@@ -132,6 +136,8 @@ This document explains each expert agent's methodology, when to use them, and wh
 4. Evaluate source authority and recency
 5. Synthesize findings with confidence levels
 6. Produce structured report with citations
+
+**Research backbone:** Built-in `webfetch` / `websearch` are disabled in `examples/opencode.json`. The hard fallback chain is `playwright-search_web_research` → `playwright-search_web_fetch` → `pullmd_read_url(render="force")` → STOP and surface `RESEARCH BLOCKED`. Full surface at `agents/shared/RESEARCH_TOOLS.md`.
 
 **Produces:** Research report with executive summary, findings, recommendations, sources
 

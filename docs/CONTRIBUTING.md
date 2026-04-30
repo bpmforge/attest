@@ -1,5 +1,17 @@
 # Contributing — How to Add New Experts
 
+## Repo layout
+
+- `agents/` — agent definitions (system prompts, mode flags, scope rules)
+- `agents/shared/` — canonical shared protocols (BOUNDED_TASK_CONTRACT, SCOPE_BOUNDARY, HANDOFF_TEMPLATES, FIX_VERIFY_LOOP, RALPH_WIGGUM_LOOP, LOOP_PREVENTION, RESEARCH_TOOLS) — every agent reads these
+- `skills/` — thin trigger files (`<name>/SKILL.md`) that map a slash command to an agent
+- `commands/` — `/sdlc <subcommand>` definitions (init, onboard, feature, improve, gate, status)
+- `tools/` — TypeScript tools loaded by opencode (write/edit/bash with schema guards, semgrep, playwright, etc.)
+- `plugins/` — opencode plugins (currently `expert-hooks.ts` for safety + quality automation)
+- `references/` — checklists and templates agents read at runtime
+- `scripts/validators/` — bash validators wired into the gate orchestrator
+- `hooks/` — empty (loop prevention now lives in `tools/` and `plugins/expert-hooks.ts`)
+
 ## Adding a New Expert Agent
 
 ### Step 1: Create the Agent Definition
@@ -15,6 +27,12 @@ description: One-line description of what this expert does
 # Expert Title
 
 You are a senior [role]. You [what you do] focused on [domain].
+
+## Scope Boundary (MANDATORY — read first)
+
+You are a [domain] specialist. Out-of-scope requests print the
+SCOPE-BOUNDARY block from `agents/shared/SCOPE_BOUNDARY.md` and stop.
+List 2-3 typical out-of-scope asks here so the agent has concrete examples.
 
 ## How You Think
 
@@ -85,9 +103,10 @@ Reference the document in your agent definition:
 Read `my-checklist.md` for the systematic checklist.
 ```
 
-### Step 4: Update README
+### Step 4: Update docs
 
-Add your expert to the table in README.md.
+- Add your expert to the agent table in `docs/FEATURES.md` and the per-expert section in `docs/USERGUIDE.md`.
+- The README is intentionally minimal — only update it if you're changing top-level concepts.
 
 ### Step 5: Test
 
@@ -95,7 +114,8 @@ Add your expert to the table in README.md.
 2. Open OpenCode in a test project
 3. Run your slash command
 4. Verify the agent follows its methodology
-5. Test with at least 2 different LLM providers
+5. Verify scope-boundary fires for out-of-scope asks
+6. Test with at least 2 different LLM providers
 
 ## Design Principles
 
