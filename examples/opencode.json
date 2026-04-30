@@ -1,6 +1,13 @@
 {
   "$schema": "https://opencode.ai/config.json",
 
+  "_research_strategy_comment": "Web research goes through OUR tools — never opencode built-ins. webfetch + websearch are disabled below so the LLM is forced to use playwright-search (multi-engine search + extraction) and pullmd (Cloudflare/Reddit-aware URL→markdown fallback). This eliminates the most common research-flakiness root cause: LLMs reaching for opencode's built-in webfetch and getting raw HTML or rate-limited.",
+
+  "tools": {
+    "webfetch": false,
+    "websearch": false
+  },
+
   "mcp": {
     "context7": {
       "type": "local",
@@ -14,10 +21,16 @@
       "enabled": true
     },
     "playwright-search": {
-      "_comment": "Free local web research — multi-engine search + page extraction (Mozilla Readability) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch. Build with `npm run build` in /Users/user/Code/playwright-search, then point command at dist/mcp.js. For dev, use tsx: ['npx','tsx','/Users/user/Code/playwright-search/src/mcp.ts'].",
+      "_comment": "PRIMARY research backbone. Free local web research — multi-engine search (DDG + Brave + Bing) + page extraction (Mozilla Readability) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch. Build with `npm run build` in /Users/user/Code/playwright-search, then point command at dist/mcp.js. For dev, use tsx: ['npx','tsx','/Users/user/Code/playwright-search/src/mcp.ts'].",
       "type": "local",
       "command": ["node", "/Users/user/Code/playwright-search/dist/mcp.js"],
       "enabled": true
+    },
+    "pullmd": {
+      "_comment": "OPTIONAL FALLBACK — disabled by default. URL → clean markdown via 4-stage pipeline: Reddit handler → Cloudflare native MD → Readability+Trafilatura → headless Playwright. AGPL, self-hosted Docker. Use when playwright-search_web_fetch fails on JS-heavy or Cloudflare-protected pages. Tools: read_url, get_share, list_recent. To enable: install with `./install.sh --pullmd` (clones repo, `docker compose up -d`, flips this `enabled` flag to true), or manually clone https://github.com/AeternaLabsHQ/pullmd, run `docker compose up -d`, then set enabled:true here. Leaving enabled:true without a running container will cause MCP startup errors.",
+      "type": "remote",
+      "url": "http://localhost:3000/mcp",
+      "enabled": false
     }
   },
 

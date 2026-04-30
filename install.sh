@@ -42,6 +42,7 @@ MODE="global"
 METHOD="copy"
 INSTALL_SEMGREP=false
 INSTALL_PWS=true
+INSTALL_PULLMD=false
 
 for arg in "$@"; do
   case $arg in
@@ -50,6 +51,7 @@ for arg in "$@"; do
     --uninstall)            MODE="uninstall" ;;
     --semgrep)              INSTALL_SEMGREP=true ;;
     --no-playwright-search) INSTALL_PWS=false ;;
+    --pullmd)               INSTALL_PULLMD=true ;;
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
       echo ""
@@ -59,6 +61,7 @@ for arg in "$@"; do
       echo "  ./install.sh --link                Symlink instead of copy (for development)"
       echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
+      echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback) via Docker"
       echo "  ./install.sh --uninstall           Remove installed files"
       exit 0
       ;;
@@ -324,6 +327,74 @@ if [ "$INSTALL_PWS" = true ]; then
   fi
 else
   echo "Skipping playwright-search MCP (--no-playwright-search set)"
+fi
+
+echo ""
+
+# --- pullmd MCP Setup (optional) ---
+if [ "$INSTALL_PULLMD" = true ]; then
+  echo "Setting up pullmd (URL→markdown fallback via Docker)..."
+
+  PULLMD_DIR="${PULLMD_DIR:-$HOME/.local/share/pullmd}"
+  PULLMD_REPO="https://github.com/AeternaLabsHQ/pullmd.git"
+
+  if ! command -v docker &>/dev/null; then
+    echo "  ⚠️  docker not found — skipping pullmd install"
+    echo "     Install Docker Desktop or podman-docker shim, then re-run with --pullmd"
+  else
+    if [ -d "$PULLMD_DIR/.git" ]; then
+      echo "  pullmd already cloned at $PULLMD_DIR"
+      (cd "$PULLMD_DIR" && git pull --ff-only --quiet) 2>/dev/null \
+        && echo "    pulled latest" \
+        || echo "    skipped pull (uncommitted changes or not on main branch)"
+    else
+      echo "  Cloning $PULLMD_REPO -> $PULLMD_DIR ..."
+      mkdir -p "$(dirname "$PULLMD_DIR")"
+      git clone --quiet --depth 1 "$PULLMD_REPO" "$PULLMD_DIR" \
+        && echo "    cloned ✓" \
+        || { echo "    ⚠️  clone failed — check network / repo URL"; INSTALL_PULLMD=false; }
+    fi
+
+    if [ "$INSTALL_PULLMD" = true ]; then
+      echo "  Bringing up pullmd container (this may pull ~500MB on first run)..."
+      (cd "$PULLMD_DIR" && docker compose up -d 2>&1) | tail -3
+      # Health check — give it a few seconds to bind
+      sleep 3
+      if curl -sf http://localhost:3000/api/config >/dev/null 2>&1; then
+        echo "    pullmd up ✓ (http://localhost:3000)"
+      else
+        echo "    ⚠️  pullmd container started but /api/config did not respond yet"
+        echo "       Check: cd $PULLMD_DIR && docker compose logs pullmd"
+      fi
+    fi
+
+    if [ "$INSTALL_PULLMD" = true ] && [ -f "$CONFIG_FILE" ]; then
+      # Container is up — safe to flip enabled:true (or insert the block enabled).
+      if command -v jq &>/dev/null; then
+        PULLMD_CFG='{"type": "remote", "url": "http://localhost:3000/mcp", "enabled": true}'
+        if jq -e '.mcp."pullmd"' "$CONFIG_FILE" &>/dev/null; then
+          jq --argjson cfg "$PULLMD_CFG" '.mcp."pullmd" = $cfg' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Updated pullmd MCP entry in $CONFIG_FILE (enabled)"
+        else
+          jq --argjson cfg "$PULLMD_CFG" '.mcp = (.mcp // {}) + {"pullmd": $cfg}' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Added pullmd MCP to $CONFIG_FILE (enabled)"
+        fi
+      else
+        echo "  ⚠️  jq not installed — add this manually to $CONFIG_FILE under \"mcp\":"
+        echo ''
+        echo '    "pullmd": {'
+        echo '      "type": "remote",'
+        echo '      "url": "http://localhost:3000/mcp",'
+        echo '      "enabled": true'
+        echo '    }'
+        echo ''
+      fi
+    fi
+  fi
+else
+  echo "Skipping pullmd MCP (pass --pullmd to install)"
 fi
 
 echo ""
