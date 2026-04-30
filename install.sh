@@ -359,46 +359,89 @@ if [ "$INSTALL_PULLMD" = true ]; then
   PULLMD_REPO="https://github.com/AeternaLabsHQ/pullmd.git"
   PULLMD_OK=false
 
-  # ── Detect compose engine ───────────────────────────────────────────
+  echo "Setting up pullmd (URL→markdown fallback, port $PULLMD_PORT)..."
+  echo ""
+
+  # ── Step 1: Detect or install a compose engine ─────────────────────
   # Priority: user override → docker compose v2 → podman compose → podman-compose → docker-compose v1
-  if [ -n "${COMPOSE_CMD:-}" ]; then
-    echo "Setting up pullmd (URL→markdown fallback) using '$COMPOSE_CMD' ..."
-  elif docker compose version &>/dev/null 2>&1; then
-    COMPOSE_CMD="docker compose"
-    echo "Setting up pullmd (URL→markdown fallback) using Docker Compose v2..."
-  elif command -v podman &>/dev/null && podman compose version &>/dev/null 2>&1; then
-    COMPOSE_CMD="podman compose"
-    echo "Setting up pullmd (URL→markdown fallback) using Podman Compose..."
-  elif command -v podman-compose &>/dev/null; then
-    COMPOSE_CMD="podman-compose"
-    echo "Setting up pullmd (URL→markdown fallback) using podman-compose..."
-  elif command -v docker-compose &>/dev/null; then
-    COMPOSE_CMD="docker-compose"
-    echo "Setting up pullmd (URL→markdown fallback) using Docker Compose v1..."
-  else
-    COMPOSE_CMD=""
-    echo "  ⚠️  No container compose engine found — skipping pullmd install."
-    echo "     Install one of:"
-    echo "       Docker Desktop (Mac/Windows) or Docker Engine (Linux) — includes 'docker compose'"
-    echo "       Podman 4.x  — includes 'podman compose'"
-    echo "       pip install podman-compose  — works with existing Podman"
-    echo "     Then re-run with --pullmd.  Override: COMPOSE_CMD='podman compose' ./install.sh --pullmd"
+  # If Podman is present but no compose plugin, auto-install podman-compose.
+  _resolve_compose() {
+    if [ -n "${COMPOSE_CMD:-}" ]; then
+      echo "  Compose engine: $COMPOSE_CMD (from COMPOSE_CMD env override)"
+      return 0
+    fi
+    if docker compose version &>/dev/null 2>&1; then
+      COMPOSE_CMD="docker compose"; echo "  Compose engine: docker compose v2 ✓"; return 0
+    fi
+    if command -v podman &>/dev/null && podman compose version &>/dev/null 2>&1; then
+      COMPOSE_CMD="podman compose"; echo "  Compose engine: podman compose ✓"; return 0
+    fi
+    if command -v podman-compose &>/dev/null; then
+      COMPOSE_CMD="podman-compose"; echo "  Compose engine: podman-compose ✓"; return 0
+    fi
+    if command -v docker-compose &>/dev/null; then
+      COMPOSE_CMD="docker-compose"; echo "  Compose engine: docker-compose v1 ✓"; return 0
+    fi
+
+    # No compose engine found — try to install podman-compose if Podman is present
+    if command -v podman &>/dev/null; then
+      echo "  Podman found but no compose plugin — installing podman-compose..."
+      if command -v brew &>/dev/null; then
+        brew install podman-compose --quiet && \
+          COMPOSE_CMD="podman-compose" && echo "  podman-compose installed via brew ✓" && return 0
+      elif command -v pip3 &>/dev/null; then
+        pip3 install --quiet podman-compose && \
+          COMPOSE_CMD="podman-compose" && echo "  podman-compose installed via pip3 ✓" && return 0
+      elif command -v pip &>/dev/null; then
+        pip install --quiet podman-compose && \
+          COMPOSE_CMD="podman-compose" && echo "  podman-compose installed via pip ✓" && return 0
+      else
+        echo "  ⚠️  Podman found but can't install podman-compose (no brew/pip)."
+        echo "     Run manually: brew install podman-compose  OR  pip3 install podman-compose"
+      fi
+    fi
+
+    # Nothing worked
+    echo ""
+    echo "  ⚠️  No container runtime found. Install one of:"
+    echo "       Docker Desktop (Mac/Windows):   https://docs.docker.com/get-docker/"
+    echo "       Docker Engine (Linux):           https://docs.docker.com/engine/install/"
+    echo "       Podman (Mac via brew):           brew install podman podman-compose"
+    echo "       Podman (Linux):                  https://podman.io/getting-started/installation"
+    echo "     Then re-run: ./install.sh --pullmd"
+    echo "     Or force a specific engine: COMPOSE_CMD='docker compose' ./install.sh --pullmd"
+    return 1
+  }
+
+  if ! _resolve_compose; then
     INSTALL_PULLMD=false
   fi
 
-  # ── macOS Podman: ensure machine is running ─────────────────────────
+  # ── Step 2: macOS Podman — init and start machine as needed ────────
   if [ "$INSTALL_PULLMD" = true ] && [[ "$COMPOSE_CMD" == podman* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
-    if ! podman machine info &>/dev/null 2>&1; then
-      echo "  ⚠️  Podman machine not running on macOS."
-      echo "     Start it first:  podman machine start"
-      echo "     Then re-run:     ./install.sh --pullmd"
-      INSTALL_PULLMD=false
+    # Check if a machine exists at all
+    if ! podman machine list --format "{{.Name}}" 2>/dev/null | grep -q .; then
+      echo "  No Podman machine found — initialising one (downloads ~500 MB VM image)..."
+      if podman machine init --now 2>&1 | tail -3; then
+        echo "  Podman machine created and started ✓"
+      else
+        echo "  ⚠️  podman machine init failed. Run manually: podman machine init --now"
+        INSTALL_PULLMD=false
+      fi
     else
-      echo "  Podman machine running ✓"
+      # Machine exists — ensure it's running
+      MACHINE_STATE=$(podman machine list --format "{{.Running}}" 2>/dev/null | head -1)
+      if [ "$MACHINE_STATE" != "true" ]; then
+        echo "  Starting Podman machine..."
+        podman machine start 2>&1 | tail -2 && echo "  Podman machine started ✓" \
+          || { echo "  ⚠️  podman machine start failed — run manually then re-run ./install.sh --pullmd"; INSTALL_PULLMD=false; }
+      else
+        echo "  Podman machine running ✓"
+      fi
     fi
   fi
 
-  # ── Clone or update repo ─────────────────────────────────────────────
+  # ── Step 3: Clone or update pullmd repo ──────────────────────────────
   if [ "$INSTALL_PULLMD" = true ]; then
     if [ -d "$PULLMD_DIR/.git" ]; then
       echo "  pullmd already cloned at $PULLMD_DIR"
@@ -414,10 +457,8 @@ if [ "$INSTALL_PULLMD" = true ]; then
     fi
   fi
 
-  # ── Write PORT to .env (always) ──────────────────────────────────────
-  # pullmd's compose default is PORT=3000. Our default is 33000. We always
-  # need to write PORT so compose doesn't fall back to 3000. Preserves any
-  # existing Reddit creds / DISABLE_PUBLIC_HISTORY lines already in .env.
+  # ── Step 4: Write PORT to .env (always) ──────────────────────────────
+  # pullmd compose default is PORT=3000; our default is 33000. Always write it.
   if [ "$INSTALL_PULLMD" = true ]; then
     ENV_FILE="$PULLMD_DIR/.env"
     if [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
@@ -432,55 +473,194 @@ p.write_text(re.sub(r'^PORT=.*', 'PORT=$PULLMD_PORT', p.read_text(), flags=re.M)
     echo "  Port $PULLMD_PORT written to $ENV_FILE"
   fi
 
-  # ── Start containers ──────────────────────────────────────────────────
+  # ── Step 5: Start containers ──────────────────────────────────────────
   if [ "$INSTALL_PULLMD" = true ]; then
     echo "  Starting pullmd containers (first run pulls ~500 MB — 3 images)..."
-    if (cd "$PULLMD_DIR" && PORT="$PULLMD_PORT" $COMPOSE_CMD up -d 2>&1); then
+    if (cd "$PULLMD_DIR" && $COMPOSE_CMD up -d 2>&1); then
       PULLMD_URL="http://localhost:${PULLMD_PORT}"
       echo "  Waiting for pullmd to be ready..."
       retries=0
-      until curl -sf "${PULLMD_URL}/api/config" >/dev/null 2>&1 || [ "$retries" -ge 12 ]; do
+      until curl -sf "${PULLMD_URL}/api/config" >/dev/null 2>&1 || [ "$retries" -ge 15 ]; do
         sleep 2; retries=$(( retries + 1 ))
       done
       if curl -sf "${PULLMD_URL}/api/config" >/dev/null 2>&1; then
         echo "  pullmd up ✓ (${PULLMD_URL})"
         PULLMD_OK=true
       else
-        echo "  ⚠️  Containers started but /api/config not responding after ~24s."
-        echo "     Check: cd $PULLMD_DIR && $COMPOSE_CMD logs pullmd"
-        echo "     MCP will still be registered; start containers before opencode next time."
+        echo "  ⚠️  Containers started but /api/config not responding after ~30s."
+        echo "     Troubleshoot: cd $PULLMD_DIR && $COMPOSE_CMD logs pullmd"
       fi
     else
-      echo "  ⚠️  $COMPOSE_CMD up -d failed — check: cd $PULLMD_DIR && $COMPOSE_CMD logs"
+      echo "  ⚠️  $COMPOSE_CMD up -d failed — troubleshoot: cd $PULLMD_DIR && $COMPOSE_CMD logs"
     fi
+  fi
 
-    # ── Wire MCP into opencode.json ────────────────────────────────────
-    if [ -f "$CONFIG_FILE" ]; then
-      if command -v jq &>/dev/null; then
-        PULLMD_MCP_CFG="{\"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true}"
-        if jq -e '.mcp."pullmd"' "$CONFIG_FILE" &>/dev/null; then
-          jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp."pullmd" = $cfg' \
-            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-          echo "  Updated pullmd MCP in $CONFIG_FILE (port $PULLMD_PORT, enabled)"
-        else
-          jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp = (.mcp // {}) + {"pullmd": $cfg}' \
-            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
-          echo "  Added pullmd MCP to $CONFIG_FILE (port $PULLMD_PORT, enabled)"
-        fi
+  # ── Step 6: Wire MCP into opencode.json ──────────────────────────────
+  if [ "$INSTALL_PULLMD" = true ] && [ -f "$CONFIG_FILE" ]; then
+    if command -v jq &>/dev/null; then
+      PULLMD_MCP_CFG="{\"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true}"
+      if jq -e '.mcp."pullmd"' "$CONFIG_FILE" &>/dev/null; then
+        jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp."pullmd" = $cfg' \
+          "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+        echo "  Updated pullmd MCP in $CONFIG_FILE"
       else
-        echo "  ⚠️  jq not installed — add manually to $CONFIG_FILE under \"mcp\":"
-        echo "    \"pullmd\": { \"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true }"
+        jq --argjson cfg "$PULLMD_MCP_CFG" '.mcp = (.mcp // {}) + {"pullmd": $cfg}' \
+          "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+        echo "  Added pullmd MCP to $CONFIG_FILE"
       fi
+    else
+      echo "  ⚠️  jq not installed — add manually to $CONFIG_FILE under \"mcp\":"
+      echo "    \"pullmd\": { \"type\": \"remote\", \"url\": \"http://localhost:${PULLMD_PORT}/mcp\", \"enabled\": true }"
     fi
+  fi
 
+  # ── Step 7: Autostart — LaunchAgent (macOS) or systemd (Linux) ───────
+  if [ "$INSTALL_PULLMD" = true ]; then
+    COMPOSE_BIN=$(command -v ${COMPOSE_CMD%% *} 2>/dev/null || echo "${COMPOSE_CMD%% *}")
+    COMPOSE_ARGS="${COMPOSE_CMD#* }"  # e.g. "compose" for "docker compose", "" for "podman-compose"
+
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      PLIST_DIR="$HOME/Library/LaunchAgents"
+      PLIST_FILE="$PLIST_DIR/com.bpmforge.pullmd.plist"
+      START_SCRIPT="$PULLMD_DIR/start-pullmd.sh"
+      mkdir -p "$PLIST_DIR"
+
+      # Write a start script so the plist stays simple and PATH issues are handled
+      cat > "$START_SCRIPT" << STARTSCRIPT
+#!/bin/bash
+# Auto-generated by bpm-opencode-experts install.sh
+# Starts pullmd containers at login. Edit COMPOSE_CMD or PULLMD_DIR to customise.
+export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:\$PATH"
+COMPOSE_CMD="${COMPOSE_CMD}"
+PULLMD_DIR="${PULLMD_DIR}"
+
+# Podman: start machine if needed (macOS only)
+if echo "\$COMPOSE_CMD" | grep -q podman; then
+  PODMAN_BIN=\$(command -v podman 2>/dev/null || echo "/opt/homebrew/bin/podman")
+  # Only call machine start if the machine isn't already running
+  if \$PODMAN_BIN machine list --format "{{.Running}}" 2>/dev/null | grep -q "^true$"; then
+    : # already running
+  else
+    \$PODMAN_BIN machine start 2>/dev/null || true
+    sleep 5
+  fi
+fi
+
+# Start containers
+cd "\$PULLMD_DIR" && \$COMPOSE_CMD up -d 2>/dev/null
+STARTSCRIPT
+      chmod +x "$START_SCRIPT"
+
+      cat > "$PLIST_FILE" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bpmforge.pullmd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>${START_SCRIPT}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>/tmp/pullmd-start.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pullmd-start.log</string>
+</dict>
+</plist>
+PLIST
+
+      # Load (or reload) the agent
+      launchctl unload "$PLIST_FILE" 2>/dev/null || true
+      if launchctl load "$PLIST_FILE" 2>&1; then
+        echo "  Autostart: LaunchAgent installed — pullmd starts at login ✓"
+        echo "    Plist:  $PLIST_FILE"
+        echo "    Script: $START_SCRIPT"
+        echo "    Log:    /tmp/pullmd-start.log"
+      else
+        echo "  ⚠️  LaunchAgent install failed — you'll need to start containers manually each login"
+        echo "     Plist written to $PLIST_FILE — load with: launchctl load $PLIST_FILE"
+      fi
+
+    elif [[ "$(uname -s)" == "Linux" ]] && command -v systemctl &>/dev/null; then
+      SYSTEMD_DIR="$HOME/.config/systemd/user"
+      SERVICE_FILE="$SYSTEMD_DIR/pullmd.service"
+      mkdir -p "$SYSTEMD_DIR"
+
+      cat > "$SERVICE_FILE" << SYSTEMD
+[Unit]
+Description=pullmd URL-to-markdown MCP service
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=${PULLMD_DIR}
+Environment=PATH=/usr/local/bin:/usr/bin:/bin:/home/$(whoami)/.local/bin
+ExecStart=${COMPOSE_BIN} ${COMPOSE_ARGS} up -d
+ExecStop=${COMPOSE_BIN} ${COMPOSE_ARGS} down
+Restart=no
+
+[Install]
+WantedBy=default.target
+SYSTEMD
+
+      systemctl --user daemon-reload 2>/dev/null || true
+      if systemctl --user enable pullmd.service 2>&1; then
+        echo "  Autostart: systemd user service installed — pullmd starts at login ✓"
+        echo "    Service: $SERVICE_FILE"
+        echo "    Start:   systemctl --user start pullmd"
+        echo "    Stop:    systemctl --user stop pullmd"
+        echo "    Status:  systemctl --user status pullmd"
+      else
+        echo "  ⚠️  systemd service enable failed — start containers manually"
+        echo "     Service written to $SERVICE_FILE"
+      fi
+    else
+      echo "  ⚠️  Autostart not configured (unsupported platform)"
+      echo "     Start pullmd manually each session: cd $PULLMD_DIR && $COMPOSE_CMD up -d"
+    fi
+  fi
+
+  # ── Step 8: Post-install instructions ────────────────────────────────
+  if [ "$INSTALL_PULLMD" = true ]; then
     echo ""
-    echo "  Optional .env settings (create/edit $PULLMD_DIR/.env, then re-run compose):"
-    echo "    REDDIT_CLIENT_ID=<id>       Native Reddit API — faster, avoids HTML scraping"
-    echo "    REDDIT_CLIENT_SECRET=<sec>  (get free creds at reddit.com/prefs/apps)"
+    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  pullmd is installed. A few things to know:"
+    echo ""
+    echo "  ⚠️  IMPORTANT: pullmd containers must be running before you start OpenCode."
+    echo "     If you see 'SSE error: unable to connect' in opencode, it means the"
+    echo "     containers aren't up yet. Start them with:"
+    echo ""
+    if [[ "$COMPOSE_CMD" == podman* ]] && [[ "$(uname -s)" == "Darwin" ]]; then
+      echo "       podman machine start           (only needed if machine stopped)"
+    fi
+    echo "       cd $PULLMD_DIR"
+    echo "       $COMPOSE_CMD up -d"
+    echo ""
+    echo "  Web UI:  http://localhost:${PULLMD_PORT}  (paste any URL to get markdown)"
+    echo "  MCP API: http://localhost:${PULLMD_PORT}/mcp  (OpenCode connects here — not browser)"
+    echo "  Note:    Opening /mcp in a browser shows a 406 error — this is correct."
+    echo "           It's an API endpoint, not a web page."
+    echo ""
+    echo "  Manage containers:"
+    echo "    $COMPOSE_CMD ps                     — check status"
+    echo "    $COMPOSE_CMD up -d                  — start"
+    echo "    $COMPOSE_CMD down                   — stop"
+    echo "    $COMPOSE_CMD logs pullmd             — view logs"
+    echo "    $COMPOSE_CMD up -d --force-recreate — apply .env changes"
+    echo ""
+    echo "  Optional: add Reddit API creds to $PULLMD_DIR/.env for faster Reddit fetching:"
+    echo "    REDDIT_CLIENT_ID=<id>       (get free creds at reddit.com/prefs/apps)"
+    echo "    REDDIT_CLIENT_SECRET=<sec>"
     echo "    REDDIT_USER_AGENT=<agent>   e.g. 'pullmd/1.0 by yourusername'"
-    echo "    DISABLE_PUBLIC_HISTORY=true Hide /history and /archive on shared instances"
-    echo "    PORT=<n>                    Change host port (default 33000)"
-    echo "  Apply: cd $PULLMD_DIR && $COMPOSE_CMD up -d --force-recreate"
+    echo "  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
   fi
 else
   echo "Skipping pullmd MCP (pass --pullmd to install)"
