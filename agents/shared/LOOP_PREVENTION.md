@@ -12,13 +12,13 @@ Before calling any tool, match the verb in your task to the right tool. **Most s
 
 | You want to… | Use this tool | Example |
 |--------------|---------------|---------|
-| Read a markdown reference doc, agent prompt, or any file | `read` | `read({file_path: "~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md"})` |
+| Read a markdown reference doc, agent prompt, or any file | `read` | `read({filePath: "~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md"})` |
 | Run a slash command (e.g., `/sdlc init`, `/security`) | `skill` | `skill({name: "sdlc"})` |
 | List files matching a pattern | `glob` | `glob({pattern: "**/*.md"})` |
 | Search file contents | `grep` | `grep({pattern: "TODO", path: "src"})` |
 | Run a shell command | `bash` (or `run`) | `bash({command: "ls -la"})` |
-| Write a new file | `write` | `write({file_path: "...", content: "..."})` |
-| Edit existing file | `edit` | `edit({file_path: "...", old_string: "...", new_string: "..."})` |
+| Write a new file | `write` | `write({filePath: "...", content: "..."})` |
+| Edit existing file | `edit` | `edit({filePath: "...", old_string: "...", new_string: "..."})` |
 | Fetch a URL | `webfetch` | `webfetch({url: "https://..."})` |
 | Search the web | `playwright-search_web_research` (or `websearch`) | `playwright-search_web_research({query: "..."})` |
 
@@ -97,7 +97,7 @@ After printing this template, **stop calling tools** and end the turn. The user 
 
 - The agent prompt referenced a path like `agents/shared/X.md` (relative) but you're not sure where it resolves. **Use the absolute path:** `~/.config/opencode/agents/shared/X.md` (opencode) or `~/.claude/agents/shared/X.md` (Claude Code). If you're not sure which, list both directories first via `ls`.
 - You tried to call a `skill` tool but didn't have a skill name. The `skill` tool is for invoking slash commands by name — not for loading reference docs. To read a doc, use `read` with a file path.
-- You tried to write a file but had no path. The `write` tool needs `file` (or `file_path`) and `content` — both required.
+- You tried to write a file but had no path. The `write` tool needs `filePath` and `content` — both required.
 - A tool's required arg is unclear from your context. Don't guess — surface to user.
 - Workaround attempt: <if any>
 
