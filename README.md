@@ -28,9 +28,19 @@ The install script handles everything automatically:
 | `--link` | Symlink agents/skills instead of copying — edits to this repo update the live install (dev mode) |
 | `--semgrep` | Also install Semgrep + community rule repos |
 | `--no-playwright-search` | Skip cloning/building the playwright-search MCP (use if you don't have Node 20+, or already manage it yourself) |
+| `--pullmd` | Also clone and start [pullmd](https://github.com/AeternaLabsHQ/pullmd) (URL→markdown fallback for JS-heavy / Cloudflare / Reddit pages) via Docker. Requires `docker compose`. |
 | `--uninstall` | Remove installed files |
 
-Override the playwright-search install location: `PLAYWRIGHT_SEARCH_DIR=~/code/pws ./install.sh`
+Override install locations: `PLAYWRIGHT_SEARCH_DIR=~/code/pws ./install.sh` or `PULLMD_DIR=~/code/pullmd ./install.sh --pullmd`
+
+### Research backbone
+
+Web research goes through **our** MCP servers — never opencode built-ins. The reference `examples/opencode.json` disables `webfetch` and `websearch` so the LLM is forced into the right tool chain:
+
+1. **`playwright-search` MCP** (always installed) — multi-engine search (DDG + Brave + Bing) → paragraph-ranked extraction → 24h cache. Provides `web_research`, `web_search`, `web_fetch`.
+2. **`pullmd` MCP** (optional, install with `--pullmd`) — fallback for JS-heavy pages and Cloudflare / Reddit. 4-stage extraction pipeline (Reddit handler → Cloudflare native MD → Readability + Trafilatura → headless Playwright). Provides `read_url`, `get_share`, `list_recent`.
+
+See `agents/shared/RESEARCH_TOOLS.md` for the full surface and the fallback chain every agent follows.
 
 Requires macOS, Linux, or Windows with WSL2. Uninstall with `./uninstall.sh`.
 
