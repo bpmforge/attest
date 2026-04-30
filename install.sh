@@ -457,6 +457,25 @@ if [ "$INSTALL_PULLMD" = true ]; then
     fi
   fi
 
+  # ── Step 3b: Pre-create data dir with correct permissions ────────────
+  # better-sqlite3 will fail with "unable to open database file" if /app/data
+  # doesn't exist on the host or Podman rootless creates it with the wrong
+  # owner. Creating it here and setting 777 ensures the container's 'app'
+  # user can always write to it regardless of UID remapping.
+  if [ "$INSTALL_PULLMD" = true ]; then
+    DATA_DIR="$PULLMD_DIR/data"
+    mkdir -p "$DATA_DIR"
+    chmod 777 "$DATA_DIR"
+    # For rootless Podman: use 'podman unshare' to set ownership inside the
+    # user namespace so the container's UID matches. Fall back silently if
+    # 'podman unshare' isn't available (Docker handles this automatically).
+    if [[ "$COMPOSE_CMD" == podman* ]] && command -v podman &>/dev/null; then
+      podman unshare chown -R 1000:1000 "$DATA_DIR" 2>/dev/null \
+        && echo "  data/ ownership set for rootless Podman ✓" \
+        || true  # non-fatal — chmod 777 covers it
+    fi
+  fi
+
   # ── Step 4: Write PORT to .env (always) ──────────────────────────────
   # pullmd compose default is PORT=3000; our default is 33000. Always write it.
   if [ "$INSTALL_PULLMD" = true ]; then
@@ -654,6 +673,13 @@ SYSTEMD
     echo "    $COMPOSE_CMD down                   — stop"
     echo "    $COMPOSE_CMD logs pullmd             — view logs"
     echo "    $COMPOSE_CMD up -d --force-recreate — apply .env changes"
+    echo ""
+    echo "  Troubleshooting:"
+    echo "    'unable to open database file' → run:"
+    echo "      mkdir -p $PULLMD_DIR/data && chmod 777 $PULLMD_DIR/data"
+    echo "      $COMPOSE_CMD down && $COMPOSE_CMD up -d"
+    echo "    'SSE error: unable to connect' in opencode → containers aren't running, use start cmd above"
+    echo "    '/mcp shows 406 in browser' → correct, it's an API (POST only). Use the web UI at /"
     echo ""
     echo "  Optional: add Reddit API creds to $PULLMD_DIR/.env for faster Reddit fetching:"
     echo "    REDDIT_CLIENT_ID=<id>       (get free creds at reddit.com/prefs/apps)"
