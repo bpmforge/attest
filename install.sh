@@ -179,44 +179,83 @@ if [ -d "$SCRIPT_DIR/.semgrep" ]; then
   fi
 fi
 
-# Install package.json + package-lock.json for tools (needed for @opencode-ai/plugin)
-if [ "$MODE" = "global" ] && [ "$METHOD" != "link" ]; then
-  if [ -f "$SCRIPT_DIR/package.json" ] && [ ! -f "$DEST/package.json" ]; then
-    cp "$SCRIPT_DIR/package.json" "$DEST/package.json"
-    echo "  Copied package.json → $DEST/package.json"
+# --- npm tool dependencies + Playwright setup ---
+# Tools in tools/ depend on @opencode-ai/plugin and playwright.
+# Playwright also needs its Chromium binary installed separately after npm install.
+echo "Setting up npm tool dependencies and Playwright..."
+
+NPM_OK=false
+PLAYWRIGHT_NPM_OK=false
+PLAYWRIGHT_CLI_OK=false
+
+if ! command -v npm &>/dev/null; then
+  echo "  ⚠️  npm not found — skipping tool dependencies."
+  echo "     Install Node 20+ from https://nodejs.org then re-run install.sh"
+else
+  # ── Step A: Copy package.json and run npm install ──────────────────
+  if [ "$MODE" = "global" ] && [ "$METHOD" != "link" ]; then
+    if [ -f "$SCRIPT_DIR/package.json" ] && [ ! -f "$DEST/package.json" ]; then
+      cp "$SCRIPT_DIR/package.json" "$DEST/package.json"
+    fi
+    [ -f "$SCRIPT_DIR/package-lock.json" ] && cp "$SCRIPT_DIR/package-lock.json" "$DEST/package-lock.json"
   fi
-  # Copy lockfile to ensure reproducible install
-  if [ -f "$SCRIPT_DIR/package-lock.json" ]; then
-    cp "$SCRIPT_DIR/package-lock.json" "$DEST/package-lock.json"
+
+  if [ -f "$DEST/package.json" ]; then
+    echo "  Running npm install in $DEST ..."
+    if (cd "$DEST" && npm install 2>&1 | tail -5); then
+      echo "  npm install ✓"
+      NPM_OK=true
+    else
+      echo "  ⚠️  npm install failed. Try manually:"
+      echo "       cd $DEST && npm install"
+    fi
   fi
-  # Install tool dependencies if npm is available
-  if command -v npm &>/dev/null && [ -f "$DEST/package.json" ]; then
-    echo "  Installing tool dependencies (npm install)..."
-    (cd "$DEST" && npm install --silent 2>/dev/null) && echo "  Dependencies installed ✓" || echo "  ⚠️ npm install failed — run manually: cd $DEST && npm install"
+
+  # ── Step B: Install Chromium for the local playwright package ──────
+  # playwright (npm package) needs its own browser binary separate from
+  # the global @playwright/cli install. 'npx playwright install chromium'
+  # puts the binary in ~/.cache/ms-playwright/ and is safe to re-run.
+  if [ "$NPM_OK" = true ] && [ -d "$DEST/node_modules/playwright" ]; then
+    echo "  Installing Chromium for playwright npm package..."
+    if (cd "$DEST" && npx playwright install chromium 2>&1 | tail -5); then
+      echo "  Playwright Chromium (npm) ✓"
+      PLAYWRIGHT_NPM_OK=true
+    else
+      echo "  ⚠️  Chromium install for npm playwright failed. Try manually:"
+      echo "       cd $DEST && npx playwright install chromium"
+    fi
+  fi
+
+  # ── Step C: Install @playwright/cli globally ───────────────────────
+  # Needed by tools/playwright-web.ts for ad-hoc browser automation.
+  # playwright-search MCP handles web research separately.
+  if command -v playwright-cli &>/dev/null; then
+    PCLI_VER=$(playwright-cli --version 2>/dev/null | head -1)
+    echo "  @playwright/cli $PCLI_VER — already installed ✓"
+    PLAYWRIGHT_CLI_OK=true
+  else
+    echo "  Installing @playwright/cli globally..."
+    if npm install -g @playwright/cli@latest 2>&1 | tail -3; then
+      echo "  @playwright/cli installed ✓"
+      PLAYWRIGHT_CLI_OK=true
+    else
+      echo "  ⚠️  npm install -g @playwright/cli failed. Try manually:"
+      echo "       npm install -g @playwright/cli@latest"
+    fi
+  fi
+
+  # ── Step D: Install Chromium for the global playwright-cli ─────────
+  if [ "$PLAYWRIGHT_CLI_OK" = true ]; then
+    if playwright-cli install-browser chromium 2>&1 | tail -3; then
+      echo "  Chromium browser (playwright-cli) ✓"
+    else
+      echo "  ⚠️  playwright-cli install-browser chromium failed. Try manually:"
+      echo "       playwright-cli install-browser chromium"
+    fi
   fi
 fi
 
 echo ""
-
-# --- Playwright CLI Setup (for the playwright-web browser-control tool) ---
-# Web search + page extraction live in the playwright-search MCP (set up below).
-# @playwright/cli is still needed by tools/playwright-web.ts for ad-hoc browser
-# automation by agents.
-echo "Setting up @playwright/cli for the playwright-web tool..."
-
-if command -v playwright-cli &>/dev/null; then
-  PCLI_VER=$(playwright-cli --version 2>/dev/null | head -1)
-  echo "  playwright-cli $PCLI_VER — already installed ✓"
-elif command -v npm &>/dev/null; then
-  echo "  Installing @playwright/cli globally..."
-  npm install -g @playwright/cli@latest --silent 2>/dev/null \
-    && echo "  @playwright/cli installed ✓" \
-    && playwright-cli install-browser chromium 2>/dev/null \
-    && echo "  playwright-cli chromium ✓" \
-    || echo "  ⚠️ npm install -g @playwright/cli failed — install manually"
-else
-  echo "  ⚠️ npm not found — install manually: npm install -g @playwright/cli@latest"
-fi
 
 echo ""
 
@@ -867,23 +906,27 @@ else
 fi
 
 # npm tools
-if [ -d "$DEST/node_modules" ]; then
-  echo "  ✓  npm tools: node_modules present"
+if [ "$NPM_OK" = true ]; then
+  echo "  ✓  npm tools: installed ($DEST/node_modules)"
+elif [ -d "$DEST/node_modules" ]; then
+  echo "  ✓  npm tools: node_modules present (from prior install)"
 else
-  echo "  ⚠️  npm tools: run 'cd $DEST && npm install'"
+  echo "  ⚠️  npm tools: not installed — run: cd $DEST && npm install"
 fi
 
 # Playwright
 if [ "$PLAYWRIGHT_CLI_OK" = true ] && [ "$PLAYWRIGHT_NPM_OK" = true ]; then
-  echo "  ✓  Playwright: playwright-cli + npm package installed (web_search, web_fetch ready)"
+  echo "  ✓  Playwright: @playwright/cli + npm package + Chromium all ready"
 elif [ "$PLAYWRIGHT_CLI_OK" = true ]; then
-  echo "  ⚠️  Playwright: playwright-cli OK but npm package missing — run: cd $DEST && npm install playwright && npx playwright install chromium"
+  echo "  ⚠️  Playwright: @playwright/cli OK but npm Chromium missing"
+  echo "       Fix: cd $DEST && npx playwright install chromium"
 elif [ "$PLAYWRIGHT_NPM_OK" = true ]; then
-  echo "  ⚠️  Playwright: npm package OK but playwright-cli missing — run: npm install -g @playwright/cli@latest && playwright-cli install-browser chromium"
-else
-  echo "  ⚠️  Playwright: not installed — web_search and web_fetch tools will not work"
+  echo "  ⚠️  Playwright: npm Chromium OK but @playwright/cli missing"
   echo "       Fix: npm install -g @playwright/cli@latest && playwright-cli install-browser chromium"
-  echo "            cd $DEST && npm install playwright && npx playwright install chromium"
+else
+  echo "  ⚠️  Playwright: not fully installed — playwright-web tool won't work"
+  echo "       Fix (npm package + Chromium): cd $DEST && npm install && npx playwright install chromium"
+  echo "       Fix (global CLI):             npm install -g @playwright/cli@latest && playwright-cli install-browser chromium"
 fi
 
 # MCP — Context7
