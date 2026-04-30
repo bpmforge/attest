@@ -13,15 +13,23 @@ This file contains the Mode 3 workflow. The spine, shared protocols, discovery i
 
 Add a feature to an existing system without breaking it.
 
-## Loop prevention (MANDATORY)
+## Loop prevention (MANDATORY — rules are here, no file read required)
 
-Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+**Class 2 — Schema-validation loop — STOP after 2 strikes.** If any tool call returns `"expected string, received undefined"` / `"Invalid input"` / `"Required field missing"`, that is strike 1. A second schema error on any tool = strike 2. Write this verbatim and end the turn:
 
-1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
-2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+```
+[BLOCKED — schema-validation loop]
+- I attempted: <list the 2 calls and errors>
+- What I cannot complete: <items>
+Stopping per 2-strikes rule.
+```
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
+
+**Tool format — copy these exactly:**
+- Read a file: `read(filePath="~/.config/opencode/agents/sdlc-feature-mode.md")`
+- Shell command: `bash(command="ls ~/.config/opencode/agents/")`
+- Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
 
 ## Step 0: Initialize SDLC_TRACKER for Mode 3
 
@@ -148,7 +156,7 @@ Next after resume: api-designer handoff (if API changes needed)
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /dba (db-architect)
+  HANDOFF → db-architect
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
@@ -178,7 +186,7 @@ If API changes needed:
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /api-design (api-designer)
+  HANDOFF → api-designer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
@@ -208,7 +216,7 @@ If the feature touches auth, data access, or user input:
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /security (security-auditor)
+  HANDOFF → security-auditor
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
@@ -284,7 +292,7 @@ Next after resume: implementation checkpoint
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)
+  HANDOFF → test-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 

@@ -56,6 +56,21 @@ cd bpm-opencode-experts
 
 …plus Node 20+ on PATH (for the playwright-search MCP), and `jq` (for safe JSON merging into `opencode.json`). The script clones playwright-search from GitHub, builds it, and wires the MCP into their `opencode.json`. No manual config required.
 
+### Lifecycle plugin (`plugins/expert-hooks.ts`)
+
+A single opencode plugin wires up safety + quality automation. Auto-loaded by opencode from `~/.config/opencode/plugins/` after install:
+
+- **Pre-tool guards** — blocks dangerous bash commands (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl|bash`, etc.) and writes to credential files (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`).
+- **Post-edit automation** — after any write/edit, runs format → lint → type-check → secret-scan in parallel:
+  - format: prettier (TS/JS/JSON/MD), black + isort (Python), gofmt, rustfmt
+  - lint: eslint, ruff
+  - type-check: `tsc --noEmit` on `.ts` / `.tsx`
+  - secret-scan: regex-based scan for hardcoded API keys, AWS credentials, PEM private keys, DB connection strings with creds, bearer tokens
+
+Failures surface via `console.warn` so the LLM sees them, but never block — informational pressure, not a gate. Formatters that aren't installed are silently skipped.
+
+Skipped from the claude-experts hook port (different abstractions): `commit-validator.sh` (better placed as a project-level git pre-commit hook), `test-on-stop.sh` (no clean opencode session-idle semantic), `session-start.sh` (opencode's event API doesn't expose a UserPromptSubmit equivalent yet).
+
 ## First command
 
 Inside an OpenCode session:
