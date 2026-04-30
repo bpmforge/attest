@@ -2,6 +2,15 @@
 
 _How the SDLC lead orchestrates specialists. Every arrow is a handoff/return._
 
+## Two protocols every agent honors
+
+Before walking the mode flows, two cross-cutting protocols apply to every step in every diagram:
+
+1. **Scope boundary** (`agents/shared/SCOPE_BOUNDARY.md`) — a primary agent invoked directly (e.g., the user typing `/research` or `/code`) checks whether the request belongs to its domain. If not, it prints a SCOPE-BOUNDARY block naming the right specialist (or `/sdlc` for orchestration) and stops. Phrases like "review for gaps", "audit this", "evaluate" are forced into Mode 4 (`/sdlc improve`) — never freelanced.
+2. **Bounded task contract** (`agents/shared/BOUNDED_TASK_CONTRACT.md`) — when an agent receives a HANDOFF prompt starting with `SDLC-TASK for <agent>:`, the five rules apply: write-scope isolation, no extras beyond PRODUCE, verbatim completion phrase, no scope expansion, stop-means-stop.
+
+The flows below assume both. If either fires, the diagram pauses and the user gets either a SCOPE-BOUNDARY block (mid-flight, agent stops) or a REVISE handoff (post-HANDOFF gate failure).
+
 ## Mode 1: New Project — Full Agent Flow
 
 ```
