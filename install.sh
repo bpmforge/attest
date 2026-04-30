@@ -414,21 +414,22 @@ if [ "$INSTALL_PULLMD" = true ]; then
     fi
   fi
 
-  # ── Write port to .env if non-default ────────────────────────────────
-  # Existing .env (with Reddit creds etc.) is preserved; PORT is added/updated.
-  if [ "$INSTALL_PULLMD" = true ] && [ "$PULLMD_PORT" != "33000" ]; then
+  # ── Write PORT to .env (always) ──────────────────────────────────────
+  # pullmd's compose default is PORT=3000. Our default is 33000. We always
+  # need to write PORT so compose doesn't fall back to 3000. Preserves any
+  # existing Reddit creds / DISABLE_PUBLIC_HISTORY lines already in .env.
+  if [ "$INSTALL_PULLMD" = true ]; then
     ENV_FILE="$PULLMD_DIR/.env"
     if [ -f "$ENV_FILE" ] && grep -q "^PORT=" "$ENV_FILE"; then
-      # Use python3 (macOS safe) or perl to do in-place line replace
       python3 -c "
 import re, pathlib
 p = pathlib.Path('$ENV_FILE')
 p.write_text(re.sub(r'^PORT=.*', 'PORT=$PULLMD_PORT', p.read_text(), flags=re.M))
 "
     else
-      echo "PORT=$PULLMD_PORT" >> "$PULLMD_DIR/.env"
+      echo "PORT=$PULLMD_PORT" >> "$ENV_FILE"
     fi
-    echo "  Port set to $PULLMD_PORT via $PULLMD_DIR/.env"
+    echo "  Port $PULLMD_PORT written to $ENV_FILE"
   fi
 
   # ── Start containers ──────────────────────────────────────────────────
