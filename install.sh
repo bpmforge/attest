@@ -70,7 +70,7 @@ done
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing BPM OpenCode Experts..."
-  for dir in agents skills commands references tools hooks scripts .semgrep; do
+  for dir in agents skills commands references tools hooks plugins scripts .semgrep; do
     rm -rf "$GLOBAL_DIR/$dir"
     rm -rf "$PROJECT_DIR/$dir"
   done
@@ -94,11 +94,16 @@ echo "Installing BPM OpenCode Experts to $DEST/"
 echo "Method: $METHOD"
 echo ""
 
-DIRS="agents skills commands references tools hooks"
+DIRS="agents skills commands references tools hooks plugins"
 
 for dir in $DIRS; do
-  # Skip tools/hooks for project-level installs (they're global-only)
-  if [ "$MODE" = "project" ] && { [ "$dir" = "tools" ] || [ "$dir" = "hooks" ]; }; then
+  # Skip global-only directories during project-level installs
+  if [ "$MODE" = "project" ] && { [ "$dir" = "tools" ] || [ "$dir" = "hooks" ] || [ "$dir" = "plugins" ]; }; then
+    continue
+  fi
+
+  # Skip directories that don't exist in the source repo
+  if [ ! -d "$SCRIPT_DIR/$dir" ]; then
     continue
   fi
 
@@ -114,7 +119,7 @@ for dir in $DIRS; do
   else
     # Deep copy (handles nested dirs like skills/<name>/SKILL.md)
     cp -r "$SCRIPT_DIR/$dir" "$DEST/$dir"
-    if [ "$dir" = "tools" ] || [ "$dir" = "hooks" ]; then
+    if [ "$dir" = "tools" ] || [ "$dir" = "hooks" ] || [ "$dir" = "plugins" ]; then
       count=$(find "$DEST/$dir" -type f | wc -l | tr -d ' ')
     else
       count=$(find "$DEST/$dir" -name "*.md" | wc -l | tr -d ' ')

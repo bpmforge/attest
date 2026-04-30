@@ -44,3 +44,6 @@ logs/
 
 # Session working notes and issue logs — per-user, never shared
 issues/
+
+# Playwright runtime debug artifacts (page snapshots, console traces from /playwright-web)
+.playwright-cli/

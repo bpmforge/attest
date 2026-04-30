@@ -13,15 +13,23 @@ This file contains the Mode 1 workflow. The spine, shared protocols (delegation,
 
 Build from scratch with proper engineering artifacts at every phase.
 
-## Loop prevention (MANDATORY)
+## Loop prevention (MANDATORY — rules are here, no file read required)
 
-Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+**Class 2 — Schema-validation loop — STOP after 2 strikes.** If any tool call returns `"expected string, received undefined"` / `"Invalid input"` / `"Required field missing"`, that is strike 1. A second schema error on any tool = strike 2. Write this verbatim and end the turn:
 
-1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
-2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+```
+[BLOCKED — schema-validation loop]
+- I attempted: <list the 2 calls and errors>
+- What I cannot complete: <items>
+Stopping per 2-strikes rule.
+```
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
+
+**Tool format — copy these exactly:**
+- Read a file: `read(filePath="~/.config/opencode/agents/sdlc-init-mode.md")`
+- Shell command: `bash(command="ls ~/.config/opencode/agents/")`
+- Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
 
 ## Phase 0: Ideation — WHY are we building this?
 
@@ -51,7 +59,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /research (researcher)
+  HANDOFF → researcher
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
@@ -108,7 +116,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /research (researcher)
+  HANDOFF → researcher
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
@@ -164,7 +172,7 @@ Next after resume: write SRS.md and USER_STORIES.md using the flow diagrams
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /ux (ux-engineer)
+  HANDOFF → ux-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
@@ -268,7 +276,7 @@ Next after resume: Phase 2 gate
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)
+  HANDOFF → test-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
@@ -369,7 +377,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /research (researcher)
+  HANDOFF → researcher
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
@@ -413,7 +421,7 @@ Next after resume: api-designer handoff
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /dba (db-architect)
+  HANDOFF → db-architect
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
@@ -457,7 +465,7 @@ Next after resume: UX branch (if UI-bearing) or security-auditor handoff
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /api-design (api-designer)
+  HANDOFF → api-designer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
@@ -519,7 +527,7 @@ Next after resume: write ARCHITECTURE.md, run Phase 3 gate
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /security (security-auditor)
+  HANDOFF → security-auditor
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
@@ -580,7 +588,7 @@ Next after resume: security-auditor handoff
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /ux (ux-engineer)
+  HANDOFF → ux-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
@@ -631,7 +639,7 @@ the visual design is specified but not implemented. Hand off to frontend-design:
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /frontend (frontend-design)
+  HANDOFF → frontend-design
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
 
@@ -1203,7 +1211,7 @@ Next after resume: db-architect migrations handoff
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)
+  HANDOFF → test-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
@@ -1325,7 +1333,7 @@ Next after resume: discovery audit, then expert reviews
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)
+  HANDOFF → test-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
@@ -1382,7 +1390,7 @@ Next after resume: DB migrations, then expert reviews
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)   [or /ux if UI-bearing]
+  HANDOFF → test-engineer   [or /ux if UI-bearing]
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt:
 
@@ -1431,7 +1439,7 @@ Next after resume: api-designer contract verification
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /dba (db-architect)
+  HANDOFF → db-architect
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
@@ -1461,7 +1469,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /api-design (api-designer)
+  HANDOFF → api-designer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
@@ -1491,7 +1499,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /containers (container-ops)
+  HANDOFF → container-ops
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
@@ -1522,7 +1530,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /devops (sre-engineer)
+  HANDOFF → sre-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /devops:
 
@@ -1553,7 +1561,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /security (security-auditor)
+  HANDOFF → security-auditor
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
@@ -1590,7 +1598,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /review-code (code-reviewer)
+  HANDOFF → code-reviewer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
@@ -1626,7 +1634,7 @@ task(agent="git-expert", prompt="--feature: [action — create branch / commit /
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /perf (performance-engineer)
+  HANDOFF → performance-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
@@ -1732,7 +1740,7 @@ Iterate up to 3 times:
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /review-code (code-reviewer)
+  HANDOFF → code-reviewer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
@@ -1762,7 +1770,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /test-expert (test-engineer)
+  HANDOFF → test-engineer
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
@@ -1793,7 +1801,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ```
 ═══════════════════════════════════════════════════════════
-  HANDOFF → /containers (container-ops)
+  HANDOFF → container-ops
 ═══════════════════════════════════════════════════════════
 Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
