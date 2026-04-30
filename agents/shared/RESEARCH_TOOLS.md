@@ -91,7 +91,7 @@ pullmd_read_url({"url": "https://...", "render": "force"})
 
 If `web_research` returns 0 results and `pullmd_read_url` also fails on a URL:
 
-1. Verify the MCPs are actually running. `playwright-search` is local Node; `pullmd` is a Docker container on `localhost:3000`.
+1. Verify the MCPs are actually running. `playwright-search` is local Node; `pullmd` is a Docker/Podman container on `localhost:33000` (default port — check your install if you used `PULLMD_PORT`).
 2. If the user can't restart the services, surface a `RESEARCH BLOCKED` block (see `researcher.md` 3-strikes rule) with what was learned, what couldn't be answered, and the last error.
 3. Do **not** silently fall back to anything else. The built-ins are disabled by design.
 
@@ -113,4 +113,4 @@ After completing research, store key findings via the memory MCP registered in t
 - playwright-search pipeline: `/Users/user/Code/playwright-search/src/pipeline.ts`
 - playwright-search setup: `/Users/user/Code/playwright-search/MCP.md`
 - pullmd repo: https://github.com/AeternaLabsHQ/pullmd
-- pullmd setup: clone repo, `docker compose up -d`, MCP available at `http://localhost:3000/mcp`
+- pullmd setup: `./install.sh --pullmd` (auto-detects Docker or Podman); default MCP at `http://localhost:33000/mcp`

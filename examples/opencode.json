@@ -29,7 +29,7 @@
     "pullmd": {
       "_comment": "OPTIONAL FALLBACK — disabled by default. URL → clean markdown via 4-stage pipeline: Reddit handler → Cloudflare native MD → Readability+Trafilatura → headless Playwright. AGPL, self-hosted Docker. Use when playwright-search_web_fetch fails on JS-heavy or Cloudflare-protected pages. Tools: read_url, get_share, list_recent. To enable: install with `./install.sh --pullmd` (clones repo, `docker compose up -d`, flips this `enabled` flag to true), or manually clone https://github.com/AeternaLabsHQ/pullmd, run `docker compose up -d`, then set enabled:true here. Leaving enabled:true without a running container will cause MCP startup errors.",
       "type": "remote",
-      "url": "http://localhost:3000/mcp",
+      "url": "http://localhost:33000/mcp",
       "enabled": false
     }
   },
