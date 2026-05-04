@@ -305,3 +305,40 @@ Work started in Claude Code continues seamlessly in OpenCode:
 - **Mermaid diagrams everywhere** — not ASCII art; renderable, version-controllable
 - **Modular architecture** — feature-sliced, interface-driven, dependency-injected
 - **main is sacred** — work on branches, merge via PRs; the workflow enforces this automatically
+
+---
+
+## Project configuration: `.sdlc/sdlc.json`
+
+Operational validators (`validate-build.sh`, `validate-tests.sh`, `validate-lint.sh`, `validate-smoke.sh`, `validate-deps.sh`) auto-detect commands from the project's stack (node / python / rust / go). Override any of them by adding `.sdlc/sdlc.json` at the project root:
+
+```json
+{
+  "build":     "npm run build",
+  "test":      "npm test -- --run",
+  "lint":      "biome check .",
+  "typecheck": "tsc --noEmit",
+  "deps":      "npm audit --audit-level=high --json",
+  "smoke": {
+    "start":     "npm run dev",
+    "wait_url":  "http://localhost:3000/api/health",
+    "wait_secs": 30,
+    "routes":    ["/", "/api/health", "/api/version"]
+  }
+}
+```
+
+**All keys optional.** Missing keys fall back to per-stack defaults:
+
+| Stack | Build | Test | Lint | Typecheck | Deps |
+|-------|-------|------|------|-----------|------|
+| node | `npm run build` | `npm test` | `npm run lint` | `npx tsc --noEmit` | `npm audit --audit-level=high --json` |
+| python | `python -m build` | `pytest` | `ruff check .` | `mypy .` | `pip-audit -f json` |
+| rust | `cargo build --release` | `cargo test` | `cargo clippy -- -D warnings` | `cargo check` | `cargo audit --json` |
+| go | `go build ./...` | `go test ./...` | `go vet ./...` | `go vet ./...` | `govulncheck ./...` |
+
+**Smoke is opt-in:** if no `smoke` key is present, `validate-smoke.sh` skips clean. Configure it once your project has a HTTP surface.
+
+**Waivers:** `.sdlc/deps-waivers.txt` (one CVE-ID or advisory ID per line) suppresses known-accepted advisories. Lines starting with `#` are comments.
+
+**Graceful skipping:** if a build/lint/typecheck command isn't configured (no matching `npm` script, no `tsconfig.json`, no `eslint` config, etc.), the validator warns and skips — it does NOT fail the gate. Tests are the only command treated as mandatory; every project must have tests by phase 4.

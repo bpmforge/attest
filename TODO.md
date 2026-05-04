@@ -44,20 +44,18 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 
 ### Tasks
 
-- [ ] **B1.** Create `scripts/validators/validate-build.sh` — auto-detects build command (`npm run build`, `pnpm build`, `cargo build`, `go build ./...`, `python -m build`, etc.), runs it, captures exit code + stderr summary. Writes `docs/reviews/RUNTIME_build_<date>.md`. Exits non-zero on build failure.
-- [ ] **B2.** Create `scripts/validators/validate-tests.sh` — auto-detects test runner (`npm test`, `pytest`, `cargo test`, `go test ./...`), runs full suite, parses pass/fail count, writes `docs/reviews/RUNTIME_tests_<date>.md`. Fails if any test fails or count is 0.
-- [ ] **B3.** Create `scripts/validators/validate-lint.sh` — auto-detects linter + typechecker (`eslint`, `tsc --noEmit`, `ruff`, `mypy`, `cargo clippy`, `go vet`), runs both, writes summary. Fails on errors (warnings allowed).
-- [ ] **B4.** Create `scripts/validators/validate-smoke.sh` — auto-detects start command, boots server in background, waits for port, hits one known route (configurable via `.sdlc/smoke.json` if it exists, else heuristic: `/health`, `/`, `/api/health`), asserts 200. Writes `docs/reviews/RUNTIME_smoke_<date>.md`.
-- [ ] **B5.** Create `scripts/validators/validate-deps.sh` — runs `npm audit --json` (or `osv-scanner`, `cargo audit`, `pip-audit` based on stack), parses CRITICAL/HIGH count. Fails if any unwaived CRITICAL.
-- [ ] **B6.** Add `.sdlc/sdlc.json` config schema (project-root config file with overrides for non-standard build/test/lint commands and smoke routes). Document in `docs/SDLC_GUIDE.md`.
-- [ ] **B7.** Update `validate-phase-gate.sh`:
-  - phase-4: chain `validate-build.sh` + `validate-lint.sh` + `validate-tests.sh` (per-module if module flag passed)
-  - phase-5: chain B1–B5 + existing release checks
-- [ ] **B8.** Update `agents/sdlc-init-mode.md` Phase 4 + Phase 5 to call the new validators (remove the "handled inline" wording).
-- [ ] **B9.** Update `agents/sdlc-feature-mode.md` Step 5 to call B1–B4 instead of relying on agent-written `RUNTIME_*.md`.
-- [ ] **B10.** Test the validators against this repo (`npm test` works) and at least one TS project + one Python project.
-- [ ] **B11.** Update CHANGELOG.md.
-- [ ] **B12.** Commit + push.
+- [x] **B1.** Created `scripts/validators/validate-build.sh` — auto-detects per stack, runs build, captures output. Skips clean if no build script configured.
+- [x] **B2.** Created `scripts/validators/validate-tests.sh` — runs test suite, parses pass/fail counts. Tests mandatory (gap if missing).
+- [x] **B3.** Created `scripts/validators/validate-lint.sh` — runs lint + typecheck, tool-specific prerequisite checks (tsconfig.json, eslint config, mypy config).
+- [x] **B4.** Created `scripts/validators/validate-smoke.sh` — boots server, waits for wait_url, hits routes. Requires `.sdlc/sdlc.json smoke` config.
+- [x] **B5.** Created `scripts/validators/validate-deps.sh` — npm audit / pip-audit / cargo audit / govulncheck. Subtracts waivers from `.sdlc/deps-waivers.txt`.
+- [x] **B6.** `.sdlc/sdlc.json` schema documented in `docs/SDLC_GUIDE.md` with per-stack defaults table, smoke example, waivers.
+- [x] **B7.** `validate-phase-gate.sh` updated: phase-4 chains build + lint + tests; phase-5 chains all 5 operational validators + existing FIX_BACKLOG/review/RUNTIME doc checks.
+- [x] **B8.** `agents/sdlc-init-mode.md` Phase 4 Round 3 gate now calls `validate-phase-gate.sh phase-4` as operational backstop.
+- [x] **B9.** `agents/sdlc-feature-mode.md` Step 5 runtime gate now documents the validator scripts directly; coding-agent retains feature-smoke role only.
+- [x] **B10.** All 5 validators tested against this repo. Phase-4 + phase-5 chained gates run clean.
+- [x] **B11.** CHANGELOG.md updated with v0.18.0 entry.
+- [x] **B12.** Committed and pushed.
 
 ### Acceptance
 - 5 new validators exist, are executable (`chmod +x`), follow `_lib.sh` JSON envelope contract.
@@ -190,7 +188,7 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 
 | Wave | Status | Started | Completed | Commit SHA |
 |------|--------|---------|-----------|------------|
-| A — Mermaid hygiene | not started | | | |
+| A — Mermaid hygiene | DONE | 2026-05-04 | 2026-05-04 | a00949f |
 | B — Operational gates | not started | | | |
 | B+ — Completeness gates | not started | | | |
 | C — Universal loop | not started | | | |
