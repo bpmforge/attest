@@ -60,12 +60,25 @@ case "$PHASE" in
     )
     ;;
   phase-4)
-    # Per-module RUNTIME verification -- handled per-module, not centrally.
-    # This gate just confirms at least one RUNTIME_*.md exists and is PASS.
+    # Implementation gate -- the project must actually build, lint, and test.
+    # Per-module RUNTIME reports are still produced inline by parallel waves;
+    # this gate runs the operational validators centrally as a final check.
+    GATE_VALIDATORS=(
+      "validate-build.sh"
+      "validate-lint.sh"
+      "validate-tests.sh"
+    )
     ;;
   phase-5)
     GATE_FILES=()
-    # Phase 5 release gate -- custom inline checks below
+    # Phase 5 release gate -- operational validators run first, then doc/review checks below
+    GATE_VALIDATORS=(
+      "validate-build.sh"
+      "validate-lint.sh"
+      "validate-tests.sh"
+      "validate-deps.sh"
+      "validate-smoke.sh"
+    )
     ;;
   onboard-deep)
     GATE_FILES=("docs/onboard/INVENTORY.md" "docs/ARCHITECTURE.md")

@@ -1198,7 +1198,8 @@ Round 3 gate (mandatory before Wave N+1):
 1. Every module reported its runtime completion phrase
 2. Every `RUNTIME_<module>_<date>.md` has verdict `PASS`
 3. No two agents wrote to the same file across the wave
-4. Update the SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE | per-module scores`
+4. **Operational validators clean** — run `./scripts/validators/validate-phase-gate.sh phase-4` from project root. This auto-detects the stack and chains: `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`. All three must exit 0. Override commands per project via `.sdlc/sdlc.json` (see `docs/SDLC_GUIDE.md`).
+5. Update the SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE | per-module scores`
 
 A module that fails Round 3 blocks only itself — fix that module and re-run its Round 3 HANDOFF while other modules' PASS verdicts remain valid.
 

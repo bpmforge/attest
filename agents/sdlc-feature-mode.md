@@ -486,15 +486,25 @@ Tests green and reviews approved do not prove the app boots. Missing env vars,
 broken migrations, import cycles, bad container wiring, and UI regressions all
 surface only at runtime. **Do not merge until a clean run is confirmed.**
 
+**The orchestrator runs operational validators directly — no agent self-report.** Each script auto-detects the project's stack (node/python/rust/go) and runs the actual build/lint/test/smoke/deps tools. Override via `.sdlc/sdlc.json` for non-standard commands. Each writes `docs/reviews/RUNTIME_<kind>_<date>.md` with verdict + tail output.
+
+```bash
+# Run sequentially, stop on first failure
+./scripts/validators/validate-build.sh   # build the project
+./scripts/validators/validate-lint.sh    # lint + typecheck
+./scripts/validators/validate-tests.sh   # full test suite
+./scripts/validators/validate-smoke.sh   # boot server, hit known routes (configured in .sdlc/sdlc.json smoke key)
+./scripts/validators/validate-deps.sh    # CVE / advisory check
 ```
-task(agent="coding-agent", prompt="Runtime validation for feat/[slug]. Execute in order, stop at first failure.
- 1. BUILD — run the project's build command(s) (npm run build, tsc, cargo build, docker build — whichever applies). Report pass/fail with last 30 lines of output.
- 2. LINT/TYPECHECK — run `npm run lint` and any typecheck step (tsc --noEmit, mypy, etc.). Must pass clean.
- 3. START — boot the app (dev server, container, or CLI entrypoint). Confirm it comes up with no errors in the first 15 seconds and stays up.
- 4. FEATURE SMOKE — exercise the happy path of [feature name] end-to-end against the running app (HTTP request, UI click-through via the browser if frontend, CLI call — whichever matches). Verify behavior matches the acceptance criteria.
- 5. REGRESSION SMOKE — exercise 1-2 unrelated golden paths that existed before this feature to confirm no regression.
- Produce docs/reviews/RUNTIME_<feature>_<date>.md with: build output summary, startup log snippet, smoke commands + actual results, verdict (PASS or FAIL — list exactly what broke with file:line if known).
- When the file is written, print exactly: 'runtime done — [PASS or FAIL, one sentence]' then stop.", timeout=600)
+
+For a feature-scoped validation, the orchestrator can also delegate the FEATURE SMOKE and REGRESSION SMOKE steps to coding-agent:
+
+```
+task(agent="coding-agent", prompt="Runtime feature smoke for feat/[slug]:
+ 1. FEATURE SMOKE — exercise the happy path of [feature name] end-to-end (HTTP request, UI click-through via the browser if frontend, CLI call). Verify behavior matches the acceptance criteria.
+ 2. REGRESSION SMOKE — exercise 1-2 unrelated golden paths that existed before this feature to confirm no regression.
+ Append to docs/reviews/RUNTIME_smoke_<date>.md (created by validate-smoke.sh) with feature-specific assertions.
+ Print exactly: 'feature-smoke done — [PASS or FAIL, one sentence]' then stop.", timeout=600)
 ```
 
 **If verdict is FAIL: DO NOT MERGE.** Return to implementation, fix the defects,
