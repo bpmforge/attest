@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.23.0] — 2026-05-04
+
+Tiered research architecture — researcher now uses a mandatory tool selection gate and a 4-tier fallback chain that starts with fast pullmd-backed tools and escalates to Playwright only when needed. Synced from playwright-search v0.2.0 and claude-experts v0.18.0.
+
+### Changed
+
+- **`agents/researcher.md`** — tool table expanded from 3 to 5 tools with explicit tier labels (1–4). Mandatory **Tool Selection Gate** added: must use `playwright-search_web_search_pullmd` (tier 1) before `playwright-search_web_research_pullmd` (tier 2) before `playwright-search_web_research` (tier 3). Escalation trigger from tier 2 to tier 3 is explicit: < 2 useful sources returned. Fallback chain rewritten to reflect the new order (pullmd SERP first, Playwright on escalation only). Standard and escalation pattern examples updated.
+
+### Tier order (mandatory)
+
+| Tier | Tool | Trigger to escalate |
+|------|------|---------------------|
+| 1 | `playwright-search_web_search_pullmd` | Always start here |
+| 2 | `playwright-search_web_research_pullmd` | When full content needed |
+| 3 | `playwright-search_web_research` | Tier 2 returned < 2 useful sources |
+| 4 | `playwright-search_web_fetch` | Single known URL |
+
 ## [0.22.0] — 2026-05-04
 
 Wave E of the audit remediation — template extraction. Conservative size reduction by extracting two large embedded templates (the ARCHITECTURE.md template from sdlc-init-mode and the OWASP_TRACKER template from security-auditor) into their own files in `agents/templates/`. Mode files reference the templates by path instead of inlining 100+ line markdown blocks.
