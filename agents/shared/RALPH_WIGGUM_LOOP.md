@@ -1,8 +1,23 @@
 # RALPH_WIGGUM_LOOP.md
 
-**Canonical inventory-driven deep-verification loop.**
+**Canonical universal coverage loop.**
 
-Named for the fictional character who repeats himself until he gets it right. Replaces confidence-score feelings with coverage-percentage facts. Used by `/sdlc onboard --deep`, `/security --deep`, and anywhere else exhaustive verification matters.
+Named for the fictional character who repeats himself until he gets it right. Replaces confidence-score feelings with coverage-percentage facts.
+
+As of v0.20.0, this loop is **universal** — it runs in every mode whenever validators report gaps, not just `--deep`. The orchestrator wrapper is `./scripts/validators/run-coverage-loop.sh <phase>`, which:
+
+1. Runs `validate-phase-gate.sh <phase>`
+2. Records iteration result to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
+3. Exits 0 (clean), 1 (gaps remain — iterate), or 2 (3 iterations exhausted — escalate)
+
+The orchestrator iterates manually: read the gap list, emit one gap-fill HANDOFF per uncovered row, then re-run the script. After 3 iterations, the wrapper exits 2 and the orchestrator must emit the escalation block (waiver / lower-bar / specialist / manual).
+
+Modes that USE the loop:
+- `/sdlc init` Phase 3 (design coverage) and Phase 4 (implementation coverage)
+- `/sdlc onboard` (default — lightweight) and `/sdlc onboard --deep` (full inventory)
+- `/sdlc feature` Step 5 (per-feature coverage)
+- `/sdlc improve` (audit-coverage matrix)
+- `/security` and `/security --deep` (OWASP coverage)
 
 ---
 

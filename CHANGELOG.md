@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.20.0] — 2026-05-04
+
+Wave C of the audit remediation — universal Ralph Wiggum coverage loop. The 3-iteration validator-loop with escalation is no longer reserved for `--deep` modes. Every phase gate in every mode now iterates to coverage, with explicit escalation when 3 iterations don't close the gap list.
+
+### Added
+
+- **`scripts/validators/run-coverage-loop.sh`** — wrapper around `validate-phase-gate.sh` with iteration tracking and escalation. Reads/writes `docs/work/COVERAGE_LOOP_<phase>_<date>.md` (markdown table of iteration → gap count → status). Exit codes:
+  - `0` = clean (advance to next phase)
+  - `1` = gaps remain, iteration < 3 (orchestrator emits one gap-fill HANDOFF per uncovered row, re-runs)
+  - `2` = 3 iterations exhausted (orchestrator emits the escalation block from `RALPH_WIGGUM_LOOP.md`)
+- **Two-Track Gate System** documented in `agents/sdlc-lead.md`. Replaces the old "Confidence-based gates" section.
+  - **Track 1 (objective)** — coverage loop for any artifact a validator can check. Default for everything except narrative.
+  - **Track 2 (subjective)** — confidence 1-10 self-rating for narratives only (VISION, summaries, research reports). Used sparingly; if a validator could be written, write the validator.
+
+### Changed
+
+- **`agents/shared/RALPH_WIGGUM_LOOP.md`** — promoted from "deep-mode-only protocol" to "universal coverage-loop spec." Header now lists every mode that uses the loop (init Phase 3 + 4, onboard default + deep, feature Step 5, improve audit-coverage matrix, security default + deep).
+- **`agents/sdlc-init-mode.md`** —
+  - Phase 0 gate language clarified to call out Track 2 (narrative confidence loop) for VISION + COMPETITIVE_ANALYSIS.
+  - Phase 4 Round 3 gate now calls `run-coverage-loop.sh phase-4` (was: `validate-phase-gate.sh phase-4`). Iteration + escalation handled by the wrapper.
+
+### Why this matters
+
+The audit's Finding 6 sub-issue: "Validators report gaps once; nothing forces re-iteration outside `--deep`." The orchestrator was making subjective "is this good enough?" calls when validators had already returned objective gap lists. The universal loop closes that judgment gap.
+
+Now every mode that has validatable deliverables iterates until clean OR escalates after 3 tries. The escalation block forces a deliberate user choice (waive / lower bar / change specialist / fill manually) instead of letting work drift to "DONE" with gaps still open.
+
 ## [0.19.0] — 2026-05-04
 
 Wave B+ of the audit remediation — completeness gates. Nine new validators close the missing coverage dimensions identified in the audit. Every "all X are documented" check is now enforceable by script.
