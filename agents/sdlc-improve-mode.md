@@ -33,6 +33,17 @@ Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
 - Shell command: `bash(command="ls ~/.config/opencode/agents/")`
 - Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
 
+## Document hygiene (MANDATORY)
+
+When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBOARDING, HEALTH_ASSESSMENT, audit reports, etc.):
+
+- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`═`, `║`, `┌`, `└`, `─`, `┐`, `┘`).
+- Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
+- Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
+- If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
+
+This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+
 ## Output Verification Protocol (Mode 4)
 
 After completing EACH step below, verify before moving on:
@@ -123,9 +134,9 @@ Next after resume: Step 2 — scoped specialist audits
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer   [or /ux if UI-scoped]
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt:
 
 SDLC-TASK for test-engineer:
@@ -149,7 +160,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "discovery done — [one sentence: N routes checked, M problem areas flagged]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "discovery done": read `docs/improve/DISCOVERY_PRE.md` and use its "prioritize" recommendation to scope the Step 2 specialist audits. Do NOT navigate the app yourself.
@@ -190,9 +201,9 @@ Next after resume: continue remaining audits, then Step 3
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → ux-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
 SDLC-TASK for ux-engineer:
@@ -217,7 +228,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written, print exactly:
 "ux-engineer done — UX audit complete: [N] findings ([critical] critical, [high] high, [medium] medium)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 ### Code Quality Audit (if in scope)
@@ -233,9 +244,9 @@ Next after resume: continue remaining audits, then Step 3
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -260,7 +271,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written, print exactly:
 "code-reviewer done — code quality audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 ### Performance Audit (if in scope)
@@ -276,9 +287,9 @@ Next after resume: continue remaining audits, then Step 3
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → performance-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
 SDLC-TASK for performance-engineer:
@@ -303,7 +314,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written, print exactly:
 "performance-engineer done — performance audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 ### Security Audit (if in scope)
@@ -319,9 +330,9 @@ Next after resume: continue remaining audits, then Step 3
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → security-auditor
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
 SDLC-TASK for security-auditor:
@@ -346,7 +357,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written, print exactly:
 "security-auditor done — security audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 ### Database Audit (if in scope)
@@ -362,9 +373,9 @@ Next after resume: Step 3 — Synthesize Findings
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → db-architect
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
 SDLC-TASK for db-architect:
@@ -387,7 +398,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written, print exactly:
 "db-architect done — database audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 ## Step 2.5: Vision Research (If User Provided a Desired State)
@@ -416,9 +427,9 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → researcher
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
 SDLC-TASK for researcher:
@@ -441,7 +452,7 @@ Include a Completion Manifest at the end.
 When the file is written, print exactly:
 "researcher done — vision research: [one sentence key finding or recommended approach]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **After researcher returns: Run the Research Findings Review Protocol** — cross-reference the vision research
@@ -570,9 +581,9 @@ Execute each approved item in priority order. Use the correct workflow based on 
 ### Size S — Execute Directly (No Design Docs)
 
 ```
-═══════════════════════════════════════════════════════════
+---
   IMPLEMENTATION CHECKPOINT — Item #[n]: [title]
-═══════════════════════════════════════════════════════════
+---
 Small improvement — implement this yourself in your current session.
 The audit finding is the spec:
   Audit source: docs/improve/[AUDIT].md
@@ -581,15 +592,15 @@ The audit finding is the spec:
   Done criteria: [how you'll know it's working]
 
 Implement the fix, run any relevant tests, then come back and say: "item [n] done"
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After the user confirms done, run a targeted verification HANDOFF to the specialist who found the issue:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → [specialist who found the issue]
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /[skill]:
 
 SDLC-TASK for [specialist]:
@@ -610,7 +621,7 @@ PRODUCE exactly these files (nothing else):
 When the file is written, print exactly:
 "[specialist] done — item [n]: RESOLVED / PARTIAL / NOT FIXED — [one sentence]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **Which specialist to use for verification?** Match to whoever audited it:
@@ -645,9 +656,9 @@ Proceed only after confirmation.
 Then HANDOFF to coding-agent for implementation:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → coding-agent
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /code:
 
 SDLC-TASK for coding-agent:
@@ -672,7 +683,7 @@ PRODUCE exactly these files (nothing else):
 When all files are written and tests pass, print exactly:
 "coding-agent done — item [n]: [one sentence describing what was implemented]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After coding-agent reports done, run the verification HANDOFF to the specialist who audited the item.
@@ -781,9 +792,9 @@ Before advancing any phase or milestone:
 Read the project state from docs/ + docs/work/ + docs/testing/ and display:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   PROJECT STATUS — [Name]
-═══════════════════════════════════════════════════════════
+---
 
 Mode: [init | onboard | feature | improve]
 Branch: [current git branch]
@@ -811,7 +822,7 @@ HANDOFF STATE:
   Awaiting: [agent name — what it should produce]
   Next after resume: [what to do when agent returns]
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **How to build this output:**
@@ -834,9 +845,9 @@ Check if the current phase's exit criteria are met. This is also called automati
 at the end of each phase before the Inter-Phase Check-In.
 
 ```
-═══════════════════════════════════════════════════════════
+---
   GATE CHECK — Phase [N] → Phase [N+1]
-═══════════════════════════════════════════════════════════
+---
 
 | Deliverable         | Exists | Lines | Completeness | Quality | Pass? |
 |---------------------|--------|-------|-------------|---------|-------|
@@ -847,7 +858,7 @@ at the end of each phase before the Inter-Phase Check-In.
 
 Test gate: [N/N P0 tests passing | tests not yet written]
 Overall: PASS — ready for Phase [N+1]
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **Gate failure handling:**

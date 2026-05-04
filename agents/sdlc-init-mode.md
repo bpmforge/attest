@@ -31,6 +31,17 @@ Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
 - Shell command: `bash(command="ls ~/.config/opencode/agents/")`
 - Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
 
+## Document hygiene (MANDATORY)
+
+When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBOARDING, HEALTH_ASSESSMENT, audit reports, etc.):
+
+- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`═`, `║`, `┌`, `└`, `─`, `┐`, `┘`).
+- Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
+- Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
+- If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
+
+This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+
 ## Phase 0: Ideation — WHY are we building this?
 
 **First, bootstrap the repo via `task` tool:**
@@ -58,9 +69,9 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → researcher
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
 SDLC-TASK for researcher:
@@ -81,7 +92,7 @@ Include a Completion Manifest at the end.
 When the file is written, print exactly:
 "researcher done — competitive analysis: [one sentence summary of key finding]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **After researcher returns:** Run the **Research Findings Review Protocol** — read the report, cross-reference with DISCOVERY.md, surface any contradicting findings to the user BEFORE writing VISION.md.
@@ -115,9 +126,9 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → researcher
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
 SDLC-TASK for researcher:
@@ -139,7 +150,7 @@ Include a Completion Manifest at the end.
 When the file is written, print exactly:
 "researcher done — feasibility: [one sentence summary of key finding or showstopper]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **After researcher returns:** Run the **Research Findings Review Protocol** — if the feasibility research flags a showstopper (unavailable library, licensing conflict, capacity limit), surface it before writing SCOPE.md.
@@ -171,9 +182,9 @@ Next after resume: write SRS.md and USER_STORIES.md using the flow diagrams
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → ux-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
 SDLC-TASK for ux-engineer:
@@ -194,7 +205,7 @@ When the file is written, print exactly:
 "ux done — [one sentence: how many flows produced and what they cover]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After "ux done": read `docs/design/USER_FLOWS.md`, then write SRS.md following the format below.
@@ -275,9 +286,9 @@ Next after resume: Phase 2 gate
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -302,7 +313,7 @@ When the file is written, print exactly:
 "test-plan done — [N use cases mapped, N P0 / N P1 / N P2]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "test-plan done": verify docs/testing/TEST_PLAN.md exists → mark DONE
@@ -376,9 +387,9 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → researcher
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /research:
 
 SDLC-TASK for researcher:
@@ -401,7 +412,7 @@ Include a Completion Manifest at the end.
 When the file is written, print exactly:
 "researcher done — framework comparison: [one sentence recommended stack and key reason]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **After researcher returns:** Run the Research Findings Review Protocol before writing TECH_STACK.md.
@@ -420,9 +431,9 @@ Next after resume: api-designer handoff
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → db-architect
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
 SDLC-TASK for db-architect:
@@ -446,7 +457,7 @@ When the file is written, print exactly:
 "db done — [one sentence: how many tables, key relationships, and notable design decisions]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "db done": verify docs/DATABASE.md exists and >50 lines → mark DONE
@@ -464,9 +475,9 @@ Next after resume: UX branch (if UI-bearing) or security-auditor handoff
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → api-designer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
 SDLC-TASK for api-designer:
@@ -503,7 +514,7 @@ PRODUCE exactly these two files:
 When both files are written, print exactly:
 "api done — [one sentence: how many endpoints designed and key resources covered]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "api done": verify both `docs/API_DESIGN.md` and `docs/api/openapi.yaml` exist.
@@ -526,9 +537,9 @@ Next after resume: write ARCHITECTURE.md, run Phase 3 gate
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → security-auditor
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
 SDLC-TASK for security-auditor:
@@ -552,7 +563,7 @@ When the file is written, print exactly:
 "security done — [one sentence: how many threats found and highest severity level]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "security done": verify docs/THREAT_MODEL.md → mark DONE
@@ -587,9 +598,9 @@ Next after resume: security-auditor handoff
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → ux-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
 SDLC-TASK for ux-engineer:
@@ -620,7 +631,7 @@ When all three files are written, print exactly:
 "ux done — [one sentence: design direction chosen and how many workflows covered]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After "ux done":
@@ -638,9 +649,9 @@ If ux-engineer produced DESIGN_PRINCIPLES.md, STYLE_GUIDE.md, and UX_SPEC.md,
 the visual design is specified but not implemented. Hand off to frontend-design:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → frontend-design
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
 
 SDLC-TASK for frontend-design:
@@ -667,7 +678,7 @@ Include a Completion Manifest.
 When all files are written, print exactly:
 "frontend done — [one sentence: tokens implemented, components styled]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 This is optional in Phase 3 (design phase) — the full visual implementation happens
@@ -1149,9 +1160,9 @@ A parallel wave runs THREE rounds per module: **code → review → runtime**. E
 Emit ONE message containing every coding HANDOFF for the wave. Example for a 3-module wave:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   WAVE 2 — ROUND 1: CODE (3 HANDOFFs — open 3 OpenCode sessions)
-═══════════════════════════════════════════════════════════
+---
 These 3 modules are independent — no shared write-scope, no cross-module imports.
 Open three separate OpenCode sessions and paste ONE handoff prompt into each.
 Report back with all three completion phrases before I emit Round 2.
@@ -1170,7 +1181,7 @@ stop and flag the cross-cutting concern — do not edit cross-module.
 [coding-agent prompt for module 2 — completion phrase: "code done — users module: [summary]"]
 ───── HANDOFF #3 ─────
 [coding-agent prompt for module 3 — completion phrase: "code done — notifications module: [summary]"]
-═══════════════════════════════════════════════════════════
+---
 ```
 
 Round 1 gate: every module's completion phrase present, no write-scope collisions (`git status` shows no overlap).
@@ -1210,9 +1221,9 @@ Next after resume: db-architect migrations handoff
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -1237,7 +1248,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "test-strategy done — [one sentence: frameworks chosen and critical paths identified]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **2. Implementation — after "test-strategy done":**
@@ -1292,9 +1303,9 @@ Next after resume: DB migrations, then expert reviews
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   IMPLEMENTATION CHECKPOINT
-═══════════════════════════════════════════════════════════
+---
 Time to implement. Your design documents are the spec:
 
   Tech stack:      docs/TECH_STACK.md    (language, framework, libraries — MANDATORY constraint)
@@ -1312,7 +1323,7 @@ no god functions (keep under 50 lines per function).
 Write tests alongside each module — not after.
 
 When implementation is complete, come back and say: "implementation done"
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After "implementation done":
@@ -1332,9 +1343,9 @@ Next after resume: discovery audit, then expert reviews
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -1369,7 +1380,7 @@ When all files are written and tests have been run, print exactly:
 "e2e-tests done — [N tests written, M/N passing, key failures listed]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "e2e-tests done":
@@ -1389,9 +1400,9 @@ Next after resume: DB migrations, then expert reviews
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer   [or /ux if UI-bearing]
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt:
 
 SDLC-TASK for test-engineer:
@@ -1416,7 +1427,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "discovery done — [one sentence: N routes checked, M critical, K high]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "discovery done":
@@ -1438,9 +1449,9 @@ Next after resume: api-designer contract verification
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → db-architect
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
 SDLC-TASK for db-architect:
@@ -1462,15 +1473,15 @@ PRODUCE exactly these:
 When all files are written, print exactly:
 "db done — [one sentence: how many migrations generated and any notable issues]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **3. API contract verification:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → api-designer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 
 SDLC-TASK for api-designer:
@@ -1492,15 +1503,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "api done — [one sentence: how many endpoints checked, how many drifted]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **4. Container config:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → container-ops
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
 SDLC-TASK for container-ops:
@@ -1523,15 +1534,15 @@ PRODUCE exactly these files:
 When all files are written, print exactly:
 "containers done — [one sentence: services configured and final image size estimate]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **5. CI/CD pipeline:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → sre-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /devops:
 
 SDLC-TASK for sre-engineer:
@@ -1554,15 +1565,15 @@ PRODUCE exactly these files:
 When the file is written, print exactly:
 "devops done — [one sentence: pipeline stages included and deploy target]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **6. Security audit (after each significant feature):**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → security-auditor
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
 SDLC-TASK for security-auditor:
@@ -1586,7 +1597,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "security done — [one sentence: findings count by severity]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **7. Code review (after each feature):**
@@ -1597,9 +1608,9 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 - If either fails, fix first — don't waste reviewer time on broken code
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -1622,7 +1633,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "review done — [one sentence: verdict and most critical finding]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **8. Git: feature branch + commits + PR (task tool — fast):**
@@ -1633,9 +1644,9 @@ task(agent="git-expert", prompt="--feature: [action — create branch / commit /
 **9. Performance (only if NFRs flag perf requirements):**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → performance-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
 SDLC-TASK for performance-engineer:
@@ -1657,7 +1668,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "perf done — [one sentence: which NFR targets passed/failed]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **Your role:**
@@ -1687,9 +1698,9 @@ Next after resume: synthesize FIX_BACKLOG_RELEASE_<date>.md
 Emit ONE message with every applicable review HANDOFF. User opens N OpenCode sessions concurrently.
 
 ```
-═══════════════════════════════════════════════════════════
+---
   PHASE 5 PARALLEL REVIEWS — [N] HANDOFFs
-═══════════════════════════════════════════════════════════
+---
 
 ───── HANDOFF #1 → /security (security-auditor) ─────
 SDLC-TASK for security-auditor:
@@ -1719,7 +1730,7 @@ YOUR TASK: Full WCAG 2.2 AA audit — alt text, keyboard nav, color contrast, AR
 PRODUCE: docs/reviews/UX_AUDIT_<date>.md — findings by severity (CRITICAL first), summary counts, verdict (RELEASE-READY / BLOCKED).
 Print exactly: "ux done — [CRITICAL/HIGH count and release verdict]"
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **2. Synthesize → FIX_BACKLOG_RELEASE (see Fix-Verify Loop Protocol § Step 2):**
@@ -1739,9 +1750,9 @@ Iterate up to 3 times:
 **4. Tech debt register:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -1763,15 +1774,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "debt done — [one sentence: total items found and top leverage item]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **5. Test coverage:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -1794,15 +1805,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "test done — [one sentence: overall coverage and most critical gap]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **6. Container optimization:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → container-ops
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /containers:
 
 SDLC-TASK for container-ops:
@@ -1825,7 +1836,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "containers done — [one sentence: image size, CVE count, readiness verdict]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **7. Phase 5 Release Gate (BLOCKING before block 8):**
@@ -1833,9 +1844,9 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 Before handing off to `--release`, verify every exit condition is met. Emit this block explicitly and record the result:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   PHASE 5 RELEASE GATE
-═══════════════════════════════════════════════════════════
+---
 
 Required conditions (ALL must be true):
   [✓/✗] docs/reviews/FIX_BACKLOG_RELEASE_<date>.md exists
@@ -1855,7 +1866,7 @@ If ANY condition is [✗], STOP. Record the blockers and surface to the user:
   "Release gate BLOCKED: [list]. Resolve or sign a waiver before cutting release."
 
 If ALL conditions are [✓], proceed to block 8.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **8. Release — only after Release Gate passes (task tool — fast):**

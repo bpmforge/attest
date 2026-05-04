@@ -24,9 +24,9 @@ Always reference `agents/shared/BOUNDED_TASK_CONTRACT.md` in the CONTEXT block.
 ## Template 1: Standard HANDOFF (most common)
 
 ```
-===========================================================
+---
   HANDOFF -> /<skill> (<agent-name>)
-===========================================================
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /<skill>:
 
 SDLC-TASK for <agent-name>:
@@ -57,7 +57,7 @@ When all files are written, print exactly:
 "<agent> done -- <one sentence describing what was produced>"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-===========================================================
+---
 ```
 
 ## Template 2: Remediation HANDOFF (after a review)
@@ -65,9 +65,9 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 Use this template for fix-after-review cycles. It references a FIX_BACKLOG.
 
 ```
-===========================================================
+---
   HANDOFF -> /code (coding-agent) -- REMEDIATION
-===========================================================
+---
 SDLC-TASK for coding-agent:
 
 CONTEXT:
@@ -93,7 +93,7 @@ When done, print exactly:
 "coding-agent done -- <N> fixes applied, <M> deferred for design review"
 Then stop.
 
-===========================================================
+---
 ```
 
 ## Template 3: Re-verification HANDOFF (targeted)
@@ -101,9 +101,9 @@ Then stop.
 Use this after a remediation cycle. The reviewer does NOT re-scan for new issues — only verifies the backlog.
 
 ```
-===========================================================
+---
   HANDOFF -> /<skill> (<agent-name>) -- TARGETED RE-VERIFICATION
-===========================================================
+---
 SDLC-TASK for <agent-name>:
 
 CONTEXT:
@@ -125,7 +125,7 @@ When done, print exactly:
 "<agent> done -- <N> PASS, <M> FAIL, <K> INCONCLUSIVE"
 Then stop.
 
-===========================================================
+---
 ```
 
 ## Template 4: Parallel wave HANDOFFs (Phase 4 / Mode 3 split)
@@ -133,9 +133,9 @@ Then stop.
 Emit N HANDOFF blocks in ONE message -- one per module. User opens N concurrent OpenCode sessions.
 
 ```
-===========================================================
+---
   PARALLEL WAVE -- ROUND 1 (CODE) -- N concurrent HANDOFFs
-===========================================================
+---
 Open N OpenCode sessions concurrently. Paste each block into one session.
 
 --- HANDOFF #1 (<module-A>) -> /code ---
@@ -163,7 +163,7 @@ Then stop.
 <same shape, different module>
 
 ... (N total) ...
-===========================================================
+---
 ```
 
 The orchestrator waits for every HANDOFF to print its completion phrase, then runs the three-gate check per module via `run-handoff-gates.sh` (see below), then proceeds to Round 2 (REVIEW) and Round 3 (RUNTIME).

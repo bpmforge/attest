@@ -56,6 +56,7 @@ case "$PHASE" in
       "validate-api-coverage.sh"
       "validate-sequence-coverage.sh"
       "validate-erd-coverage.sh"
+      "validate-no-ascii-art.sh"
     )
     ;;
   phase-4)
@@ -73,6 +74,7 @@ case "$PHASE" in
       "validate-architecture.sh"
       "validate-erd-coverage.sh"
       "validate-sequence-coverage.sh"
+      "validate-no-ascii-art.sh"
     )
     ;;
   security-deep)

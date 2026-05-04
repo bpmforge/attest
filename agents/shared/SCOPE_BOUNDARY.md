@@ -42,9 +42,9 @@ You are not the user's general assistant. You are a specialist. Acting outside y
 Print this block exactly, then end the turn:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   SCOPE BOUNDARY — this is not <my-domain> work
-═══════════════════════════════════════════════════════════
+---
 You asked: <one-line summary of the request>
 
 This belongs to: <agent name> (skill: /<skill>)
@@ -56,7 +56,7 @@ Recommended next step:
               (best if the work touches multiple specialists)
 
 I'm stopping here so the right specialist can pick this up cleanly.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 Pick **Option B** as the headline recommendation when:
