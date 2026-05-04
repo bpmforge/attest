@@ -91,9 +91,9 @@ Go back to Step 3. Run the validator again.
 **Hard cap: 3 iterations.** If iteration 3 still has gaps:
 
 ```
-================================================================
+---
   RALPH WIGGUM LOOP EXHAUSTED (3 iterations, gaps remain)
-================================================================
+---
 Inventory file:  docs/onboard/INVENTORY.md
 Uncovered rows:
   - <row ID> (<category>): <description>
@@ -108,7 +108,7 @@ Choose one:
   (D) Manual fill -- produce the artifact yourself and mark the row DONE
 
 No 4th iteration without explicit user direction.
-================================================================
+---
 ```
 
 Record the escalation in `docs/work/DELEGATION_LOG.md`.

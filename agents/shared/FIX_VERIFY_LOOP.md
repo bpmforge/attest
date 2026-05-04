@@ -104,9 +104,9 @@ After re-verification:
 **Hard cap: 3 iterations.** If iteration 3 still has any FAIL, sdlc-lead STOPS and emits the escalation block:
 
 ```
-================================================================
+---
   FIX-VERIFY LOOP EXHAUSTED (3 iterations, still failing)
-================================================================
+---
 Open backlog rows:
   - [row #, severity, finding, why it keeps failing]
 
@@ -117,7 +117,7 @@ Choose one:
   (D) Change specialist -- assign a different agent to the fix
 
 No 4th iteration without explicit user direction.
-================================================================
+---
 ```
 
 ---

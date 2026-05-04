@@ -32,6 +32,17 @@ Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
 - Shell command: `bash(command="ls ~/.config/opencode/agents/")`
 - Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
 
+## Document hygiene (MANDATORY)
+
+When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBOARDING, HEALTH_ASSESSMENT, audit reports, etc.):
+
+- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`═`, `║`, `┌`, `└`, `─`, `┐`, `┘`).
+- Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
+- Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
+- If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
+
+This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+
 ## Output Verification Protocol (Mode 2)
 
 After completing EACH step below, verify the deliverable before moving on:
@@ -180,9 +191,9 @@ Next after resume: Step 4 Map Components
 ```
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → db-architect
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 
 SDLC-TASK for db-architect:
@@ -204,7 +215,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "db done — [one sentence: how many tables found and any critical issues]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 → After "db done": Verify `docs/diagrams/erd.md` exists, >50 lines, contains `erDiagram` block
@@ -258,9 +269,9 @@ Next after resume: security-auditor handoff
 **1a. Code health:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer — full health
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -281,15 +292,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "review done — [one sentence: overall verdict and worst dimension]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **1b. Tech debt:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer — debt
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -309,15 +320,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "debt done — [one sentence: item count and top leverage item]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **1c. Pattern drift:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → code-reviewer — patterns
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
 SDLC-TASK for code-reviewer:
@@ -339,15 +350,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "patterns done — [one sentence: patterns identified and worst drift area]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **2. Security scan:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → security-auditor
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /security:
 
 SDLC-TASK for security-auditor:
@@ -370,15 +381,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "security done — [one sentence: finding counts by severity]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **3. Test coverage:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -399,15 +410,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "test done — [one sentence: overall coverage percentage and biggest gap]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **4. Performance scan:**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → performance-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /perf:
 
 SDLC-TASK for performance-engineer:
@@ -430,15 +441,15 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "perf done — [one sentence: finding count and most impactful issue]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **5. UX audit (if UI-bearing from Step 1):**
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → ux-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /ux:
 
 SDLC-TASK for ux-engineer:
@@ -460,7 +471,7 @@ PRODUCE exactly this file:
 When the file is written, print exactly:
 "ux done — [one sentence: finding counts by severity across all dimensions]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **6b. Discovery audit (if the app has a running instance):**
@@ -490,9 +501,9 @@ exist and need tests, not new requirements:
 Then hand off to test-engineer for TEST_PLAN.md:
 
 ```
-═══════════════════════════════════════════════════════════
+---
   HANDOFF → test-engineer
-═══════════════════════════════════════════════════════════
+---
 Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
@@ -516,7 +527,7 @@ When the file is written, print exactly:
 "test-plan done — [N use cases mapped, N covered, N gaps identified]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
-═══════════════════════════════════════════════════════════
+---
 ```
 
 After all reviews complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
@@ -686,9 +697,9 @@ Inventory schema:
 The inventory HANDOFF uses `researcher` (if read-only) or `code-reviewer` (if lightweight write to produce the file):
 
 ```
-===========================================================
+---
   HANDOFF -> /research (researcher) -- INVENTORY
-===========================================================
+---
 SDLC-TASK for researcher:
 
 CONTEXT:
@@ -716,7 +727,7 @@ PRODUCE:
 Print: "researcher done -- inventory produced with N rows across C categories"
 Then stop.
 
-===========================================================
+---
 ```
 
 ### Step D2 -- DISCOVER
@@ -768,9 +779,9 @@ For every row the validator flagged, emit a FOCUSED gap-fill HANDOFF. Do NOT re-
 Example: validator reports "R-03 GET /api/orders not found in API_DESIGN.md". Emit:
 
 ```
-===========================================================
+---
   HANDOFF -> /api-design (api-designer) -- GAP-FILL R-03
-===========================================================
+---
 SDLC-TASK for api-designer:
 
 CONTEXT:
@@ -790,7 +801,7 @@ PRODUCE:
 Print: "api-designer done -- R-03 documented"
 Then stop.
 
-===========================================================
+---
 ```
 
 One row, one HANDOFF. No scope creep.

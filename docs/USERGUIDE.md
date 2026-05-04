@@ -140,15 +140,15 @@ Any gate failure returns the HANDOFF with REVISE status + the specific gap. No o
 Each primary agent has a defined domain. If you ask `/research` to write code, or `/code` to design a schema, the agent prints a **SCOPE-BOUNDARY** block naming the right specialist (or `/sdlc` for orchestration) and stops — it does not freelance into another lane.
 
 ```
-═══════════════════════════════════════════════════════════
+---
   SCOPE BOUNDARY — this is not <my-domain> work
-═══════════════════════════════════════════════════════════
+---
 You asked: <one-line summary>
 This belongs to: <agent name> (skill: /<skill>)
 Recommended next step:
   Option A — open a new session and run: /<skill> <prompt>
   Option B — go back to /sdlc and let the lead orchestrate this
-═══════════════════════════════════════════════════════════
+---
 ```
 
 **Why this matters:** scope creep across specialists is the #1 cause of muddy outputs. A researcher writing code skips the design-docs check; a coding-agent designing scope freelances on what to build; sdlc-lead reading source files bypasses the audit pipeline. Each specialist is sharp because it does one thing. The rule is at `agents/shared/SCOPE_BOUNDARY.md`.

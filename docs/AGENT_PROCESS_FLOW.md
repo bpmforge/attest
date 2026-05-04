@@ -1,6 +1,6 @@
 # Agent Process Flow — Step by Step
 
-_How the SDLC lead orchestrates specialists. Every arrow is a handoff/return._
+_How the SDLC lead orchestrates specialists. Every arrow is a handoff or a return._
 
 ## Two protocols every agent honors
 
@@ -11,237 +11,136 @@ Before walking the mode flows, two cross-cutting protocols apply to every step i
 
 The flows below assume both. If either fires, the diagram pauses and the user gets either a SCOPE-BOUNDARY block (mid-flight, agent stops) or a REVISE handoff (post-HANDOFF gate failure).
 
-## Mode 1: New Project — Full Agent Flow
+## Mode 1: New Project — full lifecycle
 
-```
-User: /sdlc init my-app "description"
-         │
-         ▼
-    ┌─────────────┐
-    │  SDLC Lead   │ ← Discovery Interview (7 questions)
-    └──────┬──────┘
-           │ User confirms answers
-           ▼
-    Phase 0: Ideation
-           │
-           ├── task(git-expert) → init repo, create sdlc/setup branch
-           │   └── RETURN: "git init done — repo initialized"
-           │
-           ├── HANDOFF → researcher (competitive landscape)
-           │   └── PRODUCE: docs/research/RESEARCH_competitive_*.md
-           │   └── RETURN: "researcher done — competitive analysis: [key finding]"
-           │
-           ├── SDLC lead reviews research (Research Findings Review Protocol)
-           │   └── IF contradiction with discovery → surface to user, wait
-           │
-           └── SDLC lead writes VISION.md + COMPETITIVE_ANALYSIS.md
-               └── Gate loop → confidence ≥ 7 → Inter-Phase Check-In → user confirms
-
-    Phase 1: Planning
-           │
-           ├── HANDOFF → researcher (technical feasibility)
-           │   └── PRODUCE: docs/research/RESEARCH_feasibility_*.md
-           │   └── RETURN: "researcher done — feasibility: [key finding or showstopper]"
-           │
-           ├── Research Findings Review → surface contradictions
-           │
-           └── SDLC lead writes SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md
-               └── Gate → Check-In → user confirms
-
-    Phase 2: Requirements
-           │
-           ├── HANDOFF → ux-engineer
-           │   └── PRODUCE: docs/design/USER_FLOWS.md
-           │   └── RETURN: "ux done — N flows produced"
-           │
-           ├── SDLC lead writes SRS.md + USER_STORIES.md
-           │
-           ├── ★ NEW: SDLC lead writes docs/testing/USE_CASES.md
-           │   └── Derive from USER_PERSONAS.md + SRS.md + USER_STORIES.md
-           │   └── One use case per user story, with persona, preconditions,
-           │       main flow, alt flows, success criteria
-           │
-           ├── ★ NEW: HANDOFF → test-engineer
-           │   └── PRODUCE: docs/testing/TEST_PLAN.md
-           │   └── Review USE_CASES.md, assign P0/P1/P2 priorities,
-           │       map each to a test file, define cross-cutting checks
-           │   └── RETURN: "test-plan done — N use cases mapped to test files"
-           │
-           └── Gate → Check-In → user confirms
-
-    Phase 3: Design
-           │
-           ├── HANDOFF → researcher (framework/stack comparison)
-           │   └── PRODUCE: docs/research/RESEARCH_framework_comparison_*.md
-           │   └── RETURN: "researcher done — framework comparison: [recommended stack]"
-           ├── Research Findings Review
-           ├── SDLC lead writes TECH_STACK.md
-           │
-           ├── HANDOFF → db-architect
-           │   └── PRODUCE: docs/DATABASE.md
-           │   └── RETURN: "db done — N tables, key relationships"
-           │
-           ├── HANDOFF → api-designer
-           │   └── PRODUCE: docs/API_DESIGN.md
-           │   └── RETURN: "api done — N endpoints designed"
-           │
-           ├── HANDOFF → ux-engineer (if UI-bearing)
-           │   └── PRODUCE: DESIGN_PRINCIPLES.md, STYLE_GUIDE.md, UX_SPEC.md
-           │   └── RETURN: "ux done — design system and UX spec"
-           │
-           ├── HANDOFF → frontend-design (if UI-bearing, after ux-engineer)
-           │   └── PRODUCE: design tokens, DESIGN_SYSTEM.md, IMPLEMENTATION_NOTES.md
-           │   └── RETURN: "frontend done — tokens implemented"
-           │
-           ├── HANDOFF → security-auditor
-           │   └── PRODUCE: docs/THREAT_MODEL.md
-           │   └── RETURN: "security done — N threats found"
-           │
-           └── SDLC lead writes synthesis docs (orchestrator-written, NOT handoffs)
-               ├── docs/ARCHITECTURE.md (C4 diagrams + modular design decisions)
-               └── docs/PARALLELIZATION_MAP.md (module inventory + Phase 4 waves)
-               └── Gate → Check-In → Merge sdlc/setup → main
-
-    Phase 4: Implementation (wave-based, Sequential default or Parallel opt-in)
-           │
-           ├── EXECUTION MODE SELECTION (read PARALLELIZATION_MAP.md)
-           │   └── SDLC lead asks user per-wave: Sequential [S] or Parallel [P]?
-           │   └── Choice recorded in docs/work/sdlc-state.md + SDLC_TRACKER
-           │
-           ├── HANDOFF → test-engineer
-           │   └── PRODUCE: docs/TEST_STRATEGY.md (framework selection + approach)
-           │   └── RETURN: "test-strategy done"
-           │
-           ├── WAVE LOOP (for each wave in PARALLELIZATION_MAP.md)
-           │   │
-           │   ├── Sequential mode: emit ONE coding-agent HANDOFF per module,
-           │   │  wait for "done" + verify ≥ 7 before next
-           │   │
-           │   └── Parallel mode: THREE rounds per wave (code → review → runtime)
-           │       (user opens N OpenCode sessions concurrently per round)
-           │       ├── Round 1 (code): N coding-agent HANDOFFs
-           │       │   └── Each HANDOFF: write-scope = src/<module>/ ONLY
-           │       │   └── Gate: all "code done" + no write-scope collisions
-           │       ├── Round 2 (review): N code-reviewer HANDOFFs
-           │       │   └── PRODUCE: docs/reviews/CODE_REVIEW_<module>_<date>.md
-           │       │   └── Gate: every module verdict = APPROVED
-           │       └── Round 3 (runtime): N runtime-validation HANDOFFs
-           │           └── PRODUCE: docs/reviews/RUNTIME_<module>_<date>.md
-           │           └── Gate: every module verdict = PASS
-           │           └── Module FAIL blocks only itself — peers advance
-           │
-           ├── HANDOFF → coding-agent (one per module, with write-scope isolation)
-           │   └── READ: docs/TECH_STACK.md + ARCHITECTURE.md + module contract
-           │   └── VERIFY: all library APIs via Context7 before writing
-           │   └── ENFORCE: anti-slop rules + Strict Scope Rules (no extra files,
-           │      no cross-module writes, exact completion phrase)
-           │   └── PRODUCE: implementation files under src/<module>/ only
-           │   └── RETURN: "coding-agent done — <module>: [one sentence]"
-           │
-           ├── HANDOFF → test-engineer (WRITE ACTUAL E2E TESTS)
-           │   └── READ: docs/testing/USE_CASES.md + docs/testing/TEST_PLAN.md
-           │   └── PRODUCE: e2e/use-cases/*.spec.ts — one per P0 use case
-           │   └── PRODUCE: e2e/use-cases/_fixtures.ts — shared helpers
-           │   └── RUN: full test suite, report pass/fail
-           │   └── RETURN: "e2e-tests done — N/M passing"
-           │
-           ├── HANDOFF → test-engineer (DISCOVERY AUDIT — was INLINE, now delegated)
-           │   └── Walk all pages/routes on running app, collect errors
-           │   └── PRODUCE: docs/audits/discovery-<date>.md
-           │   └── RETURN: "discovery done — N routes, M critical, K high"
-           │   └── SDLC lead triages: fix critical via coding-agent before reviews
-           │
-           ├── HANDOFF → db-architect (migration verification)
-           ├── HANDOFF → api-designer (contract verification)
-           │
-           ├── HANDOFF → container-ops (Dockerfile, compose, .dockerignore)
-           │   └── Must run BEFORE sre-engineer — CI/CD needs container config
-           │
-           ├── HANDOFF → sre-engineer (CI/CD pipeline, monitoring, deploy)
-           │   └── Uses container config from container-ops as input
-           ├── HANDOFF → container-ops (Dockerfile, compose)
-           │
-           ├── ★ NEW v0.14: PARALLEL REVIEW FAN-OUT (one message, N HANDOFFs)
-           │   └── GATE: all P0 tests must pass before reviews start
-           │   ├── HANDOFF → code-reviewer   (ALWAYS)
-           │   ├── HANDOFF → security-auditor (auto-trigger: auth/input/data/crypto)
-           │   ├── HANDOFF → performance-engineer (auto-trigger: NFR/DB/loops/cache/jobs)
-           │   └── HANDOFF → ux-engineer     (auto-trigger: UI file touched)
-           │       (reviewers produce findings only — no self-fixes)
-           │
-           ├── ★ NEW v0.14: SYNTHESIZE → FIX_BACKLOG (sdlc-lead writes)
-           │   └── PRODUCE: docs/reviews/FIX_BACKLOG_<feature>_<date>.md
-           │       (unified, deduplicated, every row has Verify criterion)
-           │
-           ├── ★ NEW v0.14: FIX-VERIFY LOOP (max 3 iterations, then escalate)
-           │   ├── Remediation HANDOFF → coding-agent (fix every CRITICAL/HIGH)
-           │   │   └── PRODUCE: FIX_SUMMARY_<feature>_<iter>_<date>.md
-           │   ├── Re-verify HANDOFF → code-reviewer (targeted per-finding)
-           │   │   └── PRODUCE: VERIFY_<feature>_<iter>_<date>.md
-           │   ├── All PASS → reviews gate closed
-           │   ├── Any FAIL → iterate (up to 3)
-           │   └── 3rd failure → ESCALATE (waive / redesign / defer / change specialist)
-           │
-           ├── HANDOFF → sre-engineer (CI/CD + deploy)
-           │
-           ├── ★ v0.13: RUNTIME VALIDATION GATE (BLOCKING before merge)
-           │   └── HANDOFF → coding-agent: build → lint/typecheck → start →
-           │      feature smoke → regression smoke
-           │   └── PRODUCE: docs/reviews/RUNTIME_<feature>_<date>.md
-           │   └── Verdict must be PASS — FAIL blocks the merge
-           │
-           └── ★ FINAL GATE — git-expert verifies 3 conditions before merge:
-               (1) RUNTIME = PASS
-               (2) FIX_BACKLOG closed (or WAIVERS signed)
-               (3) No open CRITICAL/HIGH in CODE_REVIEW/SECURITY/PERF/UX
-               └── task(git-expert) → PR ready + squash merge
+```mermaid
+flowchart TD
+    Start([User: /sdlc init my-app description]) --> Lead[SDLC Lead]
+    Lead --> DI[Discovery Interview - 7 questions]
+    DI --> P0[Phase 0: Ideation]
+    P0 --> P1[Phase 1: Planning]
+    P1 --> P2[Phase 2: Requirements]
+    P2 --> P3[Phase 3: Design]
+    P3 --> P4[Phase 4: Implementation]
+    P4 --> P5[Phase 5: Release]
+    P5 --> Done([Production deploy])
 ```
 
-## What's New (★ marked above)
+### Phase 0 — Ideation
 
-### 1. USE_CASES.md in Phase 2
+```mermaid
+flowchart TD
+    Start[Phase 0: Ideation start] --> Git[task git-expert: init repo + sdlc/setup branch]
+    Git --> Research[HANDOFF researcher: competitive landscape]
+    Research --> Review[Research Findings Review Protocol]
+    Review --> Surface{Contradicts DISCOVERY?}
+    Surface -->|yes| Wait[Surface to user, wait for direction]
+    Surface -->|no| Write[SDLC lead writes VISION.md + COMPETITIVE_ANALYSIS.md]
+    Wait --> Write
+    Write --> Gate[Confidence gate >= 7]
+    Gate --> CheckIn[Inter-Phase Check-In]
+    CheckIn --> P1Start[Phase 1 begins]
+```
 
-SDLC lead writes this INLINE (not a handoff) because it derives directly from requirements:
-- One use case per user story from USER_STORIES.md
-- Each has: persona, preconditions, trigger, main flow, alt flows, success criteria
-- This is the source of truth for what gets tested
+### Phase 1 — Planning
 
-### 2. TEST_PLAN.md via test-engineer in Phase 2
+```mermaid
+flowchart TD
+    Start[Phase 1: Planning] --> Research[HANDOFF researcher: technical feasibility]
+    Research --> Review[Research Findings Review]
+    Review --> Showstopper{Showstopper found?}
+    Showstopper -->|yes| Surface[Surface to user before scope]
+    Showstopper -->|no| Write[Write SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md]
+    Surface --> Write
+    Write --> Gate[Gate -> Check-In -> P2]
+```
 
-After USE_CASES.md is written, test-engineer reviews it and produces TEST_PLAN.md:
-- Assigns P0/P1/P2 priority to each use case
-- Maps each to a test file name
-- Defines cross-cutting checks (no console errors, no 5xx, loading states)
-- This is the test backlog — tracked through Phase 4
+### Phase 2 — Requirements
 
-### 3. E2E test writing in Phase 4 (AFTER implementation)
+```mermaid
+flowchart TD
+    Start[Phase 2: Requirements] --> UX[HANDOFF ux-engineer: USER_FLOWS.md]
+    UX --> Write[SDLC lead writes SRS.md + USER_STORIES.md]
+    Write --> UC[SDLC lead writes docs/testing/USE_CASES.md]
+    UC --> TE[HANDOFF test-engineer: TEST_PLAN.md]
+    TE --> Gate[Gate -> Check-In -> P3]
+```
 
-Currently Phase 4 only produces TEST_STRATEGY.md (framework choices) and tells the developer to "write tests alongside code." That's aspirational — developers skip it under time pressure.
+### Phase 3 — Design
 
-**New:** After implementation is done, SDLC lead hands off to test-engineer with a specific task:
-- Read USE_CASES.md + TEST_PLAN.md
-- Write one E2E spec per P0 use case
-- Write shared fixtures helper
-- Run the full suite
-- Report pass/fail count
+```mermaid
+flowchart TD
+    Start[Phase 3: Design] --> Research[HANDOFF researcher: framework comparison]
+    Research --> Tech[SDLC lead writes TECH_STACK.md]
+    Tech --> DB[HANDOFF db-architect: DATABASE.md]
+    DB --> API[HANDOFF api-designer: API_DESIGN.md + openapi.yaml]
+    API --> UI{UI-bearing?}
+    UI -->|yes| UX[HANDOFF ux-engineer: DESIGN_PRINCIPLES + STYLE_GUIDE + UX_SPEC]
+    UX --> Frontend[HANDOFF frontend-design: design tokens + DESIGN_SYSTEM]
+    UI -->|no| Sec[HANDOFF security-auditor: THREAT_MODEL.md]
+    Frontend --> Sec
+    Sec --> Synth[SDLC lead writes ARCHITECTURE.md + PARALLELIZATION_MAP.md]
+    Synth --> Gate[Gate -> Merge sdlc/setup -> main -> P4]
+```
 
-This catches integration issues (like the ones we found in Sibling) BEFORE code review starts.
+### Phase 4 — Implementation (wave-based)
 
-### 4. Discovery audit after implementation
+```mermaid
+flowchart TD
+    Start[Phase 4: Implementation] --> Mode{Sequential or Parallel waves?}
+    Mode --> TS[HANDOFF test-engineer: TEST_STRATEGY.md]
+    TS --> WaveLoop[For each wave in PARALLELIZATION_MAP]
+    WaveLoop --> Seq{Wave mode?}
+    Seq -->|sequential| OneAtATime[One coding-agent HANDOFF per module, wait verify >= 7]
+    Seq -->|parallel| R1[Round 1: N coding-agent HANDOFFs in parallel]
+    R1 --> R1Gate[Gate: all 'code done' + no write-scope collisions]
+    R1Gate --> R2[Round 2: N code-reviewer HANDOFFs]
+    R2 --> R2Gate[Gate: every module APPROVED]
+    R2Gate --> R3[Round 3: N runtime-validation HANDOFFs]
+    R3 --> R3Gate[Gate: every RUNTIME report = PASS]
+    OneAtATime --> NextWave
+    R3Gate --> NextWave[Next wave or fan-out]
+    NextWave --> E2E[HANDOFF test-engineer: write E2E specs per P0 use case]
+    E2E --> Disc[HANDOFF test-engineer: discovery audit on running app]
+    Disc --> Container[HANDOFF container-ops: Dockerfile + compose]
+    Container --> SRE[HANDOFF sre-engineer: CI/CD + deploy]
+    SRE --> Reviews[Parallel review fan-out: code-reviewer + security + perf + ux]
+    Reviews --> Synth[SDLC lead writes FIX_BACKLOG]
+    Synth --> Loop[Fix-Verify Loop - max 3 iterations]
+    Loop --> RuntimeGate[Runtime Validation Gate - blocking]
+    RuntimeGate --> FinalGate[Final gate: RUNTIME PASS + FIX_BACKLOG closed + 0 open CRITICAL/HIGH]
+    FinalGate --> Merge[task git-expert: PR ready + squash merge]
+```
 
-SDLC lead runs an inline discovery check:
-- Navigate every page/endpoint the app exposes
-- Collect: console errors, 4xx/5xx responses, visible error text, slow loads
-- Produce: docs/audits/discovery-YYYY-MM-DD.md
-- Triage: fix blockers before sending to code-reviewer
+### Phase 5 — Release
 
-### 5. P0 gate before code review
+Phase 5 is the release gate, not a workflow. It runs `validate-phase-gate.sh phase-5` which chains FIX_BACKLOG-closed, all reviews APPROVED, and runtime gates. If clean, it merges to `main` and tags the release.
 
-Code-reviewer and security-auditor should not waste time reviewing code that doesn't pass its own tests. New gate: all P0 tests must be green before review starts.
+## What's New (highlights from recent versions)
+
+### USE_CASES.md in Phase 2
+
+SDLC lead writes this inline (not a handoff) because it derives directly from requirements. One use case per user story, with persona, preconditions, trigger, main flow, alt flows, success criteria. This is the source of truth for what gets tested.
+
+### TEST_PLAN.md via test-engineer in Phase 2
+
+After USE_CASES.md is written, test-engineer reviews it and produces TEST_PLAN.md: P0/P1/P2 priorities, test-file mapping, cross-cutting checks. Tracked through Phase 4.
+
+### E2E test writing in Phase 4
+
+Phase 4 does not stop at TEST_STRATEGY.md (framework choices) — that's aspirational. After implementation, SDLC lead hands off to test-engineer to actually WRITE the E2E specs (one per P0 use case), run the suite, and report counts. Catches integration issues before code review starts.
+
+### Discovery audit after implementation
+
+SDLC lead runs an inline discovery check: navigate every page/endpoint, collect console errors / 4xx-5xx / visible error text / slow loads. Produces `docs/audits/discovery-YYYY-MM-DD.md`. Triage blockers before sending to code-reviewer.
+
+### P0 gate before code review
+
+Code-reviewer and security-auditor should not waste time on code that doesn't pass its own tests. All P0 tests must be green before review starts.
 
 ## Context Packet Protocol (for all HANDOFFs)
 
-Before every HANDOFF, SDLC lead prepares a context packet — NOT in the handoff prompt itself (that's for task instructions), but as a separate file the agent reads:
+Before every HANDOFF, SDLC lead prepares a context packet — NOT inside the handoff prompt itself, but as a separate file the agent reads:
 
 ```
 write(filePath="docs/work/context-for-{agent}.md", content="
@@ -264,7 +163,7 @@ CONTEXT (read these before starting):
 - [specific file 2]
 ```
 
-### Why: agents that re-explore the codebase waste 30-50% of their context on orientation. A focused context packet front-loads them.
+**Why:** agents that re-explore the codebase waste 30-50% of their context on orientation. A focused context packet front-loads them.
 
 ## Completion Manifest Protocol (for all returning agents)
 
@@ -280,17 +179,15 @@ Known issues: [deferred items, with why]
 Ready for: {next agent or "SDLC lead resume"}
 ```
 
-SDLC lead reads this, verifies files exist + have content, runs the test command, then continues.
+SDLC lead reads this, verifies files exist with content, runs the test command, then continues.
 
-### Why: "check file exists with >50 lines" is too weak. Completion manifests give structured verification.
+**Why:** "check file exists with >50 lines" is too weak. Completion manifests give structured verification.
 
----
+## Post-HANDOFF automated gates (v0.15.0)
 
-## Post-HANDOFF Automated Gates (v0.15.0)
+After every specialist HANDOFF returns and before accepting the work, the orchestrator runs three automated gates via `./scripts/validators/run-handoff-gates.sh`:
 
-After EVERY specialist HANDOFF returns and before accepting the work, the orchestrator runs three automated gates via `./scripts/validators/run-handoff-gates.sh`:
-
-```
+```bash
 run-handoff-gates.sh \
   --scope <assigned-dir> [--scope <dir2> ...] \
   --manifest <manifest-path> \
@@ -316,104 +213,79 @@ Three gates, any failure aborts the rest:
 | onboard --deep | `validate-inventory.sh` |
 | code/refactor | omit |
 
-Any gate failure returns the HANDOFF with REVISE status + the specific gap. No orchestrator judgment required. Replaces the manual "read the manifest and decide" step.
+Any gate failure returns the HANDOFF with REVISE status + the specific gap. No orchestrator judgment required.
 
----
-
-## Ralph Wiggum Loop (Deep Verification)
+## Ralph Wiggum Loop (deep verification)
 
 Used by `/sdlc onboard --deep` and `/security --deep`. Canonical protocol: `agents/shared/RALPH_WIGGUM_LOOP.md`.
 
+```mermaid
+flowchart TD
+    Inv[1. INVENTORY: enumerate every unit]
+    Inv --> Disc[2. DISCOVER: produce one artifact per row]
+    Disc --> Verify[3. VERIFY: validator confirms 100% coverage]
+    Verify --> Check{Coverage = 100%?}
+    Check -->|yes| Done([Loop closed])
+    Check -->|no| Gap[4. GAP: re-discover ONLY uncovered rows]
+    Gap --> Iter{Iterations >= 3?}
+    Iter -->|no| Verify
+    Iter -->|yes| Escalate[5. ESCALATE: waiver / lower bar / specialist / manual]
 ```
-1. INVENTORY   → enumerate the universe (one row per unit: route, table, service, flow, entry)
-2. DISCOVER    → produce one artifact per inventory row (parallel waves by category)
-3. VERIFY      → validator script confirms 100% coverage
-4. GAP         → re-discover ONLY the uncovered rows (one row = one HANDOFF)
-5. REPEAT      → until coverage = 100% OR 3 iterations (then escalate)
-```
 
-Replaces confidence-score self-evaluation with coverage-percentage facts. Either every row has an artifact or it does not — no feeling, no interpretation.
+Replaces confidence-score self-evaluation with coverage-percentage facts.
 
-**For `/sdlc onboard --deep`:** inventory file is `docs/onboard/INVENTORY.md`. Validator is `validate-phase-gate.sh onboard-deep`.
-
-**For `/security --deep`:** inventory is the OWASP tracker + semgrep rule-file coverage + 9 attack-chain patterns. Validator is `validate-phase-gate.sh security-deep`.
+- `/sdlc onboard --deep` — inventory is `docs/onboard/INVENTORY.md`. Validator: `validate-phase-gate.sh onboard-deep`.
+- `/security --deep` — inventory is the OWASP tracker + semgrep rule-file coverage + 9 attack-chain patterns. Validator: `validate-phase-gate.sh security-deep`.
 
 Three sub-skills trigger the individual onboard-deep steps: `/onboard-inventory` (D1), `/onboard-verify` (D3), `/onboard-gap-fill` (D4).
 
----
+## Mode 3: Feature Addition
 
-## Mode 3: Feature Addition — Agent Flow
-
-```
-User: /sdlc feature "add payment processing"
-         │
-         ▼
-    Feature Discovery Interview (7 questions) → user confirms
-         │
-    Step 1: Impact Analysis (SDLC lead inline)
-         ├── Read codebase, identify affected files
-         └── Write docs/FEATURE_IMPACT.md
-         │
-    Step 2: Design
-         ├── HANDOFF → relevant specialist (db-architect if schema change,
-         │              api-designer if new endpoints, ux-engineer if new UI)
-         │
-         ├── ★ NEW: SDLC lead writes USE CASES for this feature
-         │   └── Append to docs/testing/USE_CASES.md
-         │
-         ├── ★ NEW: HANDOFF → test-engineer (write acceptance test FIRST)
-         │   └── PRODUCE: e2e/use-cases/{feature}.spec.ts
-         │   └── Test should FAIL initially (TDD)
-         │   └── RETURN: "test written — fails as expected (feature not built yet)"
-         │
-    Step 3: Implement
-         ├── Developer builds the feature
-         ├── Test should now PASS
-         │
-    Step 4: Review
-         ├── ★ NEW: GATE — feature test + all existing P0 tests pass
-         ├── HANDOFF → code-reviewer
-         ├── HANDOFF → security-auditor (if security-sensitive)
-         │
-    Step 5: PR + Merge
-         └── task(git-expert) → PR, review, merge
+```mermaid
+flowchart TD
+    Start([User: /sdlc feature 'add payment processing']) --> DI[Feature Discovery Interview - 7 questions]
+    DI --> Step1[Step 1: Impact Analysis - SDLC lead inline]
+    Step1 --> Impact[Write docs/FEATURE_IMPACT.md]
+    Impact --> Step2[Step 2: Design]
+    Step2 --> Specialist[HANDOFF: db-architect / api-designer / ux-engineer per impact]
+    Specialist --> UC[SDLC lead appends use cases to docs/testing/USE_CASES.md]
+    UC --> AcceptanceTest[HANDOFF test-engineer: write acceptance test FIRST]
+    AcceptanceTest --> Failing[Test FAILS - feature not built yet]
+    Failing --> Step3[Step 3: Implement]
+    Step3 --> Build[Developer builds feature]
+    Build --> Passing[Test now PASSES]
+    Passing --> Step4[Step 4: Review]
+    Step4 --> P0Gate[Gate: feature test + all P0 tests pass]
+    P0Gate --> Reviews[HANDOFF code-reviewer + security-auditor if sensitive]
+    Reviews --> Step5[Step 5: PR + Merge]
+    Step5 --> Merge[task git-expert: PR -> review -> merge]
 ```
 
-## Mode 4: Improve — Agent Flow
+## Mode 4: Improve
 
-```
-User: /sdlc improve "ux"
-         │
-    Improvement Discovery Interview → user confirms scope
-         │
-    Step 1: Context Check
-         ├── Read AGENTS.md, existing docs, recent git history
-         │
-    ★ NEW Step 1.5: Discovery Audit
-         ├── Walk all pages, collect errors, network failures
-         ├── PRODUCE: docs/audits/discovery-pre-improve.md
-         ├── This gives ground truth BEFORE any audit agent runs
-         │
-    Step 2: Targeted Audits
-         ├── HANDOFF → ux-engineer (if UX focus)
-         ├── HANDOFF → code-reviewer (if quality focus)
-         ├── HANDOFF → performance-engineer (if perf focus)
-         ├── HANDOFF → security-auditor (if security focus)
-         │
-    Step 3: Consolidate + Plan
-         ├── SDLC lead reads all audit reports
-         ├── Produces docs/improve/IMPROVEMENT_PLAN.md
-         ├── ★ NEW: Include "regression test" column in plan
-         │   └── For each fix, what test prevents regression?
-         │
-    Step 4: Implement Fixes
-         ├── Per fix: implement → write regression test → verify
-         │
-    Step 5: Verify
-         ├── ★ NEW: Re-run discovery audit
-         ├── Compare before/after findings
-         ├── All P0 tests still pass (no regressions)
-         │
-    Step 6: PR + Merge
-         └── task(git-expert) → PR with before/after metrics
+```mermaid
+flowchart TD
+    Start([User: /sdlc improve 'ux']) --> DI[Improvement Discovery Interview]
+    DI --> Step1[Step 1: Context Check - read AGENTS.md + docs + recent git]
+    Step1 --> Step15[Step 1.5: Discovery Audit on running app]
+    Step15 --> Pre[PRODUCE docs/audits/discovery-pre-improve.md]
+    Pre --> Step2[Step 2: Targeted Audits]
+    Step2 --> Fan{Audit focus}
+    Fan -->|UX| UX[HANDOFF ux-engineer]
+    Fan -->|quality| CR[HANDOFF code-reviewer]
+    Fan -->|perf| Perf[HANDOFF performance-engineer]
+    Fan -->|security| Sec[HANDOFF security-auditor]
+    UX --> Step3
+    CR --> Step3
+    Perf --> Step3
+    Sec --> Step3[Step 3: Consolidate + Plan]
+    Step3 --> Plan[SDLC lead writes IMPROVEMENT_PLAN.md with regression-test column]
+    Plan --> Step4[Step 4: Implement Fixes]
+    Step4 --> PerFix[Per fix: implement -> regression test -> verify]
+    PerFix --> Step5[Step 5: Verify]
+    Step5 --> Rerun[Re-run discovery audit]
+    Rerun --> Compare[Compare before/after findings]
+    Compare --> AllP0[All P0 tests still pass - no regressions]
+    AllP0 --> Step6[Step 6: PR + Merge]
+    Step6 --> Done[task git-expert: PR with before/after metrics]
 ```
