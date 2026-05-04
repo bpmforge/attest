@@ -1,5 +1,5 @@
 ---
-description: 'Mode 2 — Onboard to an existing codebase. Reverse-engineers an existing project into documentation: ARCHITECTURE, sequence diagrams, ERD, ONBOARDING. Invoked by sdlc-lead when the user runs `/sdlc onboard`. Supports --quick (default) and --deep (Ralph Wiggum inventory loop) flags.'
+description: 'Mode 2 — Onboard to an existing codebase. Reverse-engineers an existing project into documentation: ARCHITECTURE, sequence diagrams, ERD, ONBOARDING. Invoked by sdlc-lead when the user runs `/sdlc onboard`. Supports --quick (minimal 7-step), default (7-step + lightweight ROUTE/TABLE inventory), and --deep (full Ralph Wiggum 5-category loop) flags.'
 mode: "subagent"
 ---
 
@@ -13,6 +13,20 @@ Deep mode additionally runs the Ralph Wiggum inventory loop — see the "Ralph W
 
 Understand a codebase you've never seen. Produce documentation that makes
 the next person's onboarding 10x faster.
+
+## Three depth levels
+
+| Flag | Steps run | Time | When to use |
+|------|-----------|------|-------------|
+| `--quick` | 7-step pass only | ~10–15 min | Quick orientation; exploratory only — no inventory verification |
+| (default) | 7-step pass + Lightweight Inventory (ROUTE + TABLE) + run-coverage-loop | ~25–35 min | Standard onboard. Catches undocumented routes + tables |
+| `--deep` | 7-step pass + full Ralph Wiggum loop (ROUTE / TABLE / SERVICE / FLOW / ENTRY) | ~45–90 min | Contract bids, due diligence, security-sensitive takeovers |
+
+The 7-step pass below runs in all three modes. After Step 7:
+
+- `--quick` → done
+- (default) → run the **Lightweight Inventory section** at the end of this file
+- `--deep` → run the **Ralph Wiggum Deep Mode section** at the end of this file
 
 ## Loop prevention (MANDATORY — rules are here, no file read required)
 
@@ -659,9 +673,61 @@ Mode 2 Completion:
 
 ---
 
+# Lightweight Inventory (default mode — runs after Step 7)
+
+When the user invokes onboard WITHOUT a flag (default), run this section after the 7-step pass. It catches the two highest-value coverage gaps — undocumented routes and undocumented tables — without the full Ralph Wiggum 5-category enumeration.
+
+## Step L1 — Lightweight Inventory
+
+Issue ONE HANDOFF to researcher (read-only) to produce `docs/onboard/INVENTORY.md` with rows for ROUTE and TABLE categories ONLY. Use the same schema as deep mode (ID / Category / Description / Artifact / Status), but skip SERVICE / FLOW / ENTRY rows.
+
+```
+HANDOFF -> /research (researcher) -- LIGHTWEIGHT INVENTORY
+
+SDLC-TASK for researcher:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md
+- agents/shared/RALPH_WIGGUM_LOOP.md
+- The codebase root (find every route handler and every database table/model)
+
+WRITE-SCOPE (exclusive):
+- docs/onboard/
+
+YOUR TASK:
+Enumerate every ROUTE found in source (Express/Fastify/Next route/FastAPI/Flask/Go handler) and every TABLE (Prisma model / SQLAlchemy / TypeORM / Knex / raw SQL CREATE TABLE / Django models). Produce ONE row in the inventory per unit. Skip SERVICE, FLOW, ENTRY categories — those are for --deep mode only.
+
+PRODUCE:
+- docs/onboard/INVENTORY.md — markdown table with columns ID, Category, Description, Artifact, Status (all rows start PENDING). Categories: ROUTE, TABLE only.
+- docs/onboard/INVENTORY_NOTES.md — brief notes on discovery method and any ambiguities.
+
+Print: "researcher done -- lightweight inventory: N routes, M tables"
+Then stop.
+```
+
+## Step L2 — Verify
+
+Run the universal coverage loop:
+
+```bash
+./scripts/validators/run-coverage-loop.sh onboard-deep
+```
+
+This chains `validate-inventory.sh` + `validate-architecture.sh` + `validate-erd-coverage.sh` + `validate-sequence-coverage.sh` + `validate-no-ascii-art.sh`. The lightweight inventory only contains ROUTE and TABLE rows, so SERVICE / FLOW / ENTRY validators will warn-skip (no rows of those types) — that's correct.
+
+Exit 0 → onboard default complete.
+Exit 1 → emit gap-fill HANDOFFs (one per uncovered row), re-run.
+Exit 2 → emit escalation block from `RALPH_WIGGUM_LOOP.md` and stop.
+
+## Step L3 — Cap or upgrade
+
+If after 3 iterations the lightweight inventory still has gaps that require deeper investigation (a route is in the code but no API_DESIGN.md exists at all, or a table appears nowhere in any ERD), recommend the user re-run with `--deep` for full Ralph coverage.
+
+---
+
 # Ralph Wiggum Deep Mode (`/sdlc onboard --deep`)
 
-When the user invokes onboard with `--deep`, the standard 7-step flow above runs FIRST as the baseline. Then the Ralph Wiggum loop runs SECOND to verify exhaustive coverage.
+When the user invokes onboard with `--deep`, the standard 7-step flow above runs FIRST as the baseline. Then the Ralph Wiggum loop runs SECOND to verify exhaustive coverage of all 5 categories (ROUTE / TABLE / SERVICE / FLOW / ENTRY).
 
 Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 

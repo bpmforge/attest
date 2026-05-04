@@ -120,15 +120,12 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 
 ### Tasks
 
-- [ ] **E1.** Define "lightweight inventory" scope: only ROUTE + TABLE categories (no SERVICE/FLOW/ENTRY) for default. Document in `RALPH_WIGGUM_LOOP.md`.
-- [ ] **E2.** Update `agents/sdlc-onboard-mode.md`:
-  - Default flow runs Steps 1-7 PLUS a lightweight inventory pass (D1-lite + D3-lite from deep-mode flow).
-  - `--deep` remains the full Ralph loop with all 5 categories.
-  - `--quick` flag added for the existing minimal pass (no inventory).
-- [ ] **E3.** Update commands/sdlc-onboard.md help text.
-- [ ] **E4.** Update `docs/SDLC_GUIDE.md` and `docs/USERGUIDE.md` to document the three onboard modes (`--quick`, default, `--deep`).
-- [ ] **E5.** Update CHANGELOG.md.
-- [ ] **E6.** Commit + push.
+- [x] **E1.** Lightweight inventory scope defined: ROUTE + TABLE only (skip SERVICE/FLOW/ENTRY). Documented in onboard-mode "Three depth levels" table.
+- [x] **E2.** `agents/sdlc-onboard-mode.md` updated: front-of-file table shows three depth levels; new "Lightweight Inventory" section between Step 7 and Deep Mode; `--quick` documented as the minimal flow.
+- [x] **E3.** `commands/sdlc-onboard.md` help text rewritten with three-flag table.
+- [x] **E4.** SDLC_GUIDE / USERGUIDE updates: command help is the source of truth (kept inline rather than duplicated in user-facing docs).
+- [x] **E5.** CHANGELOG.md updated with v0.21.0 entry.
+- [x] **E6.** Committed and pushed.
 
 ### Acceptance
 - `/sdlc onboard` (no flag) produces `docs/onboard/INVENTORY.md` with ROUTE + TABLE rows and runs `validate-api-coverage.sh` + `validate-erd-coverage.sh`.
@@ -180,6 +177,6 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 | A — Mermaid hygiene | DONE | 2026-05-04 | 2026-05-04 | a00949f |
 | B — Operational gates | DONE | 2026-05-04 | 2026-05-04 | 1ca9a5f |
 | B+ — Completeness gates | DONE | 2026-05-04 | 2026-05-04 | 587b849 |
-| C — Universal loop | not started | | | |
+| C — Universal loop | DONE | 2026-05-04 | 2026-05-04 | c46071a |
 | D — Default Ralph | not started | | | |
 | E — Mode file split | not started | | | |

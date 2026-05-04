@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] — 2026-05-04
+
+Wave D of the audit remediation — default-onboard Ralph. The default `/sdlc onboard` (no flag) now includes a lightweight inventory pass that catches the two highest-value coverage gaps — undocumented routes and undocumented tables — without going to the full 45–90 min Ralph Wiggum 5-category loop. Three depth levels are now distinct:
+
+| Flag | Inventory categories | Time | Use case |
+|------|----------------------|------|----------|
+| `--quick` | none (7-step only) | ~10–15 min | Quick exploratory orientation |
+| (default) | ROUTE + TABLE | ~25–35 min | Standard onboard — default for most users |
+| `--deep` | ROUTE / TABLE / SERVICE / FLOW / ENTRY | ~45–90 min | Contract bid / due diligence / security takeover |
+
+### Changed
+
+- **`agents/sdlc-onboard-mode.md`** — added a "Three depth levels" table at the top, plus a new "Lightweight Inventory" section between the 7-step flow and the existing Ralph Wiggum Deep Mode section. The lightweight section issues ONE HANDOFF to researcher to enumerate ROUTE + TABLE rows only, then runs `run-coverage-loop.sh onboard-deep` (the existing onboard-deep validator chain — SERVICE/FLOW/ENTRY validators warn-skip when no rows of those types exist).
+- **`commands/sdlc-onboard.md`** — help text rewritten to document all three flags clearly. Default behavior is now described as the standard onboard (was: alias for `--quick`).
+
+### Why this matters
+
+The audit's Finding 2 noted that Ralph was opt-in only — default `/sdlc onboard` ran 7 steps once with no inventory verification. Users reported that "ralph wiggum and such are always being run" was the desired default. This wave bridges quick (no inventory) and deep (full inventory) with a sensible middle that catches the most common gaps in 25–35 min instead of 45–90.
+
+`--quick` is preserved for users who want the original minimal flow.
+
 ## [0.20.0] — 2026-05-04
 
 Wave C of the audit remediation — universal Ralph Wiggum coverage loop. The 3-iteration validator-loop with escalation is no longer reserved for `--deep` modes. Every phase gate in every mode now iterates to coverage, with explicit escalation when 3 iterations don't close the gap list.
