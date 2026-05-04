@@ -99,7 +99,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 **You write:** VISION.md (strategic, not technical) using answers from DISCOVERY.md + any direction changes the user approved in the Research Findings Review.
 **Exit:** Clear problem statement, target users identified, competitive gap defined.
 
-**Gate Loop:** Rate VISION.md and COMPETITIVE_ANALYSIS.md per the Confidence-Based Gates section. Minimum score 7 before Phase 1.
+**Gate Loop:** VISION.md and COMPETITIVE_ANALYSIS.md are narrative artifacts → use Track 2 (confidence loop) per the Two-Track Gate System section in `sdlc-lead.md`. Minimum score 7 before Phase 1.
 **Git checkpoint — commit Phase 0 docs before advancing:**
 ```
 task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION.md, COMPETITIVE_ANALYSIS.md, any research files) to the sdlc/setup branch. Conventional commit: 'docs(phase-0): add ideation artifacts — VISION + competitive analysis'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
@@ -1198,7 +1198,7 @@ Round 3 gate (mandatory before Wave N+1):
 1. Every module reported its runtime completion phrase
 2. Every `RUNTIME_<module>_<date>.md` has verdict `PASS`
 3. No two agents wrote to the same file across the wave
-4. **Operational validators clean** — run `./scripts/validators/validate-phase-gate.sh phase-4` from project root. This auto-detects the stack and chains: `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`. All three must exit 0. Override commands per project via `.sdlc/sdlc.json` (see `docs/SDLC_GUIDE.md`).
+4. **Coverage loop clean** — run `./scripts/validators/run-coverage-loop.sh phase-4` from project root. This wraps `validate-phase-gate.sh phase-4` with iteration tracking + escalation. Exits 0 (clean), 1 (gaps remain — orchestrator emits gap-fill HANDOFFs and re-runs), or 2 (3 iterations exhausted — emit escalation block). Chained validators: `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-migrations.sh`. Override commands per project via `.sdlc/sdlc.json`.
 5. Update the SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE | per-module scores`
 
 A module that fails Round 3 blocks only itself — fix that module and re-run its Round 3 HANDOFF while other modules' PASS verdicts remain valid.

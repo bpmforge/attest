@@ -398,17 +398,37 @@ Good adaptive questions:
 
 ---
 
-## Confidence-based gates
+## Two-track gate system
 
-For artifacts where coverage isn't easily validated by a script (narratives, summaries, research reports), run a confidence loop:
+Every artifact falls into one of two tracks. Pick the right one — never mix.
+
+### Track 1 — Coverage loop (objective, default)
+
+For artifacts where coverage IS validatable by a script — architecture diagrams, OWASP tracker, API coverage, ERD, sequence diagrams, C3 components, entry points, use cases, user stories, tech stack, ADRs, migrations, fix-backlog closure, build / test / lint / smoke / deps:
+
+```bash
+./scripts/validators/run-coverage-loop.sh <phase>
+```
+
+| Exit | Meaning | Orchestrator action |
+|------|---------|---------------------|
+| 0 | Clean | Mark tracker DONE, advance |
+| 1 | Gaps remain (iter < 3) | Read `docs/work/COVERAGE_LOOP_<phase>_<date>.md`, emit one gap-fill HANDOFF per uncovered row, then re-run the script |
+| 2 | 3 iterations exhausted | Emit the escalation block from `agents/shared/RALPH_WIGGUM_LOOP.md` (waiver / lower-bar / specialist / manual) |
+
+Do not second-guess the script. The validators don't lie. If they say a row is uncovered, it is.
+
+### Track 2 — Confidence loop (subjective, narrative-only)
+
+For artifacts where coverage isn't easily validated by a script — narratives, summaries, research reports, vision statements:
 
 1. Draft the artifact
 2. Score 1-10 against grounding criteria (spec completeness, internal consistency, traceability to source)
-3. If score < 5 -- surface to user immediately
-4. If score 5-6 -- revise up to 3 passes
-5. If score >= 7 -- mark tracker row DONE
+3. If score < 5 → surface to user immediately
+4. If score 5-6 → revise up to 3 passes
+5. If score >= 7 → mark tracker row DONE
 
-For artifacts where coverage IS validatable (architecture diagrams, OWASP tracker, API coverage, ERD, inventory) -- use the Wave 3 validators instead. Do not second-guess the script.
+**Use Track 2 sparingly.** If a structural validator could be written for the artifact, write the validator instead of running confidence-scoring. Confidence loops are for content judgment (does VISION.md actually capture the user's vision?), not for completeness (does ARCHITECTURE.md include all 6 diagram types? — that's `validate-architecture.sh`).
 
 ---
 
