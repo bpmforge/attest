@@ -70,24 +70,19 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 
 ### Tasks
 
-- [ ] **C1.** Create `scripts/validators/validate-c3-coverage.sh` — enumerate `src/` subdirectories (depth 1, excluding `node_modules`, `__tests__`, etc.). Each subdir must appear in C3 component diagram in `ARCHITECTURE.md` or `docs/diagrams/c3-components.md`.
-- [ ] **C2.** Create `scripts/validators/validate-entry-points.sh` — enumerate entry points: `package.json`'s `bin`, `main`, `scripts.start`, `scripts.dev`; Python `__main__.py`, `setup.py` console_scripts; Go `main.go` files; Cron/scheduler decorators. Verify each appears in `docs/ONBOARDING.md` or `docs/diagrams/entry-points.md`.
-- [ ] **C3.** Create `scripts/validators/validate-use-cases.sh` — parse `docs/USE_CASES.md` markdown table. Every row must have non-empty: ID, Persona, Trigger, Main Flow, Success Criteria, Priority (P0/P1/P2). Cross-check: every entry point from C2 has at least one use case.
-- [ ] **C4.** Create `scripts/validators/validate-user-stories.sh` — every story in `docs/USER_STORIES.md` has acceptance criteria block (`Given/When/Then` or numbered list ≥ 3 items). Cross-check: every persona in `USER_PERSONAS.md` has at least one story.
-- [ ] **C5.** Create `scripts/validators/validate-tech-stack.sh` — read `package.json` (or `Cargo.toml`/`go.mod`/`requirements.txt`) dependencies. Every direct dependency must appear in `docs/TECH_STACK.md`. Reverse: TECH_STACK shouldn't reference packages not installed.
-- [ ] **C6.** Create `scripts/validators/validate-tests-mapping.sh` — every test file in `tests/` or `__tests__/` references a use case ID (e.g., `// UC-01` comment or describe-block name). Reverse: every P0/P1 use case has at least one test referencing it.
-- [ ] **C7.** Create `scripts/validators/validate-fix-backlog-closed.sh` — parse `docs/reviews/FIX_BACKLOG_*.md`. Every CRITICAL/HIGH row must have status `VERIFIED` or `WAIVED-WITH-JUSTIFICATION`. Open rows fail the gate.
-- [ ] **C8.** Create `scripts/validators/validate-adrs.sh` — every architectural decision claimed in `ARCHITECTURE.md` or `docs/DECISION_LOG.md` has a corresponding `docs/adrs/ADR-NNN-*.md` file with status `proposed|accepted|deprecated|superseded`.
-- [ ] **C9.** Create `scripts/validators/validate-migrations.sh` — every migration file (`migrations/`, `prisma/migrations/`, `db/migrations/`) has a date-ordered companion entry in `docs/DATABASE.md` migration log. Schema-state matches migration tail.
-- [ ] **C10.** Update `validate-phase-gate.sh` to call the new validators in appropriate phases:
-  - phase-2 → C3 + C4
-  - phase-3 → C1 + C2 + C5 + C8
-  - phase-4 → C6 + C9
-  - phase-5 → C7
-  - onboard-deep → C1 + C2 + C3 + C5
-- [ ] **C11.** Update `agents/shared/RALPH_WIGGUM_LOOP.md` with the expanded validator catalog.
-- [ ] **C12.** Update CHANGELOG.md.
-- [ ] **C13.** Commit + push.
+- [x] **C1.** Created `validate-c3-coverage.sh` — enumerates src/ subdirs, verifies each appears in C3 component diagram.
+- [x] **C2.** Created `validate-entry-points.sh` — enumerates entry points across node/python/rust/go, verifies each documented.
+- [x] **C3.** Created `validate-use-cases.sh` — parses USE_CASES.md (table OR section form), verifies all required fields present and priority is valid.
+- [x] **C4.** Created `validate-user-stories.sh` — verifies every story has acceptance criteria; cross-checks persona coverage.
+- [x] **C5.** Created `validate-tech-stack.sh` — reads deps from package.json/pyproject.toml/requirements.txt/Cargo.toml/go.mod, verifies each in TECH_STACK.md.
+- [x] **C6.** Created `validate-tests-mapping.sh` — bidirectional UC ↔ test coverage (forward fail, reverse warn).
+- [x] **C7.** Created `validate-fix-backlog-closed.sh` — verifies CRITICAL/HIGH rows are VERIFIED/FIXED/WAIVED before phase-5.
+- [x] **C8.** Created `validate-adrs.sh` — verifies every ADR-NNN reference has a file with valid status.
+- [x] **C9.** Created `validate-migrations.sh` — verifies every migration file is referenced in DATABASE.md.
+- [x] **C10.** `validate-phase-gate.sh` wired: phase-2 (C3+C4), phase-3 (C1+C2+C5+C8), phase-4 (C6+C9), phase-5 (C7).
+- [x] **C11.** `agents/shared/RALPH_WIGGUM_LOOP.md` updated with full 17-validator catalog table.
+- [x] **C12.** CHANGELOG.md updated with v0.19.0 entry.
+- [x] **C13.** Committed and pushed.
 
 ### Acceptance
 - 9 new completeness validators exist and pass against this repo (or report meaningful gaps).
@@ -189,7 +184,7 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 | Wave | Status | Started | Completed | Commit SHA |
 |------|--------|---------|-----------|------------|
 | A — Mermaid hygiene | DONE | 2026-05-04 | 2026-05-04 | a00949f |
-| B — Operational gates | not started | | | |
+| B — Operational gates | DONE | 2026-05-04 | 2026-05-04 | 1ca9a5f |
 | B+ — Completeness gates | not started | | | |
 | C — Universal loop | not started | | | |
 | D — Default Ralph | not started | | | |

@@ -40,6 +40,28 @@ Produce an inventory file that enumerates every unit requiring coverage. Format:
 | `/security --deep` | `docs/security/OWASP_INVENTORY.md` (already the OWASP_TRACKER) |
 | `/sdlc init` Phase 3 diagrams | `docs/sdlc/ARCHITECTURE_INVENTORY.md` (part of SDLC_TRACKER) |
 
+**Coverage validators (current catalog as of v0.19.0):**
+
+| Validator | What it covers |
+|-----------|----------------|
+| `validate-architecture.sh` | All 6 diagram types in ARCHITECTURE.md, real Mermaid fences |
+| `validate-api-coverage.sh` | Every route in source has API_DESIGN.md + openapi.yaml entry |
+| `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
+| `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
+| `validate-c3-coverage.sh` | Every src/ subdir has a C3 component entry |
+| `validate-entry-points.sh` | Every server/CLI/worker entry point is documented |
+| `validate-use-cases.sh` | Every use case row has all required fields + valid priority |
+| `validate-user-stories.sh` | Every story has acceptance criteria; every persona has a story |
+| `validate-tech-stack.sh` | Every dependency in package.json / pyproject.toml / Cargo.toml / go.mod is in TECH_STACK.md |
+| `validate-tests-mapping.sh` | Every P0/P1 use case has a test referencing it |
+| `validate-fix-backlog-closed.sh` | All CRITICAL/HIGH rows are VERIFIED/FIXED/WAIVED |
+| `validate-adrs.sh` | Every ADR-NNN reference has a corresponding ADR file with status |
+| `validate-migrations.sh` | Every migration file is referenced in DATABASE.md |
+| `validate-inventory.sh` | Every INVENTORY.md row has its artifact (deep mode) |
+| `validate-owasp.sh` | All 10 OWASP categories ≥ confidence 7, attack-chains.md present |
+| `validate-no-ascii-art.sh` | No box-drawing chars or banner separators in deliverables |
+| `validate-build.sh` / `validate-tests.sh` / `validate-lint.sh` / `validate-smoke.sh` / `validate-deps.sh` | Operational checks — actually execute build/test/lint/smoke/audit |
+
 The inventory is produced by one focused HANDOFF. The agent discovers the units from the actual codebase (or spec, or rule set) -- NOT from memory or guessing.
 
 ---

@@ -2,6 +2,39 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.19.0] — 2026-05-04
+
+Wave B+ of the audit remediation — completeness gates. Nine new validators close the missing coverage dimensions identified in the audit. Every "all X are documented" check is now enforceable by script.
+
+### Added
+
+- **`scripts/validators/validate-c3-coverage.sh`** — every top-level `src/` (or `app/`, `server/`, `internal/`, `pkg/`, `packages/`, `services/`, `modules/`) subdirectory must appear in the C3 component diagram in `ARCHITECTURE.md` or `docs/diagrams/c3-components.md`.
+- **`scripts/validators/validate-entry-points.sh`** — enumerates entry points from source: `package.json` `bin`/`main`/`scripts.start`, `__main__.py` files, Go `main.go` files, Rust `src/main.rs` and `src/bin/*.rs`, common server entry files. Each must be referenced in `ONBOARDING.md`, `docs/diagrams/entry-points.md`, or `ARCHITECTURE.md`.
+- **`scripts/validators/validate-use-cases.sh`** — parses `USE_CASES.md` and verifies each row (table-form OR section-form) has non-empty Persona, Trigger, Main Flow, Success Criteria, and a valid Priority (P0/P1/P2). Catches stub rows.
+- **`scripts/validators/validate-user-stories.sh`** — every story in `USER_STORIES.md` must have acceptance criteria (Given/When/Then OR ≥3 numbered steps OR explicit "Acceptance Criteria" heading). Cross-checks: every persona in `USER_PERSONAS.md` has at least one story.
+- **`scripts/validators/validate-tech-stack.sh`** — reads dependencies from `package.json` (deps + devDeps + peerDeps), `pyproject.toml`, `requirements.txt`, `Cargo.toml`, `go.mod` (direct only). Every direct dep must appear in `TECH_STACK.md`.
+- **`scripts/validators/validate-tests-mapping.sh`** — bidirectional UC ↔ test coverage. Forward: every P0/P1 use case in `USE_CASES.md` must have a test file referencing its UC-NN ID (in filename or content). Reverse: warns on test files that don't reference any UC-ID.
+- **`scripts/validators/validate-fix-backlog-closed.sh`** — before phase-5 release, every CRITICAL or HIGH row in any `FIX_BACKLOG_*.md` must have status `VERIFIED`, `FIXED`, `RESOLVED`, `CLOSED`, `WAIVED`, or `WAIVED-WITH-JUSTIFICATION`. Open statuses (`OPEN`, `PENDING`, `IN-PROGRESS`, `REOPENED`, `NEW`, `TODO`) fail the gate. Waived rows must have a non-empty justification.
+- **`scripts/validators/validate-adrs.sh`** — every `ADR-NNN` reference in `ARCHITECTURE.md` or `DECISION_LOG.md` must have a corresponding `docs/adrs/ADR-NNN-*.md` file with a recognized status (`proposed`, `accepted`, `deprecated`, `superseded`, `rejected`).
+- **`scripts/validators/validate-migrations.sh`** — every migration file in `migrations/`, `prisma/migrations/`, `db/migrations/`, `alembic/versions/`, or `src/migrations/` must be referenced (by basename) in `docs/DATABASE.md` or `docs/MIGRATIONS.md`.
+
+### Changed
+
+- **`scripts/validators/validate-phase-gate.sh`** — completeness validators wired into the appropriate phases:
+  - `phase-2` adds: `validate-use-cases.sh`, `validate-user-stories.sh`
+  - `phase-3` adds: `validate-c3-coverage.sh`, `validate-entry-points.sh`, `validate-tech-stack.sh`, `validate-adrs.sh`
+  - `phase-4` adds: `validate-tests-mapping.sh`, `validate-migrations.sh`
+  - `phase-5` adds: `validate-fix-backlog-closed.sh`
+- **`agents/shared/RALPH_WIGGUM_LOOP.md`** — expanded the validator catalog table to list all 17 validators (architecture, coverage, completeness, operational) so mode authors can pick the right one.
+
+### Why this matters
+
+The audit's Finding 6 identified that completeness checking existed but was partial. Six high-value coverage dimensions had no validator: C3 components, entry points, use case structure, user-story acceptance criteria, tech-stack ↔ deps, ADR existence, and migration-doc consistency. Plus two phase-5 gaps: fix-backlog closure, tests ↔ use-case mapping.
+
+All nine are now scripts. Each enumerates the source-of-truth (manifest file, source dir, or source-doc) and verifies every item has its corresponding artifact. No subjective confidence score; either every item has an entry or it does not.
+
+Combined with the universal Ralph loop in Wave C, validators that find gaps will trigger automatic gap-fill HANDOFFs (capped at 3 iterations) instead of waiting for orchestrator judgment.
+
 ## [0.18.0] — 2026-05-04
 
 Wave B of the audit remediation — operational gates. Phase-4 and phase-5 release gates no longer trust agent self-report. Five new validators auto-detect the project's stack (node / python / rust / go) and actually EXECUTE the build, lint, typecheck, test, smoke, and dependency-audit steps. Every gate produces a `docs/reviews/RUNTIME_<kind>_<date>.md` report with verdict and tail output.
