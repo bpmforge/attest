@@ -183,4 +183,4 @@ Track every wave to completion. Each wave is independently shippable. Mark `[x]`
 | B+ — Completeness gates | DONE | 2026-05-04 | 2026-05-04 | 587b849 |
 | C — Universal loop | DONE | 2026-05-04 | 2026-05-04 | c46071a |
 | D — Default Ralph | DONE | 2026-05-04 | 2026-05-04 | f6f0adb |
-| E — Mode file split | not started | | | |
+| E — Mode file split | DONE (conservative) | 2026-05-04 | 2026-05-04 | 0500d89 |
