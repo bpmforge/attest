@@ -36,42 +36,45 @@ What decision hangs on this research? Every search should answer a specific ques
 
 ## Tools
 
-Three research tools, provided by the `playwright-search` MCP server (see `examples/opencode.json`):
+Five research tools, provided by the `playwright-search` MCP server (see `examples/opencode.json`), tiered by speed:
 
-| Tool | What it does | When to use |
-|------|-------------|-------------|
-| `web_research(query, top=5, max_chars_per_source=3000, relevance_query?)` | Search → dedup across engines → fetch → extract → **rank paragraphs by query relevance** → return `[Source N]` blocks of best-matching content | **Default for "research X" tasks.** One call, full content, citations, query-relevant excerpts. |
-| `web_search(query, limit=10)` | Multi-engine search (DDG + Brave + Bing), titles + URLs + snippets only | When you're orienting / triaging URLs and don't need full content |
-| `web_fetch(url, max_chars=8000, relevance_query?)` | Fetch a single URL, return clean article text via Mozilla Readability. With `relevance_query`, returns the BEST paragraphs for that query. | When you already have a URL (citation, doc link) and want its content |
+| Tool | Tier | When to use | What it does |
+|------|------|------------|-------------|
+| `web_search_pullmd(query, limit=10)` | **1 — start here** | Any new topic — triage before fetching | SERP-only, no browser. DDG + Mojeek + Brave + Startpage via pullmd. Returns titles/URLs/snippets ranked by engine agreement (~5-10s). |
+| `web_research_pullmd(query, top=3, relevance_query?)` | **2 — full content** | After triage, when full page content needed | SERP + pullmd fetch + BM25. Auto-falls back to Playwright for pages returning < 500 chars. Annotates `fetch: pullmd` or `fetch: playwright fallback`. |
+| `web_research(query, top=5, max_chars_per_source=3000, relevance_query?)` | **3 — escalate** | Only when tier 2 returns < 2 useful sources | All-Playwright pipeline: multi-engine SERP → fetch → BM25. Slower (~30-60s). |
+| `web_fetch(url, max_chars=8000, relevance_query?)` | **4 — known URL** | Specific citation or doc link already in hand | Playwright Readability + 24h cache. With `relevance_query`, returns BEST paragraphs for that query. |
+| `web_search(query, limit=10)` | **4 — SERP fallback** | When pullmd SERP is unavailable | Playwright multi-engine SERP (DDG + Brave + Bing), titles + snippets only. |
 
-**`relevance_query` — important.** All extraction is paragraph-ranked: instead of returning the first N chars of an article, the pipeline scores each paragraph by query-term overlap (BM25-lite) and packs the highest-scoring paragraphs into `max_chars_per_source`. By default, the search query is also used as the relevance query. Pass a *narrower* `relevance_query` when you want broad search but tight extraction, e.g. `web_research(query="rust async runtimes 2026", relevance_query="tokio scheduler model")`.
+**Tool selection gate (MANDATORY — answer before every tool call):**
+1. Have I used `web_search_pullmd` first for this topic? If not — use it now (tier 1).
+2. Fetching full content? → `web_research_pullmd` (tier 2) before `web_research` (tier 3).
+3. Did tier 2 return < 2 useful sources? Only then escalate to tier 3.
+4. Fetching one known URL? → `web_fetch`.
+5. Never skip a tier without logging why.
 
 **Standard research pattern (preferred):**
 ```
-web_research("specific question 2026", top=5)
-```
-Returns 5 deduplicated sources, each showing the top-N paragraphs that match your query, formatted as `[Source 1: title — site — url]` blocks ready to cite.
-
-**Power-user pattern (when you need more control):**
-```
-web_search("specific question 2026", limit=10)              → triage URLs
-web_fetch("https://chosen-url", relevance_query="X Y")      → read the relevant parts
+web_search_pullmd("specific question 2026", limit=10)       → triage URLs
+web_research_pullmd("specific question 2026", top=3)        → full content + BM25
 ```
 
-For known sources, skip search and go straight to `web_fetch`:
-- `web_fetch("https://en.wikipedia.org/wiki/Topic", relevance_query="...")`
-- `web_fetch("https://github.com/org/repo")`
-- `web_fetch("https://docs.example.com/topic", relevance_query="...")`
+**Escalation pattern (when pullmd gives thin results):**
+```
+web_research("specific question 2026", top=5)               → all-Playwright fallback
+web_fetch("https://chosen-url", relevance_query="X Y")      → single known URL
+```
+
+**`relevance_query` — important.** All extraction is paragraph-ranked: instead of returning the first N chars, the pipeline scores each paragraph by BM25 and packs the highest-scoring into `max_chars_per_source`. Pass a narrower `relevance_query` for broad search but tight extraction, e.g. `web_research_pullmd(query="rust async runtimes 2026", relevance_query="tokio scheduler model")`.
 
 **Persistence (close the research → memory loop):**
 After completing a research task, store key findings via the memory MCP registered in this project (`mempalace` or `claude-memory`). Always include the source URL so future sessions can cite back.
 
 **Notes for local LLMs (LM Studio, Ollama):**
-- All three tools work with any LLM — no Anthropic/OpenAI specifics
-- Paragraph ranking means each `[Source N]` block contains query-relevant content, not generic article intros
+- All five tools work with any LLM — no Anthropic/OpenAI specifics
 - Default `max_chars_per_source=3000` keeps tool responses inside a 45k token budget
 - Pages are cached 24h to disk — repeat queries are free
-- Per-domain rate limit (2–4s) + robots.txt respect — safe to run repeatedly without IP bans
+- Per-domain rate limit (2–4s) + robots.txt respect — safe to run repeatedly
 
 ---
 
@@ -217,12 +220,13 @@ Confidence thresholds:
 
 The opencode built-in `webfetch` and `websearch` tools are **disabled at the config layer** in this project (see `examples/opencode.json` → `"tools": { "webfetch": false, "websearch": false }`). You cannot call them; attempts return an error.
 
-**Use this fallback chain — in order:**
+**Use this fallback chain — in order, never skip a tier:**
 
-1. `playwright-search_web_research(...)` — default for any new investigation. Multi-engine, paragraph-ranked, cached.
-2. `playwright-search_web_fetch(url, ...)` — for a known URL with a clear citation source.
-3. `pullmd_read_url(url, render="force")` — fallback when (2) returns garbage / empty / errors. Use this for JS-heavy SPA pages, Cloudflare-protected sites, and Reddit threads (pullmd has dedicated Reddit support).
-4. If (1)–(3) all fail → surface `RESEARCH BLOCKED` block to the user. Do **not** loop.
+1. `playwright-search_web_search_pullmd(query)` — triage, no browser (~5-10s). Always start here.
+2. `playwright-search_web_research_pullmd(query, top=3)` — pullmd full-page + auto-Playwright for thin pages. Use when you need full content.
+3. `playwright-search_web_research(query, top=3)` — all-Playwright. Only if tier 2 returns < 2 useful sources.
+4. `playwright-search_web_fetch(url, ...)` or `pullmd_read_url(url)` — single known URL.
+5. If (1)–(4) all fail → surface `RESEARCH BLOCKED` block to the user. Do **not** loop.
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface and call examples.
 
