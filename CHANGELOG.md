@@ -2,6 +2,27 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] — 2026-05-04
+
+Wave E of the audit remediation — template extraction. Conservative size reduction by extracting two large embedded templates (the ARCHITECTURE.md template from sdlc-init-mode and the OWASP_TRACKER template from security-auditor) into their own files in `agents/templates/`. Mode files reference the templates by path instead of inlining 100+ line markdown blocks.
+
+### Added
+
+- **`agents/templates/ARCHITECTURE_template.md`** (~115 lines) — the canonical ARCHITECTURE.md template with all 6 mandatory diagram types as Mermaid blocks. Was inline in `sdlc-init-mode.md` Phase 3.
+- **`agents/templates/OWASP_TRACKER_template.md`** (~332 lines) — the canonical OWASP audit tracker (10 categories + Semgrep Triage Summary + Pass Progress + Attack Chain Analysis + Final Gate). Was inline in `security-auditor.md` initialization.
+
+### Changed
+
+- **`agents/sdlc-init-mode.md`** — 1868 → 1765 lines (~103 lines saved). Phase 3 now references the template via "read `agents/templates/ARCHITECTURE_template.md`" instead of inlining 117 lines of markdown.
+- **`agents/security-auditor.md`** — 2227 → 1900 lines (~327 lines saved). Tracker initialization now reads from the template file instead of inlining 332 lines of markdown.
+- **`install.sh`** — already copies `agents/` recursively, so `agents/templates/*` lands at `~/.config/opencode/agents/templates/*` automatically. No script change needed.
+
+### Why this matters and what was deferred
+
+The audit's Finding 4 identified that monolithic agent prompts cause attention degradation and exceed local-LLM effective context. Two largest offenders were `sdlc-init-mode.md` (1868) and `security-auditor.md` (2227). Extracting embedded template blocks (which the agent reads, then COPIES into deliverables) is a safe size reduction — the templates aren't behavioral instructions, they're document scaffolds.
+
+**Deferred to a future wave:** full per-phase split of `sdlc-init-mode.md` (Phase 0 / 1 / 2 / 3 / 4 / 5 each in its own file with a thin router). That work requires careful end-to-end testing on a sandbox project and changes to how sdlc-lead loads the right phase based on `docs/work/sdlc-state.md`. The conservative template-extraction approach in this wave delivers ~440 lines of immediate savings without regression risk; the deeper restructure can be tackled separately when a sandbox project is ready for E2E validation.
+
 ## [0.21.0] — 2026-05-04
 
 Wave D of the audit remediation — default-onboard Ralph. The default `/sdlc onboard` (no flag) now includes a lightweight inventory pass that catches the two highest-value coverage gaps — undocumented routes and undocumented tables — without going to the full 45–90 min Ralph Wiggum 5-category loop. Three depth levels are now distinct:
