@@ -13,13 +13,15 @@ Two MCP servers handle all web research in this system. The opencode built-ins (
 | `playwright-search` | **PRIMARY** — multi-engine search + extraction + paragraph ranking | Default. Anything that needs search. Most URL fetches. |
 | `pullmd` | **FALLBACK** — single URL → clean markdown via 4-stage pipeline | When `playwright-search_web_fetch` returns garbage / fails on a JS-heavy or Cloudflare-protected page, or for Reddit threads (pullmd has dedicated Reddit support) |
 
-## playwright-search — primary surface
+## playwright-search — tiered surface (always start at tier 1)
 
-| Tool | What it does | When to use |
-|------|--------------|-------------|
-| `web_research(query, top=3, max_chars_per_source=3000, relevance_query?)` | Search 3 engines (DDG + Brave + Bing) → dedup → fetch each URL → extract main article via Mozilla Readability → rank paragraphs by query relevance → return one formatted text block with `[Source N]` markers | Default for "research X" tasks. One tool call, full content, citations included. |
-| `web_search(query, limit=10)` | Multi-engine search returning titles + URLs + snippets only. No page fetching. | Triage / orientation. When you don't need full content yet. |
-| `web_fetch(url, max_chars=8000, relevance_query?)` | Fetch one URL, return clean article text via Mozilla Readability. With `relevance_query`, returns the BEST paragraphs for that query. | When you already have a URL (citation, doc link) and want its content. |
+| Tool | Tier | What it does | When to use |
+|------|------|--------------|-------------|
+| `web_search_pullmd(query, limit=10)` | **1 — start here** | SERP-only via DDG + Mojeek + Brave + Startpage through pullmd. Returns titles/URLs/snippets ranked by engine agreement. No browser (~5-10s). | Any new topic — orientation and URL triage before fetching full content. |
+| `web_research_pullmd(query, top=3, relevance_query?)` | **2 — full content** | SERP + pullmd fetch + BM25 paragraph ranking. Auto-falls back to Playwright for pages returning < 500 chars. Annotates `fetch: pullmd` or `fetch: playwright fallback`. | After triage, when you need full page content. Prefer this over tier 3 — faster and lighter. |
+| `web_research(query, top=3, max_chars_per_source=3000, relevance_query?)` | **3 — escalate** | All-Playwright pipeline: multi-engine SERP → full-page fetch via Mozilla Readability → BM25 paragraph ranking → `[Source N]` markers. Slower (~30-60s). | Only when tier 2 returns < 2 useful sources. |
+| `web_search(query, limit=10)` | **4 — SERP fallback** | Multi-engine Playwright SERP (DDG + Brave + Bing), titles + snippets only. No page fetching. | When `web_search_pullmd` is unavailable. |
+| `web_fetch(url, max_chars=8000, relevance_query?)` | **4 — known URL** | Fetch one URL via Playwright Readability + 24h cache. With `relevance_query`, returns BEST paragraphs. | When you already have a specific URL and want its content. |
 
 ## pullmd — fallback surface
 
@@ -29,18 +31,17 @@ Two MCP servers handle all web research in this system. The opencode built-ins (
 | `get_share(id)` | Re-fetch a previously cached pullmd conversion by share ID | Rare. When you need the same page again and remember its share ID. |
 | `list_recent()` | List recent pullmd conversions on this host | Rare. Mostly debugging / discovery. |
 
-## The fallback chain (memorize this)
+## The fallback chain (memorize this — never skip a tier)
 
 ```
-1. web_research(...)                       ← default for new investigations
-2. web_fetch(url, ...)                     ← for known URLs
-3. If (2) returns empty / garbage / error:
-     pullmd_read_url(url, render="force") ← retry via 4-stage pipeline
-4. If (3) also fails:
-     surface to user — do not loop
+1. web_search_pullmd(query)                     ← orientation/triage. Always start here.
+2. web_research_pullmd(query, top=3)            ← pullmd full-page + auto-Playwright fallback
+3. web_research(query, top=3)                   ← all-Playwright. Only if tier 2 < 2 useful sources.
+4. web_fetch(url) or pullmd_read_url(url)       ← single known URL
+5. If (1)–(4) all fail → surface RESEARCH BLOCKED, do not loop
 ```
 
-**Do NOT** chain `web_research` → `pullmd_read_url` for every result. `web_research` already extracts content in one call. Only use pullmd when the playwright-search extraction failed.
+**Do NOT** jump to `web_research` (tier 3) without trying `web_research_pullmd` (tier 2) first. Tier 2 is faster, lighter on resources, and auto-falls back to Playwright for pages that resist pullmd extraction anyway. Only use `pullmd_read_url` standalone when `web_fetch` specifically fails on a URL.
 
 ## When each agent should use these
 
@@ -64,11 +65,13 @@ Two MCP servers handle all web research in this system. The opencode built-ins (
 Tool names are namespaced by the MCP server (opencode auto-prefixes the server name with an underscore separator):
 
 ```
-playwright-search_web_research({"query": "...", "top": 3})
-playwright-search_web_search({"query": "...", "limit": 10})
-playwright-search_web_fetch({"url": "https://...", "max_chars": 8000})
-pullmd_read_url({"url": "https://..."})
-pullmd_read_url({"url": "https://...", "render": "force"})
+playwright-search_web_search_pullmd({"query": "...", "limit": 10})          ← tier 1
+playwright-search_web_research_pullmd({"query": "...", "top": 3})           ← tier 2
+playwright-search_web_research({"query": "...", "top": 3})                  ← tier 3
+playwright-search_web_search({"query": "...", "limit": 10})                 ← tier 4 SERP fallback
+playwright-search_web_fetch({"url": "https://...", "max_chars": 8000})      ← tier 4 known URL
+pullmd_read_url({"url": "https://..."})                                      ← URL fallback
+pullmd_read_url({"url": "https://...", "render": "force"})                  ← force Playwright
 ```
 
 ## Tips for good queries
