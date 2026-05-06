@@ -157,10 +157,13 @@ For each question Qi:
         # 1. PICK the most pressing gap as this pass's query
         focus = pick_most_specific_gap(gaps)
 
-        # 2. SEARCH using what you currently know to refine the query
-        #    Pass 1: broad — "<topic> 2026"
-        #    Pass 2+: narrow — incorporate names, terms, conflicts you learned in pass 1
-        results = web_research(query=focus, top=5, relevance_query=focus)
+        # 2. SEARCH — follow tier order (pullmd first, Playwright only on escalation)
+        #    Pass 1: broad — web_search_pullmd("<topic> 2026") → triage URLs
+        #    Pass 1 (full): web_research_pullmd("<topic> 2026", top=3) → full content
+        #    Pass 2+: narrow — incorporate names/terms from pass 1; escalate to
+        #              web_research() only if tier 2 returned < 2 useful sources
+        results = web_search_pullmd(query=focus, limit=10)       # tier 1 — triage
+        # then: results = web_research_pullmd(query=focus, top=3) # tier 2 — full content
 
         # 3. READ — for each [Source N] block, extract concrete facts
         for each source:
