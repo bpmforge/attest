@@ -66,6 +66,7 @@ case "$PHASE" in
     GATE_VALIDATORS=(
       "validate-use-cases.sh"
       "validate-user-stories.sh"
+      "validate-requirements-matrix.sh"
     )
     ;;
   phase-3)
