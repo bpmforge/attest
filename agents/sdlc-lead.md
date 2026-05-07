@@ -344,6 +344,8 @@ If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
 | HANDOFF type | `--coverage` arg | `--runtime` |
 |--------------|------------------|-------------|
 | `architecture-designer` (module + infra) | `validate-module-design.sh` | — |
+| `ux-engineer` (UX spec) | `validate-ux-spec.sh` | — |
+| `frontend-design` (Wave 0 design system) | `validate-design-system.sh` | — |
 | `api-designer` | `validate-api-coverage.sh` | — |
 | `db-architect` | `validate-erd-coverage.sh` | — |
 | architecture synthesis | `validate-architecture.sh` | — |

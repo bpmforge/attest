@@ -202,6 +202,73 @@ No orchestrator judgment required. No manual manifest review. The validators dec
 
 ---
 
+## Template 10: Design System HANDOFF (Phase 4 Wave 0 — UI-bearing only)
+
+Use BEFORE any feature coding waves start. The design system must exist before coding agents build feature UI.
+
+```
+---
+  HANDOFF -> /frontend (frontend-design) — DESIGN SYSTEM (Wave 0)
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
+
+TASK for frontend-design:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-frontend-design.md     -- full context packet
+- docs/design/STYLE_GUIDE.md                   -- color tokens, typography, spacing, motion
+- docs/design/UX_SPEC.md                       -- component library selection + component inventory
+- docs/design/DESIGN_PRINCIPLES.md             -- aesthetic direction and anti-patterns
+- docs/TECH_STACK.md                           -- framework version (React/Vue/Svelte/etc.)
+
+WRITE-SCOPE (exclusive):
+- src/components/ui/   (or src/components/ if no ui/ subdirectory convention)
+- src/styles/          (or src/theme/ — wherever tokens belong in this stack)
+- docs/design/DESIGN_SYSTEM.md
+
+YOUR TASK:
+Implement the design system from the UX specs. This is Wave 0 — coding agents building
+features depend on this existing FIRST. Every component they build will import from what
+you create here.
+
+Step 1 — Token file: create or update the design token file (tailwind.config.ts,
+tokens.css, theme.ts, or stack-appropriate equivalent). Implement the full color palette
+from STYLE_GUIDE.md as named tokens. Implement the typography scale, spacing scale,
+and motion tokens. No hardcoded values in components — everything references tokens.
+
+Step 2 — Component library wiring: install and configure the component library selected
+in UX_SPEC.md § Component Library. Apply the token layer to it (override default theme
+with STYLE_GUIDE tokens where the library supports theming).
+
+Step 3 — Base components: implement every component listed in UX_SPEC.md § Component
+Inventory. Each component must:
+- Use design tokens only (no hardcoded hex values, px sizes, or font names)
+- Be typed (TypeScript interfaces for all props)
+- Export from a barrel file (src/components/ui/index.ts)
+- Have a brief JSDoc comment explaining its purpose
+
+PRODUCE exactly these:
+- Token file at appropriate location (tailwind.config.ts / src/styles/tokens.ts / etc.)
+- src/components/ui/[ComponentName].[tsx|jsx|vue] — one file per inventory component
+- src/components/ui/index.[ts|js] — barrel export of all components
+- docs/design/DESIGN_SYSTEM.md — token inventory (every token name + value), component
+  usage examples, naming conventions, "do / don't" examples
+- docs/work/MANIFEST_design_system_<date>.md — completion manifest
+
+When done, print exactly:
+"frontend done — design system: [N components, token file, library wired: X]"
+Then stop. Do not ask for follow-up.
+
+---
+```
+
+After "frontend done":
+1. Run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest docs/work/MANIFEST_design_system_<date>.md --coverage validate-design-system.sh`
+2. All gaps fixed → Wave 0 complete → feature coding waves may begin
+
+---
+
 ## Template 7: Module Design HANDOFF (Phase 3 — after TECH_STACK)
 
 Use after TECH_STACK.md is complete. architecture-designer produces MODULE_DESIGN.md (lego structure) and INFRASTRUCTURE.md (deployment topology) in one pass.
