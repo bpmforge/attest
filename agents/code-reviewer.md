@@ -197,11 +197,39 @@ The five canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_
 
 - `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
 - `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- *(no domain coverage validator — review reports are gated by the downstream FIX_VERIFY_LOOP, not a content validator)*
+- `scripts/validators/validate-code-health.sh` — code hygiene check on the REVIEWED code (run by sdlc-lead as coverage validator: `--coverage validate-code-health.sh`)
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
 **Findings flow:** this agent produces a review report. Findings flow into `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` per the pipeline in `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md`. Do NOT apply fixes yourself — coding-agent handles remediation in a separate HANDOFF.
+
+## Anti-Slop Audit (8th Dimension — Mandatory Pass)
+
+**Canonical rules:** `agents/shared/ANTI_SLOP_RULES.md` — read it before running this pass. All 20 rules (R-01 through R-20) apply.
+
+This is the 8th scored dimension alongside the 7 in `references/code-health-checklist.md`. Score it 1-10 using the scoring guide in ANTI_SLOP_RULES.md § Anti-Slop Scoring.
+
+**Pass order:** Run after complexity (Pass 1) and before patterns (Pass 5). Reason: slop findings often overlap with complexity and pattern findings — audit slop third to avoid triple-flagging the same line.
+
+**Quick scan — script-enforced rules (always run first):**
+```bash
+bash scripts/validators/validate-code-health.sh .
+```
+Script catches: R-01 (catch-all), R-02 (try in loops), R-13 (what-comments), R-16 (emojis), H-01 (functions >50L), H-02 (files >250L), H-03 (TODO/FIXME), H-04 (debug prints), H-05 (magic numbers).
+
+**Manual review — rules requiring judgment:**
+- R-03 exception-driven control flow (grep for `JSON.parse` in catch, `Number()` without guard)
+- R-04 serial awaits (grep for consecutive `await` lines without `Promise.all`)
+- R-05 single-implementation interfaces (check: does the interface have >1 impl?)
+- R-06 delegation-only wrappers (check: does the class add any logic?)
+- R-07 single-use helpers (grep: is this function called in >1 place?)
+- R-08 repository on CRUD (check: does the layer add logic beyond the ORM call?)
+- R-17 speculative generalization (check: does the spec require this parameter/option?)
+- R-18 cargo-cult patterns (check: is this pattern required by DESIGN_CONTEXT.md or SRS.md?)
+- R-19 copy-paste duplication (look for identical 4+ line blocks across files)
+- R-20 pattern inconsistency (check: does this file use a different pattern than the rest of the module?)
+
+**Scoring threshold:** anti-slop dimension uses the same raised threshold as error handling — **≥8 to pass** (not 7). AI slop is systemic; a score of 7 means violations present.
 
 
 ## Completion Manifest (Mandatory for SDLC Handoffs)
