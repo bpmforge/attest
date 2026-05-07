@@ -445,7 +445,25 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 **After researcher returns:** Run the Research Findings Review Protocol before writing TECH_STACK.md.
 → Write TECH_STACK.md → mark DONE
 
-**Step 2 — Database design (HANDOFF):**
+**Step 2 — Module design (HANDOFF — new):**
+
+MODULE_DESIGN.md defines the structural blueprint every other specialist designs inside. It must exist before db-architect and api-designer start — they design within the declared module boundaries.
+
+Save state:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: TECH_STACK.md written
+Awaiting: architecture-designer — docs/MODULE_DESIGN.md + docs/INFRASTRUCTURE.md
+Next after resume: run handoff gates (validate-module-design), then db-architect
+")
+```
+
+Use **Template 7** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
+
+→ After "architecture-designer done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
+
+**Step 3 — Database design (HANDOFF):**
 
 Save state first:
 ```
@@ -466,14 +484,16 @@ Open a new OpenCode conversation and paste this EXACT prompt to /dba:
 SDLC-TASK for db-architect:
 
 CONTEXT (read these before starting):
+- docs/MODULE_DESIGN.md — module boundaries and ownership (design tables within declared modules)
 - docs/SRS.md — functional requirements and data entities
 - docs/USER_STORIES.md — feature requirements driving data needs
 - docs/TECH_STACK.md — database technology chosen
 
 YOUR TASK:
-Design the complete database schema for [project]. Derive all entities and
-relationships from the requirements in SRS.md and USER_STORIES.md. Use the
-database technology specified in TECH_STACK.md.
+Design the complete database schema for [project]. Derive all entities from
+SRS.md and USER_STORIES.md. Organize tables by the module that owns them
+(from MODULE_DESIGN.md § Module Inventory) — each table belongs to exactly
+one module. Use the database technology specified in TECH_STACK.md.
 
 PRODUCE exactly this file:
 - docs/DATABASE.md — containing: Mermaid erDiagram of all tables and relationships,
@@ -510,14 +530,16 @@ Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
 SDLC-TASK for api-designer:
 
 CONTEXT (read these before starting):
+- docs/MODULE_DESIGN.md — module boundaries and public interfaces (group endpoints by module)
 - docs/USER_STORIES.md — features that need API endpoints
 - docs/SRS.md — functional requirements including auth and data rules
 - docs/DATABASE.md — schema and data shapes the API reads/writes
 
 YOUR TASK:
 Design complete API contracts for [project]. For every user story that requires
-a server interaction, produce an OpenAPI-style endpoint contract. Cover every
-resource: create, read, update, delete, and any special actions.
+a server interaction, produce an OpenAPI-style endpoint contract. Group endpoints
+by the module that owns them (from MODULE_DESIGN.md § Module Inventory) — each
+endpoint belongs to exactly one module's public interface.
 
 PRODUCE exactly these two files:
 
@@ -635,23 +657,42 @@ For each update HANDOFF, use Template 1 from `HANDOFF_TEMPLATES.md` scoped to ju
 
 → After both update HANDOFFs return and pass handoff gates → mark DONE
 
-**You produce (orchestrator synthesis documents — write these yourself, AFTER steps 1-7):**
-- `docs/ARCHITECTURE.md` — reconciles TECH_STACK + DATABASE + API_DESIGN + THREAT_MODEL + SECURITY_CONTROLS into C4 diagrams and modular design decisions. The Security Architecture section MUST reference SECURITY_CONTROLS.md.
-- `docs/PARALLELIZATION_MAP.md` — derives Wave 1/2/3/... from ARCHITECTURE.md module boundaries and dependencies (format above)
+**Step 8 — Infrastructure topology (HANDOFF):**
 
-Write ARCHITECTURE.md AFTER security controls are incorporated into DATABASE.md and API_DESIGN.md. This ensures the architecture diagram reflects the final, security-hardened design.
+After security controls are applied, the infrastructure shape is known. Delegate to sre-engineer to document the deployment topology.
+
+Save state:
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 3 — Design
+Last completed: Security reconciliation complete (DATABASE.md + API_DESIGN.md updated)
+Awaiting: sre-engineer — docs/INFRASTRUCTURE.md
+Next after resume: run handoff gates (validate-infrastructure), then ARCHITECTURE.md synthesis
+")
+```
+
+Use **Template 8** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
+
+→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
+
+**You produce (orchestrator synthesis documents — write these yourself, AFTER steps 1-8):**
+- `docs/ARCHITECTURE.md` — reconciles MODULE_DESIGN + TECH_STACK + DATABASE + API_DESIGN + THREAT_MODEL + SECURITY_CONTROLS into C4 diagrams. MUST reference both MODULE_DESIGN.md (application structure) and INFRASTRUCTURE.md (deployment topology). Security Architecture section MUST reference SECURITY_CONTROLS.md.
+- `docs/PARALLELIZATION_MAP.md` — derives Wave 1/2/3/... from MODULE_DESIGN.md module inventory (use the Depends On column for wave ordering — modules in the same wave have no mutual dependencies)
+
+Write ARCHITECTURE.md LAST — after all specialist handoffs have returned and security controls are incorporated. It synthesizes the full picture.
 
 **Phase 3 sequencing rule (enforced — do not skip or reorder):**
 1. TECH_STACK.md (researcher)
-2. DATABASE.md (db-architect) — needs TECH_STACK
-3. API_DESIGN.md + openapi.yaml (api-designer) — needs TECH_STACK + DATABASE
-4. UX docs (ux-engineer, if UI-bearing) — needs TECH_STACK + USER_STORIES
-5. THREAT_MODEL.md (security-auditor) — reads TECH_STACK + DATABASE + API_DESIGN
-6. SECURITY_CONTROLS.md (security-auditor) — reads THREAT_MODEL
-7. DATABASE.md update (db-architect) — applies security controls
-8. API_DESIGN.md + openapi.yaml update (api-designer) — applies security controls
-9. ARCHITECTURE.md synthesis (sdlc-lead) — incorporates all of the above
-10. PARALLELIZATION_MAP.md (sdlc-lead)
+2. MODULE_DESIGN.md + INFRASTRUCTURE.md (architecture-designer) — needs TECH_STACK
+3. DATABASE.md (db-architect) — needs TECH_STACK + MODULE_DESIGN
+4. API_DESIGN.md + openapi.yaml (api-designer) — needs TECH_STACK + MODULE_DESIGN + DATABASE
+5. UX docs (ux-engineer, if UI-bearing) — needs TECH_STACK + USER_STORIES
+6. THREAT_MODEL.md (security-auditor) — reads TECH_STACK + DATABASE + API_DESIGN
+7. SECURITY_CONTROLS.md (security-auditor) — reads THREAT_MODEL
+8. DATABASE.md + API_DESIGN.md updates (db-architect + api-designer) — applies security controls
+9. INFRASTRUCTURE.md (sre-engineer) — topology based on all the above
+10. ARCHITECTURE.md synthesis (sdlc-lead) — references MODULE_DESIGN + INFRASTRUCTURE
+11. PARALLELIZATION_MAP.md (sdlc-lead) — from MODULE_DESIGN dependency graph
 
 **Never trigger two Phase 3 handoffs at once.** Each expert's output informs the next. **Phase 4 is different** — it supports parallel waves (see below).
 
@@ -1534,7 +1575,60 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-**5. CI/CD pipeline:**
+**5. IaC scaffolding (HANDOFF — own wave, parallel-safe with other infrastructure-only work):**
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4
+Last completed: container config
+Awaiting: sre-engineer — IaC scaffolding in infra/
+Next after resume: CI/CD pipeline
+")
+```
+
+```
+---
+  HANDOFF → sre-engineer
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+
+SDLC-TASK for sre-engineer:
+
+CONTEXT (read these before starting):
+- docs/INFRASTRUCTURE.md — the topology to provision (environments, compute, data, networking)
+- docs/TECH_STACK.md — runtime versions and build tooling
+- docs/ARCHITECTURE.md — service names and port assignments
+
+YOUR TASK:
+Produce Infrastructure-as-Code scaffolding for [project] based on docs/INFRASTRUCTURE.md.
+Auto-detect the appropriate IaC tool (Terraform preferred; Helm if Kubernetes is the
+target; CloudFormation if AWS-only and no Terraform preference stated in DESIGN_CONTEXT.md).
+
+PRODUCE exactly these:
+- infra/ — IaC directory structure:
+  - infra/main.[tf|yaml|json] — root entry point declaring all resources
+  - infra/variables.[tf|yaml] — all configurable inputs with descriptions and types
+  - infra/outputs.[tf|yaml] — all outputs (URLs, ARNs, connection strings)
+  - infra/envs/staging/ — staging-specific variable values
+  - infra/envs/prod/ — production-specific variable values
+  - infra/README.md — what this IaC provisions, how to run it, references docs/INFRASTRUCTURE.md
+- docs/reviews/MANIFEST_iac_<date>.md — completion manifest
+
+Requirements:
+- No hardcoded credentials — all secrets via variables + secrets manager references
+- All resources tagged with environment and project name
+- Staging and prod configs MUST differ (prod gets HA/multi-AZ where applicable)
+- `terraform validate` (or equivalent) must pass before printing completion phrase
+
+When all files are written, print exactly:
+"sre done — IaC scaffolding: [tool used, N resources, staging + prod configs]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+---
+```
+
+→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
+
+**6. CI/CD pipeline:**
 
 ```
 ---

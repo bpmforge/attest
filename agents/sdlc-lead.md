@@ -223,9 +223,10 @@ Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT se
 | `/review-code`| `code-reviewer`        | Code quality, complexity, duplication, tech debt |
 | `/security`   | `security-auditor`     | OWASP, threat modeling, CVE, semgrep        |
 | `/dba`        | `db-architect`         | Schema design, migrations, query optimization |
-| `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment (NOT general coding) |
+| `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment, IaC (NOT general coding) |
 | `/ux`         | `ux-engineer`          | UX workflows, WCAG, component architecture  |
 | `/api-design` | `api-designer`         | REST/GraphQL contracts, OpenAPI             |
+| `/arch`       | `architecture-designer`| Module structure, plugin points, infra topology, pattern enforcement |
 | `/perf`       | `performance-engineer` | Profiling, benchmarks, bottlenecks          |
 | `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
 | `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
@@ -342,11 +343,14 @@ If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
 
 | HANDOFF type | `--coverage` arg | `--runtime` |
 |--------------|------------------|-------------|
+| `architecture-designer` (module + infra) | `validate-module-design.sh` | — |
 | `api-designer` | `validate-api-coverage.sh` | — |
 | `db-architect` | `validate-erd-coverage.sh` | — |
 | architecture synthesis | `validate-architecture.sh` | — |
 | `security-auditor` (threat model) | — | — |
 | `security-auditor` (security controls) | `validate-security-controls.sh` | — |
+| `sre-engineer` (infrastructure topology) | `validate-infrastructure.sh` | — |
+| `sre-engineer` (IaC scaffolding) | `validate-iac.sh` | — |
 | `test-engineer` (test design) | `validate-test-design.sh` | — |
 | `security-auditor --deep` | `validate-owasp.sh` | — |
 | `onboard --deep` | `validate-inventory.sh` | — |
