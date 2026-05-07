@@ -100,9 +100,8 @@ case "$PHASE" in
     ;;
   phase-4)
     check_phase_prereq "phase-3.5"
-    # Implementation gate -- the project must actually build, lint, and test,
-    # AND have completeness coverage (tests mapped to use cases, migrations
-    # documented, IaC scaffolding present).
+    # Implementation gate -- build + lint + tests + test mapping + migrations
+    # + IaC scaffolding + module boundary enforcement.
     GATE_VALIDATORS=(
       "validate-build.sh"
       "validate-lint.sh"
@@ -110,8 +109,9 @@ case "$PHASE" in
       "validate-tests-mapping.sh"
       "validate-migrations.sh"
       "validate-iac.sh"
+      "validate-module-boundaries.sh"
     )
-    # UI-bearing: if UX spec exists, validate design system was implemented
+    # UI-bearing: validate design system was implemented
     if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
       note "UI-bearing project detected — adding validate-design-system.sh to phase-4 gate"
       GATE_VALIDATORS+=("validate-design-system.sh")
