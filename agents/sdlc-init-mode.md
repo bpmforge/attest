@@ -463,6 +463,11 @@ Use **Template 7** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` 
 
 → After "architecture-designer done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
 
+**Git checkpoint — save MODULE_DESIGN + INFRASTRUCTURE:**
+```
+task(agent="git-expert", prompt="Commit docs/MODULE_DESIGN.md and docs/INFRASTRUCTURE.md to sdlc/setup branch. Conventional commit: 'docs(phase-3): add module design and infrastructure topology'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
+
 **Step 3 — Database design (HANDOFF):**
 
 Save state first:
@@ -508,6 +513,11 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 → After "db done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
+
+**Git checkpoint — save DATABASE.md:**
+```
+task(agent="git-expert", prompt="Commit docs/DATABASE.md and db/migrations/ to sdlc/setup branch. Conventional commit: 'docs(phase-3): add database schema, ERD, and migration stubs'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
 
 **Step 3 — API contracts (HANDOFF):**
 
@@ -567,6 +577,11 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 → After "api done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
+
+**Git checkpoint — save API_DESIGN + OpenAPI spec:**
+```
+task(agent="git-expert", prompt="Commit docs/API_DESIGN.md and docs/api/openapi.yaml to sdlc/setup branch. Conventional commit: 'docs(phase-3): add API design and OpenAPI 3.0 spec'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
   Also run: `bash -c "swagger-cli validate docs/api/openapi.yaml 2>&1 || echo 'swagger-cli not found — install: npm i -g @apidevtools/swagger-cli'"`.
   If OpenAPI validation fails, return errors to api-designer with REVISE status before accepting.
 
@@ -619,6 +634,11 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 → After "security done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
+
+**Git checkpoint — save THREAT_MODEL.md:**
+```
+task(agent="git-expert", prompt="Commit docs/THREAT_MODEL.md to sdlc/setup branch. Conventional commit: 'docs(phase-3): add threat model with attack scenarios and severity ratings'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
   No `--coverage` flag: threat model quality is validated downstream by `validate-security-controls.sh` (checks every HIGH/CRITICAL threat has a control). Verify THREAT_MODEL.md has threat IDs (T-01, T-02, ...) and severity ratings before accepting.
 
 **Step 6 — Security controls (HANDOFF):**
@@ -636,6 +656,11 @@ Next after resume: issue security reconciliation HANDOFFs to db-architect + api-
 Use **Template 5** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
 → After "security done" (security controls): run handoff gates with `--coverage validate-security-controls.sh` → mark DONE
+
+**Git checkpoint — save SECURITY_CONTROLS.md:**
+```
+task(agent="git-expert", prompt="Commit docs/SECURITY_CONTROLS.md to sdlc/setup branch. Conventional commit: 'docs(phase-3): add security controls mapped to threat model'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
 
 **Step 7 — Security reconciliation (HANDOFFs to db-architect and api-designer):**
 
@@ -674,6 +699,11 @@ Next after resume: run handoff gates (validate-infrastructure), then ARCHITECTUR
 Use **Template 8** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
 → After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
+
+**Git checkpoint — save INFRASTRUCTURE.md:**
+```
+task(agent="git-expert", prompt="Commit docs/INFRASTRUCTURE.md to sdlc/setup branch. Conventional commit: 'docs(phase-3): add infrastructure topology — environments, compute, data, networking'. Push sdlc/setup to origin. Only stage the listed files — git add by name, not git add -A.", timeout=60)
+```
 
 **You produce (orchestrator synthesis documents — write these yourself, AFTER steps 1-8):**
 - `docs/ARCHITECTURE.md` — reconciles MODULE_DESIGN + TECH_STACK + DATABASE + API_DESIGN + THREAT_MODEL + SECURITY_CONTROLS into C4 diagrams. MUST reference both MODULE_DESIGN.md (application structure) and INFRASTRUCTURE.md (deployment topology). Security Architecture section MUST reference SECURITY_CONTROLS.md.
@@ -2055,6 +2085,11 @@ Print exactly: "ux done — [CRITICAL/HIGH count and release verdict]"
 
 After all completion phrases return → proceed to Round 2.
 
+**Git checkpoint — commit Round 1 review documents:**
+```
+task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 1 (CODE_REVIEW_*_<date>.md, SECURITY_*_<date>.md, PERF_*_<date>.md, UX_*_<date>.md) to the current feature branch. Conventional commit: 'docs(reviews): add round 1 review findings'. Push to origin. Only stage docs/reviews/ files.", timeout=60)
+```
+
 ---
 
 ### Round 2 — Fix-Verify loop
@@ -2062,6 +2097,12 @@ After all completion phrases return → proceed to Round 2.
 After every review's completion phrase prints, synthesize `docs/reviews/FIX_BACKLOG_RELEASE_<date>.md` (see `agents/shared/FIX_VERIFY_LOOP.md` § Step 2). Deduplicate across all reviews; every merge-blocking row must have a Verify criterion.
 
 If "Merge-blocking" is empty → Round 2 is done; skip to Round 3.
+
+**Git checkpoint after each Fix-Verify iteration:**
+After writing FIX_BACKLOG_*_<date>.md and each VERIFY_*_<iteration>_<date>.md:
+```
+task(agent="git-expert", prompt="Commit docs/reviews/FIX_BACKLOG_*_<date>.md and docs/reviews/VERIFY_*_<date>.md (latest files only) to the feature branch. Conventional commit: 'docs(reviews): update fix-verify backlog — iteration N'. Push. Only stage docs/reviews/ files.", timeout=60)
+```
 
 **Iterate up to 3 times per `agents/shared/FIX_VERIFY_LOOP.md` Steps 3-5:**
 1. Remediation HANDOFF (coding-agent receives FIX_BACKLOG_RELEASE)
@@ -2125,6 +2166,11 @@ Print exactly: "containers done — [image size, CVE count, readiness verdict]"
 ```
 
 Wait for all three completion phrases. Round 3 audits do NOT block Round 2 completion — they run concurrently.
+
+**Git checkpoint — commit Round 3 audit documents:**
+```
+task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 3 (TECH_DEBT_*_<date>.md, COVERAGE_*_<date>.md, CONTAINER_AUDIT_*_<date>.md) to the feature branch. Conventional commit: 'docs(reviews): add tech-debt, coverage, and container audit reports'. Push. Only stage docs/reviews/ files.", timeout=60)
+```
 
 ---
 
