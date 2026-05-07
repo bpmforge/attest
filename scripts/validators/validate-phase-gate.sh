@@ -121,7 +121,7 @@ case "$PHASE" in
   phase-5)
     check_phase_prereq "phase-4"
     GATE_FILES=()
-    # Phase 5 release gate -- operational validators + completeness validators run first
+    # Phase 5 release gate -- operational + completeness + code-health + release-readiness
     GATE_VALIDATORS=(
       "validate-build.sh"
       "validate-lint.sh"
@@ -129,6 +129,9 @@ case "$PHASE" in
       "validate-deps.sh"
       "validate-smoke.sh"
       "validate-fix-backlog-closed.sh"
+      "validate-code-health.sh"
+      "validate-module-boundaries.sh"
+      "validate-release-readiness.sh"
     )
     ;;
   onboard-deep)

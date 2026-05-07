@@ -384,6 +384,7 @@ If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
 | `security-auditor --deep` | `validate-owasp.sh` | — |
 | `onboard --deep` | `validate-inventory.sh` | — |
 | `coding-agent` (any code) | omit | `--runtime` |
+| phase-5 final gate | `validate-release-readiness.sh` | — |
 
 ---
 
