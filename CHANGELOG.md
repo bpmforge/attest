@@ -2,6 +2,110 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [0.24.0] — 2026-05-07
+
+Full-lifecycle quality enforcement — traceability chain from requirements to passing tests, production Playwright infrastructure, complete git workflow with SDLC branch topology, 27 new validators, Phase 3.5 test design gate, Phase 5 5-round release structure, and git checkpoints at every document-producing step.
+
+### Added
+
+**Agents**
+- **`architecture-designer`** — new specialist agent that derives module boundaries from business domains (not technical layers). Enforces hexagonal/FSD/DDD patterns. Produces `MODULE_DESIGN.md` (8 required sections incl. dependency rules, feature recipe, enforcement config) and `INFRASTRUCTURE.md` (topology-only, 5 sections). Validated by `validate-module-design.sh` and `validate-infrastructure.sh`.
+
+**Validators (27 new, 36 total)**
+
+| New validator | Checks |
+|---|---|
+| `validate-module-design.sh` | MODULE_DESIGN.md: pattern+justification, no technical-layer naming, circular dep detection, enforcement config |
+| `validate-infrastructure.sh` | INFRASTRUCTURE.md: env matrix, compute, data, networking+Mermaid, ops concerns; rejects IaC code |
+| `validate-security-controls.sh` | SECURITY_CONTROLS.md: every HIGH/CRITICAL threat has a control; DB/API/ARCH have security sections |
+| `validate-test-design.sh` | TEST_DESIGN.md: 5 mandatory sections (Unit, Integration, E2E, Security, Test Infrastructure), P0 UCs covered |
+| `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs, `terraform validate`, no hardcoded secrets |
+| `validate-module-boundaries.sh` | Cross-module internal imports in TS/JS/Python/Go; enforces dep rules from MODULE_DESIGN.md |
+| `validate-code-health.sh` | 9 anti-slop patterns: catch-all blocks, try-in-loop, what-comments, emoji-comments, >50L functions, >250L files, TODO/FIXME, debug prints, magic numbers |
+| `validate-ux-spec.sh` | UX_SPEC.md: component library chosen (not TBD), ≥5 inventory items, P0 UCs covered, WCAG 4 pillars, responsive strategy |
+| `validate-design-system.sh` | Token file, component files match UX_SPEC inventory, DESIGN_SYSTEM.md, no hardcoded hex |
+| `validate-release-readiness.sh` | 10-condition release gate: FIX_BACKLOG clean, 4 review verdicts, coverage gaps, container CVEs, tech debt catalogued, all RUNTIME PASS |
+| `validate-requirements-matrix.sh` | REQUIREMENTS_MATRIX.md: P0 UC rows have Test + Status columns; cross-references USE_CASES.md |
+| `validate-e2e-setup.sh` | Playwright config has JSON reporter, retries, screenshot, baseURL; auth fixture; POM/fixtures dir; CI workflow has E2E step |
+| `validate-adrs.sh` | Every ADR-NNN reference has a file with valid status |
+| `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase present |
+| `validate-migrations.sh` | Migration files have both up and down; reversible |
+| `validate-deps.sh` | npm audit / pip-audit / cargo audit; subtracts waivers |
+| `validate-build.sh` | Runs project build, captures exit code |
+| `validate-lint.sh` | Runs linter + typecheck |
+| `validate-fix-backlog-closed.sh` | CRITICAL/HIGH rows VERIFIED/FIXED/WAIVED before phase-5 |
+| `validate-smoke.sh` | Boots server, hits configured routes, asserts 200 |
+| `validate-no-ascii-art.sh` | No Unicode box-drawing or ASCII banners in docs |
+| `validate-scope.sh` | Post-HANDOFF git-scope enforcement |
+| `validate-c3-coverage.sh` | Every source module in C3 component diagram |
+| `validate-entry-points.sh` | Every entry point documented |
+| `validate-tech-stack.sh` | All deps appear in TECH_STACK.md |
+| `validate-use-cases.sh` | UC-IDs, required fields, priority, Source: traceability |
+| `validate-user-stories.sh` | Given/When/Then acceptance criteria, traceability to UC/FR |
+
+`validate-tests-mapping.sh` extended: now parses jest/vitest/pytest JSON results files and produces UC-level PASS/FAIL verdict table. `validate-tests.sh` extended: Playwright fast-path with `--reporter=json,html,list` to produce `test-results.json`.
+
+**Shared protocols**
+- **`ANTI_SLOP_RULES.md`** — canonical 20-rule AI slop catalog (R-01..R-20) across error handling, abstraction, defensive bloat, comment/style, structural patterns. Used by `code-reviewer` (8th scored dimension, threshold ≥8) and `coding-agent`.
+
+**SDLC phases**
+- **Phase 3.5 (Test Design)** — new gate between Design and Implementation. `test-engineer` produces `TEST_DESIGN.md` (5 sections: Unit, Integration, E2E Scenarios, Security, Test Infrastructure) and E2E config files. Non-blocking style (gaps escalate, don't hard-block). Validated by `validate-test-design.sh`.
+- **Human Approval Gate A** (Phase 2→3) and **Gate B** (Phase 3.5→4) — explicit user sign-off before irreversible design and implementation work begins.
+
+### Changed
+
+**Code review — 8 dimensions**
+- `code-reviewer.md`: anti-slop is now the 8th scored dimension (threshold ≥8, not 7). Progress Summary table, confidence loop table, Health Dashboard mirror, mode descriptions, and verdict rubric all updated to 8 dimensions.
+- All HANDOFF prompts across all modes updated from "7-dimension review" to "8-dimension review".
+
+**Phase 5 restructured as 5 rounds**
+- Round 1: Reviews fan-out (code, security, perf, UX — always parallel)
+- Round 2: Fix-Verify loop (up to 3 iterations with remediation + targeted re-verify)
+- Round 3: Audit fan-out (tech-debt + coverage + container — parallel-safe with Round 2)
+- Round 4: Release gate via `run-coverage-loop.sh phase-5` (must exit 0)
+- Round 5: Release via `git-expert --release`
+
+**Parallel execution — improve-mode**
+- `sdlc-improve-mode.md` Step 2: `[S]equential / [P]arallel` audit fan-out selection before specialist HANDOFFs (mirrors Phase 5 Round 1 pattern).
+
+**Git workflow**
+- `references/git-workflow-checklist.md`: SDLC Branch Topology section (complete branch map, decision table, merge strategy per type, commit cadence, draft-PR-first rule), Hotfix Flow section (13-step P0/security fix pattern, forward-merge, automatic PATCH release).
+- `agents/git-expert.md`: CI pipeline green added as explicit merge gate (alongside RUNTIME_*.md PASS); draft-PR-on-first-push rule; SDLC Branch Awareness quick-reference table.
+- Phase 4 Step 8: split into 8a (branch + push + draft PR immediately), 8b (atomic commits after coding-agent), 8c (merge gate after all conditions met).
+- `sdlc-feature-mode.md` Step 3.1: create draft PR on first push (not after code is done).
+
+**Git checkpoints everywhere**
+- Phase 3: 6 new checkpoints after each specialist gate (MODULE_DESIGN, DATABASE, API+OpenAPI, THREAT_MODEL, SECURITY_CONTROLS, INFRASTRUCTURE). Session crash no longer loses validated design artifacts.
+- Phase 5: checkpoints after Round 1 reviews, after each Fix-Verify iteration, after Round 3 audits. Review documents are now tracked in git on the feature branch.
+- Improve-mode: checkpoints after each audit, after backlog synthesis, after each item fix+verify.
+- Onboard-mode: 2 intermediate checkpoints (steps 1-2, steps 3-4) before the final PR commit.
+
+**UC-level test traceability**
+- `validate-requirements-matrix.sh`: new validator checks REQUIREMENTS_MATRIX.md coverage.
+- `validate-tests-mapping.sh`: extended with jest/vitest/pytest JSON parsing for per-UC PASS/FAIL verdicts.
+- Test-engineer HANDOFF: `describe("UC-NNN: <name>")` and `it("AC-N: <criterion>")` naming convention enforced.
+
+**Playwright E2E infrastructure**
+- `test-engineer.md`: full Playwright infrastructure section — `playwright.config.ts` template (JSON reporter, retries, screenshot, storageState auth project), `auth.setup.ts`, Page Object Model base class, `test.extend()` custom fixtures with auto-cleanup, `global-setup.ts` DB reset, GitHub Actions/Gitea CI workflow, sharding, soft assertions, network mocking, Cypress equivalent patterns.
+- `validate-e2e-setup.sh`: gates that playwright.config.ts has JSON reporter (required for UC-level verdicts), auth fixture, POM directory, CI E2E step.
+- Phase 4 test-strategy HANDOFF: requires E2E infrastructure files as deliverables (not just TEST_STRATEGY.md).
+- `validate-test-design.sh`: requires `## Test Infrastructure` section with framework, JSON reporter path, auth strategy.
+
+**Canonical rules — six**
+- `BOUNDED_TASK_CONTRACT.md`: "five canonical rules" updated to "six canonical rules" throughout all agent files and HANDOFF_TEMPLATES.md. Rule 6 (Pre-Completion Self-Check) is now properly counted.
+
+### Phase gate changes
+
+| Gate | New validators added |
+|------|---------------------|
+| phase-2 | `validate-requirements-matrix.sh` |
+| phase-3 | `validate-module-design.sh`, `validate-infrastructure.sh`, `validate-security-controls.sh`, `validate-ux-spec.sh` (UI-bearing) |
+| phase-3.5 | `validate-test-design.sh` (non-blocking) |
+| phase-4 | `validate-iac.sh`, `validate-module-boundaries.sh`, `validate-code-health.sh`, `validate-e2e-setup.sh`, `validate-design-system.sh` (UI-bearing) |
+| phase-5 | `validate-code-health.sh`, `validate-module-boundaries.sh`, `validate-release-readiness.sh` |
+
+---
+
 ## [0.23.0] — 2026-05-04
 
 Tiered research architecture — researcher now uses a mandatory tool selection gate and a 4-tier fallback chain that starts with fast pullmd-backed tools and escalates to Playwright only when needed. Synced from playwright-search v0.2.0 and claude-experts v0.18.0.

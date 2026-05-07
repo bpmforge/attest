@@ -4,7 +4,7 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (14)](#agents)
+- [Agents (15)](#agents)
 - [Skills (20)](#skills)
 - [Reference documents (11)](#reference-documents)
 - [Custom tools (18)](#custom-tools)
@@ -99,6 +99,8 @@ OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 5-phase
 
 Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
 
+Reviews across **8 dimensions**: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, and anti-slop (threshold ≥ 8). The anti-slop dimension checks for AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md.
+
 ### `ux-engineer` — UX design & accessibility (`mode: primary`)
 
 - **`--design`** — greenfield component/workflow design, WCAG 2.2 AA, style guide, UX spec
@@ -165,6 +167,18 @@ Bridges UX specification and production UI. Turns design tokens and component sp
 
 Distinct from `ux-engineer`: UX handles usability, workflows, and accessibility; this agent handles visual polish and implementation. Called by `sdlc-lead` in Phase 3 (after UX spec is approved) and Mode 4 (`/sdlc improve "frontend"`).
 
+### `architecture-designer` — Module boundary designer (`mode: primary`)
+
+Derives module boundaries from business domains and produces the structural design documents that `coding-agent` and `validate-module-boundaries.sh` enforce.
+
+- **Primary deliverables:** `docs/MODULE_DESIGN.md` (bounded contexts, dependency rules, naming conventions) and `docs/INFRASTRUCTURE.md` (environment matrix, compute, data, networking with Mermaid diagram)
+- **Domain-driven decomposition** — identifies bounded contexts from use cases and data models; rejects technical-layer naming (controllers/, services/, utils/) in favor of domain-aligned modules
+- **Circular dependency detection** — maps the full dependency graph during design; flags and resolves cycles before implementation begins
+- **Infrastructure specification** — documents environment matrix (dev/staging/prod), compute resources, data stores, networking topology; validates against `validate-infrastructure.sh` rules (rejects IaC code in the doc)
+- **Handoff contract** — produces MODULE_DESIGN.md that `validate-module-design.sh` can pass before handing off to `coding-agent`
+
+Called by `sdlc-lead` in Phase 3 (Design), after `db-architect` and before `coding-agent`.
+
 ---
 
 ## Skills
@@ -197,7 +211,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 
-**24 skills total** (14 agent-backed + 10 utility/sub-skills).
+**24 skills total** (15 agent-backed + 9 utility/sub-skills).
 
 ---
 
@@ -208,31 +222,60 @@ Canonical reference files every specialist reads. Single source of truth — upd
 | File | Purpose |
 |------|---------|
 | `agents/shared/SCOPE_BOUNDARY.md` | Stay-in-lane rule for direct-mode invocations (`/research`, `/code`, etc.) — per-agent in-scope / refer-back table + canonical SCOPE-BOUNDARY block to print when a request belongs to another specialist |
-| `agents/shared/BOUNDED_TASK_CONTRACT.md` | The five scope rules every specialist follows in Bounded Task Mode (write-scope isolation, no extras, verbatim completion phrase, no scope expansion, stop-means-stop) |
+| `agents/shared/BOUNDED_TASK_CONTRACT.md` | The six canonical scope rules every specialist follows in Bounded Task Mode (write-scope isolation, no extras, verbatim completion phrase, no scope expansion, stop-means-stop, pre-completion self-check) |
 | `agents/shared/HANDOFF_TEMPLATES.md` | Canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template + post-HANDOFF gate docs |
 | `agents/shared/FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
 | `agents/shared/RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
 | `agents/shared/LOOP_PREVENTION.md` | Tool-selection cheat-sheet + the three loop classes (failure / schema-validation / success) + the BLOCKED-template format. Cheat-sheet is also inlined at the top of every SDLC mode file. |
 | `agents/shared/RESEARCH_TOOLS.md` | The mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP). Built-in `webfetch` / `websearch` are disabled at the config layer in `examples/opencode.json`. |
+| `agents/shared/ANTI_SLOP_RULES.md` | 20-rule AI slop catalog (R-01..R-20) covering over-engineering, defensive bloat, hallucinated patterns, and generated filler. Read by `code-reviewer` (8th dimension) and `coding-agent` (self-audit). |
 
 ---
 
-## Validators (v0.15.0)
+## Validators
 
-Nine bash validators + a gate orchestrator in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Thirty-six bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
+| `validate-adrs.sh` | Every ADR-NNN reference in docs has a corresponding file with a valid status field |
+| `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md and a path entry in openapi.yaml |
 | `validate-architecture.sh` | 6 diagram types, Mermaid syntax, HLA overview, no placeholders |
-| `validate-owasp.sh` | All 10 OWASP categories present, confidence >= 7, attack-chains.md present |
-| `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md AND openapi.yaml |
-| `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
-| `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
-| `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
-| `validate-scope.sh` | Post-HANDOFF git-scope enforcement |
+| `validate-build.sh` | Runs project build command and checks exit code |
+| `validate-c3-coverage.sh` | Every source module appears in the C3 context diagram |
+| `validate-code-health.sh` | 9 anti-slop patterns: catch-all error handlers, try-in-loop, what-comments, unused imports, single-use helpers, speculative abstractions, hardcoded config, re-implemented framework features, scope creep |
 | `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase |
-| `validate-phase-gate.sh` | Orchestrator — chains the right validators for a given phase |
-| `run-handoff-gates.sh` | Three-gate runner (scope + manifest + coverage) with any-failure-aborts semantics |
+| `validate-deps.sh` | npm audit / pip-audit / cargo audit with configured waivers |
+| `validate-design-system.sh` | Token file present, component files match UX_SPEC inventory, no hardcoded hex colors |
+| `validate-e2e-setup.sh` | playwright.config.ts has JSON reporter, retries, screenshot, baseURL; auth fixture present; POM directory present; CI E2E step present |
+| `validate-entry-points.sh` | Every entry point (main, index, bin) is documented |
+| `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
+| `validate-fix-backlog-closed.sh` | CRITICAL and HIGH rows in FIX_BACKLOG resolved before phase-5 gate |
+| `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs present, no hardcoded secrets |
+| `validate-infrastructure.sh` | INFRASTRUCTURE.md has env matrix, compute, data, networking + Mermaid diagram; rejects IaC code in the document |
+| `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
+| `validate-lint.sh` | Linter + typecheck exit clean |
+| `validate-migrations.sh` | Up/down migrations present and reversible |
+| `validate-module-boundaries.sh` | Cross-module imports comply with dependency rules in MODULE_DESIGN.md |
+| `validate-module-design.sh` | MODULE_DESIGN.md: domain-aligned naming pattern present, no technical-layer names, circular dependency check passes |
+| `validate-no-ascii-art.sh` | No Unicode box-drawing characters or ASCII banners in documentation files |
+| `validate-owasp.sh` | All 10 OWASP categories present, confidence ≥ 7, attack-chains section present |
+| `validate-phase-gate.sh` | Orchestrator — chains the right validators for a given SDLC phase |
+| `validate-release-readiness.sh` | 10-condition release gate: FIX_BACKLOG closed, 4 review verdicts (security/code/ux/perf), coverage threshold, container CVE scan, RUNTIME PASS |
+| `validate-requirements-matrix.sh` | REQUIREMENTS_MATRIX.md: P0 use-case rows have Test ID and Status; cross-references USE_CASES.md |
+| `validate-scope.sh` | Post-HANDOFF git-scope enforcement |
+| `validate-security-controls.sh` | SECURITY_CONTROLS.md: HIGH/CRITICAL threats have controls; DB, API, and ARCH security sections present |
+| `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
+| `validate-smoke.sh` | Boots server, hits configured routes, asserts HTTP 200 |
+| `validate-tech-stack.sh` | All runtime and dev dependencies present in TECH_STACK.md |
+| `validate-test-design.sh` | TEST_DESIGN.md has 5 mandatory sections: Unit, Integration, E2E, Security, Test Infrastructure |
+| `validate-tests-mapping.sh` | Use-case ↔ test coverage mapping; UC-level PASS/FAIL derived from jest/vitest/pytest JSON results |
+| `validate-tests.sh` | Runs test suite; Playwright fast-path with JSON reporter |
+| `validate-use-cases.sh` | UC-IDs present, required fields complete, Source traceability field populated |
+| `validate-user-stories.sh` | Given/When/Then acceptance criteria present, traceability to use cases |
+| `validate-ux-spec.sh` | UX_SPEC.md: component library chosen, ≥ 5 component inventory, P0 UCs covered, WCAG strategy, responsive strategy |
+| `run-coverage-loop.sh` | 3-iteration gate loop runner — re-runs validators until clean or iteration cap reached |
+| `run-handoff-gates.sh` | Scope + manifest + coverage gate runner with any-failure-aborts semantics |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
 
@@ -271,7 +314,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | Reference | Used by | Purpose |
 |---|---|---|
 | `git-workflow-checklist.md` | `git-expert` | Conventional commits, SemVer, Keep-a-Changelog, recovery scenarios, report templates |
-| `code-health-checklist.md` | `code-reviewer` | 7 dimensions, silent-failure hunter, consolidation catalog, language thresholds |
+| `code-health-checklist.md` | `code-reviewer` | 8 dimensions, silent-failure hunter, consolidation catalog, language thresholds |
 | `owasp-checklist.md` | `security-auditor` | OWASP Top 10 + verification steps |
 | `semgrep-guide.md` | `security-auditor` | Semgrep setup, rule packs, two-tier scans |
 | `semgrep-community-rules.md` | `security-auditor` | Community rule inventory |

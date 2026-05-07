@@ -29,11 +29,20 @@ The SDLC workflow provides structured project management through four operating 
 
 | Mode | Branch | Merges when |
 |------|--------|-------------|
-| `init` phases 0–3 | `sdlc/setup` | Phase 3 gate passes → PR |
+| `init` phases 0–3.5 | `sdlc/setup` | Phase 3.5 gate passes → PR |
 | `init` phase 4 features | `feat/[slug]` | All reviews pass → squash merge |
 | `onboard` | `docs/onboard` | Onboarding complete → PR |
 | `feature` | `feat/[slug]` | All reviews pass → squash merge |
 | `improve` | `improve/[slug]` | All items verified → PR |
+| `hotfix/*` | `hotfix/[slug]` | P0 fix merged; forward-merge to active branches |
+
+**Draft PRs:** open a draft PR on the first push. Mark ready only when the runtime gate passes.
+
+**Merge gate requires:** CI pipeline green AND every RUNTIME_*.md with PASS verdict.
+
+**Hotfix branches:** cut from the latest semver tag (not `main`). After merge, increment the PATCH version, create a signed tag, and forward-merge to every active `feat/*` and `sdlc/*` branch to keep them current. Triggers a PATCH release.
+
+**Git checkpoints:** commit after every document step (not just at phase end). Every artifact produced = one commit on the working branch.
 
 Branch protection on `main` is configured automatically during `/sdlc init` — no direct pushes, require PR review, require CI.
 
@@ -49,7 +58,9 @@ Phases 0–5, discovery-driven from a blank repo.
 - `docs/VISION.md` — Problem, target users, success metrics
 - `docs/COMPETITIVE_ANALYSIS.md` — What exists, gaps, differentiation
 
-**Exit criteria:** Clear problem statement, target users identified, competitive gap defined
+**Gate:** File existence only.
+
+**Exit criteria:** Clear problem statement, target users identified, competitive gap defined.
 
 ---
 
@@ -61,7 +72,9 @@ Phases 0–5, discovery-driven from a blank repo.
 - `docs/CONSTRAINTS.md` — Budget, timeline, team, tech constraints
 - `docs/USER_PERSONAS.md` — Who uses this, goals, pain points
 
-**Exit criteria:** Clear boundaries, risks identified with mitigations, all 4 docs present
+**Gate:** File existence.
+
+**Exit criteria:** Clear boundaries, risks identified with mitigations, all 4 docs present.
 
 ---
 
@@ -70,8 +83,14 @@ Phases 0–5, discovery-driven from a blank repo.
 **Deliverables:**
 - `docs/SRS.md` — Functional & non-functional requirements (IEEE 830 format)
 - `docs/USER_STORIES.md` — Stories with Given/When/Then acceptance criteria
+- `docs/USE_CASES.md` — UC-NNN entries with actors, preconditions, acceptance criteria
+- `docs/REQUIREMENTS_MATRIX.md` — FR-NNN rows with UC link, test column, status
 
-**Exit criteria:** Every FR has acceptance criteria, every NFR has a measurable metric
+**Gate validators:** `validate-use-cases.sh`, `validate-user-stories.sh`, `validate-requirements-matrix.sh`
+
+**Exit criteria:** Every FR has acceptance criteria, every NFR has a measurable metric, every UC has acceptance criteria. REQUIREMENTS_MATRIX.md test column populated.
+
+**Human Approval Gate A fires here.** Irreversible design decisions begin in Phase 3. User must explicitly approve before Phase 3 starts.
 
 ---
 
@@ -79,7 +98,7 @@ Phases 0–5, discovery-driven from a blank repo.
 
 **Deliverables:**
 - `docs/ARCHITECTURE.md` — C4 diagrams, ADRs, service boundaries (orchestrator synthesis)
-- `docs/PARALLELIZATION_MAP.md` — module inventory + Phase 4 wave plan (orchestrator synthesis)
+- `docs/PARALLELIZATION_MAP.md` — Module inventory + Phase 4 wave plan (orchestrator synthesis)
 - `docs/TECH_STACK.md` — Language, frameworks, libraries + justification
 - `docs/DATABASE.md` — ERD, schema DDL, indexes, migrations
 - `docs/API_DESIGN.md` — Endpoint contracts, RBAC, examples
@@ -95,11 +114,54 @@ Phases 0–5, discovery-driven from a blank repo.
 
 **Modular-parallel architecture (mandatory):** every module must be independently buildable — owns its directory tree (`src/<module>/`), exposes a frozen contract (OpenAPI path group, gRPC service, event schema, or public interface file), has zero direct imports from another module's internals, and is listed in `PARALLELIZATION_MAP.md` with explicit dependencies. Shared code (`src/shared/`) is built in its own wave, never concurrently.
 
-**Contract-first ordering:** API contracts + event schemas are frozen at the end of Phase 3 before any Phase 4 implementation starts. This lets modules implement against mocks of each other without blocking.
+**Contract-first ordering:** API contracts + event schemas are frozen at the end of Phase 3 before any Phase 4 implementation starts.
+
+**Gate validators:** `validate-module-design.sh`, `validate-infrastructure.sh`, `validate-architecture.sh`, `validate-api-coverage.sh`, `validate-sequence-coverage.sh`, `validate-erd-coverage.sh`, `validate-no-ascii-art.sh`, `validate-c3-coverage.sh`, `validate-entry-points.sh`, `validate-tech-stack.sh`, `validate-adrs.sh`, `validate-security-controls.sh`, `validate-ux-spec.sh` (UI-bearing only)
 
 **Exit criteria:** All components documented, data flows diagrammed, modular structure defined, `PARALLELIZATION_MAP.md` Module Inventory populated for every module in ARCHITECTURE.md § Implementation View.
 
-**After Phase 3 gate passes:** `sdlc/setup` branch is merged to `main` via PR. Phase 4 feature branches cut from updated `main`.
+---
+
+### Phase 3.5: Test Design — WHAT does passing look like?
+
+Sits between Design and Implementation. Produces the test infrastructure that Phase 4 will fill in.
+
+**Deliverables:**
+- `docs/TEST_DESIGN.md` — Five sections:
+  1. Unit Tests — target files, coverage thresholds, mocking strategy
+  2. Integration Tests — service boundaries, contract checks, DB fixtures
+  3. E2E Scenarios — UC-NNN → test file mapping, user flows, happy/sad paths
+  4. Security Tests — auth flows, injection probes, RBAC coverage
+  5. Test Infrastructure — framework choices, shared fixtures, CI matrix
+- `e2e/playwright.config.ts` — Playwright configuration
+- `e2e/auth.setup.ts` — Authentication setup for authenticated test runs
+- `e2e/fixtures.ts` — Shared test fixtures
+- `e2e/global-setup.ts` — Global test environment setup
+- `.github/workflows/e2e.yml` (or equivalent CI workflow)
+
+**Gate validator:** `validate-test-design.sh` — **non-blocking**. Gaps are escalated to the user but do not hard-block Phase 4. Fix any gaps before Phase 4 if possible; document accepted gaps in a waiver.
+
+**Human Approval Gate B fires here.** Implementation (Phase 4) is irreversible. User must explicitly approve before Phase 4 begins.
+
+**After Phase 3.5 gate passes:** `sdlc/setup` branch is merged to `main` via PR. Phase 4 feature branches cut from updated `main`.
+
+---
+
+### UC-Level Test Traceability Chain
+
+Every functional requirement traces from spec to verified test result:
+
+```
+FR-NNN (SRS.md)
+  → UC-NNN (USE_CASES.md — actors, preconditions, acceptance criteria)
+    → REQUIREMENTS_MATRIX.md (test column + current status)
+      → TEST_DESIGN.md (E2E Scenarios section — scenario list for UC-NNN)
+        → e2e/use-cases/UC-NNN-*.spec.ts (describe "UC-NNN: <name>")
+          → test-results.json (CI output)
+            → validate-tests-mapping.sh (UC-level PASS/FAIL verdict per UC)
+```
+
+`validate-tests-mapping.sh` reads `test-results.json` and the UC list from REQUIREMENTS_MATRIX.md. It exits non-zero if any UC has no corresponding passing spec, producing a per-UC verdict table in its output.
 
 ---
 
@@ -113,7 +175,6 @@ Phases 0–5, discovery-driven from a blank repo.
 Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's assigned module directory is exclusive; cross-module changes must be flagged as deferred, not edited. `src/shared/` writes always run in their own wave, never concurrently.
 
 **Delegate to:**
-- `/test-expert` — Test strategy BEFORE coding
 - `/code` — Implementation from design docs (coding-agent: doc-driven, API-verified, anti-slop enforced, write-scope isolated)
 - `/dba` — Database migrations
 - `/containers` — Container setup
@@ -123,30 +184,59 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 
 **Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 
-**Exit criteria:** All components implemented, tests passing, security audit clean, every wave verified before advancing.
+**Gate validators:** `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-e2e-setup.sh`, `validate-migrations.sh`, `validate-iac.sh`, `validate-module-boundaries.sh`, `validate-code-health.sh`, `validate-design-system.sh` (UI-bearing only)
+
+**Exit criteria:** All components implemented, tests passing, security audit clean, every wave verified before advancing, all UC-level test mapping rows green.
 
 ---
 
 ### Phase 5: Review — DID it work?
 
-Reviews run as a **parallel fan-out** via the Fix-Verify Loop Protocol. Findings synthesize into a unified `FIX_BACKLOG_RELEASE_<date>.md`; fixes flow through a dedicated remediation HANDOFF; targeted re-verification closes the loop; hard cap of 3 iterations with escalation if still failing.
+Structured as five sequential rounds. Each round must complete before the next begins.
 
-**Blocking reviews (parallel fan-out, one message):**
-- `/security` — Full OWASP audit (findings only; does NOT self-fix)
-- `/perf` — Performance vs NFR targets (findings only; does NOT self-optimize)
-- `/review-code` — Full codebase quality review
-- `/ux` — Accessibility audit (if UI-bearing)
+**Round 1 — Review fan-out (parallel)**
 
-**Fix-Verify Loop (after fan-out):** sdlc-lead synthesizes FIX_BACKLOG → remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF → repeat up to 3 iterations. Every CRITICAL/HIGH merge-blocking row must PASS or be waived (via `WAIVERS_RELEASE_<date>.md`) before the Release Gate.
+Emit all review HANDOFFs in a single message. Each reviewer produces findings only — no self-fixes.
 
-**Post-review audits (sequential, non-blocking):**
-- `/test-expert` — Coverage analysis
-- `/review-code --debt` — Tech debt register for post-launch backlog
-- `/containers` — Image optimization + CVE scan
+| Reviewer | Always? | Condition |
+|----------|---------|-----------|
+| `/review-code` | Yes | — |
+| `/security` | Yes | — |
+| `/perf` | Yes | — |
+| `/ux` | If UI-bearing | Project has a UI layer |
 
-**Release Gate (BLOCKING before `--release`):** 10 required conditions. Fix-verify loop closed, every review verdict READY/APPROVED/RELEASE-READY, runtime PASS, test suite P0+P1 green, no CRITICAL CVE in containers. Any blocker stops release and surfaces to the user.
+**Round 2 — Fix-Verify loop (up to 3 iterations)**
 
-**Exit criteria:** Release Gate all green.
+sdlc-lead synthesizes all Round 1 findings into `FIX_BACKLOG_RELEASE_<date>.md`. Each iteration: remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF. Every CRITICAL/HIGH row must reach PASS or be waived (`WAIVERS_RELEASE_<date>.md`) before Round 3. After 3 failed cycles: escalation prompt (waive / redesign / defer / change specialist).
+
+**Round 3 — Audit fan-out (parallel, non-blocking)**
+
+| Auditor | Output |
+|---------|--------|
+| `/review-code --debt` | Tech debt register for post-launch backlog |
+| `/test-expert` | Coverage analysis |
+| `/containers` | Image optimization + CVE scan |
+
+**Round 4 — Release gate (blocking)**
+
+`./scripts/validators/validate-release-readiness.sh` must exit 0. Required conditions:
+
+- Fix-Verify loop closed (FIX_BACKLOG has no open CRITICAL/HIGH rows, or all waivers signed)
+- Every Round 1 review verdict is READY / APPROVED / RELEASE-READY
+- All RUNTIME_*.md verdicts are PASS
+- Test suite P0+P1 green
+- No CRITICAL CVE in container images
+- CI pipeline green on merge branch
+
+Any blocker stops release and surfaces to the user.
+
+**Round 5 — Release**
+
+`/git-expert --release` — semver bump, changelog entry, signed tag, push to all remotes.
+
+**Gate validators:** `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-deps.sh`, `validate-smoke.sh`, `validate-fix-backlog-closed.sh`, `validate-code-health.sh`, `validate-module-boundaries.sh`, `validate-release-readiness.sh`
+
+**Exit criteria:** Release Gate all green, `validate-release-readiness.sh` exits 0.
 
 ---
 
@@ -154,7 +244,7 @@ Reviews run as a **parallel fan-out** via the Fix-Verify Loop Protocol. Findings
 
 Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces documentation that makes the next person's onboarding 10x faster. All docs committed via PR to `main`.
 
-**Depth flags (v0.15.0):**
+**Depth flags:**
 
 | Flag | Scope | Time |
 |------|-------|------|
@@ -177,7 +267,7 @@ Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces
 - One artifact per inventory row (API_DESIGN row, ERD node, C3 section, sequence diagram, entry-point doc)
 - Passing validator: `./scripts/validators/validate-phase-gate.sh onboard-deep` exits 0
 
-**Deep-mode sub-skills** — thin triggers for the individual Ralph Wiggum steps:
+**Deep-mode sub-skills:**
 
 | Skill | Step | Purpose |
 |-------|------|---------|
@@ -203,7 +293,7 @@ Add a feature to a working system without breaking it. Creates `feat/[slug]` bra
 7. **Fix-Verify loop** — sdlc-lead synthesizes `FIX_BACKLOG_<feature>_<date>.md` from every review. CRITICAL/HIGH rows get a remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF → iterate up to 3 times. After 3 failed cycles → escalation prompt (waive / redesign / defer / change specialist).
 8. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
 9. **Runtime validation gate (BLOCKING before merge)** — build → lint/typecheck → start → feature smoke → regression smoke. Produces `docs/reviews/RUNTIME_<feature>_<date>.md`. Verdict must be PASS or the merge aborts. In split features, each sub-component produces its own `RUNTIME_<slug>_<sub-slug>_<date>.md`; the parent merges to `main` only when every sub-component is PASS.
-10. Merge — `git-expert` verifies RUNTIME = PASS, FIX_BACKLOG closed (or waivers signed), no open CRITICAL/HIGH review verdicts, then marks the PR ready and squash-merges. Branch deleted after merge.
+10. Merge — `git-expert` verifies RUNTIME = PASS, FIX_BACKLOG closed (or waivers signed), no open CRITICAL/HIGH review verdicts, CI pipeline green, then marks the PR ready and squash-merges. Branch deleted after merge.
 
 ---
 
@@ -247,20 +337,27 @@ All findings include severity (Critical/High/Medium/Low), effort estimate (S/M/L
 
 ---
 
-## Gate Management
+## Phase Gate Table
 
-Before advancing any phase or milestone, sdlc-lead runs gate checks in two forms:
+| Phase | Validators | Blocking? |
+|-------|-----------|-----------|
+| 0 | File existence (VISION.md, COMPETITIVE_ANALYSIS.md) | Yes |
+| 1 | File existence (SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md) | Yes |
+| 2 | `validate-use-cases.sh`, `validate-user-stories.sh`, `validate-requirements-matrix.sh` | Yes |
+| **Gate A** | Human approval required before Phase 3 | Hard block |
+| 3 | `validate-module-design.sh`, `validate-infrastructure.sh`, `validate-architecture.sh`, `validate-api-coverage.sh`, `validate-sequence-coverage.sh`, `validate-erd-coverage.sh`, `validate-no-ascii-art.sh`, `validate-c3-coverage.sh`, `validate-entry-points.sh`, `validate-tech-stack.sh`, `validate-adrs.sh`, `validate-security-controls.sh`, `validate-ux-spec.sh`* | Yes |
+| 3.5 | `validate-test-design.sh` | Non-blocking (gaps escalated) |
+| **Gate B** | Human approval required before Phase 4 | Hard block |
+| 4 | `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-e2e-setup.sh`, `validate-migrations.sh`, `validate-iac.sh`, `validate-module-boundaries.sh`, `validate-code-health.sh`, `validate-design-system.sh`* | Yes |
+| 5 | `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-deps.sh`, `validate-smoke.sh`, `validate-fix-backlog-closed.sh`, `validate-code-health.sh`, `validate-module-boundaries.sh`, `validate-release-readiness.sh` | Yes |
 
-**Automated validators (v0.15.0)** — deterministic coverage checks via `scripts/validators/`:
-
-| Phase | Validator chain |
-|-------|-----------------|
-| `phase-3` | architecture + api-coverage + erd-coverage + sequence-coverage |
-| `onboard-deep` | inventory + architecture + erd-coverage + sequence-coverage |
-| `security-deep` | owasp + attack-chains |
-| `phase-5` release | FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS |
+\* UI-bearing projects only.
 
 Orchestrated via `./scripts/validators/validate-phase-gate.sh <phase>` — exit 0 = clean, 1 = gaps, 2 = validator error.
+
+---
+
+## Gate Management
 
 **User-facing wrappers:**
 
@@ -305,6 +402,7 @@ Work started in Claude Code continues seamlessly in OpenCode:
 - **Mermaid diagrams everywhere** — not ASCII art; renderable, version-controllable
 - **Modular architecture** — feature-sliced, interface-driven, dependency-injected
 - **main is sacred** — work on branches, merge via PRs; the workflow enforces this automatically
+- **Draft PR on first push** — don't wait until code is done; open a draft immediately so CI runs early
 
 ---
 
