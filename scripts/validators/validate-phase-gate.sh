@@ -85,6 +85,11 @@ case "$PHASE" in
       "validate-adrs.sh"
       "validate-security-controls.sh"
     )
+    # UI-bearing: if ux-engineer produced design docs, validate the UX spec too
+    if [[ -f "$ROOT/docs/design/DESIGN_PRINCIPLES.md" ]]; then
+      note "UI-bearing project detected — adding validate-ux-spec.sh to phase-3 gate"
+      GATE_VALIDATORS+=("validate-ux-spec.sh")
+    fi
     ;;
   phase-3.5)
     check_phase_prereq "phase-3"
@@ -106,6 +111,11 @@ case "$PHASE" in
       "validate-migrations.sh"
       "validate-iac.sh"
     )
+    # UI-bearing: if UX spec exists, validate design system was implemented
+    if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
+      note "UI-bearing project detected — adding validate-design-system.sh to phase-4 gate"
+      GATE_VALIDATORS+=("validate-design-system.sh")
+    fi
     ;;
   phase-5)
     check_phase_prereq "phase-4"

@@ -744,8 +744,16 @@ PRODUCE exactly these files:
   to avoid, decision criteria for future design choices
 - docs/design/STYLE_GUIDE.md — specific typefaces (NOT Inter/Roboto/Arial — pick something
   with personality), exact color tokens with hex values, spacing scale, motion principles
-- docs/design/UX_SPEC.md — user workflows as Mermaid flow diagrams (one per USER_STORY),
-  screen hierarchy, component inventory, WCAG 2.2 AA accessibility plan, responsive strategy
+- docs/design/UX_SPEC.md — must include ALL of:
+  * Component Library Selection: choose ONE specific library (shadcn/ui, MUI, Ant Design,
+    Chakra UI, Headless UI + Tailwind, etc.) with justification from TECH_STACK.md framework
+  * Screen Hierarchy / Information Architecture: Mermaid diagram showing page/screen tree
+  * User Workflows: one Mermaid flowchart per user story (actor → steps → outcomes)
+  * Component Inventory: table listing every reusable UI component (name, purpose, variants,
+    which screens use it) — minimum 5 components
+  * Accessibility Plan (WCAG 2.2 AA): table covering keyboard navigation, color contrast
+    (4.5:1 minimum), screen reader support (ARIA), focus indicators
+  * Responsive Strategy: breakpoints table with layout approach per breakpoint
 
 When all three files are written, print exactly:
 "ux done — [one sentence: design direction chosen and how many workflows covered]"
@@ -756,12 +764,12 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 After "ux done":
 1. Verify all three files exist and are >50 lines each
-2. Run the **Research Findings Review Protocol** on the UX output — check for conflicts with TECH_STACK, USER_PERSONAS, or DESIGN_CONTEXT
-3. **Gate all three documents** with asymmetric thresholds:
-   - < 5 on any doc → surface immediate gap, send back to ux-engineer with specific feedback
-   - 5–6 → iterate (max 3 passes) — describe gap explicitly in follow-up handoff
-   - ≥ 7 on all three → pass
-4. Run Inter-Phase Check-In Protocol for the UX deliverables specifically before proceeding
+2. Run the **Research Findings Review Protocol** — check for conflicts with TECH_STACK, USER_PERSONAS, or DESIGN_CONTEXT
+3. **Run handoff gates:** `./scripts/validators/run-handoff-gates.sh --scope docs/design --manifest <manifest> --coverage validate-ux-spec.sh`
+   - Gate uses Track 1 (validate-ux-spec.sh) — objective coverage, not confidence scoring
+   - If gaps: return specific gap to ux-engineer with REVISE status (up to 3 iterations)
+   - All gaps closed → mark DONE
+4. Run Inter-Phase Check-In Protocol for the UX deliverables before proceeding
 
 **After UX passes — HANDOFF to frontend-design for visual implementation:**
 
@@ -1244,6 +1252,25 @@ A module that fails Round 3 blocks only itself — fix that module and re-run it
 - PARALLELIZATION_MAP.md lists the modules in different waves (don't cross wave boundaries for convenience)
 
 Delegate implementation work via HANDOFF — one specialist at a time within a sequential wave, or three rounds of N HANDOFFs in a parallel wave.
+
+**0. Design system — Wave 0 (UI-bearing projects only, BEFORE any feature coding):**
+
+If the project is UI-bearing (docs/design/UX_SPEC.md exists), Wave 0 must complete before any coding waves start. Coding agents building feature UI need the design system to exist so they import from it rather than inventing their own tokens and components.
+
+```
+write(filePath="docs/work/sdlc-state.md", content="
+Mode: 1 / Phase: 4 — Wave 0 (Design System)
+Last completed: Phase 3.5 gate passed, Human Approval Gate B confirmed
+Awaiting: frontend-design — design system implementation
+Next after resume: run handoff gates (validate-design-system), then test strategy
+")
+```
+
+Use **Template 10** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
+
+→ After "frontend done": run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
+
+**Wave 0 must pass before Wave 1 coding begins.** The design system is the foundation for all feature UI — no exceptions.
 
 **1. Test strategy confirmation — before any code:**
 
