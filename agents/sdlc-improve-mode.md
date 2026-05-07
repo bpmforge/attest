@@ -248,6 +248,10 @@ When all files are written, print exactly:
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
+**Git checkpoint — save UX audit:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/UX_AUDIT.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add UX audit findings'. Push to origin. Only stage the listed files.", timeout=60)
+```
 
 ### Code Quality Audit (if in scope)
 
@@ -295,6 +299,10 @@ When all files are written, print exactly:
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
+**Git checkpoint — save code quality audit:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/CODE_QUALITY_AUDIT.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add code quality audit findings'. Push to origin. Only stage the listed files.", timeout=60)
+```
 
 ### Performance Audit (if in scope)
 
@@ -337,6 +345,10 @@ When all files are written, print exactly:
 "performance-engineer done — performance audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
+```
+**Git checkpoint — save performance audit:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/PERFORMANCE_AUDIT.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add performance audit findings'. Push to origin. Only stage the listed files.", timeout=60)
 ```
 
 ### Security Audit (if in scope)
@@ -381,6 +393,10 @@ When all files are written, print exactly:
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
+**Git checkpoint — save security audit:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/SECURITY_AUDIT.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add security audit findings'. Push to origin. Only stage the listed files.", timeout=60)
+```
 
 ### Database Audit (if in scope)
 
@@ -421,6 +437,10 @@ When all files are written, print exactly:
 "db-architect done — database audit complete: [N] findings ([critical] critical, [high] high)"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
+```
+**Git checkpoint — save database audit:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/DATABASE_AUDIT.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add database audit findings'. Push to origin. Only stage the listed files.", timeout=60)
 ```
 
 ## Step 2.5: Vision Research (If User Provided a Desired State)
@@ -580,6 +600,11 @@ or "all critical+high" to execute all critical and high items)
 
 Wait for the user's response. Do not proceed until they select items to execute.
 
+**Git checkpoint — save backlog + execution plan:**
+```
+task(agent="git-expert", prompt="Commit docs/improve/IMPROVEMENT_BACKLOG.md and docs/improve/EXECUTION_PLAN.md to the improve/[slug] branch. Conventional commit: 'docs(improve): add improvement backlog and execution plan'. Push to origin.", timeout=60)
+```
+
 Write their selection to `docs/improve/EXECUTION_PLAN.md`:
 ```
 write(filePath="docs/improve/EXECUTION_PLAN.md", content="
@@ -644,6 +669,11 @@ When the file is written, print exactly:
 "[specialist] done — item [n]: RESOLVED / PARTIAL / NOT FIXED — [one sentence]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
+```
+
+**Git checkpoint — save fix + verification (after each item):**
+```
+task(agent="git-expert", prompt="Commit the changed source files and docs/improve/VERIFY_ITEM_[n].md to the improve/[slug] branch. Conventional commit: 'fix(improve): resolve improvement item #[n] — [title]'. Push to origin. Only stage the specific changed files, not the whole repo.", timeout=60)
 ```
 
 **Which specialist to use for verification?** Match to whoever audited it:

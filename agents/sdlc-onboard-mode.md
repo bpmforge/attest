@@ -188,6 +188,11 @@ sequenceDiagram
 
 **Verify:** `docs/diagrams/sequences/` contains ≥4 `.md` files, each with a `sequenceDiagram` block and at least one error path annotation. Do NOT move to Step 3 until all key operations are diagrammed.
 
+**Git checkpoint — save progress before continuing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files produced so far to the docs/onboard branch. Conventional commit: 'docs(onboard): add landscape analysis and sequence diagrams (steps 1-2)'. Push to origin. Only stage docs/ files.", timeout=60)
+```
+
 ## Step 3: Map Data Model
 
 - Grep for database schema (migrations, ORM models, CREATE TABLE)
@@ -586,6 +591,12 @@ ARCHITECTURE.md MUST include all 6 diagram types (same requirement as new projec
 If any of these 6 are missing, produce them before marking Step 7 complete.
 
 **Verify:** `docs/ARCHITECTURE.md` exists, >100 lines, contains all 6 diagram types. `docs/ONBOARDING.md` exists, >50 lines, contains Quick Start section. `docs/DECISION_LOG.md` exists with discovered design decisions.
+
+**Git checkpoint — save progress before continuing:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files produced so far to the docs/onboard branch. Conventional commit: 'docs(onboard): add architecture, component maps, and onboarding guide (steps 3-4)'. Push to origin. Only stage docs/ files.", timeout=60)
+```
+
 
 **Commit the onboarding docs:**
 ```
