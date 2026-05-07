@@ -916,3 +916,119 @@ Artifacts:
   - docs/ONBOARDING.md
 ```
 
+After printing the completion block, **always run the SDLC Gap-Fill Pass below.**
+
+---
+
+## SDLC Gap-Fill Pass (runs after every onboard depth level)
+
+After the main onboard flow completes, check which SDLC phase artifacts are still missing and fill them using the existing codebase as context. This converts an onboarded codebase into a fully SDLC-documented project.
+
+**Step GF-1 — Run the state detector:**
+
+```
+bash(command="bash scripts/detect-sdlc-state.sh")
+read(filePath="docs/work/SDLC_AUDIT.md")
+```
+
+**Step GF-2 — Assess the gap list.**
+
+Read the Phase Status table in SDLC_AUDIT.md. For each phase that is INCOMPLETE or NOT_STARTED, check which specific artifacts are missing.
+
+**Step GF-3 — Present gap summary to user:**
+
+```
+SDLC GAP-FILL PASS
+
+After onboarding, the following SDLC artifacts are missing:
+
+  Phase N: [list of missing docs]
+  Phase N: [list of missing docs]
+
+I can produce these by reverse-engineering from the existing codebase.
+Each will be a HANDOFF to the appropriate specialist who reads your code
+and produces the document that should have been written first.
+
+Shall I proceed with gap-fill? (yes / skip / skip [phase] only)
+```
+
+Wait for user response before continuing.
+
+**Step GF-4 — Issue gap-fill HANDOFFs (if user confirms).**
+
+For each missing artifact, issue a targeted HANDOFF. These are **reverse-engineering** HANDOFFs — the specialist reads the EXISTING code and produces the document, rather than designing from scratch.
+
+Issue HANDOFFs in phase order. Do not skip to Phase 3 docs if Phase 2 docs are missing.
+
+### Gap-fill HANDOFF patterns
+
+**Missing Phase 0/1 docs (VISION, SCOPE, RISKS, PERSONAS):**
+→ Orchestrator writes these directly from DISCOVERY.md and the existing README/codebase — do not delegate, synthesize from what you've learned during onboarding.
+
+**Missing Phase 2 docs (SRS, USER_STORIES, USE_CASES):**
+→ sdlc-lead synthesizes from existing feature code, route handlers, and any inline comments. Produce these directly — they are synthesis documents.
+
+**Missing MODULE_DESIGN.md (Phase 3):**
+HANDOFF to `architecture-designer` with reverse-engineering context:
+```
+SDLC-TASK for architecture-designer:
+CONTEXT:
+- docs/ONBOARDING.md — existing codebase structure
+- docs/ARCHITECTURE.md — if it exists
+- docs/onboard/INVENTORY.md — discovered routes/tables/services
+- src/ — read the actual module structure
+YOUR TASK:
+Reverse-engineer the module design from the existing codebase. Document what the
+modules ARE (even if they were not designed modularly). If the codebase is a monolith,
+document that honestly and propose what a modular refactor would look like.
+PRODUCE: docs/MODULE_DESIGN.md (current state + recommended target state if different)
+```
+
+**Missing INFRASTRUCTURE.md (Phase 3):**
+HANDOFF to `sre-engineer` with reverse-engineering context:
+```
+SDLC-TASK for sre-engineer:
+CONTEXT:
+- docker-compose.yml, Dockerfile, .env.example (if they exist)
+- docs/ARCHITECTURE.md — any deployment notes
+- README.md — any infrastructure documentation
+YOUR TASK:
+Reverse-engineer the infrastructure topology from existing deployment config.
+Document what infrastructure this project requires based on what you find in the
+config files. If no deployment config exists, document the minimum required based
+on the application's dependencies.
+PRODUCE: docs/INFRASTRUCTURE.md
+```
+
+**Missing THREAT_MODEL.md (Phase 3):**
+HANDOFF to `security-auditor` — standard threat model HANDOFF but reading existing API routes and data shapes from the codebase.
+
+**Missing UX_SPEC.md (Phase 3, UI-bearing):**
+HANDOFF to `ux-engineer` — reverse-engineer the component inventory and flows from existing UI code.
+
+**Missing TEST_DESIGN.md (Phase 3.5):**
+HANDOFF to `test-engineer` — read existing test files and fill in what's missing from the test design.
+
+**Step GF-5 — After each gap-fill HANDOFF returns:**
+Run `./scripts/validators/run-handoff-gates.sh` with the appropriate `--coverage` validator.
+
+**Step GF-6 — Re-run state detector:**
+```
+bash(command="bash scripts/detect-sdlc-state.sh")
+```
+Confirm gaps are closing. Continue until all phases show COMPLETE or user stops the process.
+
+**Step GF-7 — Final status:**
+```
+SDLC GAP-FILL COMPLETE
+
+SDLC artifacts now present:
+  [list what was produced]
+
+Remaining gaps (if any):
+  [list what was skipped or couldn't be produced]
+
+The codebase is now SDLC-documented. Use /sdlc feature to add new features
+following the full gated process.
+```
+

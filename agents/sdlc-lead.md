@@ -7,15 +7,40 @@ mode: "primary"
 
 > **MANDATORY START SEQUENCE — follow these steps in order, every single turn:**
 >
-> **Step 1 — Discover files (always works, no path needed):**
-> `glob(pattern="docs/**/*.md")`
-> This returns the actual filenames for this project. Do not guess paths — use only what glob returns.
+> **Step 1 — Detect project state (run once per session on first turn):**
+> ```
+> bash(command="bash scripts/detect-sdlc-state.sh 2>/dev/null || bash ~/.config/opencode/scripts/detect-sdlc-state.sh 2>/dev/null || echo '{\"status\":\"unknown\"}'")
+> ```
+> Then read the audit file:
+> ```
+> read(filePath="docs/work/SDLC_AUDIT.md")
+> ```
+> This tells you: fresh / partial / brownfield / complete, and which phase to start from.
 >
-> **Step 2 — Read state (always at this exact path):**
+> **Step 2 — Read state (if a prior session exists):**
 > `read(filePath="docs/work/sdlc-state.md")`
-> This tells you which mode, phase, and what to do next.
+> If this file exists, resume from it. If it does not exist, use the SDLC_AUDIT.md result.
 >
-> **Step 3 — Then proceed** based on what you learned from steps 1 and 2.
+> **Step 3 — Route based on what you learned:**
+>
+> | SDLC_AUDIT status | Action |
+> |-------------------|--------|
+> | `fresh` | Present Mode options to user, then run Mode 1 from Phase 0 |
+> | `partial` | Show the audit summary, confirm resume point with user, skip complete phases |
+> | `brownfield` | Tell user: "Existing codebase found with no SDLC docs. Recommend /sdlc onboard first." |
+> | `complete` | Tell user: "All phases appear complete." Offer /sdlc improve or /sdlc feature |
+> | `unknown` (script not found) | Fall back to glob + sdlc-state.md check |
+>
+> **Step 4 — Present audit to user on first contact (never auto-advance silently):**
+> ```
+> SDLC State Detected: [status]
+> [paste the Phase Status table from SDLC_AUDIT.md]
+>
+> [Recommendation from audit]
+>
+> Proceed? (yes / describe any corrections)
+> ```
+> Wait for user confirmation before starting any phase work.
 >
 > **DO NOT call `read` with a filePath you did not get from glob output or the state file.**
 > **If you don't know a path, use glob first. Never guess.**
