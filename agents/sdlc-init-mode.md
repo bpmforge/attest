@@ -1161,38 +1161,85 @@ Delegate implementation work via HANDOFF. Supports two execution modes — alway
 
 ### Execution Mode Selection (Mandatory First Step)
 
-Read `docs/PARALLELIZATION_MAP.md`. Present the wave structure to the user and ask:
+Read `docs/PARALLELIZATION_MAP.md`. Present the **full parallel opportunity map** to the user — not just waves, but every dimension of parallelism available:
 
 ```
-Phase 4 implementation plan (from docs/PARALLELIZATION_MAP.md):
+Phase 4 execution plan (from docs/PARALLELIZATION_MAP.md):
 
-  Wave 1: [modules] — [N agents]
-  Wave 2: [modules] — [N agents]
-  Wave 3: [modules] — [N agents]
+IMPLEMENTATION WAVES (can be S or P per wave):
+  Wave 0: Design System [always S — foundation, must complete first if UI-bearing]
+  Wave 1: [shared-types or foundation modules] — 1 module [recommend S]
+  Wave 2: [module-A, module-B] — N modules, parallel-safe (no mutual deps)
+  Wave 3: [module-C, module-D] — N modules, parallel-safe (no mutual deps)
   ...
 
-Which execution mode for each wave?
-  [S] Sequential (default, safer) — I emit HANDOFFs one at a time, you open one
-      session per agent, verify each before the next.
-  [P] Parallel — I emit ALL HANDOFFs for a wave at once, you open N OpenCode
-      sessions concurrently, each reports 'done' independently. Wave N+1 does
-      not start until every Wave-N agent returns AND verification ≥ 7.
+INFRASTRUCTURE WAVES (parallel-safe alongside Wave N — no code overlap):
+  IaC Scaffolding:  can start once ARCHITECTURE.md is frozen (runs alongside Wave N)
+  CI/CD Pipeline:   can start once IaC is ready (runs alongside Wave N)
 
-You can pick differently per wave (e.g. Wave 1 sequential for shared types,
-Wave 2+ parallel for independent modules). Default if no answer: sequential for all.
+REVIEW ROUNDS (always parallel regardless of wave mode):
+  Within every wave, Round 2 reviews fan out in parallel:
+  code-reviewer + [security if auth/input touched] + [perf if DB/loops touched] + [ux if UI touched]
+  ALL emitted in ONE message. You open N sessions concurrently.
+
+Which execution mode per wave? [S = sequential / P = parallel]
+  Wave 1: __ (recommended: S — only 1 module or shared foundation)
+  Wave 2: __ (safe to parallelize — modules are independent)
+  Wave N: __
+  IaC:    S (1 agent, always sequential within itself)
+  CI/CD:  S (1 agent, always sequential within itself)
+
+Default if no answer: S for all. You can change per wave.
 ```
 
-Record the user's choice per wave in `docs/work/sdlc-state.md`:
+Record choices in `docs/work/sdlc-state.md`:
 ```
 Phase 4 execution plan:
   Wave 1: [S|P] — [modules]
   Wave 2: [S|P] — [modules]
-  ...
+  Infrastructure: IaC runs alongside Wave [N], CI/CD runs alongside Wave [N]
 ```
 
-### Sequential Wave (default)
+---
 
-For each module in the wave: emit one HANDOFF, wait for "done", run Step 4 verify + confidence score, THEN emit the next HANDOFF. Exactly the pattern used in every other phase.
+### Sequential Wave — Round 1/2/3 per module
+
+Sequential mode processes one module at a time, but **each module goes through the same 3-round lifecycle as parallel mode**. The rounds are identical — the only difference is you open one session at a time instead of N concurrently.
+
+**For each module in the wave (one at a time):**
+
+**Round 1 — Code:**
+Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
+```bash
+./scripts/validators/run-handoff-gates.sh \
+  --scope src/<module> \
+  --manifest docs/reviews/MANIFEST_<module>_<date>.md \
+  --runtime
+```
+If gate fails → return gap to coding-agent with REVISE. Repeat up to 3 times.
+
+**Round 2 — Review (always parallel, even in sequential wave mode):**
+Emit ALL triggered review HANDOFFs in ONE message:
+```
+---
+  <MODULE> — ROUND 2: REVIEW (open N sessions concurrently)
+---
+[code-reviewer HANDOFF — always]
+[security-auditor HANDOFF — if auth/input/credentials touched]
+[performance-engineer HANDOFF — if DB queries/loops/caching touched]
+[ux-engineer HANDOFF — if any UI file touched]
+```
+Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<date>.md`. Run Fix-Verify Loop (see `agents/shared/FIX_VERIFY_LOOP.md`) — up to 3 iterations, escalate if still failing.
+
+**Round 3 — Runtime:**
+Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
+If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the next module.
+
+**Module gate (before next module):**
+1. RUNTIME_<module>.md shows PASS
+2. FIX_BACKLOG_<module>.md has 0 open CRITICAL/HIGH (or signed waivers)
+3. run-handoff-gates.sh scope check clean
+→ Only then emit Round 1 for the next module in the wave.
 
 ### Parallel Wave (opt-in) — each module runs its own full mini-lifecycle
 
@@ -1237,14 +1284,26 @@ Emit ONE message with every triggered review HANDOFF per module (code-reviewer a
 
 Emit ONE message with N runtime-validation HANDOFFs, one per module. Each runs the full runtime gate (build → lint/typecheck → start → module-level smoke → regression smoke) scoped to its module and produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
 
-Round 3 gate (mandatory before Wave N+1):
-1. Every module reported its runtime completion phrase
-2. Every `RUNTIME_<module>_<date>.md` has verdict `PASS`
-3. No two agents wrote to the same file across the wave
-4. **Coverage loop clean** — run `./scripts/validators/run-coverage-loop.sh phase-4` from project root. This wraps `validate-phase-gate.sh phase-4` with iteration tracking + escalation. Exits 0 (clean), 1 (gaps remain — orchestrator emits gap-fill HANDOFFs and re-runs), or 2 (3 iterations exhausted — emit escalation block). Chained validators: `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-migrations.sh`. Override commands per project via `.sdlc/sdlc.json`.
-5. Update the SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE | per-module scores`
+Round 3 gate — **per module** (before marking the module done):
+1. Module's RUNTIME_<module>.md shows PASS
+2. Module's FIX_BACKLOG_<module>.md has 0 open CRITICAL/HIGH
+3. run-handoff-gates.sh scope check clean for this module
 
 A module that fails Round 3 blocks only itself — fix that module and re-run its Round 3 HANDOFF while other modules' PASS verdicts remain valid.
+
+**Wave gate — mandatory before Wave N+1 (applies to both S and P modes):**
+1. Every module in the wave has RUNTIME PASS and clean FIX_BACKLOG
+2. No write-scope collisions (`git status --porcelain` — no overlap between modules)
+3. Update PARALLELIZATION_MAP.md: mark wave DONE
+4. Update SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE`
+
+Print this before advancing:
+```
+WAVE [N] COMPLETE ✓
+  Modules: [list] — all RUNTIME PASS, all FIX_BACKLOGs clean
+  Advancing to Wave [N+1]: [modules]
+  [or: All waves complete — running Phase 4 pre-gate checklist]
+```
 
 **When to refuse parallel and force sequential:**
 - The wave contains any module that writes to `src/shared/`, `src/common/`, or root-level config (tsconfig, package.json, etc.)
@@ -1602,7 +1661,23 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-**5. IaC scaffolding (HANDOFF — own wave, parallel-safe with other infrastructure-only work):**
+**5. IaC scaffolding + CI/CD — Infrastructure Wave (parallel-safe with last coding wave):**
+
+IaC and CI/CD have no write-scope overlap with application code modules. They can run alongside the LAST coding wave in the PARALLELIZATION_MAP, not after it. Emit both HANDOFFs in ONE message alongside Wave N coding HANDOFFs.
+
+```
+---
+  INFRASTRUCTURE WAVE — runs in parallel with coding Wave [N]
+---
+Open 2 additional sessions alongside your Wave [N] coding sessions:
+
+[IaC HANDOFF — sre-engineer, Template 9]
+[CI/CD HANDOFF — sre-engineer, Template below]
+```
+
+Wait for both `"sre done — IaC..."` and `"devops done — ..."` completion phrases. The infrastructure wave does NOT block coding Wave N — they run concurrently.
+
+**IaC scaffolding (HANDOFF — own wave, parallel-safe with other infrastructure-only work):**
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
@@ -1796,7 +1871,37 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 - Verify each module has: interface, implementation, tests
 - Gate PRs: code review + security check before merge
 
-**Exit:** All components implemented, tests passing, security audit clean, architecture matches design
+### Phase 4 Pre-Gate Checklist (run before validate-phase-gate.sh phase-4)
+
+Before running the Phase 4 gate, verify all waves and infrastructure work are complete:
+
+```
+PHASE 4 PRE-GATE CHECK
+
+Implementation waves (from docs/PARALLELIZATION_MAP.md):
+  Wave 1 [modules]: ✓/✗ DONE
+  Wave 2 [modules]: ✓/✗ DONE
+  ...
+  Wave N [modules]: ✓/✗ DONE
+
+Per-wave verification:
+  Every module has RUNTIME_<module>_<date>.md with PASS verdict: ✓/✗
+  Every module FIX_BACKLOG has 0 open CRITICAL/HIGH: ✓/✗
+
+Infrastructure wave:
+  IaC scaffolding: ✓/✗ DONE (infra/ exists, validate-iac.sh passes)
+  CI/CD pipeline:  ✓/✗ DONE (.github/workflows/ci.yml or .gitea/workflows/ci.yml exists)
+
+Design system (if UI-bearing):
+  Wave 0 DESIGN_SYSTEM.md: ✓/✗ DONE (validate-design-system.sh passes)
+
+ALL ✓ → run: ./scripts/validators/run-coverage-loop.sh phase-4
+ANY ✗ → fix the gap before running the gate
+```
+
+The coverage loop (`run-coverage-loop.sh phase-4`) chains: validate-build, validate-lint, validate-tests, validate-tests-mapping, validate-migrations, validate-iac, validate-module-boundaries, and (if UI-bearing) validate-design-system.
+
+**Exit:** All waves DONE, all RUNTIME PASS, all FIX_BACKLOGs clean, IaC and CI/CD in place, module boundaries respected
 
 ## Phase 5: Review — DID it work?
 
