@@ -507,7 +507,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "db done": verify docs/DATABASE.md exists and >50 lines → mark DONE
+→ After "db done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
 
 **Step 3 — API contracts (HANDOFF):**
 
@@ -566,10 +566,9 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "api done": verify both `docs/API_DESIGN.md` and `docs/api/openapi.yaml` exist.
-  Run: `bash -c "swagger-cli validate docs/api/openapi.yaml 2>&1 || echo 'swagger-cli not found — install: npm i -g @apidevtools/swagger-cli'"`.
-  If validation fails, send the errors back to api-designer with: "Fix these OpenAPI validation errors: [errors]".
-  Mark DONE only when both files exist and the spec validates with 0 errors.
+→ After "api done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
+  Also run: `bash -c "swagger-cli validate docs/api/openapi.yaml 2>&1 || echo 'swagger-cli not found — install: npm i -g @apidevtools/swagger-cli'"`.
+  If OpenAPI validation fails, return errors to api-designer with REVISE status before accepting.
 
 **Step 4 — UX branch (HANDOFF, if UI-bearing — see below)**
 
@@ -619,7 +618,8 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "security done": verify docs/THREAT_MODEL.md exists and has threat IDs → mark DONE
+→ After "security done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
+  No `--coverage` flag: threat model quality is validated downstream by `validate-security-controls.sh` (checks every HIGH/CRITICAL threat has a control). Verify THREAT_MODEL.md has threat IDs (T-01, T-02, ...) and severity ratings before accepting.
 
 **Step 6 — Security controls (HANDOFF):**
 
