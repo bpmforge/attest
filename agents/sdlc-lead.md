@@ -322,20 +322,35 @@ These files are the single source of truth. All mode files reference them.
 
 ## Validation gate system
 
-Every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>` which chains the relevant validators:
+Every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>` which chains the relevant validators. Phases are **ordered** — the gate writes a lock file (`docs/work/gates/<phase>-passed.lock`) on success and checks for the prior phase's lock before running. Phase N cannot pass until Phase N-1's gate has passed.
 
-| Phase | Validators run |
-|-------|---------------|
-| phase-0 | File-existence only |
-| phase-1 | File-existence only |
-| phase-2 | File-existence only |
-| phase-3 | architecture + api-coverage + sequence-coverage + erd-coverage |
-| phase-4 | per-module RUNTIME checks (handled inline) |
-| phase-5 | Release gate: FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS |
-| onboard-deep | inventory + architecture + erd-coverage + sequence-coverage |
-| security-deep | owasp + attack-chains |
+| Phase | Validators run | Gate type |
+|-------|---------------|-----------|
+| phase-0 | File-existence only | Soft (no prereq) |
+| phase-1 | File-existence only | Prereq: phase-0 |
+| phase-2 | use-cases + user-stories (+ traceability) | Prereq: phase-1 |
+| phase-3 | architecture + api-coverage + sequence-coverage + erd-coverage + c3-coverage + entry-points + tech-stack + adrs + **security-controls** | Prereq: phase-2 |
+| phase-3.5 | **validate-test-design** (coverage loop / escalation) | Prereq: phase-3 |
+| phase-4 | build + lint + tests + tests-mapping + migrations | Prereq: phase-3.5 |
+| phase-5 | Release gate: FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS | Prereq: phase-4 |
+| onboard-deep | inventory + architecture + erd-coverage + sequence-coverage | Standalone |
+| security-deep | owasp + attack-chains | Standalone |
 
 If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
+
+**HANDOFF coverage validator table (updated):**
+
+| HANDOFF type | `--coverage` arg | `--runtime` |
+|--------------|------------------|-------------|
+| `api-designer` | `validate-api-coverage.sh` | — |
+| `db-architect` | `validate-erd-coverage.sh` | — |
+| architecture synthesis | `validate-architecture.sh` | — |
+| `security-auditor` (threat model) | — | — |
+| `security-auditor` (security controls) | `validate-security-controls.sh` | — |
+| `test-engineer` (test design) | `validate-test-design.sh` | — |
+| `security-auditor --deep` | `validate-owasp.sh` | — |
+| `onboard --deep` | `validate-inventory.sh` | — |
+| `coding-agent` (any code) | omit | `--runtime` |
 
 ---
 
@@ -497,6 +512,65 @@ Next after resume: [what you'll do when user comes back]
 - **Parallel wave protocol** -- Mode 1 Phase 4 + Mode 3 Step 3 sub-component decomposition
 - **Release gate** -- Mode 1 Phase 5
 - **Ralph Wiggum deep-mode loop** -- Mode 2 (for onboard --deep)
+
+---
+
+## Human approval gates (hard stops — MANDATORY)
+
+Two phase transitions require explicit human approval before any work begins. These are **irreversible commitment points** — design decisions (Phase 3) and test targets (Phase 3.5→4) are frozen after these gates pass.
+
+### Gate A: Phase 2→3 (Requirements → Design)
+
+After Phase 2 gate passes and docs are committed, emit this block and **STOP**:
+
+```
+---
+  HUMAN APPROVAL GATE A — PHASE 2 → 3
+---
+Requirements are locked. Before design begins, confirm:
+
+  [x] SRS.md covers all agreed functional requirements
+  [x] USER_STORIES.md has acceptance criteria for every story
+  [x] USE_CASES.md traces back to source artifacts
+  [x] REQUIREMENTS_MATRIX.md has no unexplored blank cells
+
+Proceeding to Phase 3 (Design) will freeze the requirements baseline.
+API contracts, database schema, and architecture will all derive from these docs.
+Changes after this point require returning to Phase 2 and re-gating.
+
+Ready to proceed to Phase 3? (yes / no — if no, describe what needs revision)
+---
+```
+
+**Wait for user to type "yes" before writing any Phase 3 documents.**
+Record approval: append `HUMAN GATE A APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
+
+### Gate B: Phase 3.5→4 (Test Design → Implementation)
+
+After Phase 3.5 gate passes and test design is committed, emit this block and **STOP**:
+
+```
+---
+  HUMAN APPROVAL GATE B — PHASE 3.5 → 4
+---
+Design and test targets are locked. Before implementation begins, confirm:
+
+  [x] ARCHITECTURE.md diagrams all pass confidence >= 7
+  [x] SECURITY_CONTROLS.md mitigations are wired into DATABASE.md and API_DESIGN.md
+  [x] TEST_DESIGN.md covers all P0 use cases and security threats
+  [x] PARALLELIZATION_MAP.md has all modules with wave assignments
+
+Proceeding to Phase 4 (Implementation) freezes all contracts:
+  - openapi.yaml changes require returning to Phase 3 and re-gating
+  - DATABASE.md schema changes require db-architect HANDOFF + re-gate
+  - Coding agents implement against these frozen contracts
+
+Ready to proceed to Phase 4? (yes / no — if no, describe what needs revision)
+---
+```
+
+**Wait for user to type "yes" before emitting any Phase 4 coding HANDOFFs.**
+Record approval: append `HUMAN GATE B APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
 
 ---
 
