@@ -202,6 +202,160 @@ No orchestrator judgment required. No manual manifest review. The validators dec
 
 ---
 
+## Template 7: Module Design HANDOFF (Phase 3 — after TECH_STACK)
+
+Use after TECH_STACK.md is complete. architecture-designer produces MODULE_DESIGN.md (lego structure) and INFRASTRUCTURE.md (deployment topology) in one pass.
+
+```
+---
+  HANDOFF -> /arch (architecture-designer) — MODULE DESIGN + INFRASTRUCTURE
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /arch:
+
+SDLC-TASK for architecture-designer:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-architecture-designer.md -- full context packet
+- docs/DESIGN_CONTEXT.md                       -- deployment, scale, constraints, patterns to enforce
+- docs/TECH_STACK.md                           -- language, framework, libraries (defines interface syntax)
+- docs/SRS.md                                  -- functional requirements (source of bounded contexts)
+- docs/USER_STORIES.md                         -- feature capabilities (derive module responsibilities)
+- docs/SCOPE.md                                -- what is in/out of scope
+- docs/CONSTRAINTS.md                          -- technical and business constraints
+
+WRITE-SCOPE (exclusive):
+- docs/                                        -- MODULE_DESIGN.md and INFRASTRUCTURE.md only
+
+YOUR TASK:
+Produce the structural blueprint for [project]. Derive modules from business domains in SRS.md
+and USER_STORIES.md — NOT from technical layers. Choose and justify an architecture pattern
+based on DESIGN_CONTEXT.md. Define public interface contracts in the project's actual language
+(from TECH_STACK.md). Document plugin/extension points for every external dependency.
+Write the new-feature addition recipe. Generate actual linter enforcement config.
+Then produce INFRASTRUCTURE.md — the deployment topology (no IaC code, topology only).
+
+PRODUCE exactly these files:
+- docs/MODULE_DESIGN.md   — module inventory, public interfaces, plugin points, dep rules,
+  feature recipe, enforcement config
+- docs/INFRASTRUCTURE.md  — environment matrix, compute, data, networking diagram, ops concerns,
+  IaC note (topology only — no Terraform/Helm/CloudFormation code)
+- docs/reviews/MANIFEST_architecture_design_<date>.md -- completion manifest
+
+When all files are written, print exactly:
+"architecture-designer done — [N modules, pattern: X, N plugin points, infra: Y compute + Z data stores]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+---
+```
+
+After "architecture-designer done":
+1. Run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_architecture_design_<date>.md --coverage validate-module-design.sh`
+2. If gaps remain, return specific gaps to architecture-designer for REVISE
+3. After gate passes, db-architect and api-designer may start (they both read MODULE_DESIGN.md)
+
+---
+
+## Template 8: Infrastructure Topology HANDOFF (Phase 3 — after security reconciliation)
+
+Use after security controls are applied to DATABASE.md and API_DESIGN.md. Confirms and expands INFRASTRUCTURE.md with final security-aware topology details.
+
+```
+---
+  HANDOFF -> /devops (sre-engineer) — INFRASTRUCTURE TOPOLOGY REVIEW
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+
+SDLC-TASK for sre-engineer:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-sre-engineer.md        -- full context packet
+- docs/INFRASTRUCTURE.md                       -- initial topology from architecture-designer (review + expand)
+- docs/DESIGN_CONTEXT.md                       -- scale targets, compliance requirements, provider preferences
+- docs/SECURITY_CONTROLS.md                    -- security controls that affect infrastructure (encryption, network isolation)
+- docs/DATABASE.md                             -- data stores to provision
+- docs/TECH_STACK.md                           -- runtimes and versions to use in infra
+
+WRITE-SCOPE (exclusive):
+- docs/INFRASTRUCTURE.md                       -- update in place (or replace if substantially different)
+- docs/reviews/**                              -- manifest
+
+YOUR TASK:
+Review and expand docs/INFRASTRUCTURE.md. The architecture-designer produced an initial
+topology — your job is to validate it against scale targets and compliance requirements in
+DESIGN_CONTEXT.md, incorporate any infrastructure-level security controls from
+SECURITY_CONTROLS.md (network isolation, encryption in transit, secrets management), and
+add operational specifics the architecture-designer left as TBD. Do NOT add IaC code —
+this document is topology documentation only (IaC is Phase 4).
+
+PRODUCE:
+- Updated docs/INFRASTRUCTURE.md (all required sections complete, no TBD/placeholder text,
+  Mermaid deployment diagram present)
+- docs/reviews/MANIFEST_infrastructure_<date>.md
+
+When done, print exactly:
+"sre done — infrastructure topology: [N environments, compute summary, compliance notes]"
+Then stop.
+
+---
+```
+
+After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs/INFRASTRUCTURE.md --manifest docs/reviews/MANIFEST_infrastructure_<date>.md --coverage validate-infrastructure.sh`
+
+---
+
+## Template 9: IaC Scaffolding HANDOFF (Phase 4)
+
+Use after container config is complete. IaC scaffolding is its own wave — parallel-safe with other non-infrastructure Phase 4 work.
+
+```
+---
+  HANDOFF -> /devops (sre-engineer) — IaC SCAFFOLDING
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+
+SDLC-TASK for sre-engineer:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-sre-engineer.md        -- full context packet
+- docs/INFRASTRUCTURE.md                       -- topology to provision (source of truth)
+- docs/TECH_STACK.md                           -- runtime versions, build tooling
+- docs/ARCHITECTURE.md                         -- service names, port assignments, container topology
+
+WRITE-SCOPE (exclusive):
+- infra/                                       -- all IaC files here
+
+YOUR TASK:
+Produce Infrastructure-as-Code scaffolding for [project] that provisions everything
+documented in docs/INFRASTRUCTURE.md. Auto-detect the right IaC tool: Terraform preferred;
+Helm if Kubernetes is the primary target; CloudFormation if AWS-only and stated in
+DESIGN_CONTEXT.md. Produce REAL files — not stubs. Variables must be typed and documented.
+Outputs must include all endpoint URLs, resource identifiers, and connection strings.
+Staging and prod configs must differ appropriately (HA for prod). `terraform validate` or
+equivalent must pass. No hardcoded secrets.
+
+PRODUCE:
+- infra/main.[tf|yaml|json]      — root module / chart declaring all resources
+- infra/variables.[tf|yaml]      — all inputs with type, description, default (where safe)
+- infra/outputs.[tf|yaml]        — all outputs downstream systems need
+- infra/envs/staging/            — staging variable values
+- infra/envs/prod/               — production variable values (HA, multi-AZ)
+- infra/README.md                — what this provisions, how to run, references INFRASTRUCTURE.md
+- docs/reviews/MANIFEST_iac_<date>.md
+
+When done, print exactly:
+"sre done — IaC scaffolding: [tool, N resources, staging + prod configs]"
+Then stop.
+
+---
+```
+
+After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh`
+
+---
+
 ## Template 5: Security Controls HANDOFF (Phase 3 — after threat model)
 
 Use after THREAT_MODEL.md is complete. Produces SECURITY_CONTROLS.md and issues update requests back to db-architect and api-designer.

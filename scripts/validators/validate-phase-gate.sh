@@ -70,8 +70,10 @@ case "$PHASE" in
     ;;
   phase-3)
     check_phase_prereq "phase-2"
-    GATE_FILES=("docs/ARCHITECTURE.md" "docs/API_DESIGN.md" "docs/api/openapi.yaml" "docs/TECH_STACK.md" "docs/THREAT_MODEL.md" "docs/SECURITY_CONTROLS.md")
+    GATE_FILES=("docs/MODULE_DESIGN.md" "docs/ARCHITECTURE.md" "docs/API_DESIGN.md" "docs/api/openapi.yaml" "docs/TECH_STACK.md" "docs/THREAT_MODEL.md" "docs/SECURITY_CONTROLS.md" "docs/INFRASTRUCTURE.md")
     GATE_VALIDATORS=(
+      "validate-module-design.sh"
+      "validate-infrastructure.sh"
       "validate-architecture.sh"
       "validate-api-coverage.sh"
       "validate-sequence-coverage.sh"
@@ -95,13 +97,14 @@ case "$PHASE" in
     check_phase_prereq "phase-3.5"
     # Implementation gate -- the project must actually build, lint, and test,
     # AND have completeness coverage (tests mapped to use cases, migrations
-    # documented).
+    # documented, IaC scaffolding present).
     GATE_VALIDATORS=(
       "validate-build.sh"
       "validate-lint.sh"
       "validate-tests.sh"
       "validate-tests-mapping.sh"
       "validate-migrations.sh"
+      "validate-iac.sh"
     )
     ;;
   phase-5)
