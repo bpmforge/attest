@@ -274,9 +274,9 @@ After producing the design documents:
 
 ## Step 3: Implement
 
-**1. Create the feature branch FIRST (task tool — fast):**
+**1. Create branch, push, and open draft PR immediately (task tool — fast):**
 ```
-task(agent="git-expert", prompt="Run --feature mode: create a feature branch for '[feature name]' with semantic prefix (feat/, fix/, chore/, etc). Use conventional branch naming: feat/[slug]. Report the branch name.", timeout=60)
+task(agent="git-expert", prompt="--feature mode: create branch feat/[slug] from main, push to origin + github, create a draft PR on both Gitea and GitHub titled 'feat([slug]): [feature name]'. Create the draft PR NOW — not after code is written. Draft PR activates CI from commit 1 and keeps work visible. Report branch name and PR URLs.", timeout=60)
 ```
 
 **2. Write use cases + acceptance tests FIRST (TDD approach):**
@@ -450,10 +450,19 @@ Iterate up to 3 times:
 - If any FAIL → update FIX_BACKLOG with remaining rows, iterate.
 - After 3 failed cycles → emit the escalation block (§ Step 5), STOP, wait for user decision [A/B/C/D].
 
-**7. Git commit + PR (task tool — fast):**
+**7. Git — two steps:**
+
+**7a. Atomic commits (after "implementation done", before reviews):**
 ```
-task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): split changes into atomic commits with conventional-commit messages. Push branch and create a draft PR on gitea and github. PR title: '[feature name]'. Include in PR body: what changed, test coverage, fix-verify iteration count, any UX changes made.", timeout=120)
+task(agent="git-expert", prompt="--feature mode (commit phase): analyze the diff for feat/[slug]. Split into atomic conventional commits — one per logical unit. Use git add -p for partial staging. Push to origin + github after committing.", timeout=120)
 ```
+
+**7b. Mark PR ready + merge (only after RUNTIME PASS + reviews APPROVED + CI green):**
+```
+task(agent="git-expert", prompt="--feature mode (merge phase): verify RUNTIME_[feature]_<date>.md shows PASS, FIX_BACKLOG is clean, CODE_REVIEW is APPROVED, and CI checks are green on the PR. If all met: mark PR ready, merge with squash, delete branch. Report merge SHA.", timeout=120)
+```
+
+Note: The draft PR was created in Step 3.1 when the branch was first pushed. Step 7 only handles commits and merge — not branch creation.
 
 **Verify modular structure:**
 - New code follows existing patterns

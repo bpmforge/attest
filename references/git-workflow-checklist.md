@@ -59,6 +59,185 @@ One logical change per commit. If you can't describe the commit without "and", s
 
 `<type>/<scope>-<short-desc>` — examples: `feat/auth-oauth-refresh`, `fix/api-429-retry`, `hotfix/cve-2026-1234`. Lowercase, hyphens, no spaces. Max 50 chars. Optionally prefix with issue number: `feat/123-oauth-refresh`.
 
+
+---
+
+## SDLC Branch Topology
+
+This section defines the complete branch lifecycle for a project managed through the SDLC system. Read this before any SDLC-context git operation.
+
+### Full Branch Map
+
+```
+main (protected)
+├── sdlc/setup                   Phase 0–3: all planning + design docs
+│   └── → merge to main (PR)     Human Approval Gate B — before Phase 4 coding begins
+│
+├── feat/<project-slug>/<module> Phase 4: one branch per implementation module
+│   └── → merge to main (PR)     When: RUNTIME_<module>.md PASS + FIX_BACKLOG clean
+│                                  + code-review APPROVED + CI green
+│
+├── feat/<feature-slug>          Mode 3 (Add Feature): one per feature
+│   ├── feat/<slug>/<sub-slug>   Optional: sub-components of a split feature
+│   └── → merge to main (PR)     When: all sub-components RUNTIME PASS + reviews done
+│
+├── improve/<slug>               Mode 4 (Improve): one per improvement session
+│   └── → merge to main (PR)     When: all items executed + verified + code-health gate
+│
+├── docs/onboard                 Mode 2 (Onboard): onboarding docs + gap-fill
+│   └── → merge to main (PR)     When: onboard-deep gate clean
+│
+└── hotfix/<issue-or-cve>        Emergency: P0 bug or security fix in production
+    └── → merge to main (PR)     ASAP — then forward-merge into every active feat/ branch
+```
+
+### Branch Decision Table
+
+| Situation | Branch to create | Cut from | Merge back to |
+|-----------|------------------|----------|---------------|
+| Writing SDLC phases 0–3 docs | `sdlc/setup` | `main` | `main` (before Phase 4) |
+| Implementing a module (Phase 4) | `feat/<project>/<module>` | `main` (post-sdlc/setup merge) | `main` |
+| Adding a new feature (Mode 3) | `feat/<feature-slug>` | `main` | `main` |
+| Improving existing system (Mode 4) | `improve/<slug>` | `main` | `main` |
+| Onboarding an existing repo (Mode 2) | `docs/onboard` | `main` | `main` |
+| Emergency prod fix | `hotfix/<slug>` | `main` (latest tag) | `main` + all active `feat/*` |
+| Sub-component of a split feature | `feat/<slug>/<sub-slug>` | `feat/<slug>` | `feat/<slug>` first, then `main` |
+
+### Branch Lifecycle (Feature / Module)
+
+```
+1. Cut branch from main          git switch -c feat/<slug> origin/main
+2. Push immediately              git push -u origin HEAD
+3. Create draft PR at once       gh pr create --draft (+ tea pr create)
+                                 ← do NOT wait until code is done; draft PR = open communication
+4. Commit atomically as you go   one logical unit per commit (see Atomic Commits above)
+5. Push after each commit        git push — CI runs on every push
+6. When runtime PASS + reviews APPROVED:
+   a. Mark PR ready              gh pr ready / tea pr edit --state open
+   b. Merge using squash merge   gh pr merge --squash --delete-branch
+7. Delete branch after merge     (done by merge if --delete-branch)
+8. Forward-merge to peer branches that started before this one merged (if any)
+```
+
+### Merge Strategy
+
+| Branch type | Merge strategy | Rationale |
+|-------------|----------------|-----------|
+| `feat/*/module` → `main` | **Squash merge** | Module = one logical unit; linear history |
+| `feat/<slug>/<sub>` → `feat/<slug>` | **Merge commit** (`--no-ff`) | Preserve sub-component history before squash |
+| `feat/<slug>` (split) → `main` | **Squash merge** | Entire feature = one logical unit |
+| `improve/*` → `main` | **Squash merge** | Improvement session as one commit |
+| `hotfix/*` → `main` | **Merge commit** (`--no-ff`) | Preserve fix context, visible in history |
+| `sdlc/setup` → `main` | **Merge commit** (`--no-ff`) | Planning docs as a visible milestone |
+| `docs/onboard` → `main` | **Squash merge** | Onboarding docs as one commit |
+
+### Merge Gate Checklist (required BEFORE any merge to main)
+
+All of the following must be true. git-expert --feature enforces this:
+
+- [ ] `RUNTIME_<branch>_<date>.md` exists in `docs/reviews/` with verdict **PASS**
+- [ ] `FIX_BACKLOG_<branch>_<date>.md` "Merge-blocking" section is **empty** OR every row has PASS in latest `VERIFY_*`
+- [ ] `CODE_REVIEW_*_<date>.md` verdict: **APPROVED** or **APPROVED WITH SUGGESTIONS**
+- [ ] `SECURITY_*_<date>.md` verdict: **APPROVED** or **READY** (if security surface exists)
+- [ ] **CI pipeline green** — every check on the PR must be passing (not just the manual runtime gate)
+- [ ] No open CRITICAL/HIGH in any review without a signed waiver in `WAIVERS_*_<date>.md`
+- [ ] Branch is up to date with main (no conflicts)
+
+### When to Commit (Commit Cadence)
+
+During a coding-agent HANDOFF for a module, commit at each logical boundary — not one big commit at the end:
+
+```
+feat(auth): add user model and migrations      ← after schema + migration files
+test(auth): cover user model validations       ← after unit tests written alongside
+feat(auth): add login endpoint                 ← after endpoint code + handler
+test(auth): E2E for UC-003 login flow          ← after E2E test written
+fix(auth): reject expired JWT in middleware    ← after a specific bug fix
+```
+
+Rule: each commit should leave the test suite green. Use `git add -p` to stage hunks individually if you wrote multiple logical units in one file edit.
+
+### Draft PR Best Practice
+
+**Create the draft PR immediately after the first push.** Do not wait until the code is done.
+
+Benefits:
+- CI runs from the first commit (catches environment issues early)
+- Reviewers can leave early comments (design issues caught before code piles up)
+- Branch appears in the PR list (easier to track progress)
+- If the session crashes, the PR preserves context for resuming
+
+Draft PR lifecycle:
+```
+First push → gh pr create --draft   (immediately)
+Work continues, CI runs on each push
+Runtime PASS + reviews done → gh pr ready
+Merge → delete branch
+```
+
+### Forward-Merge After Hotfix
+
+When `hotfix/*` merges to main, every active feature branch that diverged before the hotfix must be brought up to date:
+
+```bash
+# For each active feat/* branch:
+git switch feat/<slug>
+git merge main --no-ff -m "chore: merge hotfix/<slug> into feat/<slug>"
+# Resolve any conflicts
+git push
+```
+
+Do NOT rebase feature branches after merging a hotfix — rebase rewrites the branch history and breaks any open PRs.
+
+---
+
+## Hotfix Flow
+
+A hotfix is a targeted fix for a P0 bug or security vulnerability in production, made while Phase 4 or other work is in progress.
+
+### When to use
+
+- P0 production bug (data loss, auth bypass, payments broken)
+- Security vulnerability (CVE, OWASP finding, secret exposed)
+- CI/CD pipeline broken on main blocking all teams
+
+### Subtask list
+
+```
+[1] Verify the latest release tag: git describe --tags --abbrev=0
+[2] Cut hotfix branch from the release tag (not main, if main has unreleased work)
+    git switch -c hotfix/<slug> v<version>
+[3] Create draft PR immediately: gh pr create --draft --base main
+[4] Fix the bug — one atomic commit per logical change
+[5] Write a targeted test that catches the regression
+[6] Push and let CI run
+[7] HANDOFF → security-auditor if security-related (verify fix, no new attack surface)
+[8] HANDOFF → code-reviewer for quick review of the fix (--review mode, scoped to hotfix)
+[9] When CI green + review APPROVED: mark PR ready
+[10] Merge with --no-ff to preserve hotfix context
+[11] Create a PATCH release: git-expert --release (auto-computes version from conventional commit)
+[12] Forward-merge hotfix into every active feat/* and improve/* branch
+[13] Document in docs/reviews/HOTFIX_<issue>_<date>.md: root cause, fix, affected versions, patch version
+```
+
+### Conventional commit for hotfix
+
+```
+fix(auth): reject expired sessions in token middleware
+
+Sessions with expired JWTs were being accepted if the clock skew exceeded
+the leeway window. Set leeway to 0 in strict mode.
+
+Closes: #<issue>
+CVE: CVE-XXXX-YYYY (if applicable)
+```
+
+### Hotfix creates a PATCH release
+
+After merging to main, run `git-expert --release`. It detects the `fix:` commit and bumps the PATCH version automatically. The CHANGELOG entry goes under `### Security` (if CVE) or `### Fixed`.
+
+---
+
 ---
 
 ## Safety Rails (NEVER without explicit user confirmation)
