@@ -202,6 +202,119 @@ No orchestrator judgment required. No manual manifest review. The validators dec
 
 ---
 
+## Template 5: Security Controls HANDOFF (Phase 3 — after threat model)
+
+Use after THREAT_MODEL.md is complete. Produces SECURITY_CONTROLS.md and issues update requests back to db-architect and api-designer.
+
+```
+---
+  HANDOFF -> /security (security-auditor) — SECURITY CONTROLS
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
+
+SDLC-TASK for security-auditor:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-security-auditor.md    -- full context packet
+- docs/THREAT_MODEL.md                         -- threats identified, with severity ratings
+- docs/DATABASE.md                             -- current schema (needs security additions)
+- docs/API_DESIGN.md                           -- current API contracts (needs security additions)
+- docs/ARCHITECTURE.md                         -- system components
+
+WRITE-SCOPE (exclusive):
+- docs/SECURITY_CONTROLS.md                   -- new file to produce
+- docs/reviews/**                              -- manifest
+
+YOUR TASK:
+For every HIGH and CRITICAL threat in THREAT_MODEL.md, produce a concrete security
+control. For each control: describe the mitigation, the implementation approach,
+which document needs updating (DATABASE.md, API_DESIGN.md, and/or ARCHITECTURE.md),
+and the specific change needed. Produce a security change request block for each
+document that needs updating — formatted so the db-architect and api-designer can
+apply the changes as targeted HANDOFFs.
+
+PRODUCE exactly these files:
+- docs/SECURITY_CONTROLS.md                   -- control catalogue: one entry per HIGH/CRITICAL
+  threat with mitigation, implementation notes, and document change requests
+- docs/reviews/MANIFEST_security_controls_<date>.md -- completion manifest
+
+When all files are written, print exactly:
+"security done -- security controls: [N controls for N HIGH/CRITICAL threats, key mitigations listed]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+---
+```
+
+After "security done":
+1. Run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_security_controls_<date>.md --coverage validate-security-controls.sh`
+2. If gate passes, issue update HANDOFFs to db-architect and api-designer (use standard Template 1, scope = their respective docs + source dirs)
+3. After both update HANDOFFs return and pass, synthesize final ARCHITECTURE.md
+
+---
+
+## Template 6: Test Design HANDOFF (Phase 3.5)
+
+Use after Phase 3 gate passes and Human Approval Gate A is confirmed. Produces TEST_DESIGN.md reading all Phase 2+3 artifacts.
+
+```
+---
+  HANDOFF -> /test-expert (test-engineer) — TEST DESIGN
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
+SDLC-TASK for test-engineer:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- docs/work/context-for-test-engineer.md       -- full context packet
+- docs/testing/USE_CASES.md                    -- P0/P1/P2 use cases with acceptance criteria
+- docs/USER_STORIES.md                         -- stories with acceptance criteria
+- docs/SRS.md                                  -- functional + non-functional requirements
+- docs/ARCHITECTURE.md                         -- C3 component diagrams (unit test targets)
+- docs/api/openapi.yaml                        -- endpoints (integration test targets)
+- docs/THREAT_MODEL.md                         -- HIGH/CRITICAL threats (security test targets)
+- docs/SECURITY_CONTROLS.md                    -- mitigations to verify
+- docs/DATABASE.md                             -- schema (data-layer test targets)
+- docs/TECH_STACK.md                           -- frameworks to select test tooling from
+
+WRITE-SCOPE (exclusive):
+- docs/testing/                                -- may write only here (plus docs/work/**, docs/reviews/**)
+
+YOUR TASK:
+Produce a detailed test design document that maps every testable artifact from Phase 2+3
+to concrete test cases. Read ALL context files listed above. For each artifact:
+- C3 components → unit test targets (what to test, what to mock, coverage target per component)
+- openapi.yaml endpoints → integration test cases (request/response assertions, auth paths, error cases)
+- P0 use cases → E2E scenarios (complete happy path + key error paths, fixture strategy)
+- HIGH/CRITICAL threats from THREAT_MODEL.md → security test cases (injection, auth bypass, etc.)
+- NFRs from SRS.md with metrics → performance benchmark targets
+
+PRODUCE exactly this file:
+- docs/testing/TEST_DESIGN.md — structured test design with:
+  ## Unit Tests — one subsection per C3 component, listing functions/classes to test, mocking strategy, coverage target
+  ## Integration Tests — one row per endpoint from openapi.yaml with test assertions
+  ## E2E Scenarios — one scenario per P0 use case with actor, steps, assertions, fixture
+  ## Security Tests — one case per HIGH/CRITICAL threat, describing attack input and expected defense
+  ## Performance Benchmarks — one row per NFR metric with baseline target and measurement approach
+  ## Coverage Matrix — table mapping source artifact → test case ID(s)
+
+Include a Completion Manifest at docs/reviews/MANIFEST_test_design_<date>.md.
+
+When the file is written, print exactly:
+"test-design done -- [N unit targets, N integration targets, N E2E scenarios, N security cases]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+---
+```
+
+After "test-design done":
+1. Run `./scripts/validators/run-handoff-gates.sh --scope docs/testing --manifest docs/reviews/MANIFEST_test_design_<date>.md --coverage validate-test-design.sh`
+2. If gaps remain, iterate via coverage loop (max 3 times, then escalation)
+3. After gate passes, emit **Human Approval Gate B** and wait for user confirmation before Phase 4
+
+---
+
 ## Context Packet template
 
 Before every HANDOFF, write a `docs/work/context-for-<agent>.md` with:
