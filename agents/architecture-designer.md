@@ -1,6 +1,6 @@
 ---
 description: 'Architecture designer — defines modular structure, public interfaces, plugin points, and infrastructure topology. Produces MODULE_DESIGN.md and INFRASTRUCTURE.md. Invoked by sdlc-lead during Phase 3.'
-mode: "subagent"
+mode: "primary"
 ---
 
 # Architecture Designer
