@@ -1905,198 +1905,223 @@ The coverage loop (`run-coverage-loop.sh phase-4`) chains: validate-build, valid
 
 ## Phase 5: Review — DID it work?
 
-Reviews run as a **parallel fan-out**, then findings flow through the Fix-Verify Loop Protocol (§ top of this file). Separate post-review audits (tech-debt, coverage, containers) run sequentially after the fix loop passes.
+Phase 5 runs in **five rounds**. Rounds 1 and 3 can overlap (audit HANDOFFs in Round 3 are parallel-safe with the fix-verify work in Round 2). Rounds 4 and 5 are strictly sequential.
 
-**1. Parallel review fan-out (security + perf + code-review + ux):**
+```
+Round 1: Reviews fan-out  — 4 parallel HANDOFFs (always parallel)
+Round 2: Fix-Verify loop  — up to 3 iterations (coding-agent + re-verify)
+Round 3: Audit fan-out    — 3 parallel HANDOFFs (parallel-safe with Round 2 iteration N-1)
+Round 4: Release Gate     — run-coverage-loop.sh phase-5 (must exit 0)
+Round 5: Release          — git-expert --release
+```
+
+### Phase 5 Pre-Gate Checklist
+
+Before Round 1, confirm Phase 4 is fully closed:
+
+```
+PHASE 5 PRE-GATE CHECK
+
+  Phase 4 gate passed:    ✓/✗ (lock: docs/work/gates/phase-4-passed.lock)
+  All RUNTIME_*.md PASS:  ✓/✗
+  All FIX_BACKLOG clean:  ✓/✗ (0 open CRITICAL/HIGH per module)
+  IaC + CI/CD complete:   ✓/✗
+  PARALLELIZATION_MAP all waves DONE: ✓/✗
+
+ALL ✓ → proceed to Round 1
+ANY ✗ → return to Phase 4, close the gap first
+```
+
+---
+
+### Round 1 — Reviews (always parallel)
+
+Save state, then emit ONE message with all review HANDOFFs:
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
-Mode: 1 / Phase: 5 — Review
+Mode: 1 / Phase: 5 — Round 1: Reviews
 Last completed: Phase 4 gate passed
 Awaiting: parallel fan-out — security + perf + code-review + ux
 Next after resume: synthesize FIX_BACKLOG_RELEASE_<date>.md
 ")
 ```
 
-Emit ONE message with every applicable review HANDOFF. User opens N OpenCode sessions concurrently.
-
 ```
 ---
-  PHASE 5 PARALLEL REVIEWS — [N] HANDOFFs
+  PHASE 5 — ROUND 1: REVIEWS ([N] parallel HANDOFFs)
+  Open N sessions concurrently. All must complete before Round 2.
 ---
 
 ───── HANDOFF #1 → /security (security-auditor) ─────
 SDLC-TASK for security-auditor:
-CONTEXT: entire codebase (src/) + docs/THREAT_MODEL.md + docs/API_DESIGN.md.
-YOUR TASK: Full OWASP Top 10 audit across the entire codebase. Cover all 10 categories. For each finding, include verbatim code quote + file:line + severity + fix. Findings only — do NOT fix.
-PRODUCE: docs/reviews/SECURITY_FINAL_<date>.md — findings sorted by severity, CRITICAL at top, summary table by OWASP category, verdict (READY / BLOCKED).
+CONTEXT: entire codebase (src/) + docs/THREAT_MODEL.md + docs/API_DESIGN.md
+  + docs/reviews/CODE_REVIEW_FINAL_* (if exists — read prior review before starting).
+YOUR TASK: Full OWASP Top 10 audit. For each finding: verbatim code quote + file:line
+  + severity + fix. Cross-reference with any prior code-review findings — don't re-raise
+  what's already flagged. Findings only — do NOT fix.
+  Before printing done: re-read your report cold as a skeptical reviewer. Add missing
+  evidence for any finding you'd question if you hadn't written it.
+PRODUCE: docs/reviews/SECURITY_FINAL_<date>.md — sorted by severity, OWASP category
+  table, verdict (READY / BLOCKED).
 Print exactly: "security done — [CRITICAL count, HIGH count, verdict]"
 
 ───── HANDOFF #2 → /perf (performance-engineer) ─────
 SDLC-TASK for performance-engineer:
-CONTEXT: docs/SRS.md NFR targets + the full codebase.
-YOUR TASK: Benchmark against every NFR target with representative load. Report measured vs. target per NFR. For each missed target, include root cause + specific fix recommendation with file:line + expected delta. Findings only — do NOT self-optimize.
-PRODUCE: docs/reviews/PERF_FINAL_<date>.md — table per NFR (target, measured, PASS/FAIL), flame graph or profiling evidence for FAILs, verdict (RELEASE-READY / BLOCKED).
+CONTEXT: docs/SRS.md NFR targets + full codebase + docs/reviews/CODE_REVIEW_FINAL_* (if exists).
+YOUR TASK: Benchmark against every NFR target. Report measured vs. target. For each miss:
+  root cause + fix + expected delta. Findings only — do NOT self-optimize.
+  Before printing done: re-read your report cold. Every FAIL must have measured evidence,
+  not just a claim.
+PRODUCE: docs/reviews/PERF_FINAL_<date>.md — NFR table, flame graph/evidence for FAILs,
+  verdict (RELEASE-READY / BLOCKED).
 Print exactly: "perf done — [N/M NFR targets passed]"
 
 ───── HANDOFF #3 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
-CONTEXT: entire codebase (src/) + docs/ARCHITECTURE.md.
-YOUR TASK: Full 7-dimension health review across the codebase. Flag every CRITICAL/HIGH with file:line + fix.
-PRODUCE: docs/reviews/CODE_REVIEW_FINAL_<date>.md — findings per dimension, health scores 1-10 per dimension, verdict (APPROVED / NEEDS REVISION / REJECT), top 5 priority fixes.
+CONTEXT: entire codebase (src/) + docs/ARCHITECTURE.md + agents/shared/ANTI_SLOP_RULES.md.
+YOUR TASK: Full 8-dimension health review (7 standard + anti-slop as 8th dimension per
+  agents/shared/ANTI_SLOP_RULES.md). Flag every CRITICAL/HIGH with file:line + fix.
+  Run validate-code-health.sh before printing done. Re-read the report cold — if you'd
+  question a finding reading it fresh, add the evidence.
+PRODUCE: docs/reviews/CODE_REVIEW_FINAL_<date>.md — findings per dimension,
+  health scores 1-10 per dimension (anti-slop threshold ≥8), verdict (APPROVED /
+  NEEDS REVISION / REJECT), top 5 priority fixes.
 Print exactly: "review done — [verdict and top issue]"
 
-───── HANDOFF #4 → /ux (ux-engineer)  [if UI-bearing] ─────
+───── HANDOFF #4 → /ux (ux-engineer) [if UI-bearing] ─────
 SDLC-TASK for ux-engineer:
 CONTEXT: UI source files + docs/design/UX_SPEC.md + docs/design/STYLE_GUIDE.md.
-YOUR TASK: Full WCAG 2.2 AA audit — alt text, keyboard nav, color contrast, ARIA, focus order, responsive. File:line + fix per finding. Findings only — do NOT fix.
-PRODUCE: docs/reviews/UX_AUDIT_<date>.md — findings by severity (CRITICAL first), summary counts, verdict (RELEASE-READY / BLOCKED).
+YOUR TASK: Full WCAG 2.2 AA audit — alt text, keyboard nav, color contrast (4.5:1),
+  ARIA, focus order, responsive. File:line + fix per finding. Findings only.
+  Before printing done: re-read cold. Every CRITICAL must have a specific file:line.
+PRODUCE: docs/reviews/UX_AUDIT_<date>.md — findings by severity (CRITICAL first),
+  summary counts, verdict (RELEASE-READY / BLOCKED).
 Print exactly: "ux done — [CRITICAL/HIGH count and release verdict]"
 
 ---
 ```
 
-**2. Synthesize → FIX_BACKLOG_RELEASE (see Fix-Verify Loop Protocol § Step 2):**
+After all completion phrases return → proceed to Round 2.
 
-After every review's completion phrase returns, write `docs/reviews/FIX_BACKLOG_RELEASE_<date>.md` using the protocol's format. Deduplicate; every merge-blocking row must have a Verify criterion.
+---
 
-If "Merge-blocking" is empty → reviews gate passes. Skip to block 4.
+### Round 2 — Fix-Verify loop
 
-**3. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
+After every review's completion phrase prints, synthesize `docs/reviews/FIX_BACKLOG_RELEASE_<date>.md` (see `agents/shared/FIX_VERIFY_LOOP.md` § Step 2). Deduplicate across all reviews; every merge-blocking row must have a Verify criterion.
 
-Iterate up to 3 times:
-- Remediation HANDOFF (coding-agent given FIX_BACKLOG_RELEASE).
-- Targeted re-verification HANDOFF (code-reviewer or original specialist).
-- All PASS → release gate passes. Any FAIL → iterate.
-- After 3 failed cycles → emit the escalation block, STOP, wait for user decision [A/B/C/D].
+If "Merge-blocking" is empty → Round 2 is done; skip to Round 3.
 
-**4. Tech debt register:**
+**Iterate up to 3 times per `agents/shared/FIX_VERIFY_LOOP.md` Steps 3-5:**
+1. Remediation HANDOFF (coding-agent receives FIX_BACKLOG_RELEASE)
+2. Targeted re-verification HANDOFFs — emit ALL triggered specialist re-verifications in ONE message (parallel-safe — each verifies only its own rows)
+3. All PASS → exit loop. Any FAIL → next iteration.
+4. After 3 failed iterations → emit escalation block, STOP, wait for decision [A/B/C/D]
+
+**Re-verification fan-out example (parallel):**
+```
+---
+  ROUND 2 — RE-VERIFICATION (parallel)
+  Open one session per specialist with active backlog rows
+---
+[security-auditor re-verify HANDOFF — only their BACKLOG rows]
+[code-reviewer re-verify HANDOFF — only their BACKLOG rows]
+[performance-engineer re-verify HANDOFF — only their BACKLOG rows]
+```
+
+**Start Round 3 after Fix-Verify iteration 1 completes** — don't wait for all iterations. Audits (tech-debt, coverage, container) are read-only and parallel-safe with fix-verify work.
+
+---
+
+### Round 3 — Audit fan-out (parallel-safe with Round 2 iterations)
+
+Start these alongside Round 2's remediation/re-verify work — they read code without modifying it.
+
+Emit all three in ONE message:
 
 ```
 ---
-  HANDOFF → code-reviewer
+  PHASE 5 — ROUND 3: AUDITS (3 parallel HANDOFFs — start after Round 2 iteration 1)
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
+───── HANDOFF A → /review-code (code-reviewer — tech debt) ─────
 SDLC-TASK for code-reviewer:
+CONTEXT: entire codebase (src/).
+YOUR TASK: Produce a prioritized tech-debt register. Identify every instance of:
+  duplicated code, missing abstractions, hardcoded values, missing tests, unclear naming,
+  accumulated workarounds. Sort by leverage (low effort / high impact first).
+PRODUCE: docs/reviews/TECH_DEBT_<date>.md — each item with description, file:line,
+  effort S/M/L, impact if fixed, leverage score. Highest leverage first.
+Print exactly: "debt done — [total items, top leverage item]"
 
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-
-YOUR TASK:
-Produce a prioritized tech-debt register for the post-launch backlog. Identify
-every instance of: duplicated code, missing abstractions, hardcoded values,
-missing tests, unclear naming, and accumulated workarounds. Sort by leverage —
-highest ROI fixes (low effort, high impact) first.
-
-PRODUCE exactly this file:
-- docs/reviews/TECH_DEBT_<date>.md — each debt item with: description, file:line,
-  effort estimate (S/M/L), impact if fixed, and leverage score. Sorted highest
-  leverage first. Grouped by category (complexity, duplication, testing, etc.)
-
-When the file is written, print exactly:
-"debt done — [one sentence: total items found and top leverage item]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**5. Test coverage:**
-
-```
----
-  HANDOFF → test-engineer
----
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
-
+───── HANDOFF B → /test-expert (test-engineer — coverage) ─────
 SDLC-TASK for test-engineer:
+CONTEXT: test suite (test/ or __tests__/) + docs/TEST_STRATEGY.md + source codebase.
+YOUR TASK: Analyse test coverage. Flag: modules < 80%, critical paths with uncovered
+  branches, tests in docs/TEST_STRATEGY.md that haven't been written.
+PRODUCE: docs/reviews/COVERAGE_<date>.md — coverage % per module, untested critical
+  paths with file:line, missing tests from strategy, prioritized "write these first" list.
+Print exactly: "test done — [overall coverage, most critical gap]"
 
-CONTEXT (read these before starting):
-- The test suite (test/ or __tests__/ directory)
-- docs/TEST_STRATEGY.md — coverage targets per module
-- The source codebase to compare against
-
-YOUR TASK:
-Analyse test coverage across the codebase. Identify: modules with coverage < 80%,
-critical paths (auth, payments, data writes) with any uncovered branches, and
-test cases that exist in docs/TEST_STRATEGY.md but have not been written.
-
-PRODUCE exactly this file:
-- docs/reviews/COVERAGE_<date>.md — coverage percentage per module, list of
-  untested critical paths with file:line, list of missing tests from the strategy,
-  and a prioritized "write these tests first" list
-
-When the file is written, print exactly:
-"test done — [one sentence: overall coverage and most critical gap]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**6. Container optimization:**
-
-```
----
-  HANDOFF → container-ops
----
-Open a new OpenCode conversation and paste this EXACT prompt to /containers:
-
+───── HANDOFF C → /containers (container-ops — container audit) ─────
 SDLC-TASK for container-ops:
-
-CONTEXT (read these before starting):
-- Dockerfile and docker-compose.yml in the project root
-- docs/ARCHITECTURE.md — services and their resource requirements
-
-YOUR TASK:
-Audit the container configuration for production readiness. Check: image layer
-sizes (identify bloated layers), multi-stage build correctness, presence of
-unnecessary dev dependencies in the final image, security scan for known CVEs
-in base images, and health check coverage.
-
-PRODUCE exactly this file:
-- docs/reviews/CONTAINER_AUDIT_<date>.md — current image sizes, layer breakdown,
-  CVEs found in base images (severity-rated), specific optimization recommendations
-  with estimated size savings, and a production readiness verdict
-
-When the file is written, print exactly:
-"containers done — [one sentence: image size, CVE count, readiness verdict]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
+CONTEXT: Dockerfile + docker-compose.yml + docs/ARCHITECTURE.md.
+YOUR TASK: Audit container config for production readiness. Check: layer sizes,
+  multi-stage build, dev deps in final image, CVE scan on base images, health checks.
+PRODUCE: docs/reviews/CONTAINER_AUDIT_<date>.md — image sizes, layer breakdown,
+  CVEs severity-rated, optimization recommendations, production readiness verdict.
+Print exactly: "containers done — [image size, CVE count, readiness verdict]"
 ```
 
-**7. Phase 5 Release Gate (BLOCKING before block 8):**
+Wait for all three completion phrases. Round 3 audits do NOT block Round 2 completion — they run concurrently.
 
-Before handing off to `--release`, verify every exit condition is met. Emit this block explicitly and record the result:
+---
 
+### Round 4 — Release Gate
+
+**Pre-gate checklist:**
 ```
----
-  PHASE 5 RELEASE GATE
----
+PHASE 5 ROUND 4 PRE-GATE CHECK
 
-Required conditions (ALL must be true):
-  [✓/✗] docs/reviews/FIX_BACKLOG_RELEASE_<date>.md exists
-  [✓/✗] Latest VERIFY_RELEASE_<iteration>_<date>.md: every merge-blocking row = PASS
-         OR every unresolved row has a signed WAIVERS_RELEASE_<date>.md entry
-         with compensating control
-  [✓/✗] docs/reviews/SECURITY_FINAL_<date>.md verdict = READY
-  [✓/✗] docs/reviews/PERF_FINAL_<date>.md verdict = RELEASE-READY
-  [✓/✗] docs/reviews/CODE_REVIEW_FINAL_<date>.md verdict = APPROVED (or APPROVED WITH SUGGESTIONS)
-  [✓/✗] docs/reviews/UX_AUDIT_<date>.md verdict = RELEASE-READY (if UI-bearing; else N/A)
-  [✓/✗] docs/reviews/COVERAGE_<date>.md: no critical-path coverage gap
-  [✓/✗] docs/reviews/CONTAINER_AUDIT_<date>.md: no CRITICAL CVE in base images
-  [✓/✗] Full test suite: all P0 + P1 passing
-  [✓/✗] Runtime validation (Phase 4 Round 3 or equivalent): all PASS
+  Round 1 reviews: ✓/✗ All 4 completion phrases received
+  Round 2 fix-verify: ✓/✗ All merge-blocking rows PASS or waived
+  Round 3 audits: ✓/✗ All 3 completion phrases received (TECH_DEBT + COVERAGE + CONTAINER)
+  FIX_BACKLOG_RELEASE: ✓/✗ Exists with 0 open CRITICAL/HIGH
+  RUNTIME_*.md: ✓/✗ All show PASS
 
-If ANY condition is [✗], STOP. Record the blockers and surface to the user:
-  "Release gate BLOCKED: [list]. Resolve or sign a waiver before cutting release."
-
-If ALL conditions are [✓], proceed to block 8.
----
+ALL ✓ → run: ./scripts/validators/run-coverage-loop.sh phase-5
+ANY ✗ → close the gap first
 ```
 
-**8. Release — only after Release Gate passes (task tool — fast):**
+**Run the coverage loop:**
+```bash
+./scripts/validators/run-coverage-loop.sh phase-5
+```
+
+The Phase 5 coverage loop chains: `validate-build`, `validate-lint`, `validate-tests`, `validate-deps`, `validate-smoke`, `validate-fix-backlog-closed`, `validate-code-health`, `validate-module-boundaries`, `validate-release-readiness`.
+
+`validate-release-readiness.sh` checks all 10 conditions atomically:
+- FIX_BACKLOG_RELEASE 0 open CRITICAL/HIGH
+- SECURITY_FINAL = READY, PERF_FINAL = RELEASE-READY, CODE_REVIEW_FINAL = APPROVED
+- UX_AUDIT = RELEASE-READY (if UI-bearing), COVERAGE no critical gap
+- CONTAINER_AUDIT no CRITICAL CVE, TECH_DEBT exists, all RUNTIME PASS
+
+| Loop exit | Action |
+|-----------|--------|
+| 0 (clean) | Proceed to Round 5 |
+| 1 (gaps, iter < 3) | Fix the gap, re-run |
+| 2 (3 iterations exhausted) | Emit Ralph Wiggum escalation — user decides waiver/fix/defer |
+
+---
+
+### Round 5 — Release
+
+Only after Round 4 coverage loop exits 0:
+
 ```
 task(agent="git-expert", prompt="--release: compute next semver from conventional commits, generate CHANGELOG entry, create signed annotated tag, push to all remotes, draft GitHub + Gitea releases.", timeout=120)
 ```
 
-**Exit:** Release Gate all green (every verdict READY/APPROVED/RELEASE-READY with no open CRITICAL/HIGH), release cut
+**Exit:** Phase 5 coverage loop exit 0, release tag cut and pushed to all remotes
 
 
