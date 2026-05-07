@@ -371,6 +371,7 @@ If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
 | HANDOFF type | `--coverage` arg | `--runtime` |
 |--------------|------------------|-------------|
 | phase-2 requirements derivation | `validate-requirements-matrix.sh` | — |
+| `test-engineer` (test strategy + E2E infra) | `validate-e2e-setup.sh` | — |
 | `architecture-designer` (module + infra) | `validate-module-design.sh` | — |
 | `ux-engineer` (UX spec) | `validate-ux-spec.sh` | — |
 | `frontend-design` (Wave 0 design system) | `validate-design-system.sh` | — |

@@ -30,13 +30,35 @@ fi
 pass "TEST_DESIGN.md present: $TD"
 
 # -- Mandatory sections -------------------------------------------------------
-for section in "Unit" "Integration" "E2E" "Security"; do
+for section in "Unit" "Integration" "E2E" "Security" "Test Infrastructure"; do
   if grep -qi "$section" "$TD" 2>/dev/null; then
     pass "$section test section present"
   else
-    gap "missing-section" "TEST_DESIGN.md missing $section test section"
+    gap "missing-section" "TEST_DESIGN.md missing '$section' section (required: Unit, Integration, E2E, Security, Test Infrastructure)"
   fi
 done
+
+# -- Test Infrastructure checks (if section present) -------------------------
+if grep -qi "Test Infrastructure" "$TD" 2>/dev/null; then
+  # Framework choice specified (not TBD)
+  if grep -iE "(playwright|cypress|vitest|jest|pytest)" "$TD" 2>/dev/null | grep -qi "test infrastructure\|framework"; then
+    pass "Test Infrastructure: framework choice specified"
+  elif ! grep -qiE "(playwright|cypress|vitest|jest|pytest)" "$TD" 2>/dev/null; then
+    gap "infra-no-framework" "TEST_DESIGN.md Test Infrastructure section does not name the E2E framework (playwright/cypress/vitest/jest/pytest)"
+  fi
+  # JSON reporter / test-results.json mentioned (enables UC-level verdicts)
+  if grep -qiE "(test-results\.json|reporter.*json|json.*reporter|outputFile)" "$TD" 2>/dev/null; then
+    pass "Test Infrastructure: JSON results output configured"
+  else
+    gap "infra-no-json-reporter" "TEST_DESIGN.md Test Infrastructure section does not specify JSON reporter / test-results.json — required for UC-level pass/fail gate"
+  fi
+  # Auth strategy (if a web app)
+  if grep -qiE "(storageState|auth.*setup|login.*fixture|auth.*fixture|cy\.login)" "$TD" 2>/dev/null; then
+    pass "Test Infrastructure: auth fixture strategy specified"
+  else
+    note "Test Infrastructure: no auth fixture strategy found — add storageState/auth.setup.ts approach if app has authentication"
+  fi
+fi
 
 # -- P0 use case coverage -----------------------------------------------------
 UC=""
