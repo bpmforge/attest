@@ -115,7 +115,7 @@ This mode exists because the orchestrator (sdlc-lead) is managing the sequence. 
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The five canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names

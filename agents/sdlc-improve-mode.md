@@ -188,6 +188,24 @@ ONLY on the files listed in `docs/improve/EXPLORE_[feature].md`. If the improvem
 dimension-scoped ("just frontend", "just backend"), tell specialists to focus on the
 relevant directories only. "Whole app" means no scope restriction.
 
+### Execution Mode Selection — Sequential or Parallel
+
+Ask the user before running audits:
+
+```
+I will run [N] specialist audits: [list confirmed audits from discovery interview].
+These audits are fully independent — each reads the codebase, not each other's output.
+
+How would you like to run them?
+  [S] Sequential — one at a time, you review each before continuing
+  [P] Parallel   — emit all HANDOFFs in one block, open N OpenCode sessions concurrently
+                   (faster, but you manage N sessions simultaneously)
+```
+
+**If [P] Parallel:** Emit ALL audit HANDOFFs in one message. User opens N OpenCode sessions simultaneously. Wait for ALL completion phrases before proceeding to Step 3 synthesis. Do NOT emit partial sets.
+
+**If [S] Sequential:** Run audits one at a time in this order: Security → Code Quality → Performance → Database → UX. Wait for each completion phrase before the next HANDOFF.
+
 ### UX Audit (if in scope)
 
 ```
@@ -260,9 +278,13 @@ CONTEXT (read these before starting):
 YOUR TASK:
 Audit the codebase for code health issues. Run a --debt pass focusing on: complexity
 hotspots, duplicated logic, inconsistent patterns, poor error handling, missing type
-safety, and naming problems. Identify the top improvement opportunities — things that
-are actively making the codebase harder to work with today. Grade each finding by
-severity (Critical / High / Medium / Low) and effort (S/M/L).
+safety, naming problems, and anti-slop hygiene (over-engineered abstractions, defensive
+bloat, catch-all error swallowing, what-comments, magic numbers — see ANTI_SLOP_RULES.md).
+Identify the top improvement opportunities — things that are actively making the codebase
+harder to work with today. Grade each finding by severity (Critical / High / Medium / Low)
+and effort (S/M/L).
+
+Also run: `bash scripts/validators/validate-code-health.sh .` — include its output in the audit.
 
 PRODUCE exactly these files (nothing else):
 - docs/improve/CODE_QUALITY_AUDIT.md — findings organized by severity, each with: what
@@ -755,6 +777,13 @@ task(agent="git-expert", prompt="Commit all files in docs/improve/ and any chang
 
 Before declaring Mode 4 complete:
 
+**Run the code-health and module-boundary gates on the changed code:**
+```bash
+bash scripts/validators/validate-code-health.sh .       # anti-slop + complexity
+bash scripts/validators/validate-module-boundaries.sh . # cross-module imports
+```
+If either reports gaps → route to coding-agent as a Size S fix before declaring done.
+
 ```
 IMPROVEMENT SESSION COMPLETE
 
@@ -762,6 +791,8 @@ Audits run:       [list which specialists ran]
 Backlog produced: docs/improve/IMPROVEMENT_BACKLOG.md    [YES/NO]
 Items executed:   [n of n approved]
 All verified:     [YES / [n] items need follow-up]
+Code-health gate: PASS / [N gaps found — fixed]
+Module-boundary gate: PASS / [N gaps found — fixed]
 
 Deferred items (tackle next session):
   - [item descriptions]

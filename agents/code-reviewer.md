@@ -39,7 +39,7 @@ Pick the right mode based on the invocation flag:
 
 | Invocation | Mode | Output |
 |---|---|---|
-| `--review` (or no flag) | Full 7-dimension health pass | `docs/reviews/CODE_REVIEW_<date>.md` |
+| `--review` (or no flag) | Full 8-dimension health pass | `docs/reviews/CODE_REVIEW_<date>.md` |
 | `--debt` | Build a prioritized tech-debt backlog | `docs/reviews/TECH_DEBT_<date>.md` |
 | `--consolidate` | DRY + error-handling consolidation proposals | `docs/reviews/CONSOLIDATION_<date>.md` |
 | `--patterns` | Cross-codebase pattern consistency audit | `docs/reviews/PATTERNS_<date>.md` |
@@ -95,7 +95,7 @@ When invoked **without** a `--phase:` prefix, run as orchestrator for code revie
 Starting code review (--review / --debt / --consolidate / --patterns). Plan: 4 phases
   1. **understand-codebase** — read patterns, conventions, 3-5 key files
   2. **tooling** — run linter, complexity tools if available
-  3. **review-passes** — 7 dimension passes: complexity, DRY, error handling, types, patterns, naming, comments
+  3. **review-passes** — 8 dimension passes: complexity, DRY, error handling, types, patterns, naming, comments, anti-slop
   4. **report** — write Health Dashboard with findings, confidence gate, reader simulation
 ```
 
@@ -185,7 +185,7 @@ This mode exists because the orchestrator (sdlc-lead) is managing the sequence. 
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The five canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names
@@ -323,6 +323,7 @@ write(filePath="docs/reviews/CODE_HEALTH_TRACKER.md", content="
 | 5 | Pattern Consistency  | ⏳ PENDING  | —     | —        | —         |
 | 6 | Naming Quality       | ⏳ PENDING  | —     | —        | —         |
 | 7 | Comment Accuracy     | ⏳ PENDING  | —     | —        | —         |
+| 8 | Anti-Slop            | ⏳ PENDING  | —     | —        | —         |
 
 **Overall score:** ⏳ pending all passes
 **Verdict:** ⏳ pending
@@ -639,7 +640,7 @@ Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
 
 ## Phase 5: Write the Health Report
 
-Use the Health Dashboard template from the checklist. Score all 7 dimensions, then compute the overall score. Apply the verdict rubric.
+Use the Health Dashboard template from the checklist. Score all 8 dimensions (include anti-slop), then compute the overall score. Apply the verdict rubric.
 
 **After writing the report — mirror the Health Dashboard into the tracker:**
 ```
@@ -652,14 +653,14 @@ Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
 
 | Verdict | Criteria |
 |---|---|
-| **APPROVED** | All dimensions ≥7, 0 HIGH, pattern violations ≤1 |
+| **APPROVED** | All dimensions ≥7 (anti-slop ≥8), 0 HIGH, pattern violations ≤1 |
 | **APPROVED WITH SUGGESTIONS** | All dimensions ≥6, HIGH ≤2 (with concrete fixes), pattern violations ≤3 |
 | **NEEDS REVISION** | Any dimension ≤4, OR HIGH >2, OR functions >100 lines, OR any swallowed error in a critical path |
 | **REJECT** | Multiple dimensions ≤4, systemic architectural problems, data-loss risk |
 
 ## Phase 6: Confidence Gate-Loop (asymmetric)
 
-All 7 tracker rows should now be `✅ DONE` or `⚠️ BLOCKED`. Read the tracker to verify:
+All 8 tracker rows should now be `✅ DONE` or `⚠️ BLOCKED`. Read the tracker to verify:
 ```
 read(filePath="docs/reviews/CODE_HEALTH_TRACKER.md")
 ```
@@ -676,6 +677,7 @@ From the tracker's Progress Summary table, extract and print the final confidenc
 | Pattern Consistency  | X/10  | X/10      | N      | ...         |
 | Naming Quality       | X/10  | X/10      | N      | ...         |
 | Comment Accuracy     | X/10  | X/10      | N      | ...         |
+| Anti-Slop            | X/10  | X/10      | N      | ...         |
 ```
 
 Any dimension still showing `⏳ PENDING` means the tracker was not updated — go back and run that pass now.
@@ -715,7 +717,7 @@ When reviewing code produced by another agent or an automated process, evaluate 
 ## Mode Specifics
 
 ### `--review` (default)
-Full health pass across all 7 dimensions. Output: `docs/reviews/CODE_REVIEW_<YYYY-MM-DD>.md` with the full Health Dashboard, all findings, Pattern Analysis, and Verdict.
+Full health pass across all 8 dimensions. Output: `docs/reviews/CODE_REVIEW_<YYYY-MM-DD>.md` with the full Health Dashboard, all findings, Pattern Analysis, and Verdict.
 
 ### `--debt`
 Tech-debt catalog mode. Run the same 7 passes but prioritize findings by `(blocked_work × priority) / cost_to_fix`. Output: `docs/reviews/TECH_DEBT_<YYYY-MM-DD>.md` with one DEBT-NNN item per finding, sorted by leverage. Use the template in the checklist's "Tech Debt Register" section. Include a section at the top: "If you only fix 3 things this sprint, fix these."

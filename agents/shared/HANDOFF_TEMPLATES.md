@@ -32,7 +32,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /<skill>:
 SDLC-TASK for <agent-name>:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules that govern this HANDOFF
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules that govern this HANDOFF
 - docs/work/context-for-<agent>.md             -- full context packet for this task
 - <file 1>                                     -- <what it contains relevant to this task>
 - <file 2>                                     -- <what it contains relevant to this task>
@@ -71,7 +71,7 @@ Use this template for fix-after-review cycles. It references a FIX_BACKLOG.
 SDLC-TASK for coding-agent:
 
 CONTEXT:
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - agents/shared/FIX_VERIFY_LOOP.md             -- the fix-verify protocol
 - docs/reviews/FIX_BACKLOG_<feature>_<date>.md -- the backlog of findings to address
 - docs/TECH_STACK.md                           -- MANDATORY constraint: no new libraries
@@ -215,7 +215,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
 TASK for frontend-design:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-frontend-design.md     -- full context packet
 - docs/design/STYLE_GUIDE.md                   -- color tokens, typography, spacing, motion
 - docs/design/UX_SPEC.md                       -- component library selection + component inventory
@@ -282,7 +282,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /arch:
 SDLC-TASK for architecture-designer:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-architecture-designer.md -- full context packet
 - docs/DESIGN_CONTEXT.md                       -- deployment, scale, constraints, patterns to enforce
 - docs/TECH_STACK.md                           -- language, framework, libraries (defines interface syntax)
@@ -336,7 +336,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /devops:
 SDLC-TASK for sre-engineer:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-sre-engineer.md        -- full context packet
 - docs/INFRASTRUCTURE.md                       -- initial topology from architecture-designer (review + expand)
 - docs/DESIGN_CONTEXT.md                       -- scale targets, compliance requirements, provider preferences
@@ -385,7 +385,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /devops:
 SDLC-TASK for sre-engineer:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-sre-engineer.md        -- full context packet
 - docs/INFRASTRUCTURE.md                       -- topology to provision (source of truth)
 - docs/TECH_STACK.md                           -- runtime versions, build tooling
@@ -436,7 +436,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /security:
 SDLC-TASK for security-auditor:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-security-auditor.md    -- full context packet
 - docs/THREAT_MODEL.md                         -- threats identified, with severity ratings
 - docs/DATABASE.md                             -- current schema (needs security additions)
@@ -487,7 +487,7 @@ Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 SDLC-TASK for test-engineer:
 
 CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the five rules
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
 - docs/work/context-for-test-engineer.md       -- full context packet
 - docs/testing/USE_CASES.md                    -- P0/P1/P2 use cases with acceptance criteria
 - docs/USER_STORIES.md                         -- stories with acceptance criteria

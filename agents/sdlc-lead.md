@@ -344,7 +344,7 @@ These files are the single source of truth. All mode files reference them.
 | HANDOFF block templates | `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` | Every HANDOFF |
 | Fix-verify loop | `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md` | Mode 1 Phase 4+5, Mode 3 Step 4, Mode 4 |
 
-**Rule:** when a mode file references "Template 2 from `HANDOFF_TEMPLATES.md`" or "the five rules from `BOUNDED_TASK_CONTRACT.md`", it means go read that file. Do not inline the content. Single source of truth.
+**Rule:** when a mode file references "Template 2 from `HANDOFF_TEMPLATES.md`" or "the six rules from `BOUNDED_TASK_CONTRACT.md`", it means go read that file. Do not inline the content. Single source of truth.
 
 ---
 
