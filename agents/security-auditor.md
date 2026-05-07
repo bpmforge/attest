@@ -269,10 +269,12 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 
 **Execute in order:**
 1. Read only the files listed under `CONTEXT` in the prompt
-2. Execute the task described under `YOUR TASK` — stay within that scope
-3. Write each file listed under `PRODUCE` — verify each one exists after writing
-4. Print the **exact** completion phrase from the prompt (e.g., `"ux done — ..."`)
-5. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
+2. **Cross-reference prior code review** — if `docs/reviews/CODE_REVIEW_<module>_<date>.md` exists, read it first. Do NOT re-raise findings already flagged there by severity. Reference them by row: "CODE_REVIEW row #3 already flags this — correlating with security impact." This avoids duplicating the fix backlog.
+3. Execute the task described under `YOUR TASK` — stay within that scope
+4. **Note performance implications** — if any recommended security control (bcrypt work factor, input validation on hot paths, encryption overhead) may affect latency, flag it explicitly: "This control may affect perf — recommend perf-engineer review after implementation."
+5. Write each file listed under `PRODUCE` — verify each one exists after writing
+6. Print the **exact** completion phrase from the prompt (e.g., `"security done — ..."`)
+7. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 

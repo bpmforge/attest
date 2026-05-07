@@ -184,6 +184,33 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**Perf-affecting slop patterns — check before delivering any fix:**
+- [ ] Recommended fixes don't introduce try/catch inside loops (R-02 from ANTI_SLOP_RULES.md)
+- [ ] Recommended fixes don't introduce serial awaits on independent operations (R-04)
+- [ ] No unnecessary abstraction layers added in fix recommendations that add call-chain overhead
+- [ ] If a fix increases code complexity significantly, noted in the report for code-reviewer follow-up
+
+**Prior code-review cross-reference:**
+- [ ] Read `docs/reviews/CODE_REVIEW_<module>_<date>.md` if it exists — do not re-raise findings already flagged there. Reference the existing finding by row number if it overlaps with a perf concern.
+
+**Test-regression gate:**
+- [ ] After applying any optimization, re-run the full test suite. Perf fixes that break correctness are not fixes.
+- [ ] Report both before AND after benchmark numbers. A claim of "40% faster" without the baseline is not evidence.
+
+**Report completeness:**
+- [ ] Every finding has: specific file:line, measured baseline metric, NFR target from SRS.md (if applicable), and a concrete fix with expected delta
+- [ ] No "consider optimizing X" without a measurement showing X is actually slow
+
+Run the validator:
+```bash
+bash scripts/validators/validate-code-health.sh .
+# Run on any code YOU wrote or modified during this task
+```
+
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 

@@ -82,36 +82,37 @@ During Phase 1 (Read), read `docs/TECH_STACK.md` if it exists. All library and f
 
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
-AI-generated code has predictable failure modes. You actively prevent all of them.
+**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — read it. Below is the actionable summary; the full definitions and scoring thresholds are in that file.
 
-### Error Handling
-- **No try-catch except at system boundaries** — user input, external APIs, file I/O, network calls, database. Internal function calls between modules you control do not need try-catch.
-- **No catch-all error swallowing** — `catch (e) {}` or `catch (e) { log(e) }` are bugs, not safety nets. If you catch, you handle specifically or you re-throw.
-- **No error-handling for impossible states** — if a value can't be null because you just assigned it, don't null-check it.
+### Error Handling (R-01 through R-04)
+- **No catch-all swallowing** (R-01) — `catch (e) {}` or `catch (e) { log(e) }` are bugs. Catch only at system boundaries; every catch must handle specifically or re-throw.
+- **No try/catch inside tight loops** (R-02) — wrap the loop, not each iteration. JIT compilers cannot optimize try/catch in hot loops.
+- **No exception-driven control flow** (R-03) — use guard clauses for expected failures; reserve exceptions for unexpected states.
+- **No serial awaits on independent operations** (R-04) — independent async calls MUST use `Promise.all` / `Promise.allSettled`.
 
-### Abstraction
-- **No abstractions with one implementation** — interfaces, factories, registries, and strategy patterns require ≥2 real implementations to justify their existence. If there's only one, it's over-engineering.
-- **No helper functions used in only one place** — inline it. Three lines of code in a function called once is just indirection with no payoff.
-- **No config systems for values that never vary** — hardcode things that are always the same. Only make something configurable if the spec explicitly calls for it.
-- **No wrapper classes that only delegate** — if your class just calls through to another class with no added logic, delete it.
+### Abstraction (R-05 through R-08)
+- **No single-implementation interfaces** (R-05) — abstract only with ≥2 real implementations.
+- **No delegation-only wrapper classes** (R-06) — wrappers must add logic; pure delegation = delete the wrapper.
+- **No single-use helper functions** (R-07) — inline it; extract only when called ≥2 times or represents a named domain concept.
+- **No repository pattern on simple CRUD** (R-08) — use the ORM directly; don't wrap Prisma/ORM calls in another layer "for testability."
 
-### Defensive Bloat
-- **No null checks for types you control** — trust your own types. If a TypeScript type says `string`, don't check `if (value === null)`.
-- **No retry logic unless the spec calls for it** — retry is a feature. Don't add features that weren't designed.
-- **No fallback values for things that should fail loudly** — returning `[]` when a database call fails hides the error. Fail loudly so the caller knows.
-- **No feature flags or backwards-compatibility shims** for things that don't have users yet.
+### Defensive Bloat (R-09 through R-12)
+- **No null checks on types you control** (R-09) — trust your own types.
+- **No fallback values that hide failures** (R-10) — returning `[]` on a DB error is a silent lie. Fail loudly.
+- **No unspecified retry logic** (R-11) — retry is a feature; it must be in the spec.
+- **No feature flags for unreleased code** (R-12) — no toggle configs for code with no users.
 
-### Code Clarity
-- **No comments that describe what the code does** — `// increment the counter` above `counter++` is noise. Delete it. Comments explain WHY, not WHAT.
-- **No console.log / print / debug statements** in committed code unless the spec says to.
-- **No unused imports** — if you import it, use it.
-- **No cargo-cult patterns** — don't copy a pattern (retry, circuit breaker, caching) without a concrete reason from the spec. Name the reason in a comment if you use one.
+### Comment and Style (R-13 through R-16)
+- **No what-comments** (R-13) — `// increment the counter` is noise. Comments explain WHY. Delete all mechanical narration.
+- **No step-by-step narration blocks** (R-14) — name things well enough that sequence is self-evident.
+- **No stale JSDoc params** (R-15) — if you write a docstring, keep it accurate; stale params are a bug.
+- **No emojis in code comments** (R-16) — emojis in source are a near-certain AI giveaway to reviewers.
 
-### Scope
-- **No scope creep** — implement what the spec says. If you notice something adjacent that "could be improved," log it as a note but don't touch it.
-- **No speculative generalization** — don't add parameters, options, or hooks for future requirements that aren't in the spec.
-- **Simple conditionals over polymorphism** for ≤2 cases. A simple `if/else` is clearer than a strategy pattern with 2 strategies.
-- **Trust the framework** — don't re-implement pagination, validation, auth, or serialization that your framework already provides.
+### Structural (R-17 through R-20)
+- **No speculative generalization** (R-17) — build for the spec; extension points only in MODULE_DESIGN.md § Plugin Points.
+- **No cargo-cult patterns** (R-18) — circuit breaker, rate limiter, caching must trace to a spec requirement. "Best practice" is not a justification.
+- **No copy-paste duplication** (R-19) — any block repeated ≥2 times is an extraction candidate.
+- **Match existing codebase patterns** (R-20) — read 2-3 existing files in the same directory before writing. If the codebase uses Prisma, don't introduce raw SQL. If it uses `async/await`, don't introduce `.then()` chains.
 
 ---
 
@@ -146,24 +147,27 @@ For each file:
 Run the test command specified in the task (e.g., `go test ./...`, `npm test`, `pytest`).
 If tests fail: read the failure, fix the code, re-run. Do not modify tests to pass — fix the implementation.
 
-**Phase 5 — Self-Audit**
-Before writing the verification doc, run the anti-slop checklist on your own output:
+**Phase 5 — Self-Audit (scored confidence loop)**
 
-```
-Anti-slop self-audit:
-[ ] No try-catch outside system boundaries
-[ ] No abstractions with <2 real implementations
-[ ] No single-use helper functions
-[ ] No comments describing what (only why)
-[ ] No unused imports
-[ ] No scope beyond what the spec asked for
-[ ] Every library API verified via Context7 or node_modules
-[ ] Existing patterns matched (naming, structure, error style)
-[ ] All technology choices match TECH_STACK.md (no unlisted libraries introduced)
-[ ] Tests pass
+Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts). Score < 5 on any dimension → surface to user before proceeding.
+
+| Dimension | What to check | Score |
+|-----------|--------------|-------|
+| Correctness | Does the implementation do exactly what the spec says? No more, no less. | /10 |
+| Test coverage | Tests present alongside every module; all tests pass; no skipped tests | /10 |
+| Anti-slop | Zero violations of R-01 through R-20 (run `validate-code-health.sh` — must exit 0) | /10 |
+| Pattern matching | Matches existing codebase conventions (naming, error handling, file structure, ORM usage) | /10 |
+| Tech stack compliance | No unlisted dependencies; every library in `docs/TECH_STACK.md`; deviations documented | /10 |
+| Scope compliance | Nothing produced that wasn't in PRODUCE list; no "helpful" extras | /10 |
+| Code clarity | All functions ≤50 lines; all files ≤250 lines; no what-comments; no debug statements | /10 |
+
+```bash
+# Run the script-level checks now:
+bash scripts/validators/validate-code-health.sh .
+# Must exit 0 before proceeding to Phase 6
 ```
 
-Fix any failures before proceeding. If you can't fix something, note it explicitly.
+If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes → document in manifest "Known issues / deferred" with specific reason. Do not silently ship a dimension scoring < 5.
 
 **Phase 6 — Report**
 Write the verification doc listed in the task (e.g., `docs/improve/VERIFY_ITEM_[n].md`).
@@ -189,7 +193,8 @@ The five canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_
 
 - `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
 - `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- `scripts/validators/validate-scope.sh` — domain coverage (auto-run when relevant)
+- `scripts/validators/validate-code-health.sh` — code hygiene (slop pattern enforcement)
+- `--runtime` flag — build + lint must pass
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
@@ -298,9 +303,12 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] All functions ≤50 lines (flag exceptions in manifest deferred section)
 - [ ] Completion Manifest `Test result:` line shows actual command output with pass count
 
-**Run build + tests now (do not skip):**
+**Run build + tests + code health now (do not skip):**
 ```bash
 npm run build && npm test
 # or the equivalent commands from docs/TECH_STACK.md
+
+bash scripts/validators/validate-code-health.sh .
 ```
-If either fails → fix before printing completion phrase. Test failures are not "deferred".
+If build/tests fail → fix before printing completion phrase. Test failures are not "deferred".
+If code-health gaps → fix slop patterns → re-run until exit 0.
