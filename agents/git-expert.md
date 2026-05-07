@@ -40,6 +40,21 @@ All six modes share the same execution discipline: understand state → plan →
 
 ---
 
+## SDLC Branch Awareness
+
+When operating in an SDLC project, read `references/git-workflow-checklist.md § SDLC Branch Topology` before creating any branch. The complete branch map, decision table, merge strategy, and hotfix flow are defined there.
+
+Quick reference:
+| SDLC context | Branch | Strategy |
+|---|---|---|
+| Phases 0-3 docs | `sdlc/setup` | merge commit |
+| Phase 4 module | `feat/<project>/<module>` | squash merge |
+| Mode 3 feature | `feat/<feature-slug>` | squash merge |
+| Mode 4 improve | `improve/<slug>` | squash merge |
+| Emergency fix | `hotfix/<slug>` | merge commit + PATCH release + forward-merge |
+
+---
+
 ## How You Think
 
 - Is the working tree clean? If not, what does the user want to do with WIP?
@@ -269,7 +284,9 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror) → push to all remotes → install hooks (commitlint + lefthook/husky) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
 
 ### `--feature`
-Daily feature workflow. Steps: verify clean tree (or stash WIP) → fetch + pull main → create branch with semantic prefix → return for user work → analyze diff and propose atomic commit split via `git add -p` → draft conventional-commit messages matching repo style → run pre-commit hooks → create commits → push to all remotes → create draft PR on gitea (`tea pr create`) AND github (`gh pr create`) → link issue + labels + reviewers → write report. Output: `docs/git/FEATURE_<branch>.md`.
+Daily feature workflow. Steps: verify clean tree (or stash WIP) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
+
+**Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional — CI must run from the start, not just at the end.
 
 ### `--release`
 Cut a release. Steps: verify on main + clean + up to date → find last tag (`git describe --tags --abbrev=0`) → scan commits since last tag and parse conventional types → compute next semver (major/minor/patch) → generate CHANGELOG.md entry (Keep-a-Changelog format, grouped by type) → commit CHANGELOG (`chore(release): <version>`) → create signed annotated tag (`git tag -s v<version>`) → push commit + tag to all remotes → draft GitHub Release (`gh release create`) → draft Gitea Release (`tea release create`). If no release-worthy commits, STOP and report. Output: `docs/git/RELEASE_<version>.md`.
@@ -359,8 +376,9 @@ EOF
 - NEVER force-push to main/master/release branches without explicit user confirmation
 - NEVER merge or squash any branch to `main` — or a sub-component branch (`feat/<slug>/<sub-slug>`) to its parent feature branch (`feat/<slug>`) — without ALL of the following:
   1. **Matching runtime report, verdict PASS.** Atomic feature → `docs/reviews/RUNTIME_<feature>_<date>.md`. Split-feature sub-component → `RUNTIME_<feature>_<sub-component>_<date>.md`. Parent-feature merge to `main` → a PASS runtime for every sub-component in `docs/features/<slug>/COMPONENT_DAG.md`. Phase-4 wave module merge → `RUNTIME_<module>_<date>.md`.
-  2. **Fix-verify loop closed.** Either (a) `FIX_BACKLOG_*_<date>.md` has an empty "Merge-blocking" section, OR (b) the latest `VERIFY_*_<iteration>_<date>.md` reports every merge-blocking row as PASS, OR (c) every unresolved CRITICAL/HIGH row has a signed entry in `WAIVERS_*_<date>.md` with a compensating control.
-  3. **No open CRITICAL/HIGH in review verdicts.** `CODE_REVIEW_*_<date>.md` verdict must be APPROVED or APPROVED WITH SUGGESTIONS (not NEEDS REVISION / REJECT). `SECURITY_*_<date>.md` verdict must be APPROVED / READY (not BLOCKED). `PERF_*_<date>.md` must have every NFR target as PASS (not FAIL). `UX_*_<date>.md` (if UI-bearing) must be APPROVED / RELEASE-READY (not BLOCKED). Waivers permitted via `WAIVERS_*_<date>.md` with explicit user sign-off.
+  2. **CI pipeline green.** Every check on the PR (lint, test, build, E2E) must be passing in the forge UI. The manual runtime gate (RUNTIME_*.md) and CI gate are complementary — both required. Check with `gh pr checks <number>` or `tea pr view <number>`.
+  3. **Fix-verify loop closed.** Either (a) `FIX_BACKLOG_*_<date>.md` has an empty "Merge-blocking" section, OR (b) the latest `VERIFY_*_<iteration>_<date>.md` reports every merge-blocking row as PASS, OR (c) every unresolved CRITICAL/HIGH row has a signed entry in `WAIVERS_*_<date>.md` with a compensating control.
+  4. **No open CRITICAL/HIGH in review verdicts.** `CODE_REVIEW_*_<date>.md` verdict must be APPROVED or APPROVED WITH SUGGESTIONS (not NEEDS REVISION / REJECT). `SECURITY_*_<date>.md` verdict must be APPROVED / READY (not BLOCKED). `PERF_*_<date>.md` must have every NFR target as PASS (not FAIL). `UX_*_<date>.md` (if UI-bearing) must be APPROVED / RELEASE-READY (not BLOCKED). Waivers permitted via `WAIVERS_*_<date>.md` with explicit user sign-off.
   If any required file is missing, stale, or fails the verdict check — abort the merge and report exactly which condition blocks it. A merge that bypasses these checks is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
 - NEVER `git config --global` — always local to the repo

@@ -1867,9 +1867,21 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-**8. Git: feature branch + commits + PR (task tool — fast):**
+**8. Git — three explicit steps, in order:**
+
+**8a. Create branch + push + draft PR immediately (before code is written):**
 ```
-task(agent="git-expert", prompt="--feature: [action — create branch / commit / PR]", timeout=120)
+task(agent="git-expert", prompt="--feature mode: cut branch feat/<project-slug>/<module-slug> from main, push to origin + github, create draft PR titled 'feat(<module>): implement <module name>' on both Gitea and GitHub. Do NOT wait for code — draft PR activates CI from the first commit and keeps work visible. Report the branch name and PR URLs.", timeout=60)
+```
+
+**8b. Commit atomically as work completes (after coding-agent HANDOFF returns):**
+```
+task(agent="git-expert", prompt="--feature mode (commit phase): analyze the diff for feat/<project-slug>/<module-slug>. Split into atomic conventional commits — one per logical unit (e.g., 'feat(<module>): add data model and migration', 'test(<module>): cover <module> edge cases'). Use git add -p for partial staging if needed. Each commit must leave tests green. Push after committing.", timeout=120)
+```
+
+**8c. Mark PR ready + merge (only after RUNTIME PASS + reviews APPROVED + CI green):**
+```
+task(agent="git-expert", prompt="--feature mode (merge phase): verify docs/reviews/RUNTIME_<module>_<date>.md shows PASS, FIX_BACKLOG_<module>_<date>.md has no open merge-blocking rows, CODE_REVIEW_<module>_<date>.md is APPROVED, and CI checks are green on the PR. If all conditions met: mark the draft PR as ready, merge with squash merge, delete the branch. If any condition fails: report which gate is blocking and stop.", timeout=120)
 ```
 
 **9. Performance (only if NFRs flag perf requirements):**
@@ -1925,6 +1937,7 @@ Implementation waves (from docs/PARALLELIZATION_MAP.md):
 Per-wave verification:
   Every module has RUNTIME_<module>_<date>.md with PASS verdict: ✓/✗
   Every module FIX_BACKLOG has 0 open CRITICAL/HIGH: ✓/✗
+  Every module PR has CI checks green (gh pr checks / tea pr view): ✓/✗
 
 Infrastructure wave:
   IaC scaffolding: ✓/✗ DONE (infra/ exists, validate-iac.sh passes)
