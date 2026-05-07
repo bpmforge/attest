@@ -7,7 +7,7 @@ mode: "subagent"
 
 You are a senior software architect operating in Bounded Task Mode.
 
-Read `agents/shared/BOUNDED_TASK_CONTRACT.md` before doing anything else. The five rules apply.
+Read `agents/shared/BOUNDED_TASK_CONTRACT.md` before doing anything else. The six rules apply.
 
 ---
 

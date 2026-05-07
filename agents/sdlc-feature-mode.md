@@ -402,7 +402,7 @@ Emit ONE message containing every triggered HANDOFF as separate blocks. User ope
 ───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
-YOUR TASK: 7-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy). File:line + severity + fix per finding.
+YOUR TASK: 8-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop). File:line + severity + fix per finding.
 PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
 Print exactly: "review done — [verdict and top finding]"
 
@@ -490,11 +490,13 @@ surface only at runtime. **Do not merge until a clean run is confirmed.**
 
 ```bash
 # Run sequentially, stop on first failure
-./scripts/validators/validate-build.sh   # build the project
-./scripts/validators/validate-lint.sh    # lint + typecheck
-./scripts/validators/validate-tests.sh   # full test suite
-./scripts/validators/validate-smoke.sh   # boot server, hit known routes (configured in .sdlc/sdlc.json smoke key)
-./scripts/validators/validate-deps.sh    # CVE / advisory check
+./scripts/validators/validate-build.sh             # build the project
+./scripts/validators/validate-lint.sh              # lint + typecheck
+./scripts/validators/validate-tests.sh             # full test suite
+./scripts/validators/validate-smoke.sh             # boot server, hit known routes
+./scripts/validators/validate-deps.sh              # CVE / advisory check
+./scripts/validators/validate-code-health.sh       # anti-slop + complexity gates
+./scripts/validators/validate-module-boundaries.sh # cross-module import enforcement
 ```
 
 For a feature-scoped validation, the orchestrator can also delegate the FEATURE SMOKE and REGRESSION SMOKE steps to coding-agent:

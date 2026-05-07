@@ -294,9 +294,9 @@ CONTEXT (read these before starting):
 - The entire codebase (src/ directory)
 
 YOUR TASK:
-Run a 7-dimension code health review across the entire codebase. The 7 dimensions:
+Run an 8-dimension code health review across the entire codebase. The 8 dimensions:
 complexity, duplication/DRY, error handling (silent failure hunter), type safety,
-pattern consistency, naming quality, comment accuracy. Flag CRITICAL and HIGH
+pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene). Flag CRITICAL and HIGH
 findings with file:line and a specific fix.
 
 PRODUCE exactly this file:
