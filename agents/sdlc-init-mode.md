@@ -1486,22 +1486,45 @@ create a Playwright (or framework from TEST_STRATEGY.md) test file that
 exercises the main flow end-to-end. Use a shared fixtures helper for
 login, data creation, and cleanup.
 
+**Naming convention (MANDATORY for traceability):**
+- Top-level describe block:  — exact UC-ID from USE_CASES.md
+- Each it/test:  — maps to a specific
+  Given/When/Then step from the use case acceptance criteria
+
+Example:
+```ts
+describe("UC-003: User Login", () => {
+  it("AC-1: redirects to dashboard on valid credentials", async () => { ... })
+  it("AC-2: shows error on invalid password", async () => { ... })
+})
+```
+
 Each test must:
 - Create its own fixture data (self-contained, no shared state between tests)
-- Test the main flow from the use case
-- Include a cross-cutting clean check at the end (no console errors, no 5xx)
+- Exercise the exact flow steps from the use case main flow
+- Assert the success criteria from the use case
+- Include a clean check (no console errors, no 5xx responses)
 - Clean up after itself
+
+After all tests are written and run, produce the UC verification summary:
+```
+UC VERIFICATION SUMMARY
+UC-001: [N tests] — PASS / FAIL — [failing test names if any]
+UC-002: [N tests] — PASS / FAIL
+...
+Overall: M/N use cases fully verified
+```
 
 PRODUCE exactly these files:
 - e2e/use-cases/_fixtures.ts (or equivalent) — shared helpers for login,
   API calls, model creation, clean check
-- e2e/use-cases/*.spec.ts — one per P0 use case (or combined for related UCs)
-- Update docs/testing/TEST_PLAN.md — mark each P0 with its test file path
-
-Run the full suite and report results.
+- e2e/use-cases/*.spec.ts — one per P0 use case, describe named "UC-NNN: <name>"
+- Update docs/testing/TEST_PLAN.md — mark each P0 with its test file path and PASS/FAIL
+- Run:  (or pytest equivalent) so the
+  validate-tests-mapping.sh gate can produce UC-level pass/fail verdicts
 
 When all files are written and tests have been run, print exactly:
-"e2e-tests done — [N tests written, M/N passing, key failures listed]"
+"e2e-tests done — [N tests written, M/N use cases verified, key failures listed]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 
 ---

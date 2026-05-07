@@ -322,6 +322,11 @@ USE_CASES.md. These tests should FAIL initially because the feature isn't
 built yet (TDD approach). Cover: the main flow from each use case, error
 cases, and key edge cases. Use the shared fixtures helper if one exists.
 
+**Naming convention (MANDATORY for traceability):**
+Each test file must have a top-level describe named "UC-NNN: <use case name>" and
+each it/test named "AC-N: <acceptance criterion summary>" matching the Given/When/Then
+steps from USE_CASES.md. This is how validate-tests-mapping.sh produces UC-level verdicts.
+
 Each test must:
 - Create its own fixture data (self-contained)
 - Follow the main flow steps from the use case
