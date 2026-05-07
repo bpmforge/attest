@@ -108,6 +108,7 @@ case "$PHASE" in
       "validate-lint.sh"
       "validate-tests.sh"
       "validate-tests-mapping.sh"
+      "validate-e2e-setup.sh"
       "validate-migrations.sh"
       "validate-iac.sh"
       "validate-module-boundaries.sh"

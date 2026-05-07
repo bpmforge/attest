@@ -1359,18 +1359,33 @@ CONTEXT (read these before starting):
 
 YOUR TASK:
 TEST_DESIGN.md already defines what to test. Your task is to produce a test strategy
-that specifies HOW: select test frameworks for the stack in TECH_STACK.md, define
-the project test scaffold (directory structure, config files, CI integration), and
-confirm the coverage targets per module. Do NOT re-derive what to test — that's in
-TEST_DESIGN.md. Focus on framework selection, tooling, and scaffold setup.
+AND the E2E test infrastructure config files so coding agents write tests in the
+right format from day one. Do NOT re-derive what to test — focus on HOW.
 
-PRODUCE exactly this file:
-- docs/TEST_STRATEGY.md — framework choices with rationale, test directory scaffold,
-  coverage tool setup, CI integration approach, test data strategy, and a confirmed
-  mapping from TEST_DESIGN.md test categories to test file naming conventions
+**For Playwright projects (most web apps), PRODUCE ALL of these files:**
+- docs/TEST_STRATEGY.md — framework choices, coverage targets, naming conventions,
+  UC-ID naming rule (describe: "UC-NNN: <name>", it: "AC-N: <criterion>")
+- playwright.config.ts — with JSON reporter (test-results.json), retries, screenshot,
+  baseURL, globalSetup, storageState auth project (see test-engineer.md Playwright section)
+- e2e/auth.setup.ts — saves storageState to e2e/.auth/user.json
+- e2e/fixtures.ts — test.extend() with api helper for test data setup/teardown
+- e2e/global-setup.ts — DB reset + seed before test run
+- e2e/pages/BasePage.ts — Page Object Model base class
+- .github/workflows/e2e.yml (or .gitea/workflows/e2e.yml) — CI pipeline that runs
+  playwright, uploads playwright-report/ and test-results.json artifacts
+- Update docs/testing/TEST_DESIGN.md § Test Infrastructure — fill in framework choice,
+  JSON reporter path (test-results.json), auth fixture approach
 
-When the file is written, print exactly:
-"test-strategy done — [one sentence: frameworks chosen and test scaffold defined]"
+**For non-Playwright projects (backend/CLI/library), PRODUCE:**
+- docs/TEST_STRATEGY.md with the above framework and scaffold information
+- jest.config.ts or vitest.config.ts with --json output to test-results.json
+- CI workflow with test step
+
+Refer to test-engineer.md § Playwright Infrastructure for canonical templates.
+These files are checked by validate-e2e-setup.sh at the Phase 4 gate.
+
+When all files are written, print exactly:
+"test-strategy done — [frameworks chosen, E2E infrastructure configured, CI pipeline defined]"
 Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
