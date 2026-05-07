@@ -36,6 +36,30 @@ If you notice an issue adjacent to your task (a typo in a nearby file, a missing
 
 Helpfulness > compliance feels right but destroys reviewability. A HANDOFF producing "just what was asked + 3 bonus fixes" is harder to review, harder to revert, and breaks the parallel-wave coordination that assumes each module's author wrote only that module.
 
+### 6. Pre-completion self-check (mandatory)
+
+Before printing the completion phrase, you MUST verify your own work is complete. Do not rely on the orchestrator's external gate to catch gaps you could have fixed yourself.
+
+**The protocol (run in order):**
+
+1. **Re-read every file in your PRODUCE list.** Confirm each file exists, is non-empty, and has no placeholder text (`[TODO]`, `[TBD]`, `PLACEHOLDER`, `[FILL-IN]`).
+
+2. **Check all required sections are present.** If your agent file has a "Pre-Completion Self-Check" section, run through every item on that checklist now.
+
+3. **Run the coverage validator if one applies to your work:**
+   ```bash
+   bash scripts/validators/validate-<relevant>.sh .
+   # or
+   bash ~/.config/opencode/scripts/validators/validate-<relevant>.sh .
+   ```
+   Read the output. If gaps are reported → fix them → re-run until clean.
+
+4. **Only then print the completion phrase.**
+
+If you cannot fix a gap yourself (e.g. it requires a design decision above your scope), document it in the "Known issues / deferred" section of your Completion Manifest instead of silently omitting it or printing done anyway.
+
+---
+
 ### 5. Stop means stop
 
 After printing the completion phrase, STOP. Do not:

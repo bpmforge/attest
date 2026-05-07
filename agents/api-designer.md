@@ -180,8 +180,31 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
-Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**API_DESIGN.md — required:**
+- [ ] Every user story that requires a server interaction has ≥1 endpoint
+- [ ] Endpoints grouped by module (matching MODULE_DESIGN.md § Module Inventory)
+- [ ] Every endpoint has: HTTP method, path, request body schema, response shapes (200/400/401/403/404/500), auth requirements, example request/response payloads
+- [ ] Security section: rate limits, CORS policy, input validation, auth scheme (if SECURITY_CONTROLS.md exists)
+- [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` anywhere
+
+**openapi.yaml — required:**
+- [ ] `openapi: "3.0.3"` header
+- [ ] Every endpoint from API_DESIGN.md has a `paths` entry
+- [ ] `components/schemas` for every request/response object
+- [ ] `components/securitySchemes` matching auth strategy
+- [ ] Run: `swagger-cli validate docs/api/openapi.yaml` — must exit 0
+
+**Run the coverage validator:**
+```bash
+bash scripts/validators/validate-api-coverage.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
+Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 ---
 ## How You Work

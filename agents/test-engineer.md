@@ -282,6 +282,32 @@ manifest BEFORE the completion phrase. This helps the SDLC lead verify your work
 - Mitigation PATCH uses /api/threats/:tid/mitigations/:id (not model-scoped) — API inconsistency
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**TEST_DESIGN.md — required (Phase 3.5 deliverable):**
+- [ ] `## Unit Tests` section — one subsection per C3 component from ARCHITECTURE.md, with functions/classes to test, mocking strategy, coverage target
+- [ ] `## Integration Tests` section — one row per endpoint from openapi.yaml with request/response assertions
+- [ ] `## E2E Scenarios` section — one scenario per P0 use case with actor, steps, assertions, fixture strategy
+- [ ] `## Security Tests` section — one case per HIGH/CRITICAL threat from THREAT_MODEL.md
+- [ ] `## Performance Benchmarks` section — one row per NFR metric from SRS.md (if NFRs exist)
+- [ ] `## Coverage Matrix` — maps every source artifact to at least one test case ID
+- [ ] Every P0 use case from USE_CASES.md is referenced
+- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` text
+
+**TEST_PLAN.md — required (Phase 2 deliverable):**
+- [ ] Index table with UC, test file path, priority, status columns
+- [ ] Rollout criteria (P0 must pass for demo, P0+P1 for ship)
+- [ ] Cross-cutting checks defined
+- [ ] Every P0 use case mapped to a test file
+
+**Run the validator (TEST_DESIGN.md):**
+```bash
+bash scripts/validators/validate-test-design.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 ---

@@ -183,8 +183,26 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
-Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**DATABASE.md — required:**
+- [ ] Mermaid `erDiagram` block present with all tables and relationships
+- [ ] Every module listed in MODULE_DESIGN.md § Module Inventory has ≥1 table
+- [ ] Migration files (up + down) for every table
+- [ ] Index strategy for each major access pattern
+- [ ] Top 5 most frequent query patterns documented
+- [ ] Security section: encryption-at-rest notes, sensitive field labels, access control (if SECURITY_CONTROLS.md exists)
+- [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` anywhere
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-erd-coverage.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
+Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 ---
 ## How You Work
