@@ -62,4 +62,15 @@ if [[ -f "$PERSONAS" ]]; then
   done < <(grep -E '^##[[:space:]]+[A-Z]' "$PERSONAS" 2>/dev/null | head -20)
 fi
 
+# -- Traceability check: each user story should trace back to a UC or source
+# Look for UC-NN references or Source:/Trace: fields in the document
+uc_refs=$(grep -cE '(UC-[0-9]+|FR-[0-9]+|Source[[:space:]]*:|Trace[[:space:]]*:|Derived[[:space:]]+from)' "$US" || true)
+story_count=$(grep -cE '^##[[:space:]]' "$US" || true)
+
+if [[ "${story_count:-0}" -gt 0 && "${uc_refs:-0}" -eq 0 ]]; then
+  gap "missing-traceability" "USER_STORIES.md has no traceability references (UC-NN, FR-NN, or Source: fields) — each story should trace to a use case or requirement"
+else
+  pass "traceability references found ($uc_refs across $story_count stories)"
+fi
+
 validator_exit

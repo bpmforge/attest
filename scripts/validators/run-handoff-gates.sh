@@ -43,6 +43,7 @@ validator_init "run-handoff-gates"
 SCOPE_DIRS=()
 MANIFEST=""
 COVERAGE=""
+RUNTIME=false
 PROJECT_ROOT_ARG=""
 
 while [[ $# -gt 0 ]]; do
@@ -58,6 +59,10 @@ while [[ $# -gt 0 ]]; do
     --coverage)
       COVERAGE="$2"
       shift 2
+      ;;
+    --runtime)
+      RUNTIME=true
+      shift
       ;;
     --root)
       PROJECT_ROOT_ARG="$2"
@@ -129,6 +134,27 @@ if [[ -n "$COVERAGE" ]]; then
   fi
 else
   printf '\n%s== GATE 3/3: COVERAGE ==%s (skipped -- no --coverage arg)\n' "$_BOLD" "$_RESET" >&2
+fi
+
+# ── Gate 4: runtime (only when --runtime passed — coding-agent handoffs) ───
+if [[ "$RUNTIME" == "true" ]]; then
+  printf '\n%s== GATE 4/4: RUNTIME (build + lint) ==%s\n' "$_BOLD" "$_RESET" >&2
+  for rv in "validate-build.sh" "validate-lint.sh"; do
+    rv_script="$VALIDATORS_DIR/$rv"
+    if [[ ! -f "$rv_script" ]]; then
+      gap "runtime" "$rv not found in $VALIDATORS_DIR"
+      validator_exit
+    fi
+    if bash "$rv_script" "$ROOT" > /dev/null 2>&1; then
+      pass "runtime gate clean ($rv)"
+    else
+      bash "$rv_script" "$ROOT" 2>&1 | tail -20 >&2 || true
+      gap "runtime" "$rv failed — code must build and lint-clean before HANDOFF is accepted"
+      validator_exit
+    fi
+  done
+else
+  printf '\n%s== GATE 4/4: RUNTIME ==%s (skipped -- no --runtime flag)\n' "$_BOLD" "$_RESET" >&2
 fi
 
 printf '\n%sAll gates passed%s\n' "$_GREEN" "$_RESET" >&2

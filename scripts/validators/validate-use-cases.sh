@@ -111,4 +111,41 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
   done
 fi
 
+# -- Traceability check: each use case should have a Source: field or
+#    reference a persona/scope/risk/constraint/vision-goal ID
+if [[ "$TABLE_ROW_COUNT" -gt 0 ]]; then
+  source_refs=$(grep -cE '(FR-[0-9]+|SC-[0-9]+|RK-[0-9]+|CN-[0-9]+|Persona|SCOPE|RISK|CONSTRAINT)' "$UC" || true)
+  if [[ "${source_refs:-0}" -eq 0 ]]; then
+    gap "missing-traceability" "USE_CASES.md has no Source/Trace references back to FR-NN, SC-NN, RK-NN, or persona IDs — add traceability to SRS/SCOPE/RISKS artifacts"
+  else
+    pass "traceability references found ($source_refs)"
+  fi
+fi
+
+if [[ "$SECTION_COUNT" -gt 0 ]]; then
+  awk '
+    /^## UC-[0-9]+/ {
+      if (current_id && !has_source) print current_id
+      current_id = $0; sub(/^## /, "", current_id); sub(/[[:space:]].*/, "", current_id)
+      has_source = 0; next
+    }
+    /[Ss]ource[[:space:]]*:/ { has_source = 1 }
+    /[Tt]race[[:space:]]*:/ { has_source = 1 }
+    /FR-[0-9]+/ { has_source = 1 }
+    END { if (current_id && !has_source) print current_id }
+  ' "$UC" | while IFS= read -r id; do
+    [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
+  done
+fi
+
+# -- REQUIREMENTS_MATRIX.md check (if present, validate it is non-empty)
+MATRIX="$ROOT/docs/work/REQUIREMENTS_MATRIX.md"
+if [[ -f "$MATRIX" ]]; then
+  if ! file_exists_nonempty "$MATRIX"; then
+    gap "empty-matrix" "docs/work/REQUIREMENTS_MATRIX.md exists but is empty"
+  else
+    pass "REQUIREMENTS_MATRIX.md present and non-empty"
+  fi
+fi
+
 validator_exit

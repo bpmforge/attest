@@ -35,6 +35,19 @@ fi
 
 VALIDATORS_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
+# -- Phase ordering: write a lock when a gate passes, check it before advancing
+GATES_DIR="$ROOT/docs/work/gates"
+
+check_phase_prereq() {
+  local prior_phase="$1"
+  local lock="$GATES_DIR/${prior_phase}-passed.lock"
+  if [[ ! -f "$lock" ]]; then
+    gap "phase-ordering" "Gate ${prior_phase} has not passed — run validate-phase-gate.sh ${prior_phase} first (or create $lock manually for existing projects)"
+  else
+    pass "prereq ${prior_phase} lock present"
+  fi
+}
+
 # -- Phase → validator list -------------------------------------------------
 declare -a GATE_VALIDATORS
 declare -a GATE_FILES
@@ -44,9 +57,11 @@ case "$PHASE" in
     GATE_FILES=("docs/VISION.md" "docs/COMPETITIVE_ANALYSIS.md")
     ;;
   phase-1)
+    check_phase_prereq "phase-0"
     GATE_FILES=("docs/SCOPE.md" "docs/RISKS.md" "docs/CONSTRAINTS.md" "docs/USER_PERSONAS.md")
     ;;
   phase-2)
+    check_phase_prereq "phase-1"
     GATE_FILES=("docs/SRS.md" "docs/USER_STORIES.md" "docs/USE_CASES.md")
     GATE_VALIDATORS=(
       "validate-use-cases.sh"
@@ -54,7 +69,8 @@ case "$PHASE" in
     )
     ;;
   phase-3)
-    GATE_FILES=("docs/ARCHITECTURE.md" "docs/API_DESIGN.md" "docs/api/openapi.yaml" "docs/TECH_STACK.md")
+    check_phase_prereq "phase-2"
+    GATE_FILES=("docs/ARCHITECTURE.md" "docs/API_DESIGN.md" "docs/api/openapi.yaml" "docs/TECH_STACK.md" "docs/THREAT_MODEL.md" "docs/SECURITY_CONTROLS.md")
     GATE_VALIDATORS=(
       "validate-architecture.sh"
       "validate-api-coverage.sh"
@@ -65,9 +81,18 @@ case "$PHASE" in
       "validate-entry-points.sh"
       "validate-tech-stack.sh"
       "validate-adrs.sh"
+      "validate-security-controls.sh"
+    )
+    ;;
+  phase-3.5)
+    check_phase_prereq "phase-3"
+    # Test design gate -- non-blocking style (coverage loop escalation, not hard block)
+    GATE_VALIDATORS=(
+      "validate-test-design.sh"
     )
     ;;
   phase-4)
+    check_phase_prereq "phase-3.5"
     # Implementation gate -- the project must actually build, lint, and test,
     # AND have completeness coverage (tests mapped to use cases, migrations
     # documented).
@@ -80,6 +105,7 @@ case "$PHASE" in
     )
     ;;
   phase-5)
+    check_phase_prereq "phase-4"
     GATE_FILES=()
     # Phase 5 release gate -- operational validators + completeness validators run first
     GATE_VALIDATORS=(
@@ -183,6 +209,13 @@ if [[ "$PHASE" == "phase-5" ]]; then
       fi
     done < <(find "$ROOT/docs/reviews" -type f -name 'RUNTIME_*.md' 2>/dev/null)
   fi
+fi
+
+# -- Write phase-passed lock on clean gate (enables phase ordering enforcement)
+if [[ "$GAP_COUNT" -eq 0 ]]; then
+  mkdir -p "$GATES_DIR"
+  printf '%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$GATES_DIR/${PHASE}-passed.lock"
+  pass "gate lock written: docs/work/gates/${PHASE}-passed.lock"
 fi
 
 validator_exit
