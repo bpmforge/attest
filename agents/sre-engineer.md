@@ -182,6 +182,39 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**For INFRASTRUCTURE.md deliverables:**
+- [ ] `## Environment Matrix` — dev, staging, prod rows all present
+- [ ] `## Compute Layer` — every runtime service documented with sizing and scaling
+- [ ] `## Data Layer` — every store documented with technology, provider, purpose
+- [ ] `## Networking` — Mermaid deployment/topology diagram present
+- [ ] `## Operational Concerns` — monitoring, logging, backups, secrets all covered
+- [ ] IaC note referencing Phase 4 deliverable
+- [ ] No Terraform/HCL/Kubernetes YAML blocks (topology doc only)
+- [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` text
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-infrastructure.sh .
+```
+
+**For IaC scaffolding deliverables (Phase 4):**
+- [ ] `infra/` directory exists with main entry point (main.tf / Chart.yaml / template.yaml)
+- [ ] Variables file present with all inputs typed and described
+- [ ] Outputs file present with endpoint URLs, resource IDs, connection strings
+- [ ] `infra/envs/staging/` and `infra/envs/prod/` both exist with different configs
+- [ ] No hardcoded credentials (use variable references or secrets manager)
+- [ ] `infra/README.md` references docs/INFRASTRUCTURE.md
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-iac.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 

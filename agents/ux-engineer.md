@@ -160,6 +160,30 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**UX_SPEC.md — required:**
+- [ ] `## Component Library` section — ONE specific library named and justified (not "TBD", not "we could use X or Y")
+- [ ] `## Screen Hierarchy` or Information Architecture section with Mermaid diagram
+- [ ] `## User Workflows` — one Mermaid flowchart per user story (actor → steps → outcomes)
+- [ ] `## Component Inventory` table — ≥5 components, each with purpose, variants, screens that use it
+- [ ] `## Accessibility Plan (WCAG 2.2 AA)` — covers all 4: keyboard navigation, color contrast (4.5:1), screen reader / ARIA, focus indicators
+- [ ] `## Responsive Strategy` — breakpoints table with layout per breakpoint
+- [ ] Every P0 use case from USE_CASES.md is referenced in the Workflows section
+- [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER`, `[FILL-IN]` anywhere in any of the three files
+
+**DESIGN_PRINCIPLES.md and STYLE_GUIDE.md — required:**
+- [ ] DESIGN_PRINCIPLES.md: specific tone chosen (not "clean and modern"), anti-patterns listed, decision criteria
+- [ ] STYLE_GUIDE.md: specific typefaces named (not Inter/Roboto), exact hex color tokens, spacing scale, motion spec
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-ux-spec.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 

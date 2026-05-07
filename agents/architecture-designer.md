@@ -305,9 +305,42 @@ wave assignment. The IaC will provision the resources described in this document
 
 ---
 
+## Pre-Completion Self-Check (MANDATORY — run before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`, verify your deliverables before signaling done.
+
+**MODULE_DESIGN.md — required sections:**
+- [ ] `## Architecture Pattern` with explicit justification citing DESIGN_CONTEXT.md
+- [ ] ADR table with at least 3 entries (ADR-001, ADR-002, ADR-003)
+- [ ] `## Module Inventory` table — every row has directory (src/...) and responsibility
+- [ ] No module directory named controllers/, services/, repositories/, models/ (technical layers)
+- [ ] `## Public Interface Contracts` — interface definitions in the project's actual language
+- [ ] `## Plugin / Extension Points` — one row per swappable external dependency
+- [ ] `## Dependency Rules` — allowed import graph table, no circular deps
+- [ ] `## New Feature Addition Recipe` — numbered steps, project-specific (not generic)
+- [ ] `## Enforcement Configuration` — actual linter config in a code fence, not a template
+- [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER`, or `[FILL-IN]` anywhere
+
+**INFRASTRUCTURE.md — required sections:**
+- [ ] `## Environment Matrix` with dev, staging, prod rows
+- [ ] `## Compute Layer` — every runtime service documented
+- [ ] `## Data Layer` — every store (DB, cache, queue, object storage) documented
+- [ ] `## Networking` — Mermaid diagram showing topology
+- [ ] `## Operational Concerns` — monitoring, logging, backups, secrets
+- [ ] IaC note (references Phase 4 deliverable)
+- [ ] No Terraform/HCL/K8s YAML blocks (topology doc, not IaC)
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-module-design.sh .
+```
+If gaps reported → fix them → re-run until exit 0.
+
+---
+
 ## Completion signal
 
-When both files are written, print exactly:
+When both files are written and self-check passes, print exactly:
 ```
 architecture-designer done — [N modules defined, pattern: X, N plugin points, infra: Y compute + Z data stores]
 ```

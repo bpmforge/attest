@@ -319,6 +319,28 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**For THREAT_MODEL.md deliverables:**
+- [ ] All 6 STRIDE categories covered (Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege)
+- [ ] Every threat has a unique ID (T-01, T-02, ...), severity (CRITICAL/HIGH/MEDIUM/LOW), attack scenario, and affected component
+- [ ] Summary table at end listing all threats sorted by severity
+- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` text
+
+**For SECURITY_CONTROLS.md deliverables:**
+- [ ] Every HIGH and CRITICAL threat from THREAT_MODEL.md has a named control entry
+- [ ] Each control: mitigation description, implementation approach, specific change requests for DATABASE.md / API_DESIGN.md / ARCHITECTURE.md
+- [ ] Change requests are explicit file-level instructions, not vague ("add auth to this endpoint" not "update as needed")
+- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` text
+
+**Run the validator (security controls deliverable):**
+```bash
+bash scripts/validators/validate-security-controls.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 

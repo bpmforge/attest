@@ -282,3 +282,25 @@ Test result: [command run] → [PASS / FAIL with counts]
 Deferred (out of scope, noted for follow-up):
 - [anything noticed but not touched]
 ```
+
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**Code deliverables:**
+- [ ] Module directory structure matches ARCHITECTURE.md § Implementation View (feature-sliced, not layered)
+- [ ] Every module implemented has a test file alongside it (`service.ts` → `service.test.ts`)
+- [ ] Build passes: run `npm run build` (or equivalent from TECH_STACK.md) — must exit 0
+- [ ] Tests pass: run `npm test` (or equivalent) — must exit 0 with ≥1 passing test
+- [ ] No imports from another module's internal files (only from their public index)
+- [ ] No hardcoded credentials, API keys, or secrets in source files
+- [ ] No unlisted dependencies introduced (check against TECH_STACK.md)
+- [ ] All functions ≤50 lines (flag exceptions in manifest deferred section)
+- [ ] Completion Manifest `Test result:` line shows actual command output with pass count
+
+**Run build + tests now (do not skip):**
+```bash
+npm run build && npm test
+# or the equivalent commands from docs/TECH_STACK.md
+```
+If either fails → fix before printing completion phrase. Test failures are not "deferred".

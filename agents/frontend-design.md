@@ -154,6 +154,26 @@ Any gate failure returns your HANDOFF with REVISE status; re-run with the specif
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**Design system (Wave 0) deliverables:**
+- [ ] Token file exists at the correct location (tailwind.config.ts / src/styles/tokens.ts / theme.ts)
+- [ ] Color token names match STYLE_GUIDE.md color palette (not renamed or subset)
+- [ ] Typography tokens present (font family, size scale, weight)
+- [ ] Every component listed in UX_SPEC.md § Component Inventory has a corresponding file in src/components/ui/
+- [ ] Barrel export file exists (src/components/ui/index.ts or equivalent)
+- [ ] No hardcoded hex colors in component files (use token references only)
+- [ ] DESIGN_SYSTEM.md written with token inventory, naming conventions, usage examples
+- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` anywhere
+
+**Run the validator:**
+```bash
+bash scripts/validators/validate-design-system.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
 ---
 
 ## Mode 1: `--implement` (Design Implementation)
