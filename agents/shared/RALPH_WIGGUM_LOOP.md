@@ -179,10 +179,41 @@ The deep mode is opt-in via `--deep`. It is NOT the default. Reach for it when y
 
 If you're adding Ralph Wiggum to a new use case:
 
-- [ ] Define the inventory schema (what columns? what categories?)
-- [ ] Write the inventory-producer HANDOFF (step 1)
-- [ ] Write the per-row discover HANDOFF (step 2)
-- [ ] Build or pick a validator script (step 3; see `scripts/validators/`)
-- [ ] Write the gap-fill HANDOFF (step 4) -- focused, one row
-- [ ] Wire the 3-iteration cap and escalation block (step 5)
-- [ ] Update the relevant mode file to invoke the loop under `--deep`
+- [x] Define the inventory schema (what columns? what categories?)
+- [x] Write the inventory-producer HANDOFF (step 1)
+- [x] Write the per-row discover HANDOFF (step 2)
+- [x] Build or pick a validator script (step 3; see `scripts/validators/`)
+- [x] Write the gap-fill HANDOFF (step 4) -- focused, one row
+- [x] Wire the 3-iteration cap and escalation block (step 5) — exit code 2 triggers escalation
+- [x] Update the relevant mode file to invoke the loop under `--deep`
+
+---
+
+## Hard cap: 3 iterations — what happens when you hit it
+
+**The 3-iteration cap is enforced by `run-coverage-loop.sh`** via exit code 2. When iteration 3
+completes and gaps remain, the orchestrator MUST NOT attempt a 4th pass. Instead:
+
+```
+RALPH WIGGUM LOOP EXHAUSTED — 3 iterations, gaps remain
+
+Remaining gaps:
+  [list from final validator output]
+
+Escalation options (pick one):
+  A. WAIVER    — record gap in WAIVERS.md with justification, proceed
+  B. LOWER BAR — reduce acceptance threshold, re-run validate (document why)
+  C. SPECIALIST HANDOFF → [domain-expert agent] to fill gap
+  D. MANUAL    — flag for human review, do not block phase gate
+
+Emit the chosen option as your next HANDOFF. Do not loop again.
+```
+
+**Why the cap exists:** unbounded loops mask broken validators and waste context. Three passes is
+enough to detect systemic gaps. If gaps persist after three passes, the problem is structural —
+fix the inventory, the validator, or the gap-fill strategy, not iterate again.
+
+**Agent behaviour at cap:**
+- Record the gap list to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
+- Emit the escalation block above as the assistant's next message
+- Await human input or proceed with option A/B/C/D as appropriate to the project's autonomy level
