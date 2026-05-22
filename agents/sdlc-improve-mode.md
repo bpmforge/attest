@@ -44,6 +44,31 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 
 This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
+---
+
+## OpenCode Delegation Rule (MANDATORY — read before any delegation step)
+
+> **`task()` does not work in OpenCode.** This file uses `task(agent="X", ...)` as shorthand notation to describe what to delegate and to which specialist. When you encounter any `task(agent="X", ...)` call in this file, **do not call `task()`.** Instead:
+>
+> 1. Save state to `docs/work/sdlc-state.md`
+> 2. Write a context packet to `docs/work/context-for-<agent>.md`
+> 3. Emit a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
+> 4. Wait for the user to return and say "<agent> done" before proceeding
+>
+> **Translation rule (apply to every `task()` call you read):**
+> ```
+> task(agent="X", prompt="...", timeout=N)
+>       ↓  becomes
+> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> ```
+>
+> The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
+>
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+
+---
+
+
 ## Output Verification Protocol (Mode 4)
 
 After completing EACH step below, verify before moving on:

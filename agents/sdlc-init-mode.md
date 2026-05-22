@@ -42,6 +42,31 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 
 This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
+---
+
+## OpenCode Delegation Rule (MANDATORY — read before any delegation step)
+
+> **`task()` does not work in OpenCode.** This file uses `task(agent="X", ...)` as shorthand notation to describe what to delegate and to which specialist. When you encounter any `task(agent="X", ...)` call in this file, **do not call `task()`.** Instead:
+>
+> 1. Save state to `docs/work/sdlc-state.md`
+> 2. Write a context packet to `docs/work/context-for-<agent>.md`
+> 3. Emit a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
+> 4. Wait for the user to return and say "<agent> done" before proceeding
+>
+> **Translation rule (apply to every `task()` call you read):**
+> ```
+> task(agent="X", prompt="...", timeout=N)
+>       ↓  becomes
+> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> ```
+>
+> The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
+>
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+
+---
+
+
 ## Phase 0: Ideation — WHY are we building this?
 
 **First, bootstrap the repo via `task` tool:**
@@ -1131,16 +1156,41 @@ Architecture Diagram Inventory — Phase 3 Pre-Gate:
   ALL DONE? [YES → proceed to gate] / [NO → fix blocked items first]
 ```
 
-**Gate Loop:** Rate all deliverables. Critical quality checks:
+**Gate Loop — Phase 3 Coverage (Ralph Wiggum style, 3-iteration max):**
+
+Run the Phase 3 coverage validator:
+```bash
+./scripts/validators/run-coverage-loop.sh phase-3
+```
+
+This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validate-erd-coverage.sh` + `validate-api-coverage.sh` + `validate-security-controls.sh` + (if UI-bearing) `validate-ux-spec.sh` + `validate-no-ascii-art.sh`.
+
+**Exit code → action:**
+- **Exit 0** (all clean) → proceed to git checkpoint below
+- **Exit 1** (gaps remain, iteration < 3) → read `docs/work/COVERAGE_LOOP_phase-3_<date>.md`, emit one gap-fill HANDOFF per uncovered row back to the specialist that owns it, re-run the script. The HANDOFF should use the ════ delimiter format and include a VERIFY checklist specific to the gap.
+- **Exit 2** (3 iterations exhausted) → emit Ralph Wiggum escalation block:
+  ```
+  PHASE 3 GATE — RALPH WIGGUM ESCALATION
+  3 iterations exhausted. Gaps remain. Options:
+  A) WAIVER — mark the gap as accepted technical debt (document reason in ARCHITECTURE.md § Known Gaps)
+  B) LOWER-BAR — reduce coverage requirement for this row (document in SDLC_TRACKER)
+  C) SPECIALIST — bring in a different specialist to address the specific gap
+  D) MANUAL — user reviews the gap directly and approves manually
+  
+  Gaps outstanding: [list from COVERAGE_LOOP file]
+  Awaiting user decision before advancing to Phase 3.5.
+  ```
+
+**Content quality checks (run AFTER coverage loop exits 0):**
 - ARCHITECTURE.md Diagram Inventory: ALL rows `✅ DONE` with score ≥ 7 (enforced above)
 - ARCHITECTURE.md § 0 HLA Overview: present and NOT placeholder text (written after diagrams)
 - TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
 - DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
 - API_DESIGN.md has example request/response payloads for every endpoint, not just schemas
-- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry — the spec CANNOT be a subset of the design doc
+- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry
 - THREAT_MODEL.md has mitigations, not just threats listed
-- `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table (every module in ARCHITECTURE.md § Implementation View has a row with directory, contract artifact, dependencies, wave number) AND a Waves section listing Wave 1..N. If empty, missing, or the Module Inventory has fewer rows than ARCHITECTURE.md lists modules, the Phase 3 gate CANNOT pass — Phase 4's Execution Mode Selection reads this file as its first step.
-- **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, and `docs/design/UX_SPEC.md` MUST all exist and have passed the UX gate-loop (asymmetric thresholds, each document ≥ 7). If missing, the Phase 3 gate CANNOT pass. If NOT UI-bearing, ARCHITECTURE.md § Logical View must explicitly say "No UI — UX branch not applicable".
+- `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table AND a Waves section listing Wave 1..N
+- **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md` all present, all gate-passed. If NOT UI-bearing, ARCHITECTURE.md § Logical View must say "No UI — UX branch not applicable".
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```
