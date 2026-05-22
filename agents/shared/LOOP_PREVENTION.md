@@ -112,20 +112,34 @@ Recommend: ask the user to either (a) clarify the input, (b) suggest a different
 
 **Why this happens:** Larger models bias toward "more data = better answer" without a hard cap. They also forget what they've already fetched without an explicit ledger.
 
-**Rule — hard caps:**
+**Rule — quality-based stopping (no arbitrary call counts):**
 
-| Limit | Cap | If hit |
-|-------|-----|--------|
-| Tool calls per work-unit (per question, per file, per check) | **4** | Mark unit DONE at current confidence, move on |
-| Tool calls per task overall | **15** | STOP gathering. Synthesize from what you have. |
-| Calls to the same URL | **1** | Forbidden to re-fetch. Re-read your own notes. |
-| Calls to same tool with similar args | **2** | Vary the tool, the input type, OR the work-unit. |
+The checkpoint pattern (writing full source content to disk after every tool call) means context never fills from raw tool output. Arbitrary total-call limits are therefore unnecessary and hurt quality by forcing early exit when work remains. Stop based on what you know, not how many calls you've made.
+
+**Stop a work-unit when ANY of these is true:**
+- Confidence ≥ 8 (research tasks) → mark DONE, move to next unit
+- All files in scope have been reviewed (review tasks) → move to synthesis
+- The task is complete as defined in YOUR TASK → stop
+- 3 consecutive successful calls on the same work-unit produce no new information → diminishing returns, mark DONE
+- The same URL appears again → you already have it on disk, skip it
+
+**Keep calling tools when:**
+- New sub-questions surfaced that couldn't be formed before the previous pass
+- A conflict between sources needs a third source to resolve
+- A primary source was cited but not directly fetched
+- Confidence is below 8 and specific gaps remain
+
+**Calls to the same URL or same tool with nearly identical args:**
+- Same URL: forbidden to re-fetch — re-read your checkpoint file instead
+- Same tool + near-identical args twice with same result: vary the tool, the input type, or the angle — do not repeat a third time
 
 **Required ledger between calls** (state it explicitly in your reasoning):
 
 ```
-Calls so far: <N>/15 total
+Work-unit: <question or file or check>
 URLs/files already fetched: [<list>]
+Learned so far: [<bullet facts>]
+Still missing: [<specific gaps>]
 Errors so far: <count>/3 strikes
 ```
 
@@ -143,9 +157,9 @@ If 3 consecutive successful calls produce nothing new, the work-unit is **as ans
 Stop and surface to user if ANY of these:
 - ≥ 3 strikes (failure loop)
 - ≥ 2 schema-validation errors on the same tool call shape (validation loop)
-- ≥ 15 total tool calls (success loop budget)
-- Same URL fetched twice (you've already lost track)
+- Same URL fetched twice (you've already lost track — re-read your checkpoint instead)
 - 3 consecutive successful calls with no new info (diminishing returns)
+- Same tool + near-identical args called twice with the same empty/thin result (vary the approach or stop)
 
 When you stop, **always tell the user**:
 1. What you accomplished (partial is fine)
@@ -158,7 +172,7 @@ Never silently give up. Never silently keep going past a trigger.
 
 ## How to apply this in agent flows
 
-- **Plan first.** Before the first tool call, write down what you expect to call. If your plan would exceed 15 calls, simplify the plan.
+- **Plan first.** Before the first tool call, write down what you expect to call and what specific gaps each call addresses. If a call doesn't address a named gap, don't make it.
 - **Track the ledger.** State call counts and seen URLs/files between calls.
 - **Verify the trigger.** Before EVERY tool call, check: am I about to violate any cap or rule above? If yes, stop instead of calling.
 - **Synthesize early.** A partial report at confidence 6/10 with sources is more useful than an infinite loop.

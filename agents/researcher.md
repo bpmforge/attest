@@ -218,7 +218,7 @@ Checkpoint file format:
 Date: <YYYY-MM-DD>
 Confidence: <N>/10
 Passes completed: <N>
-Tool calls used: <N>/4
+Tool calls used: <N>
 
 ## Facts learned
 - <fact> [Source: <url>]
@@ -286,25 +286,32 @@ The opencode built-in `webfetch` and `websearch` tools are **disabled at the con
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface and call examples.
 
-### Hard caps (MANDATORY — these override "be thorough")
+### When to stop (quality-based — not arbitrary counts)
 
-A research task that fetches too many sources is failing, not succeeding. The model's bias is "more sources = better"; the truth is "more sources past N just delays the report and re-fetches things you already saw." Apply these caps **strictly**:
+The checkpoint pattern (writing full source content to disk after every tool call) means context never fills from raw tool output. You work from extracted facts (~200 tokens per source), not raw results. This removes the need for arbitrary call limits.
 
-| Limit | Cap | If you hit it |
-|-------|-----|--------------|
-| Tool calls per question | **4** | Mark the question DONE at current confidence and move to the next Q |
-| Tool calls across all questions | **15** | STOP gathering. Write the report from what you have. |
-| Calls to the same URL | **1** | Forbidden to fetch the same URL twice. If you need it again, you already have the data — go re-read your own notes. |
-| Calls to the same engine with similar query | **2** | Vary the engine, the URL type, OR the query type. Three near-identical search calls is the loop pattern. |
+**Stop a question when ANY of these is true:**
+- Confidence ≥ 8 → mark DONE, move to next question
+- 3 consecutive calls produce no new facts → diminishing returns, mark DONE
+- The same URL appears in results again → you already have it on disk, skip
+- 2+ attempts with the same query produce the same results → vary the query type or angle, or accept current confidence
 
-**Track your call count explicitly** between calls:
+**Keep calling tools when:**
+- New sub-questions surfaced by pass N that couldn't be formed before pass N
+- A conflict between sources needs a third source to resolve
+- A primary source was cited but not directly fetched
+- Confidence is below 8 and gaps remain
 
+**Track what you know, not how many calls you've made:**
 ```
-Calls so far: 5/15 total (Q1: 3/4, Q2: 2/4, Q3: 0/4, Q4: 0/4)
-URLs already fetched: [wikipedia.org/wiki/KeePassXC, github.com/FiloSottile/age, ...]
+Q1 ledger — pass 3:
+  Learned: [3-5 bullets with source URLs]
+  Still missing: [specific gaps]
+  Confidence: 7/10
+  Next: fetch primary source cited by [url] to confirm the version number
 ```
 
-If you find yourself thinking "one more source would be nice" — STOP. You're not adding value. Synthesize.
+If you find yourself re-fetching what you already have on disk — STOP. Re-read your checkpoint file instead.
 
 ### Diminishing-returns check (MANDATORY after each successful tool call)
 
