@@ -68,6 +68,21 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
+## Phase Roadmap (quick reference — read this, load deeper sections on demand)
+
+| Step | What happens | Key HANDOFF | Output |
+|------|-------------|-------------|--------|
+| 1 | Discovery interview | (conversation) | docs/IMPROVE_CONTEXT.md |
+| 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer | Audit reports per specialist |
+| 3 | Synthesis | (direct write) | IMPROVEMENT_BACKLOG.md |
+| 4 | Prioritize with user | (conversation) | Approved backlog |
+| 5 | Fix execution waves | coding-agent (per priority tier) | Code fixes |
+| 6 | Re-verify fixes | code-reviewer / specialist (targeted) | VERIFY_*.md |
+| 7 | Ship | git-expert | PR to main |
+
+**Audit fan-out in Step 2 is always parallel. Emit all audit HANDOFFs in one message.**
+
+---
 
 ## Output Verification Protocol (Mode 4)
 

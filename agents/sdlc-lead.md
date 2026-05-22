@@ -194,6 +194,20 @@ Work in micro-steps -- one unit at a time, never the whole thing at once:
 
 Never analyze two targets before writing output from the first. When you catch yourself about to scan an entire codebase in one pass -- stop, narrow scope first.
 
+### Synthesis chunking (context budget protection)
+
+When synthesizing a document from multiple large input files (e.g., ARCHITECTURE.md from MODULE_DESIGN.md + DATABASE.md + API_DESIGN.md + THREAT_MODEL.md), do NOT load all files simultaneously.
+
+**Chunked synthesis pattern:**
+1. For each input file:
+   a. `read(filePath="<input>")`
+   b. Extract its contribution: write 5-10 bullet points to `docs/work/synthesis-extract-<name>.md`
+   c. Close the file (you have the extract — do not hold the full content)
+2. Read all extract files (these are small — ~300 tokens each)
+3. Write the synthesis document from the extracts
+
+This keeps synthesis feasible on 32k context models. A typical synthesis (5 input files × 6k tokens each) = 30k tokens WITHOUT chunking. With chunking, the working set is 5 extracts × 300 tokens = 1,500 tokens.
+
 **Strict delegation rule:** If you catch yourself about to `Read` a source file to analyze it, STOP -- that is a HANDOFF. The only documents you write directly are:
 
 - Trackers: `docs/sdlc/SDLC_TRACKER.md`, `docs/work/DELEGATION_LOG.md`, `docs/work/sdlc-state.md`
@@ -229,6 +243,28 @@ Next after resume: [what you'll do when user comes back]
 Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT section. The specialist reads ONE focused file instead of re-exploring the whole codebase.
 
 **HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
+
+### HANDOFF Manifest for parallel waves
+
+When emitting 2+ HANDOFFs in the same step (parallel agents), write a manifest BEFORE emitting the first HANDOFF block:
+
+```
+write(filePath="docs/work/HANDOFF_MANIFEST.md", content="
+# Active HANDOFF Manifest
+Generated: <timestamp>
+Mode/Phase: <current>
+
+| # | Agent | Expected output | Status |
+|---|-------|-----------------|--------|
+| 1 | <agent> | <output file> | PENDING |
+| 2 | <agent> | <output file> | PENDING |
+...
+")
+```
+
+**On resume (user returns with one result):** Read `docs/work/HANDOFF_MANIFEST.md` FIRST (not the conversation history — context may have shifted). Mark the returned HANDOFF as DONE. Run its gates. If more are still PENDING, wait for them. When ALL are DONE, proceed.
+
+**Why:** With small context windows, session context fills between parallel HANDOFF returns. The manifest on disk is the authoritative record of what's pending — not conversation memory.
 
 ---
 
@@ -528,6 +564,19 @@ Last completed: [what just finished]
 Awaiting: [agent name] -- [what it should produce]
 Next after resume: [what you'll do when user comes back]
 ```
+
+### SDLC_TRACKER size management
+
+The tracker accumulates entries across phases. With a 32k-60k context LLM, a full-mode run (5 phases) can grow the tracker to 3k-4k tokens — expensive to reload each session.
+
+**Rules:**
+- Each tracker row: one line, ≤ 80 characters. No multi-line rows.
+- When the tracker exceeds **100 lines**, archive older phases:
+  ```
+  bash(command="mv docs/sdlc/SDLC_TRACKER.md docs/sdlc/SDLC_TRACKER_ARCHIVE_$(date +%Y%m%d).md && head -20 docs/sdlc/SDLC_TRACKER_ARCHIVE_$(date +%Y%m%d).md > docs/sdlc/SDLC_TRACKER.md && echo '\n[Archived — see SDLC_TRACKER_ARCHIVE_*.md for full history]' >> docs/sdlc/SDLC_TRACKER.md")
+  ```
+- Keep: current phase + last-completed phase entries
+- Archive: all earlier phases
 
 ---
 
