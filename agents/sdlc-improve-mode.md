@@ -37,7 +37,7 @@ Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
 
 When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBOARDING, HEALTH_ASSESSMENT, audit reports, etc.):
 
-- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`═`, `║`, `┌`, `└`, `─`, `┐`, `┘`).
+- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`║`, `┌`, `└`, `─`, `┐`, `┘`). **Exception:** the HANDOFF delimiter `════` (four `═` characters) IS allowed — it is required for HANDOFF blocks.
 - Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
 - Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
