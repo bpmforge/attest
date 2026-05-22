@@ -97,12 +97,12 @@ def test_sdlc_init_discovery(model):
       - Does NOT load all phase files at once
     """
     system = read_agent("sdlc-lead") + "\n\n---\n" + read_agent("sdlc-init-mode")
-    # Simulate the mandatory startup sequence having already run and returned 'fresh'
+    # Simulate the mandatory startup sequence having already run
     user = (
-        "[SDLC State Detection Result]\n"
-        "scripts/detect-sdlc-state.sh output: {\"status\": \"fresh\"}\n"
-        "docs/work/SDLC_AUDIT.md: not found\n"
-        "docs/work/sdlc-state.md: not found\n\n"
+        "[Startup sequence complete]\n"
+        "[Model context: tier=small, context=32768, type=local]\n"
+        "[SDLC state: fresh — no prior docs found]\n"
+        "[docs/work/sdlc-state.md: not found]\n\n"
         "User request: I want to build a new TypeScript REST API for task management. "
         "Let's get started with /sdlc init."
     )
@@ -123,7 +123,7 @@ def test_sdlc_init_phase_load(model):
     """
     system = read_agent("sdlc-lead") + "\n\n---\n" + read_agent("sdlc-init-mode")
     user = (
-        "[Context: State detection ran, returned 'fresh'. Discovery interview completed.]\n\n"
+        "[Startup complete: tier=small, state=fresh, discovery interview done]\n\n"
         "Discovery answers confirmed:\n"
         "- Building: TypeScript REST API for task management\n"
         "- Users: developers via REST\n"
@@ -149,7 +149,12 @@ def test_handoff_format(model):
     system = (read_agent("sdlc-lead") + "\n\n---\n" +
               read_agent("sdlc-init-mode") + "\n\n---\n" +
               read_shared("HANDOFF_QUICK_REF"))
+    # Pre-simulate the mandatory startup sequence results so model goes straight to HANDOFF
     user   = (
+        "[Startup sequence already complete for this session]\n"
+        "[Model context detected: tier=small, context=32768, type=local, model=qwen/qwen3-coder-next]\n"
+        "[SDLC state: fresh — Mode 1, Phase 0]\n"
+        "[docs/work/sdlc-state.md: not found]\n\n"
         "We're in Phase 0. We need to research the competitive landscape for "
         "task management apps before writing VISION.md. Please delegate to the researcher."
     )
