@@ -91,9 +91,9 @@ web_fetch("https://chosen-url", relevance_query="X Y")      → single known URL
 **Persistence (close the research → memory loop):**
 After completing a research task, store key findings via the memory MCP registered in this project (`mempalace` or `claude-memory`). Always include the source URL so future sessions can cite back.
 
-**Notes for local LLMs (LM Studio, Ollama):**
-- All five tools work with any LLM — no Anthropic/OpenAI specifics
-- Default `max_chars_per_source=3000` keeps tool responses inside a 45k token budget
+**Tool notes:**
+- All five tools work with any model — local or cloud, no provider-specific APIs
+- Default `max_chars_per_source=3000` keeps tool responses inside a reasonable budget
 - Pages are cached 24h to disk — repeat queries are free
 - Per-domain rate limit (2–4s) + robots.txt respect — safe to run repeatedly
 
@@ -236,7 +236,7 @@ Tool calls used: <N>/4
 - <claim> — single source, unverified
 ```
 
-**Why this matters for local LLMs.** Smaller context windows (32k–45k tokens) fill up fast: after 8–10 search results, early findings start dropping from the active context window. Writing per-question checkpoints to disk means the synthesis step reads from files instead of relying on in-context recall. The facts are preserved even when the model's window is full.
+**Why this matters.** After 8–10 search results, earlier findings can be pushed out of active context — this happens faster on smaller models but can affect any model in a long research session. Writing per-question checkpoints to disk means synthesis reads from files instead of relying on in-context recall. The facts are preserved regardless of context window size.
 
 **Why pass 2+ matters.** Pass 1 tells you the landscape — names, frameworks, key debates. Pass 2 is where you ask the *informed* question: "given that everyone mentions JA3 fingerprinting, what specifically is Cloudflare's JA3 detection threshold?" That's a question you couldn't form before pass 1.
 
