@@ -75,9 +75,9 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 | 0 — Ideation | VISION.md, COMPETITIVE_ANALYSIS.md | `agents/sdlc-init-phases-0-2.md` |
 | 1 — Planning | SCOPE, RISKS, CONSTRAINTS, PERSONAS | `agents/sdlc-init-phases-0-2.md` |
 | 2 — Requirements | SRS.md, USER_STORIES.md | `agents/sdlc-init-phases-0-2.md` |
-| 3 — Design | ARCHITECTURE, DB, API, security, infra | `agents/sdlc-init-phases-3-4.md` |
-| 3.5 — Test Design | TEST_DESIGN.md | `agents/sdlc-init-phases-3-4.md` |
-| 4 — Implementation | Code waves, parallel HANDOFFs | `agents/sdlc-init-phases-3-4.md` |
+| 3 — Design | ARCHITECTURE, DB, API, security, infra | `agents/sdlc-init-phase-3.md` |
+| 3.5 — Test Design | TEST_DESIGN.md | `agents/sdlc-init-phase-3.md` |
+| 4 — Implementation | Code waves, parallel HANDOFFs | `agents/sdlc-init-phase-4.md` |
 | 5 — Release | Review, ship, close | `agents/sdlc-init-phase-5.md` |
 
 **How to use:**
