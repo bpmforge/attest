@@ -99,15 +99,20 @@ Starting code review (--review / --debt / --consolidate / --patterns). Plan: 4 p
   4. **report** — write Health Dashboard with findings, confidence gate, reader simulation
 ```
 
-Then for each phase, call:
-```
-task(agent="code-reviewer", prompt="--phase: [N] [name]
-Context file: docs/work/code-reviewer/<task-slug>/phase[N-1].md  (omit for phase 1)
-Output file:  docs/work/code-reviewer/<task-slug>/phase[N].md
-[Any extra scoping context from the original prompt]", timeout=120)
-```
+Then execute phases sequentially in this conversation:
 
-After each sub-task returns, print:
+> **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
+> directly in this conversation one after another. After completing a phase, write its
+> findings to the output file, then continue to the next phase without waiting.
+> Sequential execution in one conversation is equivalent to the task()-based pattern.
+
+**Phase execution pattern (OpenCode / any LLM):**
+1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`
+2. Read that file → execute Phase 2 → write `phase2.md`
+3. Continue until all phases complete
+4. Synthesize final deliverable from phase output files
+
+After completing each phase, print:
 ```
 ✓ Phase N complete: [1-sentence finding]
 ```
