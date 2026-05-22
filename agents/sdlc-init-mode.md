@@ -9,7 +9,7 @@ This file contains the Mode 1 workflow. The spine, shared protocols (delegation,
 
 # MODE 1: New Project (`/sdlc init`)
 
-**Start with the Mode 1 Discovery Interview above. Do not skip it.**
+**Start with the Mode 1 Discovery Interview in this file (§ Discovery interviews, below). Do not skip it.**
 
 Build from scratch with proper engineering artifacts at every phase.
 

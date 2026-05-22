@@ -6,6 +6,8 @@ mode: "subagent"
 # Mode 1 — Phase 5: Review and Release
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, OpenCode delegation) live in sdlc-init-mode.md and apply here too.
+>
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § OpenCode Delegation Rule.
 
 ## Phase 5: Review — DID it work?
 

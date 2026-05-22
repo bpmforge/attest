@@ -1,7 +1,7 @@
 <!--
 ARCHITECTURE.md template — used by SDLC Lead Mode 1 Phase 3.
 Copy this content into docs/ARCHITECTURE.md and fill in project-specific details.
-Referenced from: agents/sdlc-init-mode.md (Phase 3).
+Referenced from: agents/sdlc-init-phases-3-4.md (Phase 3).
 -->
 
 # Software Architecture Document — [Project Name]
