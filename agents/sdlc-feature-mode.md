@@ -66,6 +66,21 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
+## Phase Roadmap (quick reference — read this, load deeper sections on demand)
+
+| Step | What happens | Key HANDOFF | Output |
+|------|-------------|-------------|--------|
+| 1 | Impact analysis + design | researcher, architecture-designer (if needed) | FEATURE_CONTEXT.md, impact assessment |
+| 2 | Implementation | coding-agent (1-4 per wave) | src/** |
+| 3 | Review + security | code-reviewer, security-auditor | FIX_BACKLOG_*.md |
+| 4 | Verify | code-reviewer (re-verify) | VERIFY_*.md |
+| 5 | Document | coding-agent (docs update) | Updated ARCHITECTURE.md, API docs |
+| 6 | Runtime gate | validators (local) | RUNTIME_*.md |
+| 7 | Merge | git-expert | PR merged to main |
+
+**Load deeper sections as you reach each step. Do not read the whole file upfront.**
+
+---
 
 ## Step 0: Initialize SDLC_TRACKER for Mode 3
 

@@ -583,24 +583,27 @@ Before every HANDOFF, write a `docs/work/context-for-<agent>.md` with:
 ```markdown
 # Context Packet for <agent-name>
 
-## Project (3 sentences)
+> **Size limit: 400 words / ~600 tokens.** The specialist reads ONE focused packet, then reads the listed files directly. Do NOT paste file contents into the packet — list the file paths instead.
+
+## Project (3 sentences max)
 <From DISCOVERY.md or README — what the system is, who uses it, current state>
 
-## Your task
+## Your task (2 sentences max)
 <Specific: what to produce, success criteria, line count expectations>
 
-## Files to read (priority order)
+## Files to read (3 files max, priority order)
 1. <file> -- <what's relevant for THIS task>
 2. <file> -- <what's relevant>
+3. <file> -- <what's relevant>
 
 ## Files to produce
 1. <file> -- <expected content, approximate scope>
 
-## Patterns to follow
+## Patterns to follow (2 sentences max)
 <From existing codebase: naming conventions, file structure, max line counts,
  test patterns, import rules>
 
-## What NOT to do
+## What NOT to do (2 sentences max)
 <Scope boundaries: don't refactor X, don't touch Y, don't add dependencies>
 ```
 

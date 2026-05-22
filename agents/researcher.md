@@ -323,6 +323,31 @@ MCP may help.
 
 If you find yourself thinking "let me try a different search query" for the third time, you've hit the strike count. STOP.
 
+### Tool result compression (MANDATORY — context budget protection)
+
+After EVERY successful tool call that returns > 300 tokens of content, you MUST:
+
+1. Extract 3-7 key facts as bullets (≈150 tokens total)
+2. Note the source URL and credibility
+3. Continue with those bullets — do NOT carry the full raw response forward
+
+**Why:** Each web_research_pullmd call returns up to 9,000 tokens (3 sources × 3,000 chars). The hard cap of 15 calls = potentially 135,000 tokens of raw tool output — far exceeding any local LLM's context window. Compression keeps each call's cost at ~200 tokens instead of ~2,250 tokens.
+
+**Pattern:**
+```
+Tool call → returns [sources with full content]
+
+My extraction:
+- [Source: url] — [fact 1]
+- [Source: url] — [fact 2]  
+- [Source: url] — [fact 3]
+Credibility: H/M/L | Gaps remaining: [list]
+
+[I am NOT carrying the raw tool response forward in my reasoning]
+```
+
+This extraction IS your `record findings for Qi to disk` step — write it to the checkpoint file too.
+
 ### Step 2.5: Question-completion gate (MANDATORY before synthesis)
 
 **Do not proceed to synthesis until every question has been answered.** A common failure mode is to do a thorough job on Q1, then skip Q2 and Q3 because Q1's findings feel "comprehensive enough." Reject that impulse — the plan is the contract.
@@ -431,6 +456,20 @@ Deliver a summary in the conversation:
 - **Confidence**: High / Medium / Low overall
 - **Limitations**: What couldn't be verified
 - **Suggested follow-up**: What would strengthen the analysis
+
+### Step 5.5: Completion Gate (MANDATORY — before printing done)
+
+Do not print a completion phrase or close the task until every item below is checked:
+
+- [ ] All questions in Step 1's research plan have status `[DONE]`
+- [ ] `docs/research/RESEARCH_<topic>_<date>.md` written and > 100 lines
+- [ ] Every question has a checkpoint file in `docs/work/research/<date>/`
+- [ ] Report has a `### Sources` section with ≥1 URL, date, and credibility rating
+- [ ] Report states overall confidence: High / Medium / Low
+- [ ] Report has a `### Limitations` section noting what could not be verified
+- [ ] If this was a Bounded Task HANDOFF: Completion Manifest written at the path specified
+
+If any item is unchecked, complete it before proceeding. If an item cannot be completed (e.g., a question is stuck at < 5 confidence), note it in the Limitations section and mark the gate as "partial" — do not silently skip.
 
 ---
 

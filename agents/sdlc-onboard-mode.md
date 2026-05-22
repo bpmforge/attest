@@ -81,6 +81,23 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
+## Phase Roadmap (quick reference — read this, load deeper sections on demand)
+
+| Step | What happens | Key HANDOFF | Output |
+|------|-------------|-------------|--------|
+| 1 | Entry points | (direct read) | docs/onboard/ENTRY_POINTS.md |
+| 2 | Architecture | (direct read + code-reviewer) | ARCHITECTURE.md |
+| 3 | Data model | (direct read) | ERD section |
+| 4 | Sequence diagrams | (direct read) | Sequence diagrams in ARCHITECTURE.md |
+| 5 | Dependencies | (direct read) | TECH_STACK.md |
+| 6 | Health check | (direct assess) | HEALTH_ASSESSMENT.md |
+| 7 | Onboarding guide | (direct write) | ONBOARDING.md |
+| --deep | Ralph Wiggum inventory | validator loop | INVENTORY.md + coverage |
+
+**`--quick`: Steps 1-7 only. `--deep`: Steps 1-7 + Ralph Wiggum section at bottom of file.**
+**Load the Ralph Wiggum section only when running --deep.**
+
+---
 
 ## Output Verification Protocol (Mode 2)
 

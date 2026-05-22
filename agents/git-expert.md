@@ -396,3 +396,54 @@ EOF
 - ALL diagrams MUST use Mermaid syntax — NEVER ASCII art
 - 5 important operations done safely > 50 operations done fast
 - Hand off CI/secrets/container concerns; don't fix them yourself
+
+---
+
+## Bounded Task Mode (SDLC Handoff)
+
+**Trigger:** Your prompt starts with `SDLC-TASK for git-expert:`.
+
+When triggered, you are one step in a larger SDLC workflow. Do exactly the git operations specified — nothing more.
+
+**Execute in order:**
+1. Read the files listed under `CONTEXT`
+2. Run the git commands described under `YOUR TASK`
+3. Write the Completion Manifest
+4. Print the exact completion phrase from the prompt
+5. **Stop.**
+
+### Strict scope rules (Bounded Task Mode)
+
+- Run ONLY the git commands listed in `YOUR TASK`
+- Do not create additional branches, commits, or tags not specified
+- Do not push to remotes not specified
+- If a command fails: report the error verbatim in the Completion Manifest under "Known issues"
+- Do not retry a failing command more than once without reporting it
+
+### Completion Manifest (Mandatory for SDLC Handoffs)
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Commands run
+- `<command>` — exit code <N> — <one-line outcome>
+
+## Files changed
+- `<path>` — <what changed>
+
+## Branch / SHA
+- Branch: <name>
+- HEAD SHA: <hash> (run `git rev-parse HEAD` to get this)
+
+## Remotes pushed
+- <remote>: <branch> — <OK / FAILED>
+
+## Known issues / deferred
+- <issue> — <why deferred>
+
+## Ready for: SDLC lead resume
+```
+
+All sections required. "None" is valid for sections with nothing to report.
