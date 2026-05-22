@@ -17,17 +17,95 @@ Performs a comprehensive code review by coordinating 3 expert agents in parallel
 
 ---
 
-## How It Runs (Parallel Delegation)
+## How It Runs (Parallel HANDOFFs)
 
-Use the `task` tool to spawn all 3 agents in parallel — do not run them sequentially.
+> **`task()` does not work in OpenCode.** Emit all 3 HANDOFF blocks in one message. The user opens 3 concurrent sessions. Wait for all 3 to return before aggregating.
+
+**Step 1 — Write a HANDOFF manifest** so you can track which are pending:
+```
+write(filePath="docs/work/HANDOFF_MANIFEST_review_<date>.md", content="
+| # | Agent | Output file | Status |
+|---|-------|-------------|--------|
+| 1 | code-reviewer | docs/reviews/CODE_REVIEW_<date>.md | PENDING |
+| 2 | security-auditor | docs/security/SECURITY_AUDIT_<date>.md | PENDING |
+| 3 | performance-engineer | docs/perf/PERF_REPORT_<date>.md | PENDING |
+")
+```
+
+**Step 2 — Emit all 3 HANDOFFs in one message:**
 
 ```
-task(agent="code-reviewer",       prompt="Review <target> for quality, patterns, tech debt. Write findings to docs/reviews/CODE_REVIEW_<date>.md", timeout=180)
-task(agent="security-auditor",    prompt="Audit <target> for OWASP Top 10 issues, input validation, secrets. Write findings to docs/security/SECURITY_AUDIT_<date>.md", timeout=180)
-task(agent="performance-engineer",prompt="Profile <target> for bottlenecks, N+1 queries, memory hotspots. Write findings to docs/perf/PERF_REPORT_<date>.md", timeout=180)
+════════════════════════════════════════════════════════════
+HANDOFF #1 → code-reviewer  |  open new session → /review-code
+USER: open a new OpenCode session, type /review-code, paste everything below
+════════════════════════════════════════════════════════════
+SDLC-TASK for code-reviewer:
+
+ROLE: You are a senior code reviewer focused on maintainability and correctness.
+
+CONTEXT:
+- agents/shared/BOUNDED_TASK_CONTRACT.md
+- <target files or git diff>
+
+YOUR TASK: Review <target> for code quality issues: complexity, DRY violations, error handling gaps, type invariants, naming, tech debt. Rate coverage and signal 1-10. Write findings only — do not fix.
+
+PRODUCE:
+- docs/reviews/CODE_REVIEW_<date>.md — findings table (severity, file:line, description, recommendation)
+
+Print exactly: "code-reviewer done -- <N> findings: <critical> critical, <high> high"
+Then stop.
+════════════════════════════════════════════════════════════
+END HANDOFF #1
+════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════
+HANDOFF #2 → security-auditor  |  open new session → /security
+USER: open a new OpenCode session, type /security, paste everything below
+════════════════════════════════════════════════════════════
+SDLC-TASK for security-auditor:
+
+ROLE: You are a senior security engineer performing a targeted code audit.
+
+CONTEXT:
+- agents/shared/BOUNDED_TASK_CONTRACT.md
+- <target files>
+
+YOUR TASK: Audit <target> for OWASP Top 10 issues — injection, broken auth, sensitive data exposure, input validation gaps, hardcoded secrets. Rate coverage and signal 1-10. Write findings only — do not fix.
+
+PRODUCE:
+- docs/security/SECURITY_AUDIT_<date>.md — findings table (severity, OWASP category, file:line, description)
+
+Print exactly: "security-auditor done -- <N> findings: <critical> critical, <high> high"
+Then stop.
+════════════════════════════════════════════════════════════
+END HANDOFF #2
+════════════════════════════════════════════════════════════
+
+════════════════════════════════════════════════════════════
+HANDOFF #3 → performance-engineer  |  open new session → /perf
+USER: open a new OpenCode session, type /perf, paste everything below
+════════════════════════════════════════════════════════════
+SDLC-TASK for performance-engineer:
+
+ROLE: You are a senior performance engineer. Measure first, optimize second.
+
+CONTEXT:
+- agents/shared/BOUNDED_TASK_CONTRACT.md
+- <target files>
+
+YOUR TASK: Profile <target> for performance issues: N+1 queries, missing indexes, blocking I/O in hot paths, memory leaks, inefficient loops, missing caching. Write findings only — do not fix.
+
+PRODUCE:
+- docs/perf/PERF_REPORT_<date>.md — findings table (severity, file:line, issue, expected impact)
+
+Print exactly: "performance-engineer done -- <N> findings: <critical> critical, <high> high"
+Then stop.
+════════════════════════════════════════════════════════════
+END HANDOFF #3
+════════════════════════════════════════════════════════════
 ```
 
-Wait for all 3 to return, then aggregate their findings into a single report.
+**Step 3 — When all 3 return:** Read the HANDOFF manifest, mark all DONE, then read all 3 output files and aggregate.
 
 ---
 
