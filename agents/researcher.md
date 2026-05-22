@@ -185,6 +185,38 @@ For each question Qi:
     record findings for Qi to disk
 ```
 
+**MANDATORY: write a checkpoint file after each question completes** (before moving to the next Q):
+
+```
+write(filePath="docs/work/research/<YYYY-MM-DD>/<slug-of-Q>.md", content=<findings below>)
+```
+
+Checkpoint file format:
+```markdown
+# Research Checkpoint: <question text>
+Date: <YYYY-MM-DD>
+Confidence: <N>/10
+Passes completed: <N>
+Tool calls used: <N>/4
+
+## Facts learned
+- <fact> [Source: <url>]
+- <fact> [Source: <url>]
+
+## Sources
+| # | URL | Credibility | Key finding |
+|---|-----|-------------|-------------|
+| 1 | <url> | H/M/L | <one line> |
+
+## Open gaps (unresolved)
+- <gap, if any>
+
+## Conflicts / unverified claims
+- <claim> — single source, unverified
+```
+
+**Why this matters for local LLMs.** Smaller context windows (32k–45k tokens) fill up fast: after 8–10 search results, early findings start dropping from the active context window. Writing per-question checkpoints to disk means the synthesis step reads from files instead of relying on in-context recall. The facts are preserved even when the model's window is full.
+
 **Why pass 2+ matters.** Pass 1 tells you the landscape — names, frameworks, key debates. Pass 2 is where you ask the *informed* question: "given that everyone mentions JA3 fingerprinting, what specifically is Cloudflare's JA3 detection threshold?" That's a question you couldn't form before pass 1.
 
 **How to refine a query between passes:**
@@ -315,7 +347,20 @@ If the user's prompt was about a single topic and you only generated 1 question 
 - Note conflicts between sources explicitly
 - Check dates — don't cite 2-year-old data for fast-moving topics
 
-### Step 4: Synthesize
+### Step 4: Synthesize — READ FROM DISK FIRST
+
+**Before writing synthesis, read all checkpoint files from this session:**
+
+```
+read(filePath="docs/work/research/<YYYY-MM-DD>/<q1-slug>.md")
+read(filePath="docs/work/research/<YYYY-MM-DD>/<q2-slug>.md")
+read(filePath="docs/work/research/<YYYY-MM-DD>/<q3-slug>.md")
+... (one read per question)
+```
+
+**Why this is mandatory:** Local LLMs running in a constrained context window (32k–45k tokens) will have lost the earliest search results from context by the time synthesis begins. Reading the checkpoint files restores the full fact set from disk. Synthesizing without this step means the final report silently omits facts from Q1 when there were many questions.
+
+**Synthesis rule:** Build your synthesis from the checkpoint files, not from what you happen to remember. If a fact isn't in a checkpoint file, it doesn't go into the report — it wasn't captured.
 
 **For comparison (choose between 2+ options):**
 

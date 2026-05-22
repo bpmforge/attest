@@ -6,30 +6,63 @@ Single source of truth. Mode files reference these templates by name instead of 
 
 ---
 
+## HANDOFF Format Specification (LLM-agnostic)
+
+Every HANDOFF block MUST use the standard delimiter format below. This format works identically regardless of which LLM (Claude, GPT-4, qwen, gemma, or any local model) receives the block.
+
+### Delimiter rules
+
+```
+════════════════════════════════════════════════════════════
+HANDOFF #N → [agent-name]  |  open: /[skill-command]
+USER: copy EVERYTHING between the ════ lines into a new session
+════════════════════════════════════════════════════════════
+[HANDOFF BODY — do not modify anything inside these lines]
+════════════════════════════════════════════════════════════
+END HANDOFF #N
+════════════════════════════════════════════════════════════
+```
+
+**Why delimiters matter:** Local LLMs (qwen, gemma, etc.) have smaller context windows and sometimes confuse which text is the HANDOFF body vs. the surrounding orchestrator commentary. The `════` border makes the copy region unambiguous regardless of the model. Online models (Claude, GPT-4) do fine without it, but the format is cheap and the consistency helps all models.
+
+**sdlc-lead output rule:** When emitting a HANDOFF block, print the delimiter header first, then the HANDOFF body, then the delimiter footer. Never add commentary or instructions inside the delimited region. Explanation to the user goes ABOVE the opening delimiter.
+
+**Receiving agent rule:** When your prompt starts with `SDLC-TASK for` — you are inside a HANDOFF block. Follow the six rules in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Do not look for or process the delimiter lines.
+
+---
+
 ## Rules for every HANDOFF
 
-1. Start with `SDLC-TASK for <agent-name>:` — this triggers the agent's Bounded Task Mode
-2. List the exact files to READ for context (name them — do not say "look at the project")
-3. Describe the task in 2-4 sentences (what to produce, not which internal mode to run)
-4. List the exact files to PRODUCE with a one-line description of each
-5. End with the exact completion phrase the agent should print
-6. Say "Then stop" — explicitly tell the agent not to continue
+1. Open a new OpenCode session, type `/[skill-command]`, paste the full HANDOFF body
+2. Start with `SDLC-TASK for <agent-name>:` — this triggers the agent's Bounded Task Mode
+3. List the exact files to READ for context (name them — do not say "look at the project")
+4. Describe the task in 2-4 sentences (what to produce, not which internal mode to run)
+5. List the exact files to PRODUCE with a one-line description of each
+6. End with the exact completion phrase the agent should print
+7. Say "Then stop" — explicitly tell the agent not to continue
 
 Never say "Run --design mode" or "Run --review mode" — describe the TASK, not the agent's internal flags.
 
 Always reference `agents/shared/BOUNDED_TASK_CONTRACT.md` in the CONTEXT block.
 
+**`task()` does not work in OpenCode.** Never emit a `task()` call. Every delegation is a HANDOFF block that the user copies manually into a new session.
+
 ---
 
 ## Template 1: Standard HANDOFF (most common)
 
-```
----
-  HANDOFF -> /<skill> (<agent-name>)
----
-Open a new OpenCode conversation and paste this EXACT prompt to /<skill>:
+Emit this block verbatim. The `════` delimiters tell the user exactly what to copy.
 
+```
+════════════════════════════════════════════════════════════
+HANDOFF #N → <agent-name>  |  open new session → /<skill>
+USER: open a new OpenCode session, type /<skill>, then paste EVERYTHING below this line
+════════════════════════════════════════════════════════════
 SDLC-TASK for <agent-name>:
+
+ROLE: You are a [domain expert role — e.g. "senior database architect", "professional research analyst"].
+Use domain-precise vocabulary throughout your output. Never use vague qualitative descriptions where
+a quantitative one exists (e.g. say "P95 < 200ms" not "fast").
 
 CONTEXT (read these before starting):
 - agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules that govern this HANDOFF
@@ -47,17 +80,24 @@ PRODUCE exactly these files (nothing else):
 - <output file 1>                              -- <what it should contain>
 - <output file 2>                              -- <what it should contain>
 
+VERIFY before completing: Confirm your output explicitly covers:
+- <required topic 1>
+- <required topic 2>
+- <required topic 3>
+If any are missing, add them before printing the completion phrase.
+
 Include a Completion Manifest at <manifest-path> with required sections:
-- Files produced
-- Decisions
-- Known issues / deferred
-- Verify result
+- Files produced (path, content summary, line count)
+- Decisions made (decision + why)
+- Known issues / deferred (issue + which agent should address it)
+- Verify result (what you checked, outcome)
 
 When all files are written, print exactly:
 "<agent> done -- <one sentence describing what was produced>"
 Then stop. Do not ask for follow-up. Do not run additional phases.
-
----
+════════════════════════════════════════════════════════════
+END HANDOFF #N
+════════════════════════════════════════════════════════════
 ```
 
 ## Template 2: Remediation HANDOFF (after a review)
