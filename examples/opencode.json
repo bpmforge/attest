@@ -70,6 +70,67 @@
         "qwen2.5-coder:32b": { "name": "Qwen2.5 Coder 32B" },
         "llama3.2:latest":    { "name": "Llama 3.2 (general)" }
       }
+    },
+
+    "anthropic": {
+      "_comment": "Claude via Anthropic API. Set ANTHROPIC_API_KEY env var. Context window: 200k tokens. Agents adapt automatically (no phase file splitting needed, full mode files load fine).",
+      "npm": "@ai-sdk/anthropic",
+      "name": "Anthropic (Claude)",
+      "options": {
+        "apiKey": "${ANTHROPIC_API_KEY}"
+      },
+      "models": {
+        "claude-sonnet-4-5": {
+          "name": "Claude Sonnet 4.5 (recommended — best balance)",
+          "_context": "200k"
+        },
+        "claude-opus-4-5": {
+          "name": "Claude Opus 4.5 (highest quality, slower)",
+          "_context": "200k"
+        },
+        "claude-haiku-4-5": {
+          "name": "Claude Haiku 4.5 (fast, low cost)",
+          "_context": "200k"
+        }
+      }
+    },
+
+    "google": {
+      "_comment": "Gemini via Google AI Studio. Set GOOGLE_GENERATIVE_AI_API_KEY env var. Context window: 1M tokens for 1.5 Pro/Flash. Agents adapt automatically.",
+      "npm": "@ai-sdk/google",
+      "name": "Google (Gemini)",
+      "options": {
+        "apiKey": "${GOOGLE_GENERATIVE_AI_API_KEY}"
+      },
+      "models": {
+        "gemini-2.0-flash": {
+          "name": "Gemini 2.0 Flash (fast, 1M context)",
+          "_context": "1M"
+        },
+        "gemini-2.5-pro": {
+          "name": "Gemini 2.5 Pro (highest quality)",
+          "_context": "1M"
+        }
+      }
+    },
+
+    "openai": {
+      "_comment": "GPT-4 via OpenAI API. Set OPENAI_API_KEY env var. Context window: 128k tokens.",
+      "npm": "@ai-sdk/openai",
+      "name": "OpenAI (GPT-4)",
+      "options": {
+        "apiKey": "${OPENAI_API_KEY}"
+      },
+      "models": {
+        "gpt-4o": {
+          "name": "GPT-4o (recommended)",
+          "_context": "128k"
+        },
+        "gpt-4o-mini": {
+          "name": "GPT-4o Mini (fast, low cost)",
+          "_context": "128k"
+        }
+      }
     }
   }
 }
