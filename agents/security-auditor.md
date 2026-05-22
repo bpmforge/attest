@@ -373,7 +373,7 @@ Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 
 ## Methodology files (load on demand — do NOT load upfront)
 
-To control context budget on local LLMs (32k-60k), the OWASP methodology is in a separate file.
+The OWASP methodology is in a separate file to keep this shell file lean.
 
 | When | Load |
 |------|------|
