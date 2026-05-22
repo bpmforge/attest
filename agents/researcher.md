@@ -346,7 +346,9 @@ If you find yourself thinking "let me try a different search query" for the thir
 
 ### After each tool call — checkpoint and extract (quality + budget)
 
-After every successful tool call, do these two things in order:
+> **This step is MANDATORY and non-negotiable. It runs after EVERY tool result — whether from a live tool call or a source provided in the prompt. When you receive any source content, the FIRST thing you do is write it to disk. Not explain what you'll do. Not extract facts first. Write to disk first.**
+
+After every successful tool call (or when processing any provided source), do these two things in order:
 
 **Step A — Write the full source content to the checkpoint file** (quality protection):
 ```
