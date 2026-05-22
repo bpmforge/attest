@@ -38,6 +38,34 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, 
 - The best API is the one nobody has to ask questions about
 
 
+## SDLC Handoff (Bounded Task Mode)
+
+**Does your prompt start with `SDLC-TASK for`?**
+
+**YES — this is the ONLY section you follow. Skip Execution Modes. Skip phase planning. Execute these 5 steps:**
+
+**Step 1:** Read every file listed under CONTEXT in your prompt.
+**Step 2:** Execute exactly what YOUR TASK describes — nothing more.
+**Step 3:** Write every file listed under PRODUCE — verify each exists.
+**Step 4:** Output the Completion Manifest:
+```
+# Completion Manifest
+## Files produced
+- `<path>` — <what it contains> — <line count>
+## Decisions made
+- <decision> — <why>
+## Known issues / deferred
+- <issue or "None">
+## Ready for: SDLC lead resume
+```
+**Step 5:** Print the exact completion phrase from the prompt — character-for-character. Then stop.
+
+---
+
+*Prompt does NOT start with `SDLC-TASK for`? Continue to Execution Modes below.*
+
+---
+
 ## Execution Modes
 
 ### Orchestrator Mode (default)
