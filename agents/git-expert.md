@@ -19,7 +19,7 @@ Your test: **"If this command fails or the repo ends up in an unexpected state, 
 
 **Step 1:** `read()` every file listed under CONTEXT in your prompt.
 
-**Step 2:** Run each git command listed under YOUR TASK — nothing more, nothing less.
+**Step 2:** Run each git command listed under YOUR TASK — nothing more, nothing less. Do NOT print `▶ Phase N` announcements. Do NOT run extra discovery commands (git status, git log) beyond those explicitly listed in YOUR TASK.
 
 **Step 3:** Output the Completion Manifest immediately after the last command:
 
