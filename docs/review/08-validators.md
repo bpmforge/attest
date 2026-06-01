@@ -91,15 +91,27 @@ bash scripts/validators/validate-mermaid.sh . docs/     # scan docs/ only
 
 #### validate-book-structure.sh
 
-Validates that a `docs/<slug>/` directory is a well-formed book per `BOOK_PROTOCOL.md`:
+Validates that a `docs/<slug>/` directory is a well-formed book per `BOOK_PROTOCOL.md`. Supports **2-level nesting** — flat chapter files and chapter directories with sub-chapter files.
 
+**Book level checks:**
 - `README.md` exists with a navigation table (pipe-delimited with links)
-- At least 2 chapter files present
-- Every chapter has `[🏠 Index]` nav bar at top and bottom
-- No chapter exceeds 400 lines
+- At least 2 chapter entries (files or directories) present
+
+**Flat chapter file checks:**
+- Has `[🏠 Index]` nav bar at top and bottom
+- Does not exceed 400 lines
+
+**Chapter directory checks (sub-chapter level):**
+- `README.md` present with navigation table linking to sub-pages
+- At least 1 sub-chapter file (`01-*.md`, `02-*.md`, …)
+- Each sub-chapter has two-breadcrumb nav bar: `[🏠 Book](../README.md) | [📖 Chapter](README.md)`
+- Each sub-chapter does not exceed 400 lines
+- Warns (not errors) on any 3rd-level directory nesting
 
 ```bash
 bash scripts/validators/validate-book-structure.sh docs/review/
+# stdout: {"ok":true,"errors":0,"warnings":0,"chapters":14,"chapter_dirs":0,...}
+# stderr: validate-book-structure: PASS — .../docs/review (14 chapters, 0 with sub-pages)
 ```
 
 Exits 0 (pass), 1 (structural errors), 2 (usage error). Outputs JSON findings to stdout and human summary to stderr.

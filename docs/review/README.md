@@ -52,8 +52,8 @@ This book documents the architecture, internals, and quality findings for the bp
 | Item | Description |
 |------|-------------|
 | `validate-mermaid.sh` | Static Mermaid syntax checker wired into phase-3 + onboard-deep gates |
-| `validate-book-structure.sh` | Book structure validator: README, nav bars, chapter count, 400-line cap |
-| `agents/shared/BOOK_PROTOCOL.md` | Canonical rule: deliverables >300 lines must be multi-chapter books |
+| `validate-book-structure.sh` | Book structure validator: 2-level nesting, chapter dirs, sub-chapter nav bars, 400-line cap |
+| `agents/shared/BOOK_PROTOCOL.md` | Canonical rule: flat chapters OR chapter directories (`02-findings/`) with sub-pages, 2-level cap |
 | Book rule (10 agents) | 5 SDLC agents + 5 specialist agents now enforce book format on long deliverables |
 | Mermaid fixes (46 files) | 33 node label quotes, 2 `Note over` semicolons, 11 Unicode arrows corrected |
 
