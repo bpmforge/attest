@@ -2,6 +2,75 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.0] — 2026-06-01
+
+v1 micro-agent architecture — coordinator/specialist pattern across all major domains, Challenger quality layer, memory and code-search MCPs, playwright-mcp browser testing, full documentation overhaul.
+
+### Added
+
+**Agents (47 total, +31 from v0.24.0)**
+
+*Security micro-agents (`agents/security/`, 9 new):*
+- `owasp-web-checker`, `owasp-llm-checker`, `cloud-security-checker`, `iac-security-checker`, `secrets-scanner`, `dependency-auditor`, `semgrep-runner`, `threat-modeler`, `attack-chainer`
+- Methodology docs: `OWASP_METHODOLOGY.md`, `OWASP_LLM_METHODOLOGY.md`, `CLOUD_METHODOLOGY.md`, `IaC_METHODOLOGY.md`, `FINDING_SCHEMA.md`
+
+*Code-review micro-agents (`agents/code-review/`, 7 new):*
+- `complexity-analyzer`, `duplication-detector`, `error-handling-auditor`, `type-safety-checker`, `pattern-consistency-checker`, `anti-slop-auditor`, `code-health-synthesizer`
+
+*Performance micro-agents (`agents/performance/`, 6 new):*
+- `static-perf-analyzer`, `profiler-agent`, `db-query-analyzer`, `bundle-analyzer`, `concurrency-checker`, `perf-synthesizer`
+
+*SDLC onboard specialists (`agents/sdlc/onboard/`, 4 new):*
+- `landscape-mapper`, `entry-point-tracer`, `component-mapper`, `health-coordinator`
+
+*New primary agents:*
+- **`challenger`** — adversarial quality layer; FATAL/MAJOR/MINOR/NITPICK challenge grades; rebuttal cycle (DEFENDED/CONCEDED/DEFERRED); automatically gates Phase 2→3 and 3→4
+- **`ui-verifier`** — live browser verification via `playwright-mcp`; accessibility-tree primary signal (no vision required); 4 modes: `--smoke`, `--use-cases`, `--flow`, `--regression`; produces `UI_VERIFICATION_REPORT.md`
+
+**Skills (25 total, +1)**
+- `/ui-verify` — triggers `ui-verifier` for live browser verification
+
+**Shared protocols (`agents/shared/`, 7 new):**
+- `CHALLENGER_PROTOCOL.md` — full challenge/rebuttal specification
+- `GATE_SCORING_PROTOCOL.md` — HANDOFF resume scoring (1–10, asymmetric threshold ≥7 pass)
+- `PHASE_ROUTING_PROTOCOL.md` — routing table, escape hatches, two-track gate system
+- `PARALLEL_WAVE_PROTOCOL.md` (`agents/sdlc/`) — 3-round parallel coding protocol (code → review+fix → runtime)
+- `MEMORY_PRIMER.md` — 3-call memory workflow (session_restore → memory_store → session_save)
+- `BROWSER_TESTING.md` — playwright-mcp tool reference and patterns for agents
+- `SESSION_PRIMER.md` updated — Rule 7 added (memory discipline on session start/end)
+
+**MCPs (3 new):**
+- **`bpm-code-search-mcp`** — semantic code search + structural symbol index. 6 tools: `code_index`, `code_search`, `code_symbols`, `code_outline`, `code_references`, `code_index_status`. 10 languages. FTS5 BM25 fallback.
+- **`claude-memory`** — cross-session project memory. `session_restore` on start, `memory_store` on discovery, `session_save` at gate pass. Flat-file fallback to `docs/work/SESSION_NOTES.md`.
+- **`playwright-mcp`** (`@playwright/mcp`) — LLM-agnostic browser automation, no vision required, CI-compatible.
+
+**Docs:**
+- `docs/MCP_GUIDE.md` — all 6 MCPs with install commands, tool tables, troubleshooting
+- `docs/EXPERT_REVIEW_PROCESS.md` — Phase 2b Challenger chapter
+- `docs/FEATURES.md` — full v1 catalog (47 agents, 25 skills, 17 shared protocols, 3 new MCPs)
+- `docs/USERGUIDE.md` — browser automation backbone and memory/code-search backbone sections
+
+### Changed
+
+**Coordinators refactored to thin dispatchers:**
+- `sdlc-onboard-mode` — 1089→392 lines; 4 steps now HANDOFF to onboard specialists
+- `sdlc-lead` — smart routing and gate scoring extracted to shared protocols; memory restore (Step 2b) and `session_save` (inter-phase check-in) added
+- `test-engineer` — Playwright infra templates extracted to `agents/test/E2E_INFRASTRUCTURE.md`
+- `security-auditor` — coordinator pattern; dispatches 9 micro-agents via HANDOFF
+- `code-reviewer` — coordinator pattern; dispatches 7 code-review micro-agents
+- `performance-engineer` — coordinator pattern; dispatches 6 performance micro-agents
+
+**install.sh:**
+- Step 8: `claude-memory` MCP registration (`--no-playwright-search` parity)
+- Step 9: `playwright-mcp` registration (`--no-playwright-mcp` flag to skip)
+- Micro-agent subdirectory symlinking now covers all clusters: `security/`, `code-review/`, `performance/`, `sdlc/onboard/`, `test/`
+
+### Removed / Archived
+- `docs/STRICT_REFACTOR_PLAN.md` → `docs/releases/v0.15.0-strict-refactor-plan.md`
+- `.code-search/` added to `.gitignore`
+
+---
+
 ## [0.24.0] — 2026-05-07
 
 Full-lifecycle quality enforcement — traceability chain from requirements to passing tests, production Playwright infrastructure, complete git workflow with SDLC branch topology, 27 new validators, Phase 3.5 test design gate, Phase 5 5-round release structure, and git checkpoints at every document-producing step.
