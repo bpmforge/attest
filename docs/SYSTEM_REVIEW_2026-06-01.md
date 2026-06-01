@@ -46,11 +46,11 @@ The system is LLM-agnostic — it works with Claude, OpenAI, Gemini, and any loc
 ```mermaid
 graph TB
     subgraph User["User"]
-        U[OpenCode CLI / Editor]
+        U["OpenCode CLI / Editor"]
     end
 
     subgraph Plugin["OpenCode Plugin Layer"]
-        EH[expert-hooks.ts<br/>tool.execute.before<br/>tool.execute.after]
+        EH["expert-hooks.ts<br/>tool.execute.before<br/>tool.execute.after"]
     end
 
     subgraph Tools["Custom Tools (18)"]
@@ -65,11 +65,11 @@ graph TB
         DEP[deploy.ts]
         GRP[grep-mcp.ts]
         POM[pomodoro.ts]
-        OTH[write, append, update,<br/>file-info, simplify-file,<br/>semgrep-rule, task]
+        OTH["write, append, update,<br/>file-info, simplify-file,<br/>semgrep-rule, task"]
     end
 
     subgraph Agents["Agent System (15 agents + 6 SDLC mode files)"]
-        LEAD[sdlc-lead.md<br/>Orchestrator]
+        LEAD["sdlc-lead.md<br/>Orchestrator"]
         subgraph Specialists["Specialist Agents"]
             SEC[security-auditor]
             CODE[coding-agent]
@@ -96,19 +96,19 @@ graph TB
     end
 
     subgraph Skills["Skills (24)"]
-        SDLC[/sdlc]
-        SECURITY[/security]
-        REVIEW[/review-code]
-        PERF2[/perf]
-        TEST2[/test-expert]
-        OTHER2[/code /research /dba /ux<br/>/devops /containers /git<br/>/api-design /arch /frontend]
+        SDLC["/sdlc"]
+        SECURITY["/security"]
+        REVIEW["/review-code"]
+        PERF2["/perf"]
+        TEST2["/test-expert"]
+        OTHER2["/code /research /dba /ux<br/>/devops /containers /git<br/>/api-design /arch /frontend"]
     end
 
     subgraph Validators["Validation Gate System (36 scripts)"]
         PG[validate-phase-gate.sh]
         HG[run-handoff-gates.sh]
         CL[run-coverage-loop.sh]
-        VLIST[validate-architecture<br/>validate-owasp<br/>validate-api-coverage<br/>validate-erd-coverage<br/>validate-tests<br/>validate-security-controls<br/>... 30 more]
+        VLIST["validate-architecture<br/>validate-owasp<br/>validate-api-coverage<br/>validate-erd-coverage<br/>validate-tests<br/>validate-security-controls<br/>... 30 more"]
     end
 
     U -->|"invokes skill"| Skills
@@ -205,18 +205,18 @@ sequenceDiagram
         
         par Format
             HA->>FMT: format(filePath, ext)
-            Note over FMT: Best-effort; failure = console.warn
+            Note over FMT: Best-effort, failure = console.warn
         and Lint
             HA->>LINT: lint(filePath, ext)
             Note over LINT: eslint for TS/JS, ruff for Python
         and Type Check
             HA->>TSC: tsc --noEmit (TS/TSX only)
         and Secret Scan
-            HA->>SS: cat filePath → test 8 patterns
+            HA->>SS: cat filePath -> test 8 patterns
             Note over SS: AWS keys, API keys, passwords,<br/>bearer tokens, DB connection strings,<br/>PEM keys, auth tokens
         end
         
-        Note over HA: All run concurrently;<br/>failures logged, never blocking
+        Note over HA: All run concurrently,<br/>failures logged, never blocking
     end
     
     HA-->>OC: (hook complete)
@@ -310,9 +310,9 @@ sequenceDiagram
         BT->>OS: spawn(command, {cwd, shell:true})
         
         par stdout collection
-            OS-->>BT: data chunks → output string
+            OS-->>BT: data chunks -> output string
         and stderr collection
-            OS-->>BT: stderr chunks → errorOutput
+            OS-->>BT: stderr chunks -> errorOutput
         and timeout
             BT->>BT: setTimeout(timeout*1000)
         end
@@ -420,7 +420,7 @@ sequenceDiagram
 ```mermaid
 graph TD
     User([User])
-    User -->|"skill command"| LEAD[sdlc-lead<br/>Orchestrator]
+    User -->|"skill command"| LEAD["sdlc-lead<br/>Orchestrator"]
 
     LEAD -->|HANDOFF| COD[coding-agent]
     LEAD -->|HANDOFF| SEC[security-auditor]
@@ -438,10 +438,10 @@ graph TD
     LEAD -->|HANDOFF| ARCH[architecture-designer]
 
     subgraph SDLC_Modes["SDLC Mode Files (loaded by sdlc-lead)"]
-        M1[sdlc-init-mode.md<br/>Mode 1: New Project]
-        M2[sdlc-onboard-mode.md<br/>Mode 2: Onboard]
-        M3[sdlc-feature-mode.md<br/>Mode 3: Feature]
-        M4[sdlc-improve-mode.md<br/>Mode 4: Improve]
+        M1["sdlc-init-mode.md<br/>Mode 1: New Project"]
+        M2["sdlc-onboard-mode.md<br/>Mode 2: Onboard"]
+        M3["sdlc-feature-mode.md<br/>Mode 3: Feature"]
+        M4["sdlc-improve-mode.md<br/>Mode 4: Improve"]
         M3a[sdlc-init-phases-0-2.md]
         M3b[sdlc-init-phase-3.md]
         M3c[sdlc-init-phase-4.md]
@@ -465,33 +465,33 @@ flowchart TD
     Start([User types command or natural language])
     Start --> Detect{Detect intent}
     
-    Detect -->|"build new app / start project"| M1[Mode 1: /sdlc init]
-    Detect -->|"understand this codebase / onboard"| M2[Mode 2: /sdlc onboard]
-    Detect -->|"add X feature / build X"| M3[Mode 3: /sdlc feature]
-    Detect -->|"improve / audit / review / find gaps"| M4[Mode 4: /sdlc improve]
-    Detect -->|"single file/function review"| Direct[Direct to specialist<br/>/review-code or /security]
+    Detect -->|"build new app / start project"| M1["Mode 1: /sdlc init"]
+    Detect -->|"understand this codebase / onboard"| M2["Mode 2: /sdlc onboard"]
+    Detect -->|"add X feature / build X"| M3["Mode 3: /sdlc feature"]
+    Detect -->|"improve / audit / review / find gaps"| M4["Mode 4: /sdlc improve"]
+    Detect -->|"single file/function review"| Direct["Direct to specialist<br/>/review-code or /security"]
     
     M1 --> State{Check SDLC state<br/>detect-sdlc-state.sh}
-    State -->|fresh| Interview[Discovery Interview<br/>7 questions]
-    State -->|partial| Resume[Resume from<br/>lowest incomplete phase]
-    State -->|brownfield| Onboard[Recommend /sdlc onboard first]
-    State -->|complete| Improve[Offer /sdlc improve or /sdlc feature]
+    State -->|fresh| Interview["Discovery Interview<br/>7 questions"]
+    State -->|partial| Resume["Resume from<br/>lowest incomplete phase"]
+    State -->|brownfield| Onboard["Recommend /sdlc onboard first"]
+    State -->|complete| Improve["Offer /sdlc improve or /sdlc feature"]
     
     Interview --> Confirm[User confirms summary]
-    Confirm --> Phase0[Phase 0: Ideation<br/>VISION.md, COMPETITIVE_ANALYSIS.md]
+    Confirm --> Phase0["Phase 0: Ideation<br/>VISION.md, COMPETITIVE_ANALYSIS.md"]
     Phase0 --> Gate0{Gate 0 pass?}
-    Gate0 -->|yes| Phase1[Phase 1: Planning<br/>SCOPE, RISKS, CONSTRAINTS, PERSONAS]
+    Gate0 -->|yes| Phase1["Phase 1: Planning<br/>SCOPE, RISKS, CONSTRAINTS, PERSONAS"]
     Gate0 -->|no| Phase0
     Phase1 --> Gate1{Gate 1 pass?}
-    Gate1 --> Phase2[Phase 2: Requirements<br/>SRS, USER_STORIES, USE_CASES]
+    Gate1 --> Phase2["Phase 2: Requirements<br/>SRS, USER_STORIES, USE_CASES"]
     Phase2 --> GateA{Human Gate A<br/>Requirements locked}
-    GateA -->|approved| Phase3[Phase 3: Design<br/>ARCHITECTURE, API, DB, SECURITY...]
+    GateA -->|approved| Phase3["Phase 3: Design<br/>ARCHITECTURE, API, DB, SECURITY..."]
     Phase3 --> Gate3{Gate 3 pass?}
-    Gate3 --> Phase35[Phase 3.5: Test Design<br/>TEST_DESIGN.md]
+    Gate3 --> Phase35["Phase 3.5: Test Design<br/>TEST_DESIGN.md"]
     Phase35 --> GateB{Human Gate B<br/>Contracts frozen}
-    GateB -->|approved| Phase4[Phase 4: Implementation<br/>coding-agent waves]
+    GateB -->|approved| Phase4["Phase 4: Implementation<br/>coding-agent waves"]
     Phase4 --> Gate4{Gate 4 pass?}
-    Gate4 --> Phase5[Phase 5: Release<br/>FIX_BACKLOG closed, reviews APPROVED]
+    Gate4 --> Phase5["Phase 5: Release<br/>FIX_BACKLOG closed, reviews APPROVED"]
     Phase5 --> Done([Ship])
 ```
 
@@ -518,25 +518,25 @@ sequenceDiagram
     Note over LEAD: Step 2 — Parallel Audit Fan-Out
 
     par Audit wave (all in parallel)
-        LEAD->>U: HANDOFF #1 → code-reviewer
+        LEAD->>U: HANDOFF #1 -> code-reviewer
         U->>REV: Open new session, /review-code
         REV->>REV: 4-pass review (security, perf, correctness, style)
         REV-->>U: docs/improve/CODE_HEALTH_REPORT.md
         U-->>LEAD: code-reviewer done
     and
-        LEAD->>U: HANDOFF #2 → security-auditor
+        LEAD->>U: HANDOFF #2 -> security-auditor
         U->>SEC: Open new session, /security
         SEC->>SEC: 5-phase audit (understand, scan, owasp, verify, chains)
         SEC-->>U: docs/improve/SECURITY_REPORT.md
         U-->>LEAD: security-auditor done
     and
-        LEAD->>U: HANDOFF #3 → performance-engineer
+        LEAD->>U: HANDOFF #3 -> performance-engineer
         U->>PERF: Open new session, /perf
         PERF->>PERF: Profile, benchmark, bottleneck analysis
         PERF-->>U: docs/improve/PERF_REPORT.md
         U-->>LEAD: performance-engineer done
     and
-        LEAD->>U: HANDOFF #4 → ux-engineer (optional)
+        LEAD->>U: HANDOFF #4 -> ux-engineer (optional)
         U->>UX: Open new session, /ux
         UX->>UX: UX audit, WCAG check, workflow analysis
         UX-->>U: docs/improve/UX_REPORT.md
@@ -551,19 +551,19 @@ sequenceDiagram
     Note over LEAD: Step 5 — Fix Execution Waves
 
     loop For each approved priority tier
-        LEAD->>U: HANDOFF → coding-agent (fix wave)
+        LEAD->>U: HANDOFF -> coding-agent (fix wave)
         U->>COD: Open session, /code
         COD->>COD: Fix items from FIX_BACKLOG at cited file:line
         COD-->>U: FIX_SUMMARY_*.md
         U-->>LEAD: coding-agent done
 
-        LEAD->>U: HANDOFF → specialist (re-verify)
+        LEAD->>U: HANDOFF -> specialist (re-verify)
         U->>REV: Targeted re-verification
         REV-->>U: VERIFY_*.md (PASS/FAIL per row)
         U-->>LEAD: code-reviewer done
     end
 
-    LEAD->>U: HANDOFF → git-expert
+    LEAD->>U: HANDOFF -> git-expert
     U->>GIT: PR to main
     GIT-->>U: PR created
 ```
@@ -626,7 +626,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A["════════════════\nHANDOFF #N → agent\nUSER: copy below\n════════════════"] --> B["SDLC-TASK for agent-name:\n\nROLE: ...\n\nCONTEXT:\n- BOUNDED_TASK_CONTRACT.md\n- context-for-agent.md\n- relevant source files\n\nWRITE-SCOPE:\n- dir/ only\n\nYOUR TASK:\n2-4 sentence description\n\nPRODUCE:\n- exact output files\n\nWhen done print exactly:\n'agent done — ...'"] --> C["════════════════\nEND HANDOFF #N\n════════════════"]
+    A["════════════════\nHANDOFF #N -> agent\nUSER: copy below\n════════════════"] --> B["SDLC-TASK for agent-name:\n\nROLE: ...\n\nCONTEXT:\n- BOUNDED_TASK_CONTRACT.md\n- context-for-agent.md\n- relevant source files\n\nWRITE-SCOPE:\n- dir/ only\n\nYOUR TASK:\n2-4 sentence description\n\nPRODUCE:\n- exact output files\n\nWhen done print exactly:\n'agent done — ...'"] --> C["════════════════\nEND HANDOFF #N\n════════════════"]
 ```
 
 ---

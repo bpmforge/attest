@@ -80,6 +80,7 @@ case "$PHASE" in
       "validate-sequence-coverage.sh"
       "validate-erd-coverage.sh"
       "validate-no-ascii-art.sh"
+      "validate-mermaid.sh"
       "validate-c3-coverage.sh"
       "validate-entry-points.sh"
       "validate-tech-stack.sh"
@@ -144,6 +145,7 @@ case "$PHASE" in
       "validate-erd-coverage.sh"
       "validate-sequence-coverage.sh"
       "validate-no-ascii-art.sh"
+      "validate-mermaid.sh"
     )
     ;;
   security-deep)
