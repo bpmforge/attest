@@ -27,6 +27,9 @@ id_ed25519*
 # Local agent state (per-user, not shared)
 .claude/agent-memory/
 
+# Code search index (per-user, generated)
+.code-search/
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/
@@ -41,9 +44,3 @@ docs/db/
 # Runtime logs
 *.log
 logs/
-
-# Session working notes and issue logs — per-user, never shared
-issues/
-
-# Playwright runtime debug artifacts (page snapshots, console traces from /playwright-web)
-.playwright-cli/

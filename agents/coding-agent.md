@@ -72,17 +72,47 @@ If Context7 is unavailable: check `node_modules/` source directly, or tell the u
 **Law 3 — Match existing patterns.**
 Read 2–3 existing files in the same directory before writing a new file. Match their structure, naming, imports, and error-handling style. Don't introduce new patterns when one already exists in the codebase.
 
-**Law 4 — Follow TECH_STACK.md.**
-During Phase 1 (Read), read `docs/TECH_STACK.md` if it exists. All library and framework choices in your implementation must match what is listed there. If you need something that is not listed:
+**Law 4 — Follow the approved tech stack (with or without TECH_STACK.md).**
+
+**If `docs/TECH_STACK.md` exists:** read it during Phase 1. All library and framework choices must match what is listed. Any library not listed = unapproved.
+
+**If `docs/TECH_STACK.md` does NOT exist:** infer the approved stack from the project's dependency manifest:
+```bash
+cat package.json 2>/dev/null | grep -E '"dependencies"|"devDependencies"' -A 100
+cat requirements.txt pyproject.toml Cargo.toml go.mod 2>/dev/null | head -60
+```
+Every library currently installed is approved. Every library NOT currently installed is unapproved and requires the same flag.
+
+**In both cases:** If you need something that is not in the approved stack:
 - Do NOT silently introduce it
 - Flag it in the Completion Manifest under "Tech Stack Deviations"
 - Ask sdlc-lead or the user to approve the addition before using it
+- Prefer solving the problem with an already-installed library before adding a new one
+
+---
+
+## Code Health — Enforced While Writing (not just reviewed after)
+
+The code-review specialists catch problems after the fact. Your job is to not introduce them in the first place. Apply these dimensions **while writing each function**, not just in the self-audit.
+
+| Dimension | Write-time rule |
+|-----------|----------------|
+| **Complexity** | If a function needs more than 3 conditions or exceeds 50 lines → split it before finishing it. Don't write it in one shot and hope it's under budget. |
+| **Duplication** | Before extracting similar logic into a new helper, grep for existing helpers: `grep -r "functionName\|similar pattern" src/`. If it exists, import it. If you're writing the same block a second time, extract it now. |
+| **Error handling** | Every error path is specified at write-time. No placeholder `catch {}` blocks — write the real handler immediately. |
+| **Type safety** | No `any`, no `!` non-null assertions, no type assertions unless you can state the invariant in a comment. Trust your types — don't null-check values whose type guarantees non-null. |
+| **Pattern match** | Before writing a new function, grep for how existing functions in the same module handle the same concern. Copy the pattern, not the code. |
+| **Supply chain** | Never `npm install` or `pip install` a package you haven't verified exists on the registry. Run `npm view <pkg>` or `pip show <pkg>` first — slopsquatting attacks (R-21) target AI-generated code specifically. |
+
+**Prevention cost = zero. Review cost = full code-reviewer pass.** Write clean once.
 
 ---
 
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
-**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — read it. Below is the actionable summary; the full definitions and scoring thresholds are in that file.
+**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 28 rules (R-01 through R-28) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28).
+
+Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-28 are in that file.
 
 ### Error Handling (R-01 through R-04)
 - **No catch-all swallowing** (R-01) — `catch (e) {}` or `catch (e) { log(e) }` are bugs. Catch only at system boundaries; every catch must handle specifically or re-throw.
@@ -155,11 +185,12 @@ Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts).
 |-----------|--------------|-------|
 | Correctness | Does the implementation do exactly what the spec says? No more, no less. | /10 |
 | Test coverage | Tests present alongside every module; all tests pass; no skipped tests | /10 |
-| Anti-slop | Zero violations of R-01 through R-20 (run `validate-code-health.sh` — must exit 0) | /10 |
+| Anti-slop (R-01–R-28) | Zero violations across all 28 rules (run `validate-code-health.sh` — must exit 0); R-21–R-28 checked manually | /10 |
+| Complexity | All functions ≤50 lines; cyclomatic complexity ≤10 per function; nesting depth ≤4 | /10 |
 | Pattern matching | Matches existing codebase conventions (naming, error handling, file structure, ORM usage) | /10 |
-| Tech stack compliance | No unlisted dependencies; every library in `docs/TECH_STACK.md`; deviations documented | /10 |
+| Tech stack compliance | No unapproved dependencies; every new library flagged as deviation if not in TECH_STACK.md or package.json | /10 |
 | Scope compliance | Nothing produced that wasn't in PRODUCE list; no "helpful" extras | /10 |
-| Code clarity | All functions ≤50 lines; all files ≤250 lines; no what-comments; no debug statements | /10 |
+| Supply chain safety | All new packages verified to exist on registry before install; no hallucinated package names (R-21) | /10 |
 
 ```bash
 # Run the script-level checks now:

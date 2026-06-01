@@ -34,22 +34,18 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 ```bash
 git clone https://github.com/bpmforge/bpm-opencode-experts.git
 cd bpm-opencode-experts
-./install.sh                  # copies agents, skills, tools, plugins into ~/.config/opencode/
+./install.sh                  # copies agents, skills, tools into ~/.config/opencode/
 ./install.sh --link           # symlink instead of copy (for development — edits apply immediately)
 ./install.sh --semgrep        # also auto-install Semgrep + community rule repos
-./install.sh --pullmd         # also clone + start pullmd MCP via Docker (URL→markdown fallback)
 ./install.sh --project        # install into .opencode/ in current directory instead of global
-./install.sh --no-playwright-search  # skip the playwright-search MCP install
 ```
 
 The installer:
-- Copies (or symlinks) `agents/`, `skills/`, `references/`, `commands/`, `tools/`, `plugins/`, `scripts/` into `~/.config/opencode/`
-- Installs the custom TypeScript tools and runs `npm install` for dependencies
-- Safely merges Context7 MCP + playwright-search MCP config into your existing `opencode.json`
-- **Disables opencode's built-in `webfetch` / `websearch`** in the reference `examples/opencode.json` so research goes through our MCPs (see [Research backbone](#research-backbone))
-- Auto-loads the `expert-hooks` plugin (formatting / lint / type-check / secret-scan + dangerous-command blocking + `.env` write blocking)
+- Copies (or symlinks) `agents/`, `skills/`, `references/`, `commands/`, `hooks/`, `scripts/` into `~/.config/opencode/`
+- Installs the custom TypeScript tools in `tools/` and runs `npm install` for dependencies
+- Safely merges Context7 MCP config into your existing `opencode.json`
 - Checks for Semgrep (and optionally installs it) for `security-auditor`
-- Optionally clones + boots pullmd via Docker as a research fallback (`--pullmd`)
+- Prompts to clone 4 community Semgrep rule repos (~10-50 MB each)
 
 Uninstall with `./uninstall.sh`.
 
@@ -151,31 +147,46 @@ Recommended next step:
 ---
 ```
 
-**Why this matters:** scope creep across specialists is the #1 cause of muddy outputs. A researcher writing code skips the design-docs check; a coding-agent designing scope freelances on what to build; sdlc-lead reading source files bypasses the audit pipeline. Each specialist is sharp because it does one thing. The rule is at `agents/shared/SCOPE_BOUNDARY.md`.
+**Why this matters:** scope creep across specialists is the #1 cause of muddy outputs. A researcher writing code skips the design-docs check; a coding-agent designing scope freelances on what to build; sdlc-lead reading source files bypasses the audit pipeline. The rule is at `~/.claude/agents/shared/SCOPE_BOUNDARY.md`.
 
-Phrases like "review for gaps", "audit this", "what could we improve", "make it better", "evaluate", "find problems" route into Mode 4 (`/sdlc improve`) — never freelanced as one-shot reviews.
+Phrases like "review for gaps", "audit this", "what could we improve", "make it better", "evaluate", "find problems" route into Mode 4 (`/sdlc improve`) — never freelanced as one-shot reviews. Single-file/PR/function asks bypass Mode 4 and go to `/review-code` directly.
 
 ### Research backbone
 
-Web research goes through **our** MCP servers. The reference `examples/opencode.json` disables opencode's built-in `webfetch` and `websearch` (`"tools": { "webfetch": false, "websearch": false }`) so the LLM cannot drift back to them — they're not in the tool list at all.
-
-**Fallback chain — in order:**
+Native Claude Code `WebSearch` and `WebFetch` work fine, but the project prefers MCP-backed research when registered:
 
 1. `playwright-search_web_research(...)` — multi-engine search (DDG + Brave + Bing) → paragraph-ranked extraction → 24h cache. Default for any new investigation.
 2. `playwright-search_web_fetch(url, ...)` — for known URLs.
-3. `pullmd_read_url(url, render="force")` — fallback when (2) returns garbage / empty / errors. Especially for JS-heavy SPAs, Cloudflare-protected pages, and Reddit threads (pullmd has a 4-stage pipeline: Reddit handler → Cloudflare native MD → Readability + Trafilatura → headless Playwright). Install with `./install.sh --pullmd`.
-4. If everything fails → surface `RESEARCH BLOCKED`. No silent retries against built-ins that aren't there.
+3. `pullmd_read_url(url, render="force")` — fallback when (2) returns garbage / empty / errors. Especially for JS-heavy SPAs, Cloudflare-protected pages, and Reddit threads (4-stage pipeline: Reddit handler → Cloudflare native MD → Readability + Trafilatura → headless Playwright).
+4. Native `WebSearch` / `WebFetch` — only as a last resort if no MCPs are registered.
+5. If everything fails → surface `RESEARCH BLOCKED`. Do not loop.
 
-The full surface is documented at `agents/shared/RESEARCH_TOOLS.md`. Every agent — researcher and specialists alike — uses this chain.
+Full surface at `~/.claude/agents/shared/RESEARCH_TOOLS.md`.
 
-### Lifecycle plugin
+### Browser automation backbone
 
-`plugins/expert-hooks.ts` runs as an opencode plugin. Two hooks:
+For navigating to a running app, taking screenshots, and verifying UI:
 
-- **`tool.execute.before`** — blocks dangerous bash commands (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl|bash`, etc.) and writes to credential files (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Throws to abort the call.
-- **`tool.execute.after`** (write/edit only) — runs format → lint → type-check → secret-scan in parallel. Findings surface via `console.warn` so the LLM sees them; missing formatters silently skipped; nothing blocks.
+1. `browser_navigate(url)` + `browser_screenshot()` — navigate and capture. Works headless and in CI.
+2. `browser_snapshot()` — accessibility tree dump. No vision model required. Use to verify structure without reading pixels.
+3. `browser_fill` / `browser_click` / `browser_wait_for` — form testing and interaction flows.
+4. `playwright-mcp` replaces `claude-in-chrome` for all automated/cross-model use cases.
 
-You don't invoke this directly — it just runs. To disable, remove `plugins/expert-hooks.ts` from `~/.config/opencode/plugins/`.
+Full protocol at `~/.claude/agents/shared/BROWSER_TESTING.md`. Configuration at `docs/MCP_GUIDE.md`.
+
+### Memory & code search
+
+Cross-session tools that persist beyond the context window:
+
+- `session_restore()` — load prior project decisions/constraints on session start
+- `memory_store(...)` — save a decision, pattern, or bug fix for future sessions
+- `session_save(...)` — persist session summary on session end
+- `code_search("query")` — semantic search over the codebase
+- `code_symbols(kind?, name_filter?)` — browse what exists (functions, classes, interfaces)
+- `code_outline("file")` — structural outline of a file
+- `code_references("SymbolName")` — find usages
+
+Full protocols at `~/.claude/agents/shared/MEMORY_PRIMER.md` and `docs/MCP_GUIDE.md`.
 
 ---
 
@@ -422,6 +433,23 @@ Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`
 ```
 
 Reference: `references/playwright-config.md`. Output: `docs/test/`.
+
+### `/ui-verify`
+
+Live browser verification using `playwright-mcp`. Navigates your running app, takes screenshots, reads accessibility snapshots, and verifies flows. Works with any LLM — no vision model required.
+
+```
+/ui-verify http://localhost:3000                   # smoke pass — main routes, screenshots
+/ui-verify http://localhost:3000 --use-cases       # verify P0 use cases from USE_CASES.md
+/ui-verify http://localhost:3000 --flow "login"    # single flow end-to-end
+/ui-verify http://localhost:3000 --regression      # post-change regression check
+```
+
+**Distinct from `/test-expert --e2e`:** test-expert writes `.spec.ts` files. `/ui-verify` runs the browser NOW against your running server and tells you what it sees — immediate visual feedback, no test framework needed.
+
+**Requires:** `playwright-mcp` registered. Check: `claude mcp list | grep playwright`.
+
+Output: `docs/test/UI_VERIFICATION_REPORT.md` — per-flow PASS/FAIL/WARN table, step observations, accessibility findings.
 
 ### `/perf`
 

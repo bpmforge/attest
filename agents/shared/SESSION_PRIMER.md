@@ -36,6 +36,13 @@ After printing a completion phrase, your response ends. No summary, no follow-up
 **Rule 6 — Context budget.**
 You have approximately [USER: fill in your model's context size] tokens total. Agent instructions use ~8-15k. Reserve the rest for your work. If you feel "full" (can't recall something from earlier), stop and write what you have to disk before continuing.
 
+**Rule 7 — Memory (when tools available).**
+On your first turn: call `session_restore()` to load prior project context (decisions, constraints, patterns).
+On your last turn: call `session_save({ summary: "..." })` before stopping.
+When you make a significant decision or discover a constraint: `memory_store({ content: "...", type: "decision"|"fact"|"pattern"|"error" })`.
+If memory tools fail, fall back to `docs/work/SESSION_NOTES.md` silently.
+Full protocol: `~/.claude/agents/shared/MEMORY_PRIMER.md`
+
 ---
 
 ## Quick reference

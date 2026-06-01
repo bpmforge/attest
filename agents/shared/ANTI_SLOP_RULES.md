@@ -4,7 +4,9 @@
 
 Single source of truth referenced by `coding-agent.md`, `code-reviewer.md`, and `validate-code-health.sh`. Every specialist that produces or reviews code must check against these rules.
 
-Sources: GitClear 2025 (211M LOC study), Veracode GenAI Code Security Report 2025, dev community research (Greptile, Addy Osmani, DEV Community, eslint-plugin-llm-core).
+Sources: GitClear 2025 (211M LOC study), Veracode GenAI Code Security Report 2025, CSA AI-Generated Code Security Surge 2026, USENIX Security 2025 (package hallucinations), dev community research (Greptile, Addy Osmani, DEV Community, eslint-plugin-llm-core, AI-SLOP Detector v2.7.0, Sloppylint Dec 2025).
+
+**2025-2026 additions (R-21 through R-28):** slopsquatting, architectural privilege escalation, credential leakage, docstring inflation, phantom imports, disconnected pipelines, logic density, and LLM output handling. These were not documented in 2024 editions.
 
 ---
 
@@ -164,4 +166,76 @@ Each rule is scored per finding:
 - R-19, R-20 (duplication/inconsistency): ≥2 instances blocks merge
 - All others: ≥2 instances blocks merge
 
-**Script enforcement:** `validate-code-health.sh` enforces R-01, R-02, R-13, R-15, R-16, R-19 (grep-based). All 20 rules are enforced by code-reviewer's anti-slop dimension in the confidence loop.
+**Script enforcement:** `validate-code-health.sh` enforces R-01, R-02, R-13, R-15, R-16, R-19 (grep-based). All rules are enforced by code-reviewer's anti-slop dimension in the confidence loop.
+
+---
+
+## Category 6: Supply Chain Slop (2025-2026 — NEW)
+
+### R-21 Hallucinated Package Names (Slopsquatting)
+**Pattern:** AI suggests a package name that doesn't exist on npm/PyPI/crates.io. Developer installs it without checking. Attacker has registered the name with malicious code.
+**Research basis:** USENIX Security 2025 — LLMs hallucinate package names at ~20% rate. 43% of hallucinated packages are suggested consistently across re-runs (same prompt → same hallucination → systematic install). Charlie Eriksen documented one hallucinated package propagating through 237 repositories via autonomous agents.
+**Why it fails:** Malicious package executes at `npm install`. Supply chain compromise before first `git commit`.
+**Rule:** For any package not well-known (< 500k weekly downloads or not in your training data's common knowledge): verify with `npm view <pkg>` or `pip show <pkg>` before importing. Run `npm audit` and `pip-audit` on every dependency change.
+**Detection:** Package in `package.json`/`requirements.txt` returns 404 on registry. Or: weekly downloads < 100 with recent publish date.
+
+### R-22 Architectural Privilege Escalation Paths
+**Research basis:** Apiiro data across Fortune 50 (Dec 2024–Jun 2025) shows +322% privilege escalation paths and +153% architectural design flaws in AI-assisted codebases. Monthly security findings went from ~1,000 to ~10,000 in 6 months.
+**Pattern:** AI generates service-to-service calls where Service A has access to Service B's admin API without explicit authorization check — because the AI saw an admin client in the context and reused it everywhere.
+**Why it fails:** AI doesn't reason about trust boundaries. It produces structurally correct code that violates the principle of least privilege at the architectural level.
+**Rule:** Every cross-service call must explicitly specify which credentials/role it uses. No credential reuse between services. Review all new inter-service integrations for privilege scope.
+
+### R-23 Elevated Credential Leakage Rate
+**Research basis:** CSA 2025 — AI-assisted commits expose secrets at 3.2% rate vs. 1.5% for human-only commits (2x+). AI frequently generates code with hardcoded credential patterns from training data.
+**Pattern:** `const apiKey = "sk-..."` or `password: "example123"` in non-test code. Hardcoded fallbacks: `process.env.API_KEY || "prod-fallback-key"`.
+**Rule:** No string literals that look like secrets, passwords, tokens, or connection strings in production code. All credentials via environment variables or secrets manager. No hardcoded fallbacks that expose production values.
+
+---
+
+## Category 7: Structural Slop (2025-2026 — NEW)
+
+### R-24 Docstring Inflation (Logic Density Ratio violation)
+**Research basis:** AI-SLOP Detector v2.7.0 — measures **Logic Density Ratio (LDR)**: ratio of executable logic to structural overhead. Flagged in AI output when doc/impl ratio > 3x.
+**Pattern:** A 5-line function with a 20-line docstring explaining "what" the function does, including obvious parameter descriptions ("@param id the ID of the user"), return type restating the TypeScript type, and usage examples for trivial cases.
+**Why it fails:** Documentation should explain WHY (hidden constraint, surprising behavior, external requirement). Documenting WHAT is duplicating what the type system already says.
+**Rule:** Docstrings only when the WHY is non-obvious. Never document type information that TypeScript/Python already expresses. LDR < 1.0 (more docs than logic) is a slop signal.
+
+### R-25 Phantom Imports
+**Research basis:** Sloppylint (Dec 2025), AI-SLOP Detector — AI generates imports for libraries it plans to use but doesn't, or confuses library names across languages.
+**Pattern:** `import { something } from 'nonexistent-package'` that passes TypeScript compilation (e.g., it's installed as a dev dep) but is never referenced. Or Python `import requests` that is used nowhere in the file.
+**Why it fails:** Dead imports signal disconnected generation — AI wrote a plan and didn't fully implement it. They also inflate bundle size if not tree-shaken.
+**Rule:** Every import must have at least one use in the file. Run `eslint --rule 'no-unused-vars'` and `pylint W0611` in CI with `--max-warnings 0`.
+
+### R-26 Disconnected Pipelines (Dead Scaffolding)
+**Research basis:** AI-SLOP Detector v2.7.0 — most impactful detection category: "architectural scaffolding that looks complete but is wired to nothing."
+**Pattern:**
+- Event emitter set up but never subscribed to
+- Queue created but no consumer registered
+- Strategy pattern implemented but only one strategy ever passed
+- Middleware registered but never mounted
+- Error boundary component created but never wrapping anything
+**Why it fails:** Passes all tests (no test covers the integration). Gives false confidence of a working architecture. Found in production when the expected behavior never fires.
+**Rule:** Every architectural construct (event, queue, middleware, strategy) must have at least one actual integration test that verifies it is wired and fires. If it's not tested end-to-end, it may be disconnected.
+
+### R-27 Unimplemented Stubs as Features
+**Pattern:** Function body is `pass`, `...`, `throw new Error("not implemented")`, or `return null` — but the function is exported and included in documentation as a feature.
+**Why it fails:** Callers in production get runtime errors or silent no-ops. Worse: other AI-generated code calls stubs because they appear real in context.
+**Rule:** Stubs are only acceptable in `TODO` branches explicitly marked in the PR description. Never export a stub as a completed feature. `grep -rn "throw new Error.*not implemented\|TODO.*implement"` in pre-merge gate.
+
+### R-28 LLM Output Consumed Without Validation
+**Research basis:** Veracode GenAI 2025 — 45% of AI-generated code fails security tests; worst offenders are output handling (log injection 88%, XSS 86%). LLM-generated code that integrates with OTHER LLMs is particularly risky.
+**Pattern:** `result = llm.generate(prompt); db.execute(result)` — LLM output used directly as SQL, shell command, HTML, or code.
+**Why it fails:** The LLM is an injection vector. Its output can be manipulated (prompt injection) to produce malicious SQL/HTML/commands. See OWASP LLM05.
+**Rule:** LLM output is always **untrusted user input**. Validate against a schema before use. Never pass LLM output to `eval()`, `exec()`, `db.execute()` without parameterization, or `innerHTML` without sanitization.
+
+---
+
+## Detection Tools (2025-2026)
+
+| Tool | Language | Key rules | Install |
+|------|----------|-----------|---------|
+| `eslint-plugin-llm-core` | JS/TS | 20 rules; no-async-in-array-methods, no-explicit-any, strict null | `npm i -D eslint-plugin-llm-core` |
+| `AI-SLOP Detector v2.7.0` | JS/TS | LDR measurement, phantom imports, disconnected pipelines | VS Code extension + CLI |
+| `Sloppylint` | Python | 100+ rules; hallucinated imports, stubs, wrong-language patterns | `pip install sloppylint` |
+| `Sloplint` | Multi-lang | AST-based; similar to sloppylint but language-agnostic | `github.com/dannote/sloplint` |
+| `semgrep` | Multi | Community rules for deprecated APIs, PII logging, bypassed security | `semgrep --config auto` |
