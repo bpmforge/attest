@@ -1,7 +1,15 @@
 ---
-description: 'Mode 1 phase files — Phases 3–4: Design, Test Design, Implementation. Loaded on demand by sdlc-init-mode.md dispatcher when entering Phase 3, 3.5, or 4.'
+description: 'SUPERSEDED — do not load. Split into sdlc-init-phase-3.md (Phases 3+3.5) and sdlc-init-phase-4.md (Phases 4+5). sdlc-init-mode.md already references the split files. Retained for doc references only.'
 mode: "subagent"
 ---
+
+> **DEPRECATED — do not load this file.** Content has been split into:
+> - `agents/sdlc-init-phase-3.md` — Phase 3 (Design) + Phase 3.5 (Test Design)
+> - `agents/sdlc-init-phase-4.md` — Phase 4 (Implementation) + Phase 5 (Release)
+>
+> `sdlc-init-mode.md` already uses those files. This file is retained only because
+> `docs/GOFORWARD_PLAN.md`, `docs/review/A-appendices.md`, and `agents/templates/ARCHITECTURE_template.md`
+> still reference the old name. Update those references — then delete this file.
 
 # Mode 1 — Phases 3–4: Design, Test Design, Implementation
 

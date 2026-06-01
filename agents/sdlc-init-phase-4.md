@@ -97,72 +97,15 @@ If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the
 
 ### Parallel Wave (opt-in) — each module runs its own full mini-lifecycle
 
-A parallel wave runs THREE rounds per module: **code → review → runtime**. Every module in the wave produces its own `CODE_REVIEW_<module>_<date>.md` and `RUNTIME_<module>_<date>.md`. A wave does not advance until every module has its own runtime verdict `PASS`. Rounds are emitted as separate messages so each specialist sees only its own scope.
-
-**Round 1 — Code (N parallel coding-agent HANDOFFs):**
-
-Emit ONE message containing every coding HANDOFF for the wave. Example for a 3-module wave:
+When the user selects parallel mode `[P]` for a wave, load the full protocol:
 
 ```
----
-  WAVE 2 — ROUND 1: CODE (3 HANDOFFs — open 3 OpenCode sessions)
----
-These 3 modules are independent — no shared write-scope, no cross-module imports.
-Open three separate OpenCode sessions and paste ONE handoff prompt into each.
-Report back with all three completion phrases before I emit Round 2.
-
-Write-scope (ENFORCED):
-  HANDOFF #1 (coding-agent → auth):          src/auth/           ONLY
-  HANDOFF #2 (coding-agent → users):         src/users/          ONLY
-  HANDOFF #3 (coding-agent → notifications): src/notifications/  ONLY
-
-If any agent needs to change a file outside its assigned directory, it MUST
-stop and flag the cross-cutting concern — do not edit cross-module.
-
-───── HANDOFF #1 ─────
-[coding-agent prompt for module 1 — completion phrase: "code done — auth module: [summary]"]
-───── HANDOFF #2 ─────
-[coding-agent prompt for module 2 — completion phrase: "code done — users module: [summary]"]
-───── HANDOFF #3 ─────
-[coding-agent prompt for module 3 — completion phrase: "code done — notifications module: [summary]"]
----
+read(filePath="~/.config/opencode/agents/sdlc/PARALLEL_WAVE_PROTOCOL.md")
 ```
 
-Round 1 gate: every module's completion phrase present, no write-scope collisions (`git status` shows no overlap).
+The protocol defines: Round 1 (N parallel code HANDOFFs), Round 2 (N parallel review HANDOFFs + Fix-Verify Loop per module), Round 3 (N parallel runtime-validation HANDOFFs), wave gate, and when to refuse parallel and force sequential.
 
-**Round 2 — Review (N parallel HANDOFFs, then Fix-Verify Loop per module):**
-
-Emit ONE message with every triggered review HANDOFF per module (code-reviewer always; security / perf / ux per the auto-trigger rules in Fix-Verify Loop Protocol § Step 1). Completion phrases: `"review done — <module>: <verdict>"`, `"security done — <module>: <verdict>"`, etc. After all completion phrases return, run the Fix-Verify Loop Protocol (§ Steps 2–5) **per module** — each module produces its own `FIX_BACKLOG_<module>_<date>.md`, iterates up to 3 times with per-module remediation + re-verification, and passes when every merge-blocking row in its backlog is VERIFY=PASS. A module stuck after 3 iterations emits the escalation block for that module only; peer modules advance to Round 3.
-
-**Round 3 — Runtime (N parallel coding-agent HANDOFFs, runtime-validation scope):**
-
-Emit ONE message with N runtime-validation HANDOFFs, one per module. Each runs the full runtime gate (build → lint/typecheck → start → module-level smoke → regression smoke) scoped to its module and produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
-
-Round 3 gate — **per module** (before marking the module done):
-1. Module's RUNTIME_<module>.md shows PASS
-2. Module's FIX_BACKLOG_<module>.md has 0 open CRITICAL/HIGH
-3. run-handoff-gates.sh scope check clean for this module
-
-A module that fails Round 3 blocks only itself — fix that module and re-run its Round 3 HANDOFF while other modules' PASS verdicts remain valid.
-
-**Wave gate — mandatory before Wave N+1 (applies to both S and P modes):**
-1. Every module in the wave has RUNTIME PASS and clean FIX_BACKLOG
-2. No write-scope collisions (`git status --porcelain` — no overlap between modules)
-3. Update PARALLELIZATION_MAP.md: mark wave DONE
-4. Update SDLC_TRACKER Phase 4 Wave Execution row: `Status = ✅ DONE`
-
-Print this before advancing:
-```
-WAVE [N] COMPLETE ✓
-  Modules: [list] — all RUNTIME PASS, all FIX_BACKLOGs clean
-  Advancing to Wave [N+1]: [modules]
-  [or: All waves complete — running Phase 4 pre-gate checklist]
-```
-
-**When to refuse parallel and force sequential:**
-- The wave contains any module that writes to `src/shared/`, `src/common/`, or root-level config (tsconfig, package.json, etc.)
-- Two modules in the wave both depend on a contract that hasn't been frozen yet
-- PARALLELIZATION_MAP.md lists the modules in different waves (don't cross wave boundaries for convenience)
+**Quick rule (memorize — don't need to re-load):** Save state → emit ONE message per round with all N module HANDOFFs → wait for ALL completion phrases before advancing to next round → wave gate before Wave N+1.
 
 Delegate implementation work via HANDOFF — one specialist at a time within a sequential wave, or three rounds of N HANDOFFs in a parallel wave.
 
