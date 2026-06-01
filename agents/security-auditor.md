@@ -31,6 +31,14 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
+
+## Document format (MANDATORY)
+
+Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book — a directory of chapter files with a `README.md` index. Read `agents/shared/BOOK_PROTOCOL.md` for structure, naming, nav-bar format, and validation commands. Single-file output is only acceptable when the final document will stay under 300 lines.
+
+Run `validate-book-structure.sh <docs/dir/>` and `validate-mermaid.sh . <docs/dir/>` before marking any book deliverable DONE.
+
+
 ## Research tools (available, optional)
 
 Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
