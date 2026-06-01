@@ -30,6 +30,9 @@ id_ed25519*
 # Code search index (per-user, generated)
 .code-search/
 
+# Local model context (per-user)
+docs/work/.model-context
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/

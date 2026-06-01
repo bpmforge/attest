@@ -1,5 +1,0 @@
-type=local
-provider=lmstudio
-model=qwen/qwen3-coder-next
-context=32768
-tier=small
