@@ -4,9 +4,16 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (15)](#agents)
+- [Agents (46)](#agents)
+  - [Primary agents (16)](#primary-agents)
+  - [Security micro-agents (9)](#security-micro-agents)
+  - [Code-review micro-agents (7)](#code-review-micro-agents)
+  - [Performance micro-agents (6)](#performance-micro-agents)
+  - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
+  - [SDLC mode agents](#sdlc-mode-agents)
 - [Skills (20)](#skills)
-- [Reference documents (11)](#reference-documents)
+- [Shared protocols (16)](#shared-protocols)
+- [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
 - [Hooks](#hooks)
@@ -15,16 +22,17 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Agents
 
-Every agent lives in `agents/<name>.md`. All agents share: frontmatter (`description`, `mode: primary`), "how you think" section, progress announcements, micro-step execution, phase-by-phase workflow, orchestrator + `--phase` sub-task mode, confidence gate-loop, reader-simulation pass, and verifier-isolation clause.
+Every agent lives in `agents/<name>.md` or a subdirectory (`agents/security/`, `agents/code-review/`, `agents/performance/`, `agents/sdlc/onboard/`). All agents share: frontmatter, "how you think" section, progress announcements, micro-step execution, phase-by-phase workflow, orchestrator + `--phase` sub-task mode, confidence gate-loop, and verifier-isolation clause.
 
-### Multi-agent execution model
+**Micro-agent pattern:** coordinator dispatches → each specialist writes its own output file → coordinator synthesizes. One agent = one job = one context window. Parallel waves use `PARALLEL_WAVE_PROTOCOL.md` (Round 1: code HANDOFFs, Round 2: review HANDOFFs, Round 3: runtime HANDOFFs).
 
-All long-running agents support two execution modes that prevent timeouts and silent hangs:
+**Execution modes (all long-running agents):**
+- **Orchestrator mode (default)** — announces phase plan, spawns one `task(agent=self, prompt="--phase: N name ...")` per phase. Each sub-task writes findings to `docs/work/<agent>/<slug>/phaseN.md` and returns in under 90 s.
+- **`--phase: N name` mode** — runs exactly one named phase, reads the previous phase output, writes its own. No sub-spawning. Used for parallelism.
 
-- **Orchestrator mode (default)** — agent announces its phase plan upfront, then spawns one `task(agent=self, prompt="--phase: N name ...")` sub-task per phase. Each sub-task writes findings to `docs/work/<agent>/<slug>/phaseN.md` and returns in under 90 s. The orchestrator prints `✓ Phase N: [finding]` after each returns. Total work is visible as a sequence of fast completions.
-- **`--phase: N name` mode** — runs exactly one named phase, reads the previous phase's output file as context, writes its own output file, returns a one-line summary. No sub-spawning. Used by the orchestrator to parallelise sequential work.
+---
 
-Progress is shown in the `task` tool label in real time: `task: db-architect — 45s — ✓ Phase 2 complete: PostgreSQL best practices identified`.
+### Primary agents
 
 ### `sdlc-lead` — Program manager & lead architect (`mode: primary`)
 
@@ -38,6 +46,20 @@ Orchestrates the full SDLC across 4 operating modes. Delegates every technical t
 Phase 3 (Design) produces both `docs/API_DESIGN.md` (human-readable narrative) and `docs/api/openapi.yaml` (validated OpenAPI 3.0 spec). The spec is a gate requirement — Phase 3 cannot pass until it exists and passes `swagger-cli validate` with 0 errors.
 
 Enforces confidence-based gates (asymmetric: < 5 fail, 5–6 revise max 3×, ≥ 7 pass) and Inter-Phase Check-In protocol at every phase boundary.
+
+### `challenger` — Adversarial assumption challenger (`mode: primary`)
+
+Invoked between any two phases (or on demand) to pressure-test what the sdlc-lead or any specialist has concluded. Not a reviewer — a structured adversary.
+
+**What it does:** Reads the output of the previous phase (design docs, audit report, architecture decision), generates 5–8 specific challenges graded by severity (FATAL / MAJOR / MINOR / NITPICK), then runs a rebuttal cycle where the original specialist must defend or concede each challenge.
+
+**Challenge categories:** unstated assumptions, scope creep in disguise, missing failure modes, premature optimization, dependency risk, security gaps, scalability cliffs, testability blockers.
+
+**Output:** `docs/work/challenger/challenge-<phase>.md` — numbered challenges, severity, supporting evidence, rebuttal outcome (DEFENDED / CONCEDED / DEFERRED). Conceded items become mandatory follow-up tasks before the gate passes.
+
+**Protocol:** Fully defined in `agents/shared/CHALLENGER_PROTOCOL.md`. Called by `sdlc-lead` automatically between Phase 2→3 (requirements→design) and Phase 3→4 (design→implementation). Can be invoked manually on any output with `/challenge`.
+
+---
 
 ### `coding-agent` — Doc-driven implementation engineer (`mode: primary`)
 
@@ -181,6 +203,91 @@ Called by `sdlc-lead` in Phase 3 (Design), after `db-architect` and before `codi
 
 ---
 
+### Security micro-agents
+
+Live in `agents/security/`. Dispatched by `security-auditor` (coordinator) via HANDOFF — each runs in its own context window and writes findings to `docs/work/security/<slug>.md`.
+
+| Agent | Purpose |
+|-------|---------|
+| `owasp-web-checker` | OWASP Top 10 web vulnerabilities — one finding per category, verbatim evidence |
+| `owasp-llm-checker` | OWASP LLM Top 10 — AI-specific attack surface (prompt injection, training data poisoning, etc.) |
+| `cloud-security-checker` | Cloud misconfigurations — IAM, S3/GCS public buckets, security groups, KMS |
+| `iac-security-checker` | Infrastructure-as-Code security — Terraform/Pulumi/CDK patterns |
+| `secrets-scanner` | Hardcoded secrets, API keys, credentials in source + git history |
+| `dependency-auditor` | Known CVEs via npm audit/pip-audit/cargo audit; license risk |
+| `semgrep-runner` | Semgrep scan with custom gap-filler rules + community rule packs |
+| `threat-modeler` | STRIDE per component, trust boundary analysis, attack surface enumeration |
+| `attack-chainer` | Second-order pass — pairs/triples of real findings into multi-step exploit chains (C-N entries with severity bump) |
+
+Methodology docs: `OWASP_METHODOLOGY.md`, `OWASP_LLM_METHODOLOGY.md`, `CLOUD_METHODOLOGY.md`, `IaC_METHODOLOGY.md`, `FINDING_SCHEMA.md` (shared finding envelope format).
+
+---
+
+### Code-review micro-agents
+
+Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in parallel — each covers one review dimension.
+
+| Agent | Dimension |
+|-------|-----------|
+| `complexity-analyzer` | Cyclomatic complexity, nesting depth, cognitive load |
+| `duplication-detector` | Copy-paste patterns, near-duplicate logic, DRY violations |
+| `error-handling-auditor` | Silent failures, over-broad catch, missing boundary validation |
+| `type-safety-checker` | Any-cast abuse, non-null assertions, unsafe type coercions |
+| `pattern-consistency-checker` | Naming, import style, module structure — deviation from project conventions |
+| `anti-slop-auditor` | 20-rule AI slop catalog (R-01..R-20): bloat, dead code, speculative abstractions, generated filler |
+| `code-health-synthesizer` | Coordinator synthesizer — reads all six micro-agent outputs, produces `HEALTH_ASSESSMENT.md` with prioritized backlog |
+
+Methodology: `agents/code-review/METHODOLOGY.md` — per-dimension grading rubrics, severity escalation rules, FIX_BACKLOG format.
+
+---
+
+### Performance micro-agents
+
+Live in `agents/performance/`. Dispatched by `performance-engineer` (coordinator).
+
+| Agent | Purpose |
+|-------|---------|
+| `static-perf-analyzer` | Grep-based static scans: O(n²) loops, N+1 queries, blocking I/O in async paths, hot-path allocations |
+| `profiler-agent` | Runtime profiling — instruments code, runs load, captures flamegraph/heap snapshots |
+| `db-query-analyzer` | Slow-query detection, missing indexes, N+1 at the ORM layer, explain-plan analysis |
+| `bundle-analyzer` | Frontend bundle size, tree-shaking gaps, duplicate packages, lazy-load opportunities |
+| `concurrency-checker` | Race conditions, deadlock patterns, improper shared-state access |
+| `perf-synthesizer` | Coordinator synthesizer — reads all micro-agent outputs, produces `PERFORMANCE_REPORT.md` with before/after benchmark table |
+
+Methodology: `agents/performance/METHODOLOGY.md` — profile-first discipline, verbatim-code mandate, coverage confidence loop.
+
+---
+
+### SDLC onboard specialists
+
+Live in `agents/sdlc/onboard/`. Dispatched by `sdlc-onboard-mode` (coordinator) via HANDOFF in parallel where possible.
+
+| Agent | Deliverable |
+|-------|------------|
+| `landscape-mapper` | `docs/LANDSCAPE.md` — tech stack, project metrics, directory structure, hot files, recent focus |
+| `entry-point-tracer` | `docs/diagrams/entry-points.md` + `docs/diagrams/sequences/*.md` — traced call chains as Mermaid sequence diagrams |
+| `component-mapper` | `docs/diagrams/c2-containers.md` + `docs/diagrams/c3-components.md` — C4 container and component diagrams |
+| `health-coordinator` | `docs/HEALTH_ASSESSMENT.md` + `docs/testing/USE_CASES.md` + `docs/testing/TEST_PLAN.md` — dispatches code-reviewer, security-auditor, test-engineer, performance-engineer in parallel |
+
+---
+
+### SDLC mode agents
+
+Thin orchestrators that drive each SDLC phase. Read by `sdlc-lead` on demand.
+
+| Agent | Purpose |
+|-------|---------|
+| `sdlc-init-mode` | Entry point for Mode 1 (new project) — loads phase files as needed |
+| `sdlc-init-phases-0-2` | Ideation, planning, requirements (Phases 0–2) |
+| `sdlc-init-phase-3` | Design (Phase 3): architecture, DB, API, security |
+| `sdlc-init-phase-4` | Implementation (Phase 4): parallel coding waves |
+| `sdlc-init-phase-5` | Review, hardening, release (Phase 5) |
+| `sdlc-feature-mode` | Mode 3: add a feature to an existing project |
+| `sdlc-improve-mode` | Mode 4: audit-driven improvement |
+| `sdlc-onboard-mode` | Mode 2: understand an existing codebase — thin dispatcher to onboard specialists |
+
+---
+
 ## Skills
 
 Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps to an agent and accepts mode flags. Users invoke skills with `/skill-name [flags]`.
@@ -217,18 +324,72 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 
 ## Shared protocols
 
-Canonical reference files every specialist reads. Single source of truth — update once, propagates everywhere.
+Canonical reference files in `agents/shared/`. Single source of truth — update once, propagates to all 3 locations (claude-experts, bpm-opencode-experts, live `~/.config/opencode/agents/shared/`).
 
 | File | Purpose |
 |------|---------|
-| `agents/shared/SCOPE_BOUNDARY.md` | Stay-in-lane rule for direct-mode invocations (`/research`, `/code`, etc.) — per-agent in-scope / refer-back table + canonical SCOPE-BOUNDARY block to print when a request belongs to another specialist |
-| `agents/shared/BOUNDED_TASK_CONTRACT.md` | The six canonical scope rules every specialist follows in Bounded Task Mode (write-scope isolation, no extras, verbatim completion phrase, no scope expansion, stop-means-stop, pre-completion self-check) |
-| `agents/shared/HANDOFF_TEMPLATES.md` | Canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template + post-HANDOFF gate docs |
-| `agents/shared/FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
-| `agents/shared/RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
-| `agents/shared/LOOP_PREVENTION.md` | Tool-selection cheat-sheet + the three loop classes (failure / schema-validation / success) + the BLOCKED-template format. Cheat-sheet is also inlined at the top of every SDLC mode file. |
-| `agents/shared/RESEARCH_TOOLS.md` | The mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP). Built-in `webfetch` / `websearch` are disabled at the config layer in `examples/opencode.json`. |
-| `agents/shared/ANTI_SLOP_RULES.md` | 20-rule AI slop catalog (R-01..R-20) covering over-engineering, defensive bloat, hallucinated patterns, and generated filler. Read by `code-reviewer` (8th dimension) and `coding-agent` (self-audit). |
+| `SCOPE_BOUNDARY.md` | Stay-in-lane rule for direct-mode invocations — per-agent in-scope / refer-back table + canonical SCOPE-BOUNDARY block |
+| `BOUNDED_TASK_CONTRACT.md` | Six canonical scope rules every specialist follows in Bounded Task Mode |
+| `HANDOFF_TEMPLATES.md` | Canonical HANDOFF block templates (standard, remediation, re-verification, parallel-wave) + context-packet template |
+| `HANDOFF_QUICK_REF.md` | One-page quick reference: HANDOFF format, completion phrase, manifest schema — for agents with small context budgets |
+| `FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
+| `RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
+| `LOOP_PREVENTION.md` | Tool-selection cheat-sheet + three loop classes (failure / schema-validation / success) + BLOCKED-template |
+| `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP) |
+| `ANTI_SLOP_RULES.md` | 20-rule AI slop catalog (R-01..R-20) — over-engineering, defensive bloat, hallucinated patterns, generated filler |
+| `CHALLENGER_PROTOCOL.md` | Full Challenger adversarial review protocol — challenge categories, severity grades, rebuttal cycle, output format |
+| `GATE_SCORING_PROTOCOL.md` | HANDOFF resume scoring (1–10 scale, asymmetric threshold ≥7 pass / 5–6 revise / <5 auto-fail) + coverage validator table |
+| `PHASE_ROUTING_PROTOCOL.md` | Smart routing table per phase, escape hatches, validation gate chain, two-track system (Track 1: coverage loop; Track 2: confidence loop) |
+| `PARALLEL_WAVE_PROTOCOL.md` | 3-round parallel coding protocol: Round 1 code HANDOFFs → Round 2 review + Fix-Verify Loop → Round 3 runtime. Wave gate + cross-wave rules. |
+| `CONTEXT_BUDGET.md` | Context budget management — synthesis chunking, state-file discipline, when to stop and write to disk |
+| `SESSION_PRIMER.md` | ~600-token session primer with 7 core rules including HANDOFF format, disk discipline, and memory workflow |
+| `MEMORY_PRIMER.md` | Memory MCP protocol — 3-call workflow (session_restore → memory_store → session_save), trigger table, call format, flat-file fallback |
+
+---
+
+## Memory & code-search MCPs
+
+Two MCP servers extend agent capability beyond the session context window.
+
+### `claude-memory` — Cross-session project memory
+
+Persistent memory store backed by SQLite + vector embeddings (LM Studio nomic-embed-text). Provides hybrid search (vector 35% + BM25 35% + link traversal 30%).
+
+Registered via `install.sh` step 8 (`claude mcp add memory node <path>`). For OpenCode, entry in `opencode.json` under `"mcp"`.
+
+**Tools used by agents:**
+
+| Tool | When |
+|------|------|
+| `session_restore()` | Start of every session — load prior decisions, constraints, patterns for this project |
+| `memory_store({ content, type, confidence, citation })` | When a significant decision, constraint, pattern, or bug root cause is found |
+| `session_save({ summary })` | After every phase gate, before stopping |
+| `memory_recall({ query })` | On demand — search prior project memories |
+
+Types: `decision`, `fact`, `pattern`, `error`, `preference`. Scope: `project` (default) or `global`.
+
+**Flat-file fallback:** When the MCP is unavailable, agents fall back to `docs/work/SESSION_NOTES.md`. Full protocol in `agents/shared/MEMORY_PRIMER.md`.
+
+---
+
+### `bpm-code-search-mcp` — Semantic + symbol code search
+
+MCP server providing semantic search over code chunks (embedding-based) and a structural symbol index. Built on SQLite + FTS5 + cosine similarity. Provider-sticky: the embedding provider used at index time is locked in; queries from a different provider fall back to FTS5 BM25.
+
+Source: `~/Code/bpm-code-search-mcp/`. Registered in `opencode.json` and `~/.claude/settings.json` (PostToolUse hook auto-reindexes edited files).
+
+**Tools:**
+
+| Tool | Purpose |
+|------|---------|
+| `code_index(path?, force?)` | Index or re-index the codebase. Mtime-gated — skips unchanged files. |
+| `code_search(query, top_k?, path_filter?)` | Semantic search — returns ranked chunks with file:line and similarity score |
+| `code_symbols(kind?, name_filter?, path_filter?, limit?)` | Browse symbol index — functions, classes, interfaces, types, enums, methods, Markdown sections |
+| `code_outline(file_path)` | Structural outline of a single file — all named symbols in line order |
+| `code_references(name, top_k?, path_filter?)` | Find all chunks mentioning a symbol by name (FTS exact-phrase match) |
+| `code_index_status()` | Provider, file count, chunk count, symbol count, DB path |
+
+Symbol extraction covers 10 languages: TypeScript/JS, Python, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, Markdown headings.
 
 ---
 
