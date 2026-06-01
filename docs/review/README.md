@@ -20,7 +20,7 @@ This book documents the architecture, internals, and quality findings for the bp
 |---------|---------|
 | [03 · Plugin Hook System](03-plugin-hooks.md) | expert-hooks.ts lifecycle, blocklist patterns, secret scanner |
 | [04 · Tool System](04-tools.md) | All 18 tools, bash/run execution flow, task delegation sequence |
-| [05 · Agent System](05-agents.md) | All 15 agents, shared protocols, agent hierarchy |
+| [05 · Agent System](05-agents/README.md) | 15 agents with per-agent flow diagrams and sequence diagrams |
 
 ## Part III — Workflows
 
