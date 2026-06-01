@@ -55,6 +55,8 @@
 | validate-migrations.sh | 4 | All schema changes in migrations |
 | validate-module-boundaries.sh | 3 | No cross-boundary imports |
 | validate-module-design.sh | 3 | MODULE_DESIGN.md completeness |
+| validate-book-structure.sh | All | Book dir has README, nav bars, ≥2 chapters, no chapter >400 lines |
+| validate-mermaid.sh | All | Mermaid syntax: unquoted `/`, semicolons in Note over, Unicode arrows |
 | validate-no-ascii-art.sh | All | No Unicode box-drawing characters |
 | validate-owasp.sh | Security | All OWASP Top 10 categories addressed |
 | validate-phase-gate.sh | All | Master gate orchestrator |

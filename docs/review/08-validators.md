@@ -65,6 +65,45 @@ sequenceDiagram
     end
 ```
 
+### 8.3 New Validators (added 2026-06-01)
+
+Two new validators were added during the system review session and are wired into the phase gate chain.
+
+#### validate-mermaid.sh
+
+Static Mermaid syntax checker. Scans all `.md` files (or a target directory) for 6 error classes before a diagram renderer ever touches them:
+
+| Code | Pattern | Example bad input |
+|------|---------|-------------------|
+| M001 | Unquoted `/` in `[node label]` | `SDLC[/sdlc]` |
+| M002 | Semicolons in `Note over` text | `Note over A: step one; step two` |
+| M003 | Unicode `→` arrows | `A → B` |
+| M004 | Unquoted `\|` in node label context | `node[\|label]` |
+| M005 | Empty `[]` or `()` node labels | `A[]` |
+| M006 | Unclosed mermaid fenced blocks | ` ```mermaid` with no closing ` ``` ` |
+
+Wired into **phase-3** and **onboard-deep** gates (after `validate-no-ascii-art.sh`).
+
+```bash
+bash scripts/validators/validate-mermaid.sh .           # scan entire repo
+bash scripts/validators/validate-mermaid.sh . docs/     # scan docs/ only
+```
+
+#### validate-book-structure.sh
+
+Validates that a `docs/<slug>/` directory is a well-formed book per `BOOK_PROTOCOL.md`:
+
+- `README.md` exists with a navigation table (pipe-delimited with links)
+- At least 2 chapter files present
+- Every chapter has `[🏠 Index]` nav bar at top and bottom
+- No chapter exceeds 400 lines
+
+```bash
+bash scripts/validators/validate-book-structure.sh docs/review/
+```
+
+Exits 0 (pass), 1 (structural errors), 2 (usage error). Outputs JSON findings to stdout and human summary to stderr.
+
 ---
 
 ---

@@ -4,13 +4,13 @@
 
 # 13. Improvement Recommendations
 
-### Priority 0 — Regressions (fix immediately — existing features are broken)
+### Priority 0 — Regressions ✅ All Fixed (2026-06-01)
 
-| ID | File | Fix | Effort |
+| ID | File | Fix | Status |
 |----|------|-----|--------|
-| R-1 | `plugins/expert-hooks.ts:133` | Change `output.args?.command` → `input.args?.command` — dangerous command blocking never fires | 1 line |
-| R-2 | `tools/pomodoro.ts` | Replace all `Deno.*` calls with `fs/promises` equivalents — tool crashes on every invocation | 30 min |
-| R-3 | `tools/simplify-file.ts` | Add `import { spawn } from "child_process"` — tool crashes on every invocation | 1 line |
+| R-1 | `plugins/expert-hooks.ts:133` | Changed `output.args?.command` → `input.args?.command` — dangerous command blocking now fires | ✅ Fixed |
+| R-2 | `tools/pomodoro.ts` | Replaced all `Deno.*` calls with `fs/promises` equivalents — tool no longer crashes | ✅ Fixed |
+| R-3 | `tools/simplify-file.ts` | Added `import { spawn } from "child_process"` — tool no longer crashes | ✅ Fixed |
 
 ### Priority 1 — Critical Security (fix before exposing to untrusted content)
 
@@ -54,6 +54,19 @@
 | SH-4 | Pin semgrep community rule repos to commit hashes in `install.sh` | Supply chain hardening |
 | SH-5 | Fix `chmod 777` on pullmd data directory → `chmod 700` | Multi-user security |
 | SH-6 | Write integration tests for blocklist patterns (including bypass attempts) | Regression-free maintenance |
+
+### Additions (2026-06-01)
+
+New capabilities added in the same session as this review:
+
+| Item | What was added | Where |
+|------|---------------|-------|
+| `validate-mermaid.sh` | Static Mermaid syntax checker — 6 error classes, wired into phase-3 + onboard-deep gates | `scripts/validators/` |
+| `validate-book-structure.sh` | Book structure validator — README, nav bars, chapter count, size limits | `scripts/validators/` |
+| `agents/shared/BOOK_PROTOCOL.md` | Canonical rule for structuring long deliverables as multi-chapter books | `agents/shared/` |
+| Book rule in 10 agents | Injected `## Document format (MANDATORY)` into 5 SDLC agents + 5 specialist agents | `agents/` |
+| Mermaid syntax fixes | 33 node label quotes, 2 `Note over` semicolons, 11 Unicode arrows corrected | All `.md` files |
+| `docs/review/` | This review split from 1,175-line monolith into 14-chapter navigable book | `docs/review/` |
 
 ---
 
