@@ -434,6 +434,23 @@ Modes: `--strategy`, `--unit`, `--e2e`, `--coverage`
 
 Reference: `references/playwright-config.md`. Output: `docs/test/`.
 
+### `/ui-verify`
+
+Live browser verification using `playwright-mcp`. Navigates your running app, takes screenshots, reads accessibility snapshots, and verifies flows. Works with any LLM — no vision model required.
+
+```
+/ui-verify http://localhost:3000                   # smoke pass — main routes, screenshots
+/ui-verify http://localhost:3000 --use-cases       # verify P0 use cases from USE_CASES.md
+/ui-verify http://localhost:3000 --flow "login"    # single flow end-to-end
+/ui-verify http://localhost:3000 --regression      # post-change regression check
+```
+
+**Distinct from `/test-expert --e2e`:** test-expert writes `.spec.ts` files. `/ui-verify` runs the browser NOW against your running server and tells you what it sees — immediate visual feedback, no test framework needed.
+
+**Requires:** `playwright-mcp` registered. Check: `claude mcp list | grep playwright`.
+
+Output: `docs/test/UI_VERIFICATION_REPORT.md` — per-flow PASS/FAIL/WARN table, step observations, accessibility findings.
+
 ### `/perf`
 
 ```

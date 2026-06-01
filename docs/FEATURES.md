@@ -189,6 +189,30 @@ Bridges UX specification and production UI. Turns design tokens and component sp
 
 Distinct from `ux-engineer`: UX handles usability, workflows, and accessibility; this agent handles visual polish and implementation. Called by `sdlc-lead` in Phase 3 (after UX spec is approved) and Mode 4 (`/sdlc improve "frontend"`).
 
+### `ui-verifier` — Live browser verification specialist (`mode: primary`)
+
+Navigates a running application with `playwright-mcp`, captures screenshots, reads accessibility snapshots, and verifies that real UI behavior matches use cases or UX specs. Works with any LLM — no vision required (uses accessibility tree as primary signal).
+
+**Not a test-writer.** `test-engineer` writes Playwright specs. `ui-verifier` runs the browser live against your deployed or local server and produces a `UI_VERIFICATION_REPORT.md` with per-flow PASS/FAIL/WARN verdicts.
+
+**Modes:**
+- `--smoke` (default) — 5-min quick pass: navigate main routes, screenshot, check for errors
+- `--use-cases` — verify each P0 use case from `docs/testing/USE_CASES.md`
+- `--flow "<description>"` — single named flow end-to-end (login, create, submit, etc.)
+- `--regression` — post-change check against last-known report
+
+**Verification signals (no vision needed):**
+- `browser_snapshot()` — accessibility tree reveals error alerts (`role="alert"`), `aria-invalid`, missing landmarks, unlabeled inputs
+- `browser_get_url()` — confirms redirects happened correctly
+- `browser_evaluate("document.title")` — catches 404/500 pages
+- `browser_screenshot()` — visual record, described if vision model available
+
+**Produces:** `docs/test/UI_VERIFICATION_REPORT.md` — per-flow results table, step-by-step observations, accessibility findings, recommendations.
+
+**Requires:** `playwright-mcp` registered (handled by `install.sh`).
+
+---
+
 ### `architecture-designer` — Module boundary designer (`mode: primary`)
 
 Derives module boundaries from business domains and produces the structural design documents that `coding-agent` and `validate-module-boundaries.sh` enforce.
@@ -317,8 +341,9 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-inventory` | `researcher` | Ralph Wiggum D1 — enumerate units into `docs/onboard/INVENTORY.md` |
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
+| `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**24 skills total** (15 agent-backed + 9 utility/sub-skills).
+**25 skills total** (16 agent-backed + 9 utility/sub-skills).
 
 ---
 
