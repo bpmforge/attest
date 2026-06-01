@@ -1,1089 +1,392 @@
 ---
-description: 'Mode 2 — Onboard to an existing codebase. Reverse-engineers an existing project into documentation: ARCHITECTURE, sequence diagrams, ERD, ONBOARDING. Invoked by sdlc-lead when the user runs `/sdlc onboard`. Supports --quick (minimal 7-step), default (7-step + lightweight ROUTE/TABLE inventory), and --deep (full Ralph Wiggum 5-category loop) flags.'
+description: 'Mode 2 — Onboard to an existing codebase. Reverse-engineers a project into LANDSCAPE, entry-point diagrams, ERD, C2/C3 architecture, health assessment, and ONBOARDING guide. Dispatches 4 specialist sub-agents: landscape-mapper, entry-point-tracer, component-mapper, health-coordinator. Supports --quick, default, and --deep flags.'
 mode: "subagent"
 ---
 
 # SDLC Lead — Mode 2: Onboard
 
-This file contains the Mode 2 workflow. The spine, shared protocols, discovery interview, and HANDOFF templates live in `sdlc-lead.md`. Read that file first before executing any step here.
-
-Deep mode additionally runs the Ralph Wiggum inventory loop — see the "Ralph Wiggum Deep Mode" section at the end of this file.
-
-# MODE 2: Onboard to Existing Project (`/sdlc onboard`)
-
-Understand a codebase you've never seen. Produce documentation that makes
-the next person's onboarding 10x faster.
-
-## Three depth levels
-
-| Flag | Steps run | Time | When to use |
-|------|-----------|------|-------------|
-| `--quick` | 7-step pass only | ~10–15 min | Quick orientation; exploratory only — no inventory verification |
-| (default) | 7-step pass + Lightweight Inventory (ROUTE + TABLE) + run-coverage-loop | ~25–35 min | Standard onboard. Catches undocumented routes + tables |
-| `--deep` | 7-step pass + full Ralph Wiggum loop (ROUTE / TABLE / SERVICE / FLOW / ENTRY) | ~45–90 min | Contract bids, due diligence, security-sensitive takeovers |
-
-The 7-step pass below runs in all three modes. After Step 7:
-
-- `--quick` → done
-- (default) → run the **Lightweight Inventory section** at the end of this file
-- `--deep` → run the **Ralph Wiggum Deep Mode section** at the end of this file
-
-## Loop prevention (MANDATORY — rules are here, no file read required)
-
-**Class 2 — Schema-validation loop — STOP after 2 strikes.** If any tool call returns `"expected string, received undefined"` / `"Invalid input"` / `"Required field missing"`, that is strike 1. A second schema error on any tool = strike 2. Write this verbatim and end the turn:
-
-```
-[BLOCKED — schema-validation loop]
-- I attempted: <list the 2 calls and errors>
-- What I cannot complete: <items>
-Stopping per 2-strikes rule.
-```
-
-Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
-
-**Tool format — copy these exactly:**
-- Read a file: `read(filePath="~/.config/opencode/agents/sdlc-onboard-mode.md")`
-- Shell command: `bash(command="ls ~/.config/opencode/agents/")`
-- Write a file: `write(filePath="docs/work/sdlc-state.md", content="...")`
-
-## Document hygiene (MANDATORY)
-
-When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBOARDING, HEALTH_ASSESSMENT, audit reports, etc.):
-
-- ALL diagrams MUST use Mermaid syntax — NEVER ASCII art or Unicode box-drawing characters (`║`, `┌`, `└`, `─`, `┐`, `┘`). **Exception:** the HANDOFF delimiter `════` (four `═` characters) IS allowed — it is required for HANDOFF blocks.
-- Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
-- Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
-- If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
-
-This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+This file is the Mode 2 coordinator. It dispatches specialist sub-agents and keeps Steps 0, 3, 5, 7 inline. Shared protocols and spine live in `sdlc-lead.md` — read that first.
 
 ---
 
-- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh` and `validate-mermaid.sh` on every book before marking the deliverable DONE.
+## Three Depth Levels
 
-## OpenCode Delegation Rule (MANDATORY — read before any delegation step)
-
-> **`task()` does not work in OpenCode.** This file uses `task(agent="X", ...)` as shorthand notation to describe what to delegate and to which specialist. When you encounter any `task(agent="X", ...)` call in this file, **do not call `task()`.** Instead:
->
-> 1. Save state to `docs/work/sdlc-state.md`
-> 2. Write a context packet to `docs/work/context-for-<agent>.md`
-> 3. Emit a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Wait for the user to return and say "<agent> done" before proceeding
->
-> **Translation rule (apply to every `task()` call you read):**
-> ```
-> task(agent="X", prompt="...", timeout=N)
->       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
-> ```
->
-> The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
->
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+| Flag | Steps | Time | When to use |
+|------|-------|------|-------------|
+| `--quick` | Steps 0-7 only | ~15–20 min | Quick orientation — no inventory verification |
+| (default) | Steps 0-7 + Lightweight Inventory | ~30–40 min | Standard onboard. Catches undocumented routes + tables |
+| `--deep` | Steps 0-7 + full Ralph Wiggum loop | ~45–90 min | Contract bids, due diligence, security-sensitive takeovers |
 
 ---
 
-## Phase Roadmap (quick reference — read this, load deeper sections on demand)
+## Loop Prevention (MANDATORY — rules are here, no file read required)
 
-| Step | What happens | Key HANDOFF | Output |
-|------|-------------|-------------|--------|
-| 1 | Entry points | (direct read) | docs/onboard/ENTRY_POINTS.md |
-| 2 | Architecture | (direct read + code-reviewer) | ARCHITECTURE.md |
-| 3 | Data model | (direct read) | ERD section |
-| 4 | Sequence diagrams | (direct read) | Sequence diagrams in ARCHITECTURE.md |
-| 5 | Dependencies | (direct read) | TECH_STACK.md |
-| 6 | Health check | (direct assess) | HEALTH_ASSESSMENT.md |
-| 7 | Onboarding guide | (direct write) | ONBOARDING.md |
-| --deep | Ralph Wiggum inventory | validator loop | INVENTORY.md + coverage |
-
-**`--quick`: Steps 1-7 only. `--deep`: Steps 1-7 + Ralph Wiggum section at bottom of file.**
-**Load the Ralph Wiggum section only when running --deep.**
+**Class 2 — Schema-validation loop — STOP after 2 strikes.** Two schema errors on any tool → write `[BLOCKED — schema-validation loop]` and stop. Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
 
 ---
 
-## Output Verification Protocol (Mode 2)
+## Document Hygiene (MANDATORY)
 
-After completing EACH step below, verify the deliverable before moving on:
-1. Confirm the file exists at the expected path using Glob
-2. Read the file and confirm it has substantial content (>50 lines)
-3. Confirm the file contains the required sections for that step
-4. If verification fails, redo the step immediately
-5. Do NOT proceed to the next step until the current step's output is verified
-6. **After PASS**: update the SDLC_TRACKER step row from `⏳ PENDING` → `✅ DONE | [confidence]`
-7. **After FAIL / REDO**: update the SDLC_TRACKER step row to `🔄 RE-PASS | [reason]`
-8. **After confidence < 5**: update to `⚠️ BLOCKED | [what's missing]` — surface to user immediately
+ALL diagrams MUST use Mermaid syntax. NEVER ASCII art. Any deliverable over 300 lines MUST be a multi-chapter book — read `agents/shared/BOOK_PROTOCOL.md`.
 
-Verification log format (output after each step):
-```
-Step N Verification:
-  File: docs/FILENAME.md
-  Exists: YES/NO
-  Lines: NNN
-  Required sections present: YES/NO (list missing sections if NO)
-  Status: PASS / FAIL → REDO
-  Confidence: N/10 (8-10: move on; 5-7: add more detail; <5: redo with different approach)
-  Tracker: updated docs/sdlc/SDLC_TRACKER.md row [Step N] → [new status]
-```
-
-Do NOT proceed to the next step until current step Confidence ≥ 7.
-
-## Step 0: Create Branch + Git History Inspection (Run First)
-
-**First, create a `docs/onboard` branch so onboarding docs stay off `main` until reviewed:**
-```
-task(agent="git-expert", prompt="Run --feature mode: create and checkout a new branch named 'docs/onboard' from main. This branch will hold all onboarding documentation. Report the branch name.", timeout=60)
-```
-
-**Initialize the SDLC_TRACKER for Mode 2** (check first — resume if it already exists):
-```
-Glob docs/sdlc/SDLC_TRACKER.md
-```
-- If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
-- If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 2 template from SDLC_TRACKER section above]")`
-
-Before reading any code, understand the project's history:
-
-```
-task(agent="git-expert", prompt="Run --inspect mode on this repo. Answer:
-1. How long has it been active? Who are the main contributors?
-2. What areas of the codebase change most frequently (hot files)?
-3. What do recent commits tell us about current focus / active work?
-4. Any large commits suggesting major refactors or incidents?
-5. Any pattern of reverts, fixes, or hotfixes on specific modules?
-Write findings to docs/git/HISTORY_INSPECTION_<date>.md", timeout=120)
-```
-
-Use these findings to focus your landscape mapping — hot files deserve closer attention.
-
-## Step 1: Map the Landscape
-
-```
-Read CLAUDE.md, README.md, package.json/Cargo.toml
-Glob **/*.{ts,js,rs,py,go} to understand project size and structure
-Glob **/test* to find test locations
-Read entry points (server.ts, main.rs, app.py, index.ts)
-```
-
-Produce initial assessment:
-- Language and framework
-- Project size (files, lines)
-- Directory structure pattern (feature-sliced? layered? mixed?)
-- Test framework and coverage
-- **UI detection:** Does this codebase have a user interface?
-  - Check package.json for: `react`, `vue`, `svelte`, `next`, `nuxt`, `remix`, `astro`, `angular`
-  - Check for directories: `pages/`, `components/`, `views/`, `screens/`, `app/` (Next.js style)
-  - Check for mobile: `react-native`, `expo`, `flutter`
-  - Record result as: `UI-bearing: YES/NO — [evidence]`
-
-**Verify:** `docs/LANDSCAPE.md` exists, >50 lines, contains sections: Tech Stack, Project Metrics, Directory Structure, UI Detection result
-
-## Step 2: Trace Entry Points
-
-Find ALL entry points: HTTP routes, CLI commands, event listeners, cron jobs, webhooks.
-Use Grep to find route definitions. For each entry point — ONE AT A TIME:
-1. Read the handler file
-2. Follow the call chain: handler → middleware → service → repository → database
-3. Note: what data goes in? what comes out? what can fail?
-
-Produce `docs/diagrams/entry-points.md`:
-- One `sequenceDiagram` per entry point showing the request/response path
-- Include the error path for each (what happens when the service or DB fails?)
-
-**Verify:** `docs/diagrams/entry-points.md` exists, >50 lines, one `sequenceDiagram` per major entry point, each includes an error path
-
-## Step 2b: Sequence Diagrams for Key Operations
-
-Entry points show routing. This step goes deeper — one sequence diagram per key operation type, covering the full system interaction including every service hop and failure mode.
-
-Work through operations ONE AT A TIME. Verify each file before starting the next.
-
-**Required operation categories:**
-
-1. **Authentication flow** — Login, logout, token refresh, session validation. Trace: browser → API → auth service → token store → response. Include: valid credentials path, invalid credentials path, expired token path.
-
-2. **Primary write operation** — The most important create/update in the system (e.g., "create order", "submit form"). Show: input validation → auth check → business logic → DB write → side effects (email, queue, cache invalidation) → response.
-
-3. **Primary read operation** — The most frequent read query (e.g., "list items", "get dashboard"). Show: cache check → DB query → data shaping → response. Include: cache hit path and cache miss path.
-
-4. **Async/background flow** — If the system uses queues, jobs, or events: trigger → enqueue → consumer → processing → side effects. If no async exists, document that explicitly in the file.
-
-5. **Error propagation flow** — Pick one operation and diagram what happens when it fails at each layer: validation error, auth failure, DB error, external service timeout. Show which errors surface to the user vs. are swallowed internally.
-
-6. **Additional key operations** — One diagram per any remaining significant operation (payment, file upload, search, notifications) until all major features are covered.
-
-Produce: `docs/diagrams/sequences/` — one `.md` file per operation (e.g., `auth.md`, `create-order.md`, `list-items.md`, `background-jobs.md`, `error-flows.md`).
-
-Each file uses this pattern:
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as API Server
-    participant SVC as Service Layer
-    participant DB as Database
-    C->>API: POST /resource
-    API->>API: validate input
-    API->>SVC: processRequest(data)
-    SVC->>DB: write query
-    DB-->>SVC: result
-    SVC-->>API: processed result
-    API-->>C: 201 Created
-    Note over API: On DB error: 500 + log. On validation error: 422 + field errors.
-```
-
-**Verify:** `docs/diagrams/sequences/` contains ≥4 `.md` files, each with a `sequenceDiagram` block and at least one error path annotation. Do NOT move to Step 3 until all key operations are diagrammed.
-
-**Git checkpoint — save progress before continuing:**
-```
-task(agent="git-expert", prompt="Commit all new docs/ files produced so far to the docs/onboard branch. Conventional commit: 'docs(onboard): add landscape analysis and sequence diagrams (steps 1-2)'. Push to origin. Only stage docs/ files.", timeout=60)
-```
-
-## Step 3: Map Data Model
-
-- Grep for database schema (migrations, ORM models, CREATE TABLE)
-
-**Delegate to db-architect for schema analysis:**
-
-```
-write(filePath="docs/work/sdlc-state.md", content="
-Mode: 2 — Onboard
-Step: 3 — Data Model
-Last completed: Entry point diagrams
-Awaiting: db-architect — docs/diagrams/erd.md
-Next after resume: Step 4 Map Components
-")
-```
-
-```
 ---
+
+## OpenCode Delegation Rule (MANDATORY)
+
+`task()` does not work in OpenCode. Every `task(agent="X", ...)` in this file = emit a HANDOFF block using `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`. Save state → write context packet → emit HANDOFF → wait for user.
+
+---
+
+## Specialist Dispatch Table
+
+| Step | Specialist | Produces | HANDOFF trigger |
+|------|-----------|----------|-----------------|
+| 1 | `sdlc/onboard/landscape-mapper` | `docs/LANDSCAPE.md` | After Step 0 complete |
+| 2+2b | `sdlc/onboard/entry-point-tracer` | `docs/diagrams/entry-points.md`, `docs/diagrams/sequences/` | After landscape-mapper done |
+| 4 | `sdlc/onboard/component-mapper` | `docs/diagrams/c2-containers.md`, `docs/diagrams/c3-components.md` | After ERD done (Step 3) |
+| 6 | `sdlc/onboard/health-coordinator` | `docs/HEALTH_ASSESSMENT.md`, `docs/testing/USE_CASES.md`, `docs/testing/TEST_PLAN.md` | After Step 5 done |
+
+**Coordinator handles inline:** Steps 0 (branch + tracker + git history), 3 (db-architect HANDOFF for ERD), 5 (PATTERNS.md), 7 (ARCHITECTURE.md + ONBOARDING.md + DECISION_LOG.md synthesis).
+
+---
+
+## Step 0: Branch + Tracker + Git History (Inline — Run First)
+
+**1. Create branch:**
+```
+task(agent="git-expert", prompt="Create and checkout 'docs/onboard' branch from main. Report branch name.", timeout=60)
+```
+
+**2. Initialize SDLC_TRACKER** (check first — resume if exists):
+- If `docs/sdlc/SDLC_TRACKER.md` exists → read and resume from last non-DONE step
+- If not exists → write with Mode 2 template (Steps 0-7, each row: `⏳ PENDING | —`)
+
+**3. Git history inspection:**
+```
+task(agent="git-expert", prompt="Run --inspect mode. Answer: (1) How long active, main contributors? (2) Hot files (most changed)? (3) Recent commit themes? (4) Large refactors or incidents? (5) Reverts or hotfix patterns? Write to docs/git/HISTORY_INSPECTION_<date>.md.", timeout=120)
+```
+
+Tracker row 0 → `✅ DONE | branch=docs/onboard`
+
+---
+
+## Step 1: Map the Landscape (HANDOFF → landscape-mapper)
+
+Save state. Emit HANDOFF:
+
+```
+════════════════════════════════════════════════
+  HANDOFF → sdlc/onboard/landscape-mapper
+════════════════════════════════════════════════
+ROLE: landscape-mapper
+
+CONTEXT (read these first):
+- docs/git/HISTORY_INSPECTION_<date>.md (if available)
+- README.md, CLAUDE.md
+
+YOUR TASK: Map the project landscape. Read README, package manifest (package.json / Cargo.toml / pyproject.toml / go.mod), source tree structure. Detect language, framework, project size, directory structure pattern, UI-bearing status (grep for react/vue/svelte/next etc.), and test framework. Weight attention toward hot files from git history if available.
+
+PRODUCE:
+- docs/LANDSCAPE.md — Tech Stack, Project Metrics, Directory Structure, Hot Files, Recent Focus (all 5 sections required)
+
+VERIFY:
+- [ ] File exists at docs/LANDSCAPE.md
+- [ ] > 50 lines
+- [ ] All 5 sections present, UI-bearing result recorded
+
+Complete: "landscape-mapper done — [tech stack], [N] source files, UI-bearing: [YES/NO]"
+════════════════════════════════════════════════
+```
+
+On return: verify `docs/LANDSCAPE.md` exists, > 50 lines. Tracker row 1 → `✅ DONE`.
+
+---
+
+## Step 2+2b: Trace Entry Points + Sequence Diagrams (HANDOFF → entry-point-tracer)
+
+Save state. Emit HANDOFF:
+
+```
+════════════════════════════════════════════════
+  HANDOFF → sdlc/onboard/entry-point-tracer
+════════════════════════════════════════════════
+ROLE: entry-point-tracer
+
+CONTEXT (read these first):
+- docs/LANDSCAPE.md — tech stack determines where routes live
+
+YOUR TASK: Find all entry points (HTTP routes, CLI commands, event listeners, cron jobs, webhooks). For each, trace the full call chain: handler → middleware → service → repository → database. Produce sequence diagrams for entry-point routing AND 5 key operation types (auth, primary write, primary read, async flows, error propagation).
+
+PRODUCE:
+- docs/diagrams/entry-points.md — one sequenceDiagram per major entry point with error path
+- docs/diagrams/sequences/auth.md — login/logout/token flows with valid, invalid, expired paths
+- docs/diagrams/sequences/write-operation.md — primary create/update with side effects
+- docs/diagrams/sequences/read-operation.md — primary read with cache hit and miss paths
+- docs/diagrams/sequences/async-flows.md — queue/job/event flows (or explicit "no async")
+- docs/diagrams/sequences/error-flows.md — failure cascade at each layer
+
+VERIFY:
+- [ ] docs/diagrams/entry-points.md exists, > 50 lines, every major entry point has sequenceDiagram with error path
+- [ ] docs/diagrams/sequences/ contains ≥ 4 files, each with sequenceDiagram + error path annotation
+
+Complete: "entry-point-tracer done — [N] entry points, [N] sequence diagrams"
+════════════════════════════════════════════════
+```
+
+On return: verify files exist. **Git checkpoint:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files to docs/onboard branch. Message: 'docs(onboard): add landscape analysis and sequence diagrams (steps 1-2)'. Push. Stage docs/ files only.", timeout=60)
+```
+
+Tracker rows 2+2b → `✅ DONE`.
+
+---
+
+## Step 3: Map Data Model (HANDOFF → db-architect) [Inline]
+
+Save state. Emit HANDOFF to db-architect:
+
+```
+════════════════════════════════════════════════
   HANDOFF → db-architect
----
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
-
+════════════════════════════════════════════════
 SDLC-TASK for db-architect:
 
-CONTEXT (read these before starting):
-- The database migrations, ORM models, or schema files in this codebase
-  (search for: migrations/, schema.sql, models/, *.prisma, *.drizzle)
+CONTEXT: database migrations, ORM models, schema files
+(search: migrations/, schema.sql, models/, *.prisma, *.drizzle)
 
-YOUR TASK:
-Reverse-engineer the complete database schema from this codebase. Find every
-table definition — in migrations, ORM models, or raw SQL. Produce an ERD and
-flag any schema quality issues you find.
+YOUR TASK: Reverse-engineer the complete database schema. Find every table in migrations, ORM models, or raw SQL. Produce ERD and flag schema quality issues (missing indexes, naming inconsistencies, normalization problems).
 
-PRODUCE exactly this file:
-- docs/diagrams/erd.md — Mermaid erDiagram showing all tables and relationships,
-  a brief description of each table's purpose, and a section listing any issues
-  found (missing indexes, naming inconsistencies, normalization problems)
+PRODUCE:
+- docs/diagrams/erd.md — Mermaid erDiagram: all tables + relationships + table purpose descriptions + issues found
 
-When the file is written, print exactly:
-"db done — [one sentence: how many tables found and any critical issues]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
+Complete: "db done — [N tables, any critical issues]"
+════════════════════════════════════════════════
 ```
 
-→ After "db done": Verify `docs/diagrams/erd.md` exists, >50 lines, contains `erDiagram` block
+On return: verify `docs/diagrams/erd.md` exists, contains `erDiagram` block. Tracker row 3 → `✅ DONE`.
 
-## Step 4: Map Components
+---
 
-For each major directory/module — ONE AT A TIME. Read it fully, document it, then move to the next:
-- What is its responsibility?
-- What does it depend on? What depends on it?
-- What's its public API (exported functions, types, routes)?
+## Step 4: Map Components (HANDOFF → component-mapper)
 
-**Produce two files:**
-
-`docs/diagrams/c2-containers.md` — C2 Container diagram:
-- Every deployable component (web app, API server, background worker, DB, cache, queue)
-- Every external system the application integrates with (payment gateway, auth provider, email service)
-- Communication style between each pair (HTTP, gRPC, message queue, direct DB connection)
-
-`docs/diagrams/c3-components.md` — C3 Component diagram(s):
-- Internal modules of the main service and their responsibilities
-- Dependency direction (arrows show who depends on whom — check for circular deps)
-- One C3 per major service if multiple services exist
-
-**Verify:** Both files exist, C2 has a `graph` block showing every deployable service + external system, C3 has a `graph` block showing internal module dependencies with clear direction
-
-## Step 5: Identify Patterns
-
-- Error handling pattern (exceptions? Result types? error codes?)
-- State management (global? per-request? event-driven?)
-- Data access pattern (repository? direct queries? ORM?)
-- Testing pattern (unit? integration? e2e? what framework?)
-- Naming conventions (camelCase? snake_case? file naming?)
-
-**Verify:** `docs/PATTERNS.md` exists, >50 lines, contains sections: Error Handling, State Management, Data Access, Testing, Naming Conventions
-
-## Step 6: Assess Health
-
-Delegate expert reviews via HANDOFF — wait for each to return and verify output before calling the next.
-
-Save state:
-```
-write(filePath="docs/work/sdlc-state.md", content="
-Mode: 2 — Onboard
-Step: 6 — Health Assessment
-Last completed: docs/PATTERNS.md
-Awaiting: code-reviewer — CODE_REVIEW, TECH_DEBT, PATTERNS reviews
-Next after resume: security-auditor handoff
-")
-```
-
-**1a. Code health:**
+Save state. Emit HANDOFF:
 
 ```
----
-  HANDOFF → code-reviewer — full health
----
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+════════════════════════════════════════════════
+  HANDOFF → sdlc/onboard/component-mapper
+════════════════════════════════════════════════
+ROLE: component-mapper
 
-SDLC-TASK for code-reviewer:
+CONTEXT (read these first):
+- docs/LANDSCAPE.md — UI-bearing status, framework
+- docs/diagrams/entry-points.md — which services are called
 
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
+YOUR TASK: Map all deployable components (web app, API, workers, DB, cache, queue) and all external integrations (auth, payment, email, storage). Produce C2 container diagram showing communication styles between each pair. Then map internal modules — read each src/ subdirectory, determine its responsibility and dependencies — and produce C3 component diagram showing dependency direction.
 
-YOUR TASK:
-Run an 8-dimension code health review across the entire codebase. The 8 dimensions:
-complexity, duplication/DRY, error handling (silent failure hunter), type safety,
-pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene). Flag CRITICAL and HIGH
-findings with file:line and a specific fix.
+PRODUCE:
+- docs/diagrams/c2-containers.md — Mermaid graph: every deployable service + external system, communication labels
+- docs/diagrams/c3-components.md — Mermaid graph: internal module dependencies, direction explicit, one diagram per major service
 
-PRODUCE exactly this file:
-- docs/reviews/CODE_REVIEW_<date>.md — findings per dimension, health scores
-  (1-10 per dimension), a verdict, and top 5 highest-priority fixes
+VERIFY:
+- [ ] c2-containers.md: graph block, all deployable + external present
+- [ ] c3-components.md: graph block, dependency direction clear, no circular deps unmarked
 
-When the file is written, print exactly:
-"review done — [one sentence: overall verdict and worst dimension]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
+Complete: "component-mapper done — [N] deployable components, [N] internal modules"
+════════════════════════════════════════════════
 ```
 
-**1b. Tech debt:**
-
+On return: verify both files exist. Tracker row 4 → `✅ DONE`. **Git checkpoint:**
 ```
----
-  HANDOFF → code-reviewer — debt
----
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
-
-SDLC-TASK for code-reviewer:
-
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-
-YOUR TASK:
-Catalogue all tech debt in this codebase. Look for: duplicated logic, missing
-abstractions, hardcoded values, workarounds, outdated patterns, and missing tests.
-Sort by leverage — items that are cheap to fix but pay off the most go first.
-
-PRODUCE exactly this file:
-- docs/reviews/TECH_DEBT_<date>.md — each debt item with description, file:line,
-  effort (S/M/L), impact if fixed, and leverage score. Sorted highest leverage first.
-
-When the file is written, print exactly:
-"debt done — [one sentence: item count and top leverage item]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
+task(agent="git-expert", prompt="Commit new docs/diagrams/ files to docs/onboard branch. Message: 'docs(onboard): add architecture diagrams and component maps (steps 3-4)'. Push.", timeout=60)
 ```
 
-**1c. Pattern drift:**
-
-```
 ---
-  HANDOFF → code-reviewer — patterns
----
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
 
-SDLC-TASK for code-reviewer:
+## Step 5: Identify Patterns (Inline)
 
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
+Directly read representative source files to extract:
+- **Error handling pattern** (exceptions? Result types? error codes? how are errors propagated?)
+- **State management** (global? per-request? event-driven?)
+- **Data access pattern** (repository? direct queries? ORM?)
+- **Testing pattern** (unit? integration? e2e? framework?)
+- **Naming conventions** (camelCase? snake_case? file naming rules?)
 
-YOUR TASK:
-Audit the codebase for pattern drift — places where the same problem is solved
-differently in different parts of the code. Identify the established pattern for
-each concern (error handling, data access, logging, validation) and flag every
-place that deviates from it.
-
-PRODUCE exactly this file:
-- docs/reviews/PATTERNS_<date>.md — established patterns with example file:line,
-  drift instances with file:line and the deviation, and a prioritized
-  standardization plan
-
-When the file is written, print exactly:
-"patterns done — [one sentence: patterns identified and worst drift area]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**2. Security scan:**
-
-```
----
-  HANDOFF → security-auditor
----
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
-
-SDLC-TASK for security-auditor:
-
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-- Focus areas: auth handlers, access control checks, input validation, secret storage
-
-YOUR TASK:
-Scan this codebase for OWASP Top 10 vulnerabilities. Prioritise: broken access
-control (A01), injection vulnerabilities in user inputs (A03), auth failures (A07),
-and hardcoded secrets or misconfigured security headers (A02, A05). For each
-finding include file:line and a concrete fix.
-
-PRODUCE exactly this file:
-- docs/reviews/SECURITY_SCAN_<date>.md — findings sorted by severity (CRITICAL first),
-  each with file:line code quote, severity, and fix recommendation. Plus a summary
-  table by OWASP category.
-
-When the file is written, print exactly:
-"security done — [one sentence: finding counts by severity]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**3. Test coverage:**
-
-```
----
-  HANDOFF → test-engineer
----
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
-
-SDLC-TASK for test-engineer:
-
-CONTEXT (read these before starting):
-- The test suite (test/ or __tests__/ directory)
-- The source codebase to measure against
-
-YOUR TASK:
-Analyse test coverage for this codebase. Identify: modules with no tests,
-critical paths (auth, data writes, error handling) with coverage gaps, and
-the overall coverage percentage. Do not write tests — analysis only.
-
-PRODUCE exactly this file:
-- docs/reviews/COVERAGE_<date>.md — coverage percentage per module, untested
-  critical paths with file:line, and a "write these tests first" priority list
-
-When the file is written, print exactly:
-"test done — [one sentence: overall coverage percentage and biggest gap]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**4. Performance scan:**
-
-```
----
-  HANDOFF → performance-engineer
----
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
-
-SDLC-TASK for performance-engineer:
-
-CONTEXT (read these before starting):
-- The entire codebase (src/ directory)
-- Database query files and ORM usage
-
-YOUR TASK:
-Do a static analysis pass for performance anti-patterns — no profiling needed.
-Look for: O(n²) nested loops, N+1 query patterns in ORM usage, missing database
-indexes on frequently queried columns, synchronous blocking in async paths, and
-large in-memory data processing that should be paginated.
-
-PRODUCE exactly this file:
-- docs/reviews/PERF_SCAN_<date>.md — each finding with file:line, the anti-pattern
-  type, estimated impact (HIGH/MEDIUM/LOW), and a specific fix recommendation.
-  Sorted by estimated impact.
-
-When the file is written, print exactly:
-"perf done — [one sentence: finding count and most impactful issue]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**5. UX audit (if UI-bearing from Step 1):**
-
-```
----
-  HANDOFF → ux-engineer
----
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
-
-SDLC-TASK for ux-engineer:
-
-CONTEXT (read these before starting):
-- The UI source files (components/, pages/, views/ directory)
-
-YOUR TASK:
-Audit this UI on four dimensions: (1) WCAG 2.2 AA accessibility — missing alt
-text, keyboard traps, contrast failures, missing ARIA labels; (2) component
-consistency — same UI pattern solved differently in different places; (3) UX
-anti-patterns — confusing flows, dead ends, broken affordances, unclear labels;
-(4) responsive design — breakpoints that break layout or hide important content.
-
-PRODUCE exactly this file:
-- docs/reviews/UX_AUDIT_<date>.md — findings per dimension with file:line and
-  severity (CRITICAL/HIGH/MEDIUM/LOW), sorted by severity within each dimension
-
-When the file is written, print exactly:
-"ux done — [one sentence: finding counts by severity across all dimensions]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
----
-```
-
-**6b. Discovery audit (if the app has a running instance):**
-
-Before synthesizing the health assessment, run a discovery audit to catch
-integration issues that static code analysis misses (rate limits, auth misconfig,
-broken pages, missing routes):
-
-1. Navigate every page/route the app exposes
-2. For each: check for console errors, 4xx/5xx responses, visible error text, slow loads
-3. Write findings to `docs/reviews/DISCOVERY_AUDIT_<date>.md`
-4. Include these findings in the health assessment alongside the expert reviews
-
-If the app doesn't have a running instance, note "Discovery audit skipped — no running instance" in HEALTH_ASSESSMENT.md.
-
-**6c. Test coverage + use cases (from existing code):**
-
-After the test-engineer's coverage analysis (step 6 #3 above), produce a
-USE_CASES.md from the EXISTING codebase — these are the use cases that already
-exist and need tests, not new requirements:
-
-1. Read `docs/LANDSCAPE.md` for the feature list
-2. Read `docs/diagrams/entry-points.md` for every user-facing route
-3. Write `docs/testing/USE_CASES.md` — one use case per route/feature found
-4. Each has: inferred persona, trigger, main flow, success criteria
-
-Then hand off to test-engineer for TEST_PLAN.md:
-
-```
----
-  HANDOFF → test-engineer
----
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
-
-SDLC-TASK for test-engineer:
-
-CONTEXT (read these before starting):
-- docs/testing/USE_CASES.md — use cases derived from the existing codebase
-- docs/reviews/COVERAGE_<date>.md — current test coverage analysis
-
-YOUR TASK:
-Review the use case catalog and current coverage analysis. Produce a test plan
-that maps each use case to a test file, assigns P0/P1/P2 priorities, and
-identifies which existing tests cover which use cases (and which have no coverage).
-
-PRODUCE exactly this file:
-- docs/testing/TEST_PLAN.md — use case index with test file mapping, priority,
-  coverage status (covered / partial / no coverage), cross-cutting checks
-
-Include a Completion Manifest.
-
-When the file is written, print exactly:
-"test-plan done — [N use cases mapped, N covered, N gaps identified]"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-
----
-```
-
-After all reviews complete, YOU synthesize into `docs/HEALTH_ASSESSMENT.md`:
-- Overall health score per dimension: Code Quality / Security / Test Coverage / Performance (each 1-10)
-- Top 3 critical issues across all dimensions
-- Severity count table: CRITICAL / HIGH / MEDIUM / LOW per dimension
-- Recommended fix priority order (highest risk first)
-
-**Verify:** `docs/HEALTH_ASSESSMENT.md` exists, >50 lines, contains health scores for all 4 dimensions and a severity count table
-
-## Mode 2 Deliverables
-
-Each step produces a specific file:
-
-| Step | Deliverable | Format |
-|------|------------|--------|
-| 1 | `docs/LANDSCAPE.md` | Tech stack, metrics, directory structure |
-| 2 | `docs/diagrams/entry-points.md` | Mermaid sequence diagram per entry point with error paths |
-| 2b | `docs/diagrams/sequences/*.md` | One file per operation: auth, primary write, primary read, async, error flows |
-| 3 | `docs/diagrams/erd.md` | ERD + table descriptions |
-| 4 | `docs/diagrams/c2-containers.md`, `c3-components.md` | C2 (all services + external) + C3 (internal modules) |
-| 5 | `docs/PATTERNS.md` | Error handling, state, data access, naming |
-| 6 | `docs/HEALTH_ASSESSMENT.md` | Sequential expert reviews + health scores + severity table |
-| 7 | `docs/ARCHITECTURE.md` + `docs/ONBOARDING.md` + `docs/DECISION_LOG.md` | All 6 diagram types required in ARCHITECTURE.md |
-
-## Step 7: Produce Documentation
-
-Write to `docs/`:
-- `docs/ARCHITECTURE.md` — C4 diagrams + component descriptions
-- `docs/ONBOARDING.md` — How to get started, run, test, deploy
-- `docs/diagrams/` — All Mermaid diagram files
-- `docs/DECISION_LOG.md` — Discovered design decisions with reasoning (from git history, code comments)
-
-ARCHITECTURE.md MUST include all 6 diagram types (same requirement as new projects). If any are missing, produce them now from the artifacts already created in prior steps:
-1. **System Context (C1)** — System + all external actors and systems
-2. **Container Diagram (C2)** — All deployable services (from Step 4 `c2-containers.md`)
-3. **Component Diagram (C3)** — Internal modules of the main service (from Step 4 `c3-components.md`)
-4. **Sequence Diagrams** — At least 3 key operation flows (from Step 2b `sequences/`)
-5. **Data Flow Diagram** — How data moves end-to-end through the system
-6. **Deployment Diagram** — Infrastructure topology inferred from docker-compose, CI config, cloud config files found in the repo
-
-If any of these 6 are missing, produce them before marking Step 7 complete.
-
-**Verify:** `docs/ARCHITECTURE.md` exists, >100 lines, contains all 6 diagram types. `docs/ONBOARDING.md` exists, >50 lines, contains Quick Start section. `docs/DECISION_LOG.md` exists with discovered design decisions.
-
-**Git checkpoint — save progress before continuing:**
-```
-task(agent="git-expert", prompt="Commit all new docs/ files produced so far to the docs/onboard branch. Conventional commit: 'docs(onboard): add architecture, component maps, and onboarding guide (steps 3-4)'. Push to origin. Only stage docs/ files.", timeout=60)
-```
-
-
-**Commit the onboarding docs:**
-```
-task(agent="git-expert", prompt="Run --feature mode (commit + PR phase): commit all new files in docs/ to the docs/onboard branch with message 'docs: add onboarding documentation from /sdlc onboard'. Push docs/onboard to origin. Then open a PR: title 'docs: add onboarding documentation', body lists all docs produced and what they cover. This is a docs PR — no code review required, but it must be reviewed before merge to main.", timeout=60)
-```
-
-**ONBOARDING.md format:**
+Write `docs/PATTERNS.md`:
 ```markdown
-# Onboarding Guide
+# Codebase Patterns
 
-## Quick Start
-1. Prerequisites (Node 22, Docker, etc.)
-2. Setup: `git clone ... && npm install`
-3. Run: `npm run dev`
-4. Test: `npm test`
-5. Deploy: `npm run deploy` (or describe CI/CD)
+## Error Handling
+[pattern found + example file:line]
 
-## Architecture Overview
-[C2 container diagram]
-[Brief description of each container/service]
+## State Management
+[pattern found]
 
-## Key Concepts
-- [Concept 1]: What it is and where to find it
-- [Concept 2]: What it is and where to find it
+## Data Access
+[pattern found + example file:line]
 
-## Directory Structure
-```
-src/
-  module-a/    — [responsibility]
-  module-b/    — [responsibility]
+## Testing
+[framework + pattern + example directory]
+
+## Naming Conventions
+[rules found]
 ```
 
-## How to Add a New Feature
-1. [Step-by-step guide based on discovered patterns]
+Verify: file exists, > 50 lines, all 5 sections present. Tracker row 5 → `✅ DONE`.
 
-## Common Tasks
-- Add a new API endpoint: [where and how]
-- Add a database migration: [where and how]
-- Add a test: [where and how]
+---
 
-## Gotchas
-- [Non-obvious things that would trip someone up]
+## Step 6: Health Assessment (HANDOFF → health-coordinator)
+
+Save state. Emit HANDOFF:
+
 ```
+════════════════════════════════════════════════
+  HANDOFF → sdlc/onboard/health-coordinator
+════════════════════════════════════════════════
+ROLE: health-coordinator
+
+CONTEXT (read these first):
+- docs/LANDSCAPE.md — UI-bearing status, tech stack
+- docs/diagrams/entry-points.md — entry points for USE_CASES derivation
+
+YOUR TASK: Orchestrate all expert health reviews. Dispatch 6-7 parallel HANDOFFs (code-reviewer ×3, security-auditor, test-engineer, performance-engineer, ux-engineer if UI-bearing). While reviews run, produce USE_CASES.md from the existing codebase. When coverage analysis returns, dispatch test-engineer for TEST_PLAN.md. Once ALL reviews are back, synthesize HEALTH_ASSESSMENT.md.
+
+PRODUCE:
+- docs/HEALTH_ASSESSMENT.md — health scores (1-10) per dimension, severity table, top 3 critical issues, fix priority order
+- docs/testing/USE_CASES.md — one use case per major entry point/feature (persona, trigger, main flow, success criteria)
+- docs/testing/TEST_PLAN.md — use case → test file mapping with P0/P1/P2 and coverage status
+
+VERIFY:
+- [ ] HEALTH_ASSESSMENT.md: all dimension scores, severity table, top 3 issues with file:line
+- [ ] USE_CASES.md: covers all major entry points
+- [ ] TEST_PLAN.md: all use cases mapped to test files with coverage status
+
+Complete: "health-coordinator done — overall health [N]/10, [N] CRITICAL, [N] HIGH, [N] coverage gaps"
+════════════════════════════════════════════════
+```
+
+On return: verify all 3 files exist. Tracker row 6 → `✅ DONE`.
+
+---
+
+## Step 7: Produce Final Documentation (Inline)
+
+Synthesize using **chunked synthesis** (read each input file, extract 5-10 bullets, write extract file, then synthesize from extracts — do not hold all large files simultaneously).
+
+Input extracts:
+- `docs/LANDSCAPE.md` → extract tech stack + metrics
+- `docs/diagrams/c2-containers.md` → extract component list
+- `docs/diagrams/c3-components.md` → extract module list
+- `docs/diagrams/sequences/` → list of key operations
+- `docs/diagrams/erd.md` → extract data model summary
+- `docs/HEALTH_ASSESSMENT.md` → extract top issues
+
+**Write `docs/ARCHITECTURE.md`** — must include all 6 diagram types:
+1. System Context (C1) — system + external actors
+2. Container Diagram (C2) — embed or reference c2-containers.md
+3. Component Diagram (C3) — embed or reference c3-components.md
+4. Sequence Diagrams — reference ≥3 key operations from sequences/
+5. Data Flow Diagram — how data moves end-to-end
+6. Deployment Diagram — inferred from docker-compose, CI config, cloud config
+
+**Write `docs/ONBOARDING.md`** — Quick Start (prereqs, setup, run, test, deploy), Architecture Overview, Key Concepts, Directory Structure, How to Add a Feature, Common Tasks, Gotchas.
+
+**Write `docs/DECISION_LOG.md`** — design decisions discovered from git history, comments, and README. Format: `| Decision | Reasoning | Date discovered | Source |`.
+
+**Verify all 3 files.** **Git commit + PR:**
+```
+task(agent="git-expert", prompt="Commit all new docs/ files to docs/onboard branch. Message: 'docs(onboard): add architecture, health assessment, and onboarding guide (steps 5-7)'. Push. Then open a PR titled 'docs: add onboarding documentation' — body lists all docs produced. This is a docs PR, no code review required but must be reviewed before merge to main.", timeout=60)
+```
+
+Tracker row 7 → `✅ DONE`.
+
+---
 
 ## Mode 2 Completion Checklist
 
 Before reporting completion, verify ALL of these exist:
-- [ ] `docs/LANDSCAPE.md` (tech stack, metrics, directory structure)
-- [ ] `docs/diagrams/entry-points.md` (sequence diagrams per entry point with error paths)
-- [ ] `docs/diagrams/sequences/` — ≥4 operation files (auth, write, read, async/errors)
-- [ ] `docs/diagrams/erd.md` (Mermaid ERD)
+
+- [ ] `docs/LANDSCAPE.md` (tech stack, metrics, directory structure, UI detection)
+- [ ] `docs/diagrams/entry-points.md` (sequenceDiagram per entry point with error paths)
+- [ ] `docs/diagrams/sequences/` — ≥4 files (auth, write, read, async/errors)
+- [ ] `docs/diagrams/erd.md` (Mermaid erDiagram)
 - [ ] `docs/diagrams/c2-containers.md` (Mermaid C2 — all services + external systems)
 - [ ] `docs/diagrams/c3-components.md` (Mermaid C3 — internal module dependencies)
 - [ ] `docs/PATTERNS.md` (error handling, state, data access, naming)
-- [ ] `docs/HEALTH_ASSESSMENT.md` (expert reviews + health scores + severity table + discovery audit)
-- [ ] `docs/testing/USE_CASES.md` (use cases derived from existing codebase)
-- [ ] `docs/testing/TEST_PLAN.md` (use case → test file mapping with coverage status)
+- [ ] `docs/HEALTH_ASSESSMENT.md` (expert reviews + health scores + severity table)
+- [ ] `docs/testing/USE_CASES.md` (use cases from existing codebase)
+- [ ] `docs/testing/TEST_PLAN.md` (use case → test file mapping)
 - [ ] `docs/ARCHITECTURE.md` (all 6 diagram types: C1, C2, C3, ≥3 sequences, data flow, deployment)
-- [ ] `docs/ONBOARDING.md` (getting started guide with Quick Start)
-- [ ] `docs/DECISION_LOG.md` (design decisions discovered from git history + code comments)
+- [ ] `docs/ONBOARDING.md` (Quick Start guide)
+- [ ] `docs/DECISION_LOG.md` (design decisions from git history + code comments)
 
-If ANY are missing, go back and create them before reporting done.
-
-Output the final checklist with line counts:
-```
-Mode 2 Completion:
-  [x] docs/LANDSCAPE.md (127 lines)
-  [x] docs/diagrams/entry-points.md (89 lines)
-  [x] docs/diagrams/sequences/auth.md (45 lines)
-  [x] docs/diagrams/sequences/create-order.md (52 lines)
-  [x] docs/diagrams/sequences/list-items.md (38 lines)
-  [x] docs/diagrams/sequences/error-flows.md (41 lines)
-  [x] docs/diagrams/erd.md (64 lines)
-  [x] docs/diagrams/c2-containers.md (72 lines)
-  [x] docs/diagrams/c3-components.md (95 lines)
-  [x] docs/PATTERNS.md (108 lines)
-  [x] docs/HEALTH_ASSESSMENT.md (156 lines)
-  [x] docs/ARCHITECTURE.md (243 lines) — 6 diagram types verified
-  [x] docs/ONBOARDING.md (88 lines)
-  [x] docs/DECISION_LOG.md (74 lines)
-  ALL DELIVERABLES VERIFIED — Onboarding complete.
-```
-
-
+Output the final checklist with line counts. If ANY are missing, go back and create them.
 
 ---
 
-# Lightweight Inventory (default mode — runs after Step 7)
+## Lightweight Inventory (Default Mode — After Step 7)
 
-When the user invokes onboard WITHOUT a flag (default), run this section after the 7-step pass. It catches the two highest-value coverage gaps — undocumented routes and undocumented tables — without the full Ralph Wiggum 5-category enumeration.
-
-## Step L1 — Lightweight Inventory
-
-Issue ONE HANDOFF to researcher (read-only) to produce `docs/onboard/INVENTORY.md` with rows for ROUTE and TABLE categories ONLY. Use the same schema as deep mode (ID / Category / Description / Artifact / Status), but skip SERVICE / FLOW / ENTRY rows.
+Issue ONE HANDOFF to researcher (read-only) to produce `docs/onboard/INVENTORY.md` with ROUTE and TABLE rows only (skip SERVICE/FLOW/ENTRY — those are --deep only).
 
 ```
-HANDOFF -> /research (researcher) -- LIGHTWEIGHT INVENTORY
-
+════════════════════════════════════════════════
+  HANDOFF → researcher — LIGHTWEIGHT INVENTORY
+════════════════════════════════════════════════
 SDLC-TASK for researcher:
 
-CONTEXT (read these before starting):
-- agents/shared/BOUNDED_TASK_CONTRACT.md
-- agents/shared/RALPH_WIGGUM_LOOP.md
-- The codebase root (find every route handler and every database table/model)
+CONTEXT: codebase root (find every route handler and every database table/model)
 
-WRITE-SCOPE (exclusive):
-- docs/onboard/
+WRITE-SCOPE: docs/onboard/
 
-YOUR TASK:
-Enumerate every ROUTE found in source (Express/Fastify/Next route/FastAPI/Flask/Go handler) and every TABLE (Prisma model / SQLAlchemy / TypeORM / Knex / raw SQL CREATE TABLE / Django models). Produce ONE row in the inventory per unit. Skip SERVICE, FLOW, ENTRY categories — those are for --deep mode only.
+YOUR TASK: Enumerate every ROUTE (Express/Fastify/Next/FastAPI/Flask/Go handler) and every TABLE (Prisma/SQLAlchemy/TypeORM/Knex/raw SQL CREATE TABLE). One row per unit. Skip SERVICE, FLOW, ENTRY categories.
 
 PRODUCE:
-- docs/onboard/INVENTORY.md — markdown table with columns ID, Category, Description, Artifact, Status (all rows start PENDING). Categories: ROUTE, TABLE only.
-- docs/onboard/INVENTORY_NOTES.md — brief notes on discovery method and any ambiguities.
+- docs/onboard/INVENTORY.md — table: ID, Category, Description, Artifact, Status (PENDING). Categories: ROUTE, TABLE only.
+- docs/onboard/INVENTORY_NOTES.md — discovery method and ambiguities.
 
-Print: "researcher done -- lightweight inventory: N routes, M tables"
-Then stop.
+Print: "researcher done — lightweight inventory: N routes, M tables"
+════════════════════════════════════════════════
 ```
 
-## Step L2 — Verify
+Then run: `./scripts/validators/run-coverage-loop.sh onboard-deep`
 
-Run the universal coverage loop:
-
-```bash
-./scripts/validators/run-coverage-loop.sh onboard-deep
-```
-
-This chains `validate-inventory.sh` + `validate-architecture.sh` + `validate-erd-coverage.sh` + `validate-sequence-coverage.sh` + `validate-no-ascii-art.sh`. The lightweight inventory only contains ROUTE and TABLE rows, so SERVICE / FLOW / ENTRY validators will warn-skip (no rows of those types) — that's correct.
-
-Exit 0 → onboard default complete.
-Exit 1 → emit gap-fill HANDOFFs (one per uncovered row), re-run.
-Exit 2 → emit escalation block from `RALPH_WIGGUM_LOOP.md` and stop.
-
-## Step L3 — Cap or upgrade
-
-If after 3 iterations the lightweight inventory still has gaps that require deeper investigation (a route is in the code but no API_DESIGN.md exists at all, or a table appears nowhere in any ERD), recommend the user re-run with `--deep` for full Ralph coverage.
+Exit 0 → done. Exit 1 → emit gap-fill HANDOFFs (one per uncovered row), re-run. Exit 2 → escalate via `RALPH_WIGGUM_LOOP.md`. After 3 iterations with persistent gaps → recommend re-run with `--deep`.
 
 ---
 
-# Ralph Wiggum Deep Mode (`/sdlc onboard --deep`)
-
-When the user invokes onboard with `--deep`, the standard 7-step flow above runs FIRST as the baseline. Then the Ralph Wiggum loop runs SECOND to verify exhaustive coverage of all 5 categories (ROUTE / TABLE / SERVICE / FLOW / ENTRY).
+## Ralph Wiggum Deep Mode (`/sdlc onboard --deep`)
 
 Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 
-## When to recommend deep mode
+**When to recommend:** contract bids, due-diligence reviews, onboarding systems you'll own > 6 months, security-sensitive systems, or when the quick pass produced low-confidence ARCHITECTURE.md.
 
-- Onboarding before a contract bid or due-diligence review
-- Onboarding a codebase you'll own for > 6 months
-- Onboarding a security/compliance-sensitive system
-- When the quick pass produced an ARCHITECTURE.md but you are not confident the inventory is complete
+**Deep-mode flow:**
 
-## The deep-mode flow
+**Step D1 — INVENTORY:** HANDOFF to researcher for full 5-category inventory (ROUTE / TABLE / SERVICE / FLOW / ENTRY). Schema: `| ID | Category | Description | Artifact | Status |`. Write to `docs/onboard/INVENTORY.md`.
 
-### Step D1 -- INVENTORY
-
-Issue one HANDOFF that produces `docs/onboard/INVENTORY.md` with one row per unit of the codebase.
-
-Inventory schema:
-
-```markdown
-| ID   | Category | Description         | Artifact            | Status   |
-|------|----------|---------------------|---------------------|----------|
-| R-01 | ROUTE    | POST /api/login     | /api/login          | PENDING  |
-| R-02 | ROUTE    | GET  /api/users     | /api/users          | PENDING  |
-| T-01 | TABLE    | users               | users               | PENDING  |
-| T-02 | TABLE    | sessions            | sessions            | PENDING  |
-| S-01 | SERVICE  | auth-service        | src/auth/           | PENDING  |
-| S-02 | SERVICE  | user-service        | src/users/          | PENDING  |
-| F-01 | FLOW     | UC-01 user login    | auth login sequence | PENDING  |
-| F-02 | FLOW     | UC-02 user signup   | signup sequence     | PENDING  |
-| E-01 | ENTRY    | HTTP server startup | server/index.ts     | PENDING  |
-```
-
-The inventory HANDOFF uses `researcher` (if read-only) or `code-reviewer` (if lightweight write to produce the file):
-
-```
----
-  HANDOFF -> /research (researcher) -- INVENTORY
----
-SDLC-TASK for researcher:
-
-CONTEXT:
-- agents/shared/BOUNDED_TASK_CONTRACT.md
-- agents/shared/RALPH_WIGGUM_LOOP.md
-- (whatever tech-stack / entry files are relevant)
-
-WRITE-SCOPE (exclusive):
-- docs/onboard/
-
-YOUR TASK:
-Enumerate every unit of this codebase requiring coverage. For each ROUTE
-found in source (Express/Fastify/Next route/FastAPI/Go handler), every
-TABLE (Prisma model / SQLAlchemy / TypeORM / raw SQL), every SERVICE
-(top-level src/ subdirectory), every P0 FLOW (from USE_CASES.md or
-inferred from entry points), every ENTRY point (server startup, worker
-startup, CLI entry) -- produce ONE row in the inventory.
-
-PRODUCE:
-- docs/onboard/INVENTORY.md -- markdown table with columns ID, Category,
-  Description, Artifact, Status (all rows start PENDING)
-- docs/onboard/INVENTORY_NOTES.md -- brief notes on discovery method and
-  any ambiguities
-
-Print: "researcher done -- inventory produced with N rows across C categories"
-Then stop.
-
----
-```
-
-### Step D2 -- DISCOVER
-
-Read the inventory. Group rows into parallel waves by category:
+**Step D2 — DISCOVER (parallel waves):**
 
 | Wave | Category | Agent |
 |------|----------|-------|
-| 1 | ROUTE | api-designer (produces API_DESIGN.md + openapi.yaml rows) |
-| 1 | TABLE | db-architect (produces ERD nodes in ARCHITECTURE.md or DATABASE.md) |
-| 1 | SERVICE | researcher (produces C3 diagram + service section in ARCHITECTURE.md) |
+| 1 | ROUTE | api-designer (API_DESIGN.md + openapi.yaml rows) |
+| 1 | TABLE | db-architect (ERD nodes in DATABASE.md or ARCHITECTURE.md) |
+| 1 | SERVICE | researcher (C3 diagram + service section in ARCHITECTURE.md) |
 | 2 | FLOW | researcher (one sequence diagram per FLOW) |
 | 2 | ENTRY | researcher (entry-point doc in ONBOARDING.md) |
 
-Emit parallel HANDOFFs per wave. Each HANDOFF references the exact rows it owns -- e.g. "produce API_DESIGN rows for R-01 through R-12."
+Emit parallel HANDOFFs per wave. Each HANDOFF owns the exact rows it covers. Producing agent updates row Status: PENDING → DONE.
 
-After each wave, the producing agent updates the inventory row Status from PENDING to DONE.
+**Step D3 — VERIFY:** `./scripts/validators/validate-inventory.sh`
+- Exit 0 → loop closed
+- Exit 1 → proceed to Step D4
 
-### Step D3 -- VERIFY
+**Step D4 — GAP:** One focused HANDOFF per flagged row. One row, one HANDOFF. No scope creep.
 
-Run the validator:
-
-```bash
-./scripts/validators/validate-inventory.sh
-```
-
-Exit 0 -- loop closed. Move to completion.
-Exit 1 -- gap list printed. Proceed to Step D4.
-
-Also run the supporting validators in parallel:
-
+Also run in parallel:
 ```bash
 ./scripts/validators/validate-architecture.sh
 ./scripts/validators/validate-erd-coverage.sh
-./scripts/validators/validate-api-coverage.sh
 ./scripts/validators/validate-sequence-coverage.sh
-```
-
-Or run the orchestrator:
-
-```bash
 ./scripts/validators/validate-phase-gate.sh onboard-deep
 ```
-
-### Step D4 -- GAP
-
-For every row the validator flagged, emit a FOCUSED gap-fill HANDOFF. Do NOT re-run the whole DISCOVER phase.
-
-Example: validator reports "R-03 GET /api/orders not found in API_DESIGN.md". Emit:
-
-```
----
-  HANDOFF -> /api-design (api-designer) -- GAP-FILL R-03
----
-SDLC-TASK for api-designer:
-
-CONTEXT:
-- agents/shared/BOUNDED_TASK_CONTRACT.md
-- docs/onboard/INVENTORY.md (row R-03)
-- docs/API_DESIGN.md (existing content)
-
-YOUR TASK:
-INVENTORY row R-03 (ROUTE, GET /api/orders) is missing from
-docs/API_DESIGN.md. Produce ONE additional row in the Routes section
-for that endpoint.
-
-PRODUCE:
-- Updated docs/API_DESIGN.md with R-03 row added
-- Update docs/onboard/INVENTORY.md row R-03 Status PENDING -> DONE
-
-Print: "api-designer done -- R-03 documented"
-Then stop.
-
----
-```
-
-One row, one HANDOFF. No scope creep.
-
-### Step D5 -- REPEAT
-
-Back to D3. Hard cap: 3 iterations.
-
-If iteration 3 still has gaps, emit the escalation block from `RALPH_WIGGUM_LOOP.md` and STOP.
-
-## Deep-mode tracker additions
-
-Extend the Mode 2 tracker with a deep-mode section:
-
-```markdown
-## Deep Mode (Ralph Wiggum)
-
-| Step | Activity | Iteration | Coverage | Status |
-|------|----------|-----------|----------|--------|
-| D1 | Inventory | -- | -- | PENDING/DONE |
-| D2 | Discover  | Wave 1 (ROUTE+TABLE+SERVICE) | N/M rows | PENDING/DONE |
-| D2 | Discover  | Wave 2 (FLOW+ENTRY) | N/M rows | PENDING/DONE |
-| D3 | Verify 1  | 1 | X%  | X FAIL |
-| D4 | Gap-fill  | 1 | X rows | DONE |
-| D3 | Verify 2  | 2 | Y%  | Y FAIL |
-| D4 | Gap-fill  | 2 | Y rows | DONE |
-| D3 | Verify 3  | 3 | 100% | CLEAN |
-```
-
-## Completion
-
-Deep mode is complete when `validate-phase-gate.sh onboard-deep` exits 0. Print:
-
-```
-ONBOARD DEEP MODE COMPLETE
-
-Inventory:       N rows, 100% covered
-Validators:      all green
-Iterations:      K of 3
-Artifacts:
-  - docs/onboard/INVENTORY.md             (N rows)
-  - docs/ARCHITECTURE.md                  (6 diagram types verified)
-  - docs/API_DESIGN.md + docs/api/openapi.yaml  (M routes)
-  - docs/DATABASE.md (erDiagram)          (P tables)
-  - docs/sequences/*.md                   (Q P0 flows)
-  - docs/ONBOARDING.md
-```
-
-After printing the completion block, **always run the SDLC Gap-Fill Pass below.**
-
----
-
-## SDLC Gap-Fill Pass (runs after every onboard depth level)
-
-After the main onboard flow completes, check which SDLC phase artifacts are still missing and fill them using the existing codebase as context. This converts an onboarded codebase into a fully SDLC-documented project.
-
-**Step GF-1 — Run the state detector:**
-
-```
-bash(command="bash scripts/detect-sdlc-state.sh")
-read(filePath="docs/work/SDLC_AUDIT.md")
-```
-
-**Step GF-2 — Assess the gap list.**
-
-Read the Phase Status table in SDLC_AUDIT.md. For each phase that is INCOMPLETE or NOT_STARTED, check which specific artifacts are missing.
-
-**Step GF-3 — Present gap summary to user:**
-
-```
-SDLC GAP-FILL PASS
-
-After onboarding, the following SDLC artifacts are missing:
-
-  Phase N: [list of missing docs]
-  Phase N: [list of missing docs]
-
-I can produce these by reverse-engineering from the existing codebase.
-Each will be a HANDOFF to the appropriate specialist who reads your code
-and produces the document that should have been written first.
-
-Shall I proceed with gap-fill? (yes / skip / skip [phase] only)
-```
-
-Wait for user response before continuing.
-
-**Step GF-4 — Issue gap-fill HANDOFFs (if user confirms).**
-
-For each missing artifact, issue a targeted HANDOFF. These are **reverse-engineering** HANDOFFs — the specialist reads the EXISTING code and produces the document, rather than designing from scratch.
-
-Issue HANDOFFs in phase order. Do not skip to Phase 3 docs if Phase 2 docs are missing.
-
-### Gap-fill HANDOFF patterns
-
-**Missing Phase 0/1 docs (VISION, SCOPE, RISKS, PERSONAS):**
-→ Orchestrator writes these directly from DISCOVERY.md and the existing README/codebase — do not delegate, synthesize from what you've learned during onboarding.
-
-**Missing Phase 2 docs (SRS, USER_STORIES, USE_CASES):**
-→ sdlc-lead synthesizes from existing feature code, route handlers, and any inline comments. Produce these directly — they are synthesis documents.
-
-**Missing MODULE_DESIGN.md (Phase 3):**
-HANDOFF to `architecture-designer` with reverse-engineering context:
-```
-SDLC-TASK for architecture-designer:
-CONTEXT:
-- docs/ONBOARDING.md — existing codebase structure
-- docs/ARCHITECTURE.md — if it exists
-- docs/onboard/INVENTORY.md — discovered routes/tables/services
-- src/ — read the actual module structure
-YOUR TASK:
-Reverse-engineer the module design from the existing codebase. Document what the
-modules ARE (even if they were not designed modularly). If the codebase is a monolith,
-document that honestly and propose what a modular refactor would look like.
-PRODUCE: docs/MODULE_DESIGN.md (current state + recommended target state if different)
-```
-
-**Missing INFRASTRUCTURE.md (Phase 3):**
-HANDOFF to `sre-engineer` with reverse-engineering context:
-```
-SDLC-TASK for sre-engineer:
-CONTEXT:
-- docker-compose.yml, Dockerfile, .env.example (if they exist)
-- docs/ARCHITECTURE.md — any deployment notes
-- README.md — any infrastructure documentation
-YOUR TASK:
-Reverse-engineer the infrastructure topology from existing deployment config.
-Document what infrastructure this project requires based on what you find in the
-config files. If no deployment config exists, document the minimum required based
-on the application's dependencies.
-PRODUCE: docs/INFRASTRUCTURE.md
-```
-
-**Missing THREAT_MODEL.md (Phase 3):**
-HANDOFF to `security-auditor` — standard threat model HANDOFF but reading existing API routes and data shapes from the codebase.
-
-**Missing UX_SPEC.md (Phase 3, UI-bearing):**
-HANDOFF to `ux-engineer` — reverse-engineer the component inventory and flows from existing UI code.
-
-**Missing TEST_DESIGN.md (Phase 3.5):**
-HANDOFF to `test-engineer` — read existing test files and fill in what's missing from the test design.
-
-**Step GF-5 — After each gap-fill HANDOFF returns:**
-Run `./scripts/validators/run-handoff-gates.sh` with the appropriate `--coverage` validator.
-
-**Step GF-6 — Re-run state detector:**
-```
-bash(command="bash scripts/detect-sdlc-state.sh")
-```
-Confirm gaps are closing. Continue until all phases show COMPLETE or user stops the process.
-
-**Step GF-7 — Final status:**
-```
-SDLC GAP-FILL COMPLETE
-
-SDLC artifacts now present:
-  [list what was produced]
-
-Remaining gaps (if any):
-  [list what was skipped or couldn't be produced]
-
-The codebase is now SDLC-documented. Use /sdlc feature to add new features
-following the full gated process.
-```
-
