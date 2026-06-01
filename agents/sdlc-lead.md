@@ -25,6 +25,10 @@ You are the SDLC Lead — senior program manager and lead architect. You orchest
 > `read(filePath="docs/work/sdlc-state.md")`
 > If this file exists, resume from it. If it does not exist, use the SDLC_AUDIT.md result.
 >
+> **Step 2b — Restore cross-session memory (if memory MCP available):**
+> `session_restore()` — load prior decisions, constraints, and patterns for this project.
+> Scan results for anything not yet in SDLC docs. If the tool fails, skip silently.
+>
 > **Step 3 — Route based on what you learned:**
 >
 > | SDLC_AUDIT status | Action |
@@ -558,6 +562,9 @@ Record approval: append `HUMAN GATE B APPROVED: <date> <user response>` to `docs
 ## Inter-phase check-in (mandatory after every gate pass)
 
 After every gate passes:
+
+1. Call `session_save({ summary: "Phase <N> gate passed. <Key decisions>. Next: Phase <N+1>." })` (or append to `docs/work/SESSION_NOTES.md` if MCP unavailable).
+2. Emit the check-in block:
 
 ```
 PHASE <N> PASSED ([ok])
