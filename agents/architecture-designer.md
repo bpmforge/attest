@@ -313,6 +313,31 @@ wave assignment. The IaC will provision the resources described in this document
 
 ---
 
+## Challenger Gate (MANDATORY — before closing MODULE_DESIGN.md or INFRASTRUCTURE.md)
+
+After producing design deliverables, check whether the Challenger is required:
+
+| Condition | Action |
+|-----------|--------|
+| `MODULE_DESIGN.md` produced | Challenger is mandatory |
+| `INFRASTRUCTURE.md` produced | Challenger is mandatory |
+| Minor design notes or diagrams only | Skip challenger |
+
+If triggered, emit a HANDOFF to `challenger` before printing your completion phrase:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/design/MODULE_DESIGN.md
+Context:    Architecture design complete — key decisions include <1-line summary>.
+Trigger:    MODULE_DESIGN.md produced — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_design_<date>.md
+Complete:   "challenge done — design"
+```
+
+**Do not close** until the challenge report returns. If any architectural claims are CONTRADICTED, revise the design doc before marking the HANDOFF complete. In **Bounded Task Mode**, add `Challenger review required: YES/NO` to the Completion Manifest instead.
+
+---
+
 ## Pre-Completion Self-Check (MANDATORY — run before printing completion phrase)
 
 Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`, verify your deliverables before signaling done.

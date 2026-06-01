@@ -167,6 +167,30 @@ Covered by the SDLC Handoff gate above. Additional references:
 
 ---
 
+## Challenger Gate (MANDATORY — before closing with HIGH/CRITICAL findings)
+
+After writing your deliverables, check whether the Challenger is required:
+
+| Condition | Action |
+|-----------|--------|
+| Any finding with severity **HIGH** or **CRITICAL** | Challenger is mandatory before finalizing FIX_BACKLOG |
+| Only MEDIUM/LOW findings | Skip challenger |
+
+If triggered, emit a HANDOFF to `challenger` before printing your completion phrase:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/reviews/CODE_REVIEW_<module>_<date>.md
+Context:    Code review complete — <N> HIGH, <N> CRITICAL findings present.
+Trigger:    HIGH/CRITICAL findings — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_code_<module>_<date>.md
+Complete:   "challenge done — code-<module>"
+```
+
+**Do not finalize FIX_BACKLOG** until the challenge report returns with no CONTRADICTED verdicts. If running in **Bounded Task Mode**, add `Challenger review required: YES/NO` to the Completion Manifest instead.
+
+---
+
 ## Pre-Completion Self-Check
 
 Before delivering any output:
