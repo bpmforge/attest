@@ -144,37 +144,15 @@ Default is `--quick` for onboard; agents-specific default for `/security`.
 
 ### Smart routing (natural language) — MANDATORY
 
-If the user says what they want without picking a mode, route based on intent. **You do not freelance analysis, audits, or scans on your own.** Anything that looks like "evaluate this codebase" routes into a mode and runs the mode's discovery interview first.
+Load the full routing table, escape hatches, and hard rules:
+```
+read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
+```
 
-| User says | Route to |
-|-----------|----------|
-| "build a new app" / "start a project" | Mode 1 (`/sdlc init`) |
-| "understand this codebase" / "onboard me" / "what does this do" | Mode 2 (`/sdlc onboard`) |
-| "add X feature" / "need a new feature" / "build X" | Mode 3 (`/sdlc feature`) |
-| "improve X" / "UI looks bad" / "make it better" / "this is slow" | Mode 4 (`/sdlc improve`) |
-| "review (the product / code / branch)" / "find gaps" / "what should we fix" / "audit (this / UX / performance / security)" / "evaluate" / "give me an assessment" / "health check" / "where are the problems" / "is there anything wrong with X" | **Mode 4 (`/sdlc improve`)** — never freelance the analysis |
-| "I'm not sure where to start" | Ask: A) new / B) exists, understand / C) exists, add feature / D) exists, improve |
-
-Ask AT MOST one clarifying question. Do not ask more than one routing question.
-
-**Hard rule — when routed into Mode 4 from natural language:**
-1. Acknowledge the intent: "Routing this into Mode 4 (`/sdlc improve`) so the analysis goes through the SDLC pipeline."
-2. Read `agents/sdlc-improve-mode.md` in full.
-3. Run the Improvement Discovery Interview (do not skip — even if the user already said "audit everything", confirm scope, vision, and tolerance).
-4. Continue Mode 4 from Step 1.
-
-**You never:**
-- Open random source files to "see what's going on"
-- Write a one-shot review or assessment in the chat
-- Skip the discovery interview because the user "already told you what they want"
-- Convert a Mode 4 ask into a Mode 3 feature without explicit user approval after the backlog is presented
-
-**Escape hatch — narrow asks bypass Mode 4:**
-- "Review **this function** / **this file**" → recommend `/review-code` directly. Mode 4 is for system-level reviews; spinning it up for one file wastes the user's time on a 7-question interview.
-- "Look at PR #N" → recommend `/review-code` (or `/security` if it's auth-touching).
-- "Quick sanity check on X" where X is a single artifact → suggest the matching specialist skill, not Mode 4.
-
-The boundary: Mode 4 is for "what should we improve about this **system**". Single-file/single-PR/single-function reviews go to the specialist directly.
+Short summary (do not freelance — load the protocol for full rules):
+- "build / start" → Mode 1; "understand / onboard" → Mode 2; "add feature" → Mode 3; "improve / audit / review system" → Mode 4
+- Single file/PR/function asks → specialist directly, not Mode 4
+- Ask AT MOST one clarifying question before routing
 
 ---
 
@@ -299,70 +277,13 @@ For general code implementation (backend logic, refactoring, business code): use
 
 ## Resuming after a HANDOFF
 
-When the user returns and says "<agent> done":
+When the user returns and says "<agent> done", load and follow the full scoring protocol:
 
-**Step 1 -- Confirm state.** Read `docs/work/sdlc-state.md` to confirm which agent was delegated and what it was expected to produce.
-
-**Step 2 -- Run automated gates.** For every HANDOFF return, run the gate orchestrator:
-
-```bash
-./scripts/validators/run-handoff-gates.sh \
-  --scope <assigned-dir> [--scope <dir2> ...] \
-  --manifest <manifest-path> \
-  [--coverage <validate-something.sh>]
+```
+read(filePath="~/.config/opencode/agents/shared/GATE_SCORING_PROTOCOL.md")
 ```
 
-Three gates in order (any failure aborts the rest):
-
-| Gate | Check |
-|------|-------|
-| 1. Scope | `git status --porcelain` confined to assigned dirs + `docs/work/**` + `docs/reviews/**` |
-| 2. Manifest | completion manifest has required sections + completion phrase |
-| 3. Coverage | domain-specific validator (architecture, api-coverage, erd-coverage, owasp, inventory) |
-
-**Pick the coverage validator by HANDOFF type:**
-
-| HANDOFF type | `--coverage` arg |
-|--------------|------------------|
-| `api-designer` | `validate-api-coverage.sh` |
-| `db-architect` | `validate-erd-coverage.sh` |
-| architecture synthesis | `validate-architecture.sh` |
-| `security-auditor --deep` | `validate-owasp.sh` |
-| `onboard --deep` | `validate-inventory.sh` |
-| code/refactor (no doc coverage) | omit `--coverage` |
-
-Any non-zero exit -> HANDOFF does not pass. Read the JSON gap list, return the specific gap to the specialist, request REVISE.
-
-Example:
-
-```bash
-./scripts/validators/run-handoff-gates.sh \
-  --scope src/auth --scope tests/auth \
-  --manifest docs/reviews/MANIFEST_auth_2026-04-24.md \
-  --coverage validate-api-coverage.sh
-```
-
-**Step 3 -- Score confidence (1-10).** Score the HANDOFF output on a 1-10 scale only if all gates passed:
-
-- **10**: All expected files present, manifest complete, tests pass, no deviations
-- **7-9**: Files present, minor notes in deferred, tests pass
-- **5-6**: Files present but thin, or manifest missing, or deferred issues that need attention
-- **1-4**: Files missing, tests failing, agent deviated from spec
-
-**Step 4 -- Apply asymmetric threshold.**
-
-| Score | Action |
-|-------|--------|
-| >= 7 | **Pass** -- continue to next step |
-| 5-6 | **Revise** -- ask user to re-run the agent (up to 3 times) with the specific gap to fix. Do NOT rewrite the output yourself. |
-| < 5 | **Auto-fail** -- surface to user: "The [agent] output does not meet the minimum bar: [reason]. Please re-run with these corrections: [specifics]." |
-
-**Step 5 -- Update DELEGATION_LOG.** Append the result to `docs/work/DELEGATION_LOG.md`:
-```
-| <timestamp> | <agent> | <task summary> | DONE/FAILED/REDO | <score>/10 | <notes> |
-```
-
-**Step 6 -- Continue or escalate.** If the manifest reports test failures or known issues, surface them before continuing. If verification passes (score >= 7), continue to the next step.
+Summary of the 6 steps: (1) confirm state from sdlc-state.md, (2) run automated gates via `run-handoff-gates.sh`, (3) score 1-10, (4) apply asymmetric threshold (≥7 pass, 5-6 revise, <5 auto-fail), (5) update DELEGATION_LOG, (6) continue or escalate.
 
 ---
 
@@ -382,43 +303,13 @@ These files are the single source of truth. All mode files reference them.
 
 ## Validation gate system
 
-Every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>` which chains the relevant validators. Phases are **ordered** — the gate writes a lock file (`docs/work/gates/<phase>-passed.lock`) on success and checks for the prior phase's lock before running. Phase N cannot pass until Phase N-1's gate has passed.
+Load the full phase gate table, HANDOFF coverage validator table, two-track gate system, and inter-phase check-in protocol:
 
-| Phase | Validators run | Gate type |
-|-------|---------------|-----------|
-| phase-0 | File-existence only | Soft (no prereq) |
-| phase-1 | File-existence only | Prereq: phase-0 |
-| phase-2 | use-cases + user-stories (+ traceability) | Prereq: phase-1 |
-| phase-3 | architecture + api-coverage + sequence-coverage + erd-coverage + c3-coverage + entry-points + tech-stack + adrs + **security-controls** | Prereq: phase-2 |
-| phase-3.5 | **validate-test-design** (coverage loop / escalation) | Prereq: phase-3 |
-| phase-4 | build + lint + tests + tests-mapping + migrations | Prereq: phase-3.5 |
-| phase-5 | Release gate: FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS | Prereq: phase-4 |
-| onboard-deep | inventory + architecture + erd-coverage + sequence-coverage | Standalone |
-| security-deep | owasp + attack-chains | Standalone |
+```
+read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
+```
 
-If the gate exits non-zero, the phase cannot advance. Fix the gaps then re-run.
-
-**HANDOFF coverage validator table (updated):**
-
-| HANDOFF type | `--coverage` arg | `--runtime` |
-|--------------|------------------|-------------|
-| phase-2 requirements derivation | `validate-requirements-matrix.sh` | — |
-| `test-engineer` (test strategy + E2E infra) | `validate-e2e-setup.sh` | — |
-| `architecture-designer` (module + infra) | `validate-module-design.sh` | — |
-| `ux-engineer` (UX spec) | `validate-ux-spec.sh` | — |
-| `frontend-design` (Wave 0 design system) | `validate-design-system.sh` | — |
-| `api-designer` | `validate-api-coverage.sh` | — |
-| `db-architect` | `validate-erd-coverage.sh` | — |
-| architecture synthesis | `validate-architecture.sh` | — |
-| `security-auditor` (threat model) | — | — |
-| `security-auditor` (security controls) | `validate-security-controls.sh` | — |
-| `sre-engineer` (infrastructure topology) | `validate-infrastructure.sh` | — |
-| `sre-engineer` (IaC scaffolding) | `validate-iac.sh` | — |
-| `test-engineer` (test design) | `validate-test-design.sh` | — |
-| `security-auditor --deep` | `validate-owasp.sh` | — |
-| `onboard --deep` | `validate-inventory.sh` | — |
-| `coding-agent` (any code) | omit | `--runtime` |
-| phase-5 final gate | `validate-release-readiness.sh` | — |
+Quick summary: every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>`. Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
 
 ---
 
@@ -483,35 +374,9 @@ Good adaptive questions:
 
 ## Two-track gate system
 
-Every artifact falls into one of two tracks. Pick the right one — never mix.
+Full protocol in `~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md` (load it).
 
-### Track 1 — Coverage loop (objective, default)
-
-For artifacts where coverage IS validatable by a script — architecture diagrams, OWASP tracker, API coverage, ERD, sequence diagrams, C3 components, entry points, use cases, user stories, tech stack, ADRs, migrations, fix-backlog closure, build / test / lint / smoke / deps:
-
-```bash
-./scripts/validators/run-coverage-loop.sh <phase>
-```
-
-| Exit | Meaning | Orchestrator action |
-|------|---------|---------------------|
-| 0 | Clean | Mark tracker DONE, advance |
-| 1 | Gaps remain (iter < 3) | Read `docs/work/COVERAGE_LOOP_<phase>_<date>.md`, emit one gap-fill HANDOFF per uncovered row, then re-run the script |
-| 2 | 3 iterations exhausted | Emit the escalation block from `agents/shared/RALPH_WIGGUM_LOOP.md` (waiver / lower-bar / specialist / manual) |
-
-Do not second-guess the script. The validators don't lie. If they say a row is uncovered, it is.
-
-### Track 2 — Confidence loop (subjective, narrative-only)
-
-For artifacts where coverage isn't easily validated by a script — narratives, summaries, research reports, vision statements:
-
-1. Draft the artifact
-2. Score 1-10 against grounding criteria (spec completeness, internal consistency, traceability to source)
-3. If score < 5 → surface to user immediately
-4. If score 5-6 → revise up to 3 passes
-5. If score >= 7 → mark tracker row DONE
-
-**Use Track 2 sparingly.** If a structural validator could be written for the artifact, write the validator instead of running confidence-scoring. Confidence loops are for content judgment (does VISION.md actually capture the user's vision?), not for completeness (does ARCHITECTURE.md include all 6 diagram types? — that's `validate-architecture.sh`).
+Short rule: Track 1 (coverage loop, default) for validatable artifacts — scripts decide pass/fail. Track 2 (confidence loop) for narratives only — score 1-10, ≥7 to advance. Use Track 2 sparingly; if a validator could be written, write it instead.
 
 ---
 
