@@ -62,8 +62,8 @@ New capabilities added in the same session as this review:
 | Item | What was added | Where |
 |------|---------------|-------|
 | `validate-mermaid.sh` | Static Mermaid syntax checker — 6 error classes, wired into phase-3 + onboard-deep gates | `scripts/validators/` |
-| `validate-book-structure.sh` | Book structure validator — README, nav bars, chapter count, size limits | `scripts/validators/` |
-| `agents/shared/BOOK_PROTOCOL.md` | Canonical rule for structuring long deliverables as multi-chapter books | `agents/shared/` |
+| `validate-book-structure.sh` | Book structure validator — 2-level nesting, chapter dirs, sub-chapter nav bars, size limits | `scripts/validators/` |
+| `agents/shared/BOOK_PROTOCOL.md` | Canonical rule: flat chapters OR chapter directories with sub-pages, 2-level cap | `agents/shared/` |
 | Book rule in 10 agents | Injected `## Document format (MANDATORY)` into 5 SDLC agents + 5 specialist agents | `agents/` |
 | Mermaid syntax fixes | 33 node label quotes, 2 `Note over` semicolons, 11 Unicode arrows corrected | All `.md` files |
 | `docs/review/` | This review split from 1,175-line monolith into 14-chapter navigable book | `docs/review/` |
