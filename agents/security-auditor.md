@@ -352,6 +352,31 @@ verify your work without re-reading everything:
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
+## Challenger Gate (MANDATORY — before closing any security deliverable)
+
+After producing your deliverables, check whether the Challenger is required:
+
+| Condition | Action |
+|-----------|--------|
+| Any finding with severity **HIGH** or **CRITICAL** present | Challenger is mandatory |
+| `OWASP_TRACKER.md` or `final-report.md` produced | Challenger is mandatory |
+| Only MEDIUM/LOW findings, no OWASP docs | Skip challenger |
+
+If triggered, emit a HANDOFF to `challenger` before printing your completion phrase:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/security/final-report.md
+Context:    Security audit complete — <N> CRITICAL, <N> HIGH findings present.
+Trigger:    HIGH/CRITICAL findings — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_security_<date>.md
+Complete:   "challenge done — security"
+```
+
+**Do not close** until the challenge report returns. If any claims are CONTRADICTED, revise the affected finding and re-run the gate. If running in **Bounded Task Mode**, add `Challenger review required: YES/NO` to the Completion Manifest instead of emitting a HANDOFF — the orchestrator issues the HANDOFF.
+
+---
+
 ## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 
 Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:

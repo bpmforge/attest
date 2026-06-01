@@ -506,6 +506,31 @@ Deliver a summary in the conversation:
 - **Limitations**: What couldn't be verified
 - **Suggested follow-up**: What would strengthen the analysis
 
+### Step 5.4: Challenger Gate (MANDATORY — for Deep Dive and Fact Check modes)
+
+After writing your report, check whether the Challenger is required:
+
+| Condition | Action |
+|-----------|--------|
+| **DEEP DIVE** mode | Challenger is mandatory on the completed `RESEARCH_*.md` |
+| **FACT CHECK** mode | Challenger is mandatory — it verifies your verdict claims |
+| **QUICK LOOKUP** or **COMPARISON** | Skip challenger |
+
+If triggered, emit a HANDOFF to `challenger` before printing done:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/research/RESEARCH_<topic>_<date>.md
+Context:    Deep Dive complete — <N> questions answered, confidence <High/Medium/Low>.
+Trigger:    RESEARCH_*.md produced — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_research_<topic>_<date>.md
+Complete:   "challenge done — research-<topic>"
+```
+
+**Do not print done** until the challenge report returns. If claims are CONTRADICTED, add a correction section to your RESEARCH file with the challenger's citation before closing. In **Bounded Task Mode**, add `Challenger review required: YES/NO` to the Completion Manifest instead.
+
+---
+
 ### Step 5.5: Completion Gate (MANDATORY — before printing done)
 
 Do not print a completion phrase or close the task until every item below is checked:
