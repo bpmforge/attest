@@ -349,7 +349,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 
 ## Memory & code-search MCPs
 
-Two MCP servers extend agent capability beyond the session context window.
+Four MCP servers extend agent capability beyond the session context window. For full configuration instructions see [MCP_GUIDE.md](MCP_GUIDE.md).
 
 ### `claude-memory` — Cross-session project memory
 
@@ -390,6 +390,29 @@ Source: `~/Code/bpm-code-search-mcp/`. Registered in `opencode.json` and `~/.cla
 | `code_index_status()` | Provider, file count, chunk count, symbol count, DB path |
 
 Symbol extraction covers 10 languages: TypeScript/JS, Python, Go, Rust, Java, C#, Ruby, PHP, Swift, Kotlin, Markdown headings.
+
+---
+
+### `playwright-mcp` — Browser automation & screenshots
+
+LLM-agnostic browser automation via Microsoft's official Playwright MCP. No vision model required — uses the accessibility tree by default with screenshots on demand. Works identically in Claude Code and OpenCode (including local LLMs).
+
+**Why it exists:** Replaces the Claude Code browser extension (`claude-in-chrome`) for all automated/CI use cases. The extension only works in Claude Code with cloud models; playwright-mcp works everywhere.
+
+| Tool | Purpose |
+|------|---------|
+| `browser_navigate(url)` | Navigate to a URL |
+| `browser_screenshot()` | Take a screenshot (returns image) |
+| `browser_snapshot()` | Accessibility tree snapshot — no vision needed |
+| `browser_click(element)` | Click by CSS selector or text |
+| `browser_fill(element, value)` | Fill a form field |
+| `browser_wait_for(selector, state)` | Wait for element state |
+| `browser_evaluate(js)` | Run JavaScript in the page |
+| `browser_get_url()` | Get current URL |
+| `browser_close()` | Close the session |
+
+Full protocol: `agents/shared/BROWSER_TESTING.md`
+Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ---
 
