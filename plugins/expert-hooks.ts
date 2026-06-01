@@ -127,10 +127,10 @@ function basename(filePath: string): string {
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
   return {
-    "tool.execute.before": async (input, output) => {
+    "tool.execute.before": async (input, _output) => {
       // Bash: block dangerous commands
       if (input.tool === "bash" || input.tool === "run") {
-        const command: string = output.args?.command ?? "";
+        const command: string = input.args?.command ?? "";
         for (const [pattern, reason] of DANGEROUS_BASH) {
           if (pattern.test(command)) {
             throw new Error(
@@ -143,7 +143,7 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // Write/edit: block .env and credential files
       if (WRITE_TOOLS.has(input.tool)) {
         const filePath: string =
-          output.args?.filePath ?? output.args?.file_path ?? "";
+          input.args?.filePath ?? input.args?.file_path ?? "";
         if (!filePath) return;
 
         for (const [pattern, reason] of BLOCKED_FILE_PATTERNS) {
