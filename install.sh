@@ -45,6 +45,7 @@ INSTALL_PWS=true
 INSTALL_PULLMD=false
 INSTALL_MEMORY=false
 INSTALL_PLAYWRIGHT_MCP=true
+INSTALL_CODE_SEARCH=true
 
 for arg in "$@"; do
   case $arg in
@@ -54,8 +55,10 @@ for arg in "$@"; do
     --semgrep)              INSTALL_SEMGREP=true ;;
     --no-playwright-search) INSTALL_PWS=false ;;
     --no-playwright-mcp)    INSTALL_PLAYWRIGHT_MCP=false ;;
+    --no-code-search)       INSTALL_CODE_SEARCH=false ;;
     --pullmd)               INSTALL_PULLMD=true ;;
     --memory)               INSTALL_MEMORY=true ;;
+    --yes|-y)               : ;;  # non-interactive, accept all current defaults
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
       echo ""
@@ -81,11 +84,45 @@ for arg in "$@"; do
       echo "                                     Optional features (create .env in PULLMD_DIR first):"
       echo "                                       REDDIT_CLIENT_ID/SECRET — native Reddit API (faster)"
       echo "                                       DISABLE_PUBLIC_HISTORY=true — hide /history for shared installs"
-      echo "  ./install.sh --uninstall           Remove installed files"
+      echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
+  echo "  ./install.sh --uninstall           Remove installed files"
+  echo "  ./install.sh --yes                 Accept all defaults non-interactively"
       exit 0
       ;;
   esac
 done
+
+# ─── Interactive prompts (when run with no flags from a terminal) ───
+if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
+  echo ""
+  echo "bpm-opencode-experts v1.0.0 — Installation"
+  echo "==========================================="
+  echo ""
+  echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"
+  echo ""
+  echo "Optional MCPs:"
+  echo ""
+
+  prompt_yn() {
+    local msg="$1" default="$2" varname="$3"
+    local yn
+    printf "  %s [%s]: " "$msg" "$default"
+    read -r yn </dev/tty
+    yn="${yn:-$default}"
+    case "$yn" in
+      [Yy]*) eval "$varname=true" ;;
+      [Nn]*) eval "$varname=false" ;;
+      *)     eval "$varname=$( [ "$default" = "Y" ] && echo true || echo false )" ;;
+    esac
+  }
+
+  prompt_yn "Install bpm-code-search-mcp (semantic code search + symbol index)?" "Y" INSTALL_CODE_SEARCH
+  prompt_yn "Install playwright-mcp (browser automation + screenshots)?" "Y" INSTALL_PLAYWRIGHT_MCP
+  prompt_yn "Install playwright-search (web research MCP)?" "Y" INSTALL_PWS
+  prompt_yn "Install bpm-memory-mcp (cross-session project memory, needs LM Studio)?" "N" INSTALL_MEMORY
+  prompt_yn "Install pullmd (URL→markdown fallback, needs Docker/Podman)?" "N" INSTALL_PULLMD
+  echo ""
+fi
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing BPM OpenCode Experts..."
@@ -946,6 +983,7 @@ if [ "$INSTALL_MEMORY" = true ]; then
 fi
 
 # --- bpm-code-search-mcp Setup ---
+if [ "$INSTALL_CODE_SEARCH" = true ]; then
 echo ""
 echo "Setting up bpm-code-search-mcp (semantic code search + symbol index)..."
 
@@ -1000,6 +1038,7 @@ else
     fi
   fi
 fi
+fi  # INSTALL_CODE_SEARCH
 
 # --- playwright-mcp Setup (LLM-agnostic browser automation) ---
 echo ""
