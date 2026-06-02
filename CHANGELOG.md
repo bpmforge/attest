@@ -2,6 +2,21 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-06-02
+
+### Fixed
+- `install.sh`: replaced with correct claude-experts installer (v1.0.0 had accidentally shipped the bpm-opencode-experts version)
+- `README.md`: was showing bpm-opencode-experts content; corrected to claude-experts
+
+### Changed
+- **`claude-memory` renamed → `bpm-memory-mcp`** — LLM-agnostic naming, matches `bpm-*` convention. Repo: `github.com/bpmforge/bpm-memory-mcp`
+- `master` branch renamed to `main`
+- `install.sh`: interactive y/n prompts when run with no flags — each optional MCP can be accepted or skipped individually. `--yes` / `-y` for non-interactive use.
+- `install.sh`: bpm-memory-mcp and bpm-code-search-mcp now auto-clone + build (previously only printed manual instructions)
+- `install.sh`: new flags `--no-memory`, `--no-code-search`, `--no-playwright-mcp`
+
+---
+
 ## [1.0.0] — 2026-06-01
 
 v1 micro-agent architecture — coordinator/specialist pattern across all major domains, Challenger quality layer, memory and code-search MCPs, playwright-mcp browser testing, full documentation overhaul.
