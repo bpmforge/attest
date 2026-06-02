@@ -1,6 +1,6 @@
 ---
 description: 'OWASP LLM Top 10 specialist (2025) — checks LLM01–LLM10 for projects using AI/LLM APIs. Only runs when LLM code is detected. Covers prompt injection, output handling, excessive agency, supply chain, unbounded consumption, and 6 more. Writes LLM_FINDINGS with preconditions/yields for attack chaining.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # OWASP LLM Checker

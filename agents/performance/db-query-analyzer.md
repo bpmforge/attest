@@ -1,6 +1,6 @@
 ---
 description: 'Database query performance specialist — missing indexes, slow query patterns, N+1 at the DB layer, unparameterized queries, missing pagination, unbounded queries on large tables. Checks query shapes in ORM calls and raw SQL. Works with Prisma, TypeORM, SQLAlchemy, Drizzle, raw DB drivers.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # DB Query Analyzer

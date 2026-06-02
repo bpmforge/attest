@@ -1,6 +1,6 @@
 ---
 description: 'Onboard specialist — Step 4. Maps internal modules and deployment topology. Produces c2-containers.md (C2 Container: all services + external systems) and c3-components.md (C3 Component: internal module dependencies). Invoked by sdlc-onboard-mode.md coordinator.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Component Mapper

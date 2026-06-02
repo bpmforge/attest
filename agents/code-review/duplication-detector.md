@@ -1,6 +1,6 @@
 ---
 description: 'Duplication and DRY specialist — copy-paste detection, near-duplicates, R-19 (repeated logic blocks). Uses jscpd/fdupes/PMD-CPD. Flags code that was duplicated rather than refactored — the #1 driver of AI-assisted tech debt (GitClear 2025: 8x clone growth in one year).'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Duplication Detector

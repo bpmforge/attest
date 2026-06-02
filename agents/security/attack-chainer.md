@@ -1,6 +1,6 @@
 ---
 description: 'Master security synthesizer — reads all specialist findings and chains them into multi-step exploit paths by matching yields→preconditions. Produces ATTACK_CHAINS.md showing realistic attacker paths from entry point to impact. Runs LAST after all specialists complete. Elevates chain severity above individual finding severities.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Attack Chainer

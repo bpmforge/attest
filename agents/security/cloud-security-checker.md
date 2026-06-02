@@ -1,6 +1,6 @@
 ---
 description: 'Cloud security specialist — AWS and GCP security anti-patterns in source code and SDK usage. Checks hardcoded keys, overly permissive IAM, open security groups, missing audit logs, public storage, and GCP-specific patterns. Runs Checkov/Semgrep for automated detection. Only activates when cloud SDKs detected.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Cloud Security Checker

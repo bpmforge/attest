@@ -1,6 +1,6 @@
 ---
 description: 'AI slop detection specialist — checks all 28 ANTI_SLOP_RULES (R-01 to R-28) including 2025-2026 additions: slopsquatting (hallucinated packages), architectural privilege escalation (+322% in AI codebases), credential leakage, docstring inflation, phantom imports, disconnected pipelines, LDR measurement, unimplemented stubs. Updated with GitClear, Veracode, CSA, and USENIX 2025 research.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Anti-Slop Auditor
