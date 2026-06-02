@@ -43,6 +43,8 @@ METHOD="copy"
 INSTALL_SEMGREP=false
 INSTALL_PWS=true
 INSTALL_PULLMD=false
+INSTALL_MEMORY=false
+INSTALL_PLAYWRIGHT_MCP=true
 
 for arg in "$@"; do
   case $arg in
@@ -51,7 +53,9 @@ for arg in "$@"; do
     --uninstall)            MODE="uninstall" ;;
     --semgrep)              INSTALL_SEMGREP=true ;;
     --no-playwright-search) INSTALL_PWS=false ;;
+    --no-playwright-mcp)    INSTALL_PLAYWRIGHT_MCP=false ;;
     --pullmd)               INSTALL_PULLMD=true ;;
+    --memory)               INSTALL_MEMORY=true ;;
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
       echo ""
@@ -61,6 +65,9 @@ for arg in "$@"; do
       echo "  ./install.sh --link                Symlink instead of copy (for development)"
       echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
+      echo "  ./install.sh --no-playwright-mcp   Skip the playwright-mcp install"
+      echo "  ./install.sh --memory              Also install claude-memory MCP (cross-session memory)"
+      echo "                                     Requires LM Studio for vector embeddings (BM25 fallback if absent)"
       echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback)"
       echo "                                     Works with Docker or Podman. Auto-detects:"
       echo "                                       docker compose  (Docker Desktop / Engine v2)"
@@ -880,6 +887,62 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
   fi
 else
   echo "  All 4 community rule sources present ✓"
+fi
+
+# --- claude-memory MCP Setup (optional, --memory flag) ---
+if [ "$INSTALL_MEMORY" = true ]; then
+  echo ""
+  echo "Setting up claude-memory MCP (cross-session project memory)..."
+
+  MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/Code/claude-memory}"
+  MEMORY_SERVER="${CLAUDE_MEMORY_PATH:-$MEMORY_DIR/mcp/memory-server/dist/index.js}"
+  MEMORY_REPO="https://github.com/bpmforge/claude-memory.git"
+
+  if ! command -v node &>/dev/null; then
+    echo "  ⚠️  node not found — skipping claude-memory"
+  else
+    if [ ! -d "$MEMORY_DIR/.git" ]; then
+      echo "  Cloning claude-memory → $MEMORY_DIR ..."
+      mkdir -p "$(dirname "$MEMORY_DIR")"
+      if git clone --quiet --depth 1 "$MEMORY_REPO" "$MEMORY_DIR"; then
+        echo "    cloned ✓"
+      else
+        echo "    ⚠️  clone failed — skipping memory MCP"
+        MEMORY_SERVER=""
+      fi
+    else
+      (cd "$MEMORY_DIR" && git pull --ff-only --quiet 2>/dev/null) || true
+      echo "  claude-memory up to date"
+    fi
+
+    if [ -n "${MEMORY_SERVER:-}" ] && { [ ! -f "$MEMORY_SERVER" ] || [ "$MEMORY_DIR/mcp/memory-server/src/index.ts" -nt "$MEMORY_SERVER" ]; }; then
+      echo "  Building claude-memory..."
+      if (cd "$MEMORY_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3; then
+        [ -f "$MEMORY_SERVER" ] && echo "    build ✓" || { echo "    ⚠️  build failed"; MEMORY_SERVER=""; }
+      fi
+    fi
+
+    if [ -n "${MEMORY_SERVER:-}" ] && [ -f "$MEMORY_SERVER" ] && [ -f "$CONFIG_FILE" ]; then
+      if command -v jq &>/dev/null; then
+        MEM_CFG="$(jq -nc --arg path "$MEMORY_SERVER" \
+          '{type: "local", command: ["node", $path], enabled: true}')"
+        if jq -e '.mcp.memory' "$CONFIG_FILE" &>/dev/null; then
+          jq --argjson cfg "$MEM_CFG" '.mcp.memory = $cfg' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Updated memory MCP path in $CONFIG_FILE"
+        else
+          jq --argjson cfg "$MEM_CFG" '.mcp = (.mcp // {}) + {"memory": $cfg}' \
+            "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+          echo "  Added memory MCP to $CONFIG_FILE"
+          echo "  Note: vector search requires LM Studio running nomic-embed-text on port 1234."
+          echo "  BM25 keyword search works without it."
+        fi
+      else
+        echo "  ⚠️  jq not installed — add this to $CONFIG_FILE under \"mcp\":"
+        echo '    "memory": {"type":"local","command":["node","'"$MEMORY_SERVER"'"],"enabled":true}'
+      fi
+    fi
+  fi
 fi
 
 # --- bpm-code-search-mcp Setup ---
