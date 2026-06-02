@@ -1,6 +1,6 @@
 ---
 description: 'Type safety and invariant specialist — any-escapes, null coercion, type assertions without guards, runtime type violations. Checks TypeScript strict mode compliance, Python type annotation consistency, and whether types match runtime behavior. Uses METHODOLOGY.md Pass 4.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Type Safety Checker

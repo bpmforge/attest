@@ -1,6 +1,6 @@
 ---
 description: 'Static performance analysis specialist — O(n²) nested loops, N+1 query patterns, blocking I/O in async paths, try/catch in hot loops (5-20x slowdown), unnecessary allocations. No profiler needed — finds structural performance problems in source. Uses METHODOLOGY.md Phase 1b (5 scans).'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Static Performance Analyzer

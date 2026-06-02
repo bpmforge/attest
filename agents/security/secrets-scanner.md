@@ -1,6 +1,6 @@
 ---
 description: 'Secrets and credentials specialist — finds hardcoded API keys, tokens, passwords, and private keys in source code, configs, and git history. Uses TruffleHog, grep patterns, and git log. Runs in parallel with semgrep-runner.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Secrets Scanner

@@ -1,6 +1,6 @@
 ---
 description: 'Performance master synthesizer — reads all specialist findings, identifies compounding slowdowns (slow query hitting in a hot O(n²) loop + no caching = multiplicative), produces final PERFORMANCE_REPORT with prioritized fix list by measured or estimated impact. Runs last. Triggers Challenger on HIGH/CRITICAL regressions.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Performance Synthesizer

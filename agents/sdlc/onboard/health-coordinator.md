@@ -1,6 +1,6 @@
 ---
 description: 'Onboard specialist — Step 6. Orchestrates all health reviews (code quality, security, test coverage, performance, UX) and synthesizes HEALTH_ASSESSMENT.md. Also produces USE_CASES.md from existing codebase and dispatches test-engineer for TEST_PLAN.md. Invoked by sdlc-onboard-mode.md coordinator.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Health Coordinator

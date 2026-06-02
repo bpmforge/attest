@@ -1,6 +1,6 @@
 ---
 description: 'Infrastructure-as-Code security specialist — Terraform, CDK, Pulumi, CloudFormation. Runs Checkov (primary), KICS (breadth), Trivy config scan (replaces deprecated tfsec). Checks exposed credentials, open IAM, unencrypted storage, public buckets, missing logging, and Terraform state exposure. Skips if no IaC detected.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # IaC Security Checker

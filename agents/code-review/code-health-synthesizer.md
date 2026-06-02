@@ -1,6 +1,6 @@
 ---
 description: 'Code health master synthesizer — reads all 6 specialist outputs, identifies compounding risk (complex + duplicated + bad error handling in same module), produces final CODE_REVIEW with prioritized FIX_BACKLOG. Runs last. Triggers Challenger Gate on HIGH/CRITICAL findings.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Code Health Synthesizer

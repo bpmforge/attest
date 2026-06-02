@@ -1,6 +1,6 @@
 ---
 description: 'Error handling and silent failure specialist — empty catch blocks, exception-driven control flow, swallowed errors, missing error boundaries, serial awaits vs Promise.all. Enforces R-01 through R-04. Veracode 2025: error handling is the #1 failure mode in AI-generated code.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Error Handling Auditor

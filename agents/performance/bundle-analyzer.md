@@ -1,6 +1,6 @@
 ---
 description: 'Frontend bundle performance specialist — bundle size, code splitting, lazy loading, tree shaking, image optimization, Core Web Vitals impact. Skip automatically for backend-only projects. Runs webpack-bundle-analyzer, vite-bundle-visualizer, or @next/bundle-analyzer.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Bundle Analyzer

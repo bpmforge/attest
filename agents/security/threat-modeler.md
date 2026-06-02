@@ -1,6 +1,6 @@
 ---
 description: 'Threat modeling specialist — STRIDE per component, DFD with trust boundaries, threat rating, and mitigation mapping. Produces THREAT_MODEL.md. Runs after semgrep-runner so it can reference confirmed findings when rating threats.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Threat Modeler

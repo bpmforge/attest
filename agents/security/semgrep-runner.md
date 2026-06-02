@@ -1,6 +1,6 @@
 ---
 description: 'SAST specialist — runs semgrep with all registered rule packs (community + custom), triages findings REAL/FP/UNVERIFIED, writes structured finding output. Phase 1 of any security scan. Always runs; other specialists build on its output.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Semgrep Runner

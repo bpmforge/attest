@@ -1,6 +1,6 @@
 ---
 description: 'Onboard specialist — Step 1. Maps project landscape from git history hotspots. Produces LANDSCAPE.md (tech stack, project size, directory structure, UI detection). Invoked by sdlc-onboard-mode.md coordinator.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Landscape Mapper

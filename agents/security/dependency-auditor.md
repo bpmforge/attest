@@ -1,6 +1,6 @@
 ---
 description: 'Dependency and supply chain security specialist — CVE scans, outdated packages, license risk, and slopsquatting detection (AI-hallucinated package names registered by attackers). Runs npm audit, pip-audit, cargo audit, govulncheck. Flags packages added by AI assistants that may not exist or may be malicious.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Dependency Auditor

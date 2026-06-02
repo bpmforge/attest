@@ -1,6 +1,6 @@
 ---
 description: 'Runtime profiling specialist — identifies actual hotspots via profiler output, not guessing. Runs Node.js --prof, py-spy, perf, or reads existing profiler data. Only runs when a performance problem is confirmed or a benchmark regression is observed. Feeds hotspot data to perf-synthesizer.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Profiler Agent

@@ -1,6 +1,6 @@
 ---
 description: 'OWASP Web Top 10 specialist (2021) — manual A01–A10 checks per category with confidence loop. One context window per category. Reads semgrep-runner output to avoid duplicate findings. Writes per-category OWASP_TRACKER rows.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # OWASP Web Checker

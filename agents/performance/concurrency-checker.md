@@ -1,6 +1,6 @@
 ---
 description: 'Concurrency and async specialist — blocking operations in async paths, unguarded shared state, race conditions in concurrent handlers, missing mutex/lock patterns, unbounded Promise.all causing memory spikes. For Node.js, Python asyncio, Rust async, Go goroutines.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Concurrency Checker

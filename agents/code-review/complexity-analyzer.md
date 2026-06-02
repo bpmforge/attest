@@ -1,6 +1,6 @@
 ---
 description: 'Code complexity specialist — cyclomatic complexity, cognitive complexity, function length, nesting depth. Runs lizard/radon/complexity tools plus manual analysis. Identifies functions that are too complex to safely maintain or test. Uses METHODOLOGY.md Pass 1.'
-mode: "specialist"
+mode: "subagent"
 ---
 
 # Complexity Analyzer
