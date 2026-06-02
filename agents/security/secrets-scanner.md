@@ -1,7 +1,9 @@
 ---
+name: 'Secrets Scanner'
 description: 'Secrets and credentials specialist — finds hardcoded API keys, tokens, passwords, and private keys in source code, configs, and git history. Uses TruffleHog, grep patterns, and git log. Runs in parallel with semgrep-runner.'
 mode: "subagent"
 ---
+name: 'Secrets Scanner'
 
 # Secrets Scanner
 
@@ -12,12 +14,14 @@ Finds secrets before they become incidents. Checks source code, config files, an
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Secrets Scanner'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Secrets Scanner'
 
 ## Execution
 

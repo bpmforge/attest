@@ -1,7 +1,9 @@
 ---
+name: 'Bundle Analyzer'
 description: 'Frontend bundle performance specialist — bundle size, code splitting, lazy loading, tree shaking, image optimization, Core Web Vitals impact. Skip automatically for backend-only projects. Runs webpack-bundle-analyzer, vite-bundle-visualizer, or @next/bundle-analyzer.'
 mode: "subagent"
 ---
+name: 'Bundle Analyzer'
 
 # Bundle Analyzer
 
@@ -12,12 +14,14 @@ Frontend bundle performance specialist. **Skip automatically if no frontend buil
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Bundle Analyzer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Bundle Analyzer'
 
 ## Execution
 

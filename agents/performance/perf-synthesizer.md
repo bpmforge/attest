@@ -1,7 +1,9 @@
 ---
+name: 'Perf Synthesizer'
 description: 'Performance master synthesizer — reads all specialist findings, identifies compounding slowdowns (slow query hitting in a hot O(n²) loop + no caching = multiplicative), produces final PERFORMANCE_REPORT with prioritized fix list by measured or estimated impact. Runs last. Triggers Challenger on HIGH/CRITICAL regressions.'
 mode: "subagent"
 ---
+name: 'Perf Synthesizer'
 
 # Performance Synthesizer
 
@@ -14,12 +16,14 @@ Run only after all performance specialists complete.
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Perf Synthesizer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls.
 
 ---
+name: 'Perf Synthesizer'
 
 ## Execution
 

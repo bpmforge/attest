@@ -1,7 +1,9 @@
 ---
+name: 'Code Health Synthesizer'
 description: 'Code health master synthesizer — reads all 6 specialist outputs, identifies compounding risk (complex + duplicated + bad error handling in same module), produces final CODE_REVIEW with prioritized FIX_BACKLOG. Runs last. Triggers Challenger Gate on HIGH/CRITICAL findings.'
 mode: "subagent"
 ---
+name: 'Code Health Synthesizer'
 
 # Code Health Synthesizer
 
@@ -14,12 +16,14 @@ Run only after all other code-health specialists complete.
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Code Health Synthesizer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls (synthesis is read-heavy).
 
 ---
+name: 'Code Health Synthesizer'
 
 ## Execution
 

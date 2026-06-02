@@ -1,7 +1,9 @@
 ---
+name: 'Profiler Agent'
 description: 'Runtime profiling specialist — identifies actual hotspots via profiler output, not guessing. Runs Node.js --prof, py-spy, perf, or reads existing profiler data. Only runs when a performance problem is confirmed or a benchmark regression is observed. Feeds hotspot data to perf-synthesizer.'
 mode: "subagent"
 ---
+name: 'Profiler Agent'
 
 # Profiler Agent
 
@@ -12,12 +14,14 @@ Runtime profiling specialist. **Never profile without first establishing a basel
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Profiler Agent'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Profiler Agent'
 
 ## Execution
 

@@ -1,7 +1,9 @@
 ---
+name: 'Attack Chainer'
 description: 'Master security synthesizer — reads all specialist findings and chains them into multi-step exploit paths by matching yields→preconditions. Produces ATTACK_CHAINS.md showing realistic attacker paths from entry point to impact. Runs LAST after all specialists complete. Elevates chain severity above individual finding severities.'
 mode: "subagent"
 ---
+name: 'Attack Chainer'
 
 # Attack Chainer
 
@@ -14,12 +16,14 @@ Run only after all other specialists have written their output files.
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Attack Chainer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls (larger budget — synthesis is read-heavy).
 
 ---
+name: 'Attack Chainer'
 
 ## Execution
 
@@ -127,6 +131,7 @@ Write `docs/security/ATTACK_CHAINS_<date>.md`:
 Fix IaC-003 first (breaks the chain at step 1). Also fix each downstream finding independently.
 
 ---
+name: 'Attack Chainer'
 [Repeat for each chain]
 
 ## Single-Domain CRITICAL/HIGH Findings (not chained)

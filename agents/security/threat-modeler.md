@@ -1,7 +1,9 @@
 ---
+name: 'Threat Modeler'
 description: 'Threat modeling specialist — STRIDE per component, DFD with trust boundaries, threat rating, and mitigation mapping. Produces THREAT_MODEL.md. Runs after semgrep-runner so it can reference confirmed findings when rating threats.'
 mode: "subagent"
 ---
+name: 'Threat Modeler'
 
 # Threat Modeler
 
@@ -12,12 +14,14 @@ STRIDE threat modeling specialist. Reads architecture docs and confirmed securit
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Threat Modeler'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls total.
 
 ---
+name: 'Threat Modeler'
 
 ## Execution
 
