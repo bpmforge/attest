@@ -31,7 +31,8 @@ Or plain English — the SDLC lead detects intent and routes automatically:
 
 ## Docs
 
-- [docs/USERGUIDE.md](docs/USERGUIDE.md) — how to invoke each expert
+- [docs/SETUP.md) — **start here**: prerequisites, embedding models, env vars, troubleshooting
+- [docs/USERGUIDE.md](docs/USERGUIDE.md](docs/USERGUIDE.md) — how to invoke each expert
 - [docs/FEATURES.md](docs/FEATURES.md) — full agent, skill, validator, and protocol catalog
 - [docs/SDLC_GUIDE.md](docs/SDLC_GUIDE.md) — SDLC workflow, phases, git model, and traceability chain
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills
