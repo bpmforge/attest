@@ -1,7 +1,9 @@
 ---
+name: 'Error Handling Auditor'
 description: 'Error handling and silent failure specialist — empty catch blocks, exception-driven control flow, swallowed errors, missing error boundaries, serial awaits vs Promise.all. Enforces R-01 through R-04. Veracode 2025: error handling is the #1 failure mode in AI-generated code.'
 mode: "subagent"
 ---
+name: 'Error Handling Auditor'
 
 # Error Handling Auditor
 
@@ -12,12 +14,14 @@ Silent failure and error handling specialist. Veracode GenAI 2025: 88% failure r
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Error Handling Auditor'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Error Handling Auditor'
 
 ## Execution
 

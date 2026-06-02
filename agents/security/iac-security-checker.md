@@ -1,7 +1,9 @@
 ---
+name: 'IaC Security Checker'
 description: 'Infrastructure-as-Code security specialist — Terraform, CDK, Pulumi, CloudFormation. Runs Checkov (primary), KICS (breadth), Trivy config scan (replaces deprecated tfsec). Checks exposed credentials, open IAM, unencrypted storage, public buckets, missing logging, and Terraform state exposure. Skips if no IaC detected.'
 mode: "subagent"
 ---
+name: 'IaC Security Checker'
 
 # IaC Security Checker
 
@@ -12,12 +14,14 @@ Terraform and IaC security specialist. Note: **Terrascan archived Nov 2025 — d
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'IaC Security Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'IaC Security Checker'
 
 ## Execution
 

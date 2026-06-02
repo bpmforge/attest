@@ -1,7 +1,9 @@
 ---
+name: 'Cloud Security Checker'
 description: 'Cloud security specialist — AWS and GCP security anti-patterns in source code and SDK usage. Checks hardcoded keys, overly permissive IAM, open security groups, missing audit logs, public storage, and GCP-specific patterns. Runs Checkov/Semgrep for automated detection. Only activates when cloud SDKs detected.'
 mode: "subagent"
 ---
+name: 'Cloud Security Checker'
 
 # Cloud Security Checker
 
@@ -12,12 +14,14 @@ AWS + GCP security anti-patterns in source code. Skips gracefully if no cloud co
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Cloud Security Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Cloud Security Checker'
 
 ## Execution
 

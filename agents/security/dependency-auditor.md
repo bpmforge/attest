@@ -1,7 +1,9 @@
 ---
+name: 'Dependency Auditor'
 description: 'Dependency and supply chain security specialist — CVE scans, outdated packages, license risk, and slopsquatting detection (AI-hallucinated package names registered by attackers). Runs npm audit, pip-audit, cargo audit, govulncheck. Flags packages added by AI assistants that may not exist or may be malicious.'
 mode: "subagent"
 ---
+name: 'Dependency Auditor'
 
 # Dependency Auditor
 
@@ -14,12 +16,14 @@ Supply chain and dependency security specialist. Includes **slopsquatting detect
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Dependency Auditor'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Dependency Auditor'
 
 ## Execution
 

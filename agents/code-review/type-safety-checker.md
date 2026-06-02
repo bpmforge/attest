@@ -1,7 +1,9 @@
 ---
+name: 'Type Safety Checker'
 description: 'Type safety and invariant specialist — any-escapes, null coercion, type assertions without guards, runtime type violations. Checks TypeScript strict mode compliance, Python type annotation consistency, and whether types match runtime behavior. Uses METHODOLOGY.md Pass 4.'
 mode: "subagent"
 ---
+name: 'Type Safety Checker'
 
 # Type Safety Checker
 
@@ -12,12 +14,14 @@ Type invariant and escape-hatch specialist.
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
 ---
+name: 'Type Safety Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
+name: 'Type Safety Checker'
 
 ## Execution
 

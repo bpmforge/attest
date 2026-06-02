@@ -1,6 +1,7 @@
 ---
+name: 'Entry Point Tracer'
 description: 'Onboard specialist — Steps 2+2b. Traces all HTTP routes, CLI commands, event listeners, webhooks. Produces entry-points.md (sequenceDiagram per entry point with error path) and sequences/ directory (auth, primary write/read, async, error flows). Invoked by sdlc-onboard-mode.md coordinator.'
-mode: "subagent"
+mode: "all"
 ---
 
 # Entry Point Tracer
