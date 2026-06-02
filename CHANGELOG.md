@@ -41,7 +41,7 @@ v1 micro-agent architecture — coordinator/specialist pattern across all major 
 
 **MCPs (3 new):**
 - **`bpm-code-search-mcp`** — semantic code search + structural symbol index. 6 tools: `code_index`, `code_search`, `code_symbols`, `code_outline`, `code_references`, `code_index_status`. 10 languages. FTS5 BM25 fallback.
-- **`claude-memory`** — cross-session project memory. `session_restore` on start, `memory_store` on discovery, `session_save` at gate pass. Flat-file fallback to `docs/work/SESSION_NOTES.md`.
+- **`bpm-memory-mcp`** — cross-session project memory. `session_restore` on start, `memory_store` on discovery, `session_save` at gate pass. Flat-file fallback to `docs/work/SESSION_NOTES.md`.
 - **`playwright-mcp`** (`@playwright/mcp`) — LLM-agnostic browser automation, no vision required, CI-compatible.
 
 **Docs:**
@@ -61,7 +61,7 @@ v1 micro-agent architecture — coordinator/specialist pattern across all major 
 - `performance-engineer` — coordinator pattern; dispatches 6 performance micro-agents
 
 **install.sh:**
-- Step 8: `claude-memory` MCP registration (`--no-playwright-search` parity)
+- Step 8: `bpm-memory-mcp` MCP registration (`--no-playwright-search` parity)
 - Step 9: `playwright-mcp` registration (`--no-playwright-mcp` flag to skip)
 - Micro-agent subdirectory symlinking now covers all clusters: `security/`, `code-review/`, `performance/`, `sdlc/onboard/`, `test/`
 

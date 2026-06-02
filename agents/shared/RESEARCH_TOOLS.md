@@ -108,7 +108,7 @@ If `web_research` returns 0 results and `pullmd_read_url` also fails on a URL:
 
 ## Closing the research → memory loop
 
-After completing research, store key findings via the memory MCP registered in this project (`mempalace` or `claude-memory`). Always include the source URL so future sessions can cite back. The memory tools are namespaced as `mempalace_*` or `claude-memory_*`.
+After completing research, store key findings via the memory MCP registered in this project (`mempalace` or `bpm-memory-mcp`). Always include the source URL so future sessions can cite back. The memory tools are namespaced as `mempalace_*` or `bpm-memory-mcp_*`.
 
 ## Source files
 

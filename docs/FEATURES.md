@@ -376,7 +376,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 
 Four MCP servers extend agent capability beyond the session context window. For full configuration instructions see [MCP_GUIDE.md](MCP_GUIDE.md).
 
-### `claude-memory` — Cross-session project memory
+### `bpm-memory-mcp` — Cross-session project memory
 
 Persistent memory store backed by SQLite + vector embeddings (LM Studio nomic-embed-text). Provides hybrid search (vector 35% + BM25 35% + link traversal 30%).
 

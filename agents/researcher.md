@@ -97,7 +97,7 @@ web_fetch("https://chosen-url", relevance_query="X Y")      → single known URL
 **`relevance_query` — important.** All extraction is paragraph-ranked: instead of returning the first N chars, the pipeline scores each paragraph by BM25 and packs the highest-scoring into `max_chars_per_source`. Pass a narrower `relevance_query` for broad search but tight extraction, e.g. `web_research_pullmd(query="rust async runtimes 2026", relevance_query="tokio scheduler model")`.
 
 **Persistence (close the research → memory loop):**
-After completing a research task, store key findings via the memory MCP registered in this project (`mempalace` or `claude-memory`). Always include the source URL so future sessions can cite back.
+After completing a research task, store key findings via the memory MCP registered in this project (`mempalace` or `bpm-memory-mcp`). Always include the source URL so future sessions can cite back.
 
 **Tool notes:**
 - All five tools work with any model — local or cloud, no provider-specific APIs
