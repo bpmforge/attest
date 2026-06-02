@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.3] — 2026-06-02
+
+### Fixed
+- `mode: "specialist"` replaced with `mode: "subagent"` in all 27 micro-agent files — OpenCode only accepts `subagent | primary | all`; this caused a startup crash on every OpenCode launch. Affected clusters: `agents/security/` (9), `agents/code-review/` (7), `agents/performance/` (6), `agents/sdlc/onboard/` (4).
+
+---
+
+## [1.0.2] — 2026-06-02
+
+### Added
+- `install.sh`: Node version guard runs before anything else. Detects Node < 20 (too old) or Node 25+ (pre-release) and prompts to install NVM + Node 24 LTS. If NVM is not installed, installs it first (`nvm-sh v0.40.1`). Sets `nvm alias default 24` for persistence. Non-interactive (CI/pipe) mode prints the manual fix command and continues.
+
+---
+
 ## [1.0.1] — 2026-06-02
 
 ### Fixed
