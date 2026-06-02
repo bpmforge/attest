@@ -38,6 +38,94 @@ if grep -qi microsoft /proc/version 2>/dev/null; then
   echo "Detected: Windows Subsystem for Linux (WSL). Proceeding."
 fi
 
+# ─── Node version check ───────────────────────────────────────────────────────
+# MCPs require Node 20–24 (LTS). Older versions lack required APIs; Node 25+
+# are pre-release and may have native module incompatibilities (better-sqlite3).
+check_node_version() {
+  [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh" --no-use 2>/dev/null || true
+
+  if ! command -v node &>/dev/null; then
+    echo ""
+    echo "  ⚠️  node not found."
+    _offer_nvm_install
+    return
+  fi
+
+  local version major
+  version=$(node --version 2>/dev/null | tr -d 'v')
+  major=$(echo "$version" | cut -d. -f1)
+
+  if [ "$major" -ge 20 ] && [ "$major" -le 24 ] 2>/dev/null; then
+    echo "  Node $version ✓"
+    return
+  fi
+
+  echo ""
+  if [ "$major" -lt 20 ] 2>/dev/null; then
+    echo "  ⚠️  Node $version is too old — MCPs require Node 20+ (better-sqlite3 native bindings)."
+  else
+    echo "  ⚠️  Node $version is a pre-release/unsupported version — recommend Node 24 LTS for compatibility."
+  fi
+
+  _offer_nvm_switch "$major"
+}
+
+_offer_nvm_install() {
+  if [ ! -t 0 ]; then
+    echo "     Install Node 20+ then re-run install.sh."
+    return
+  fi
+  printf "  Install NVM and Node 24 LTS now? [Y/n]: "
+  read -r yn </dev/tty
+  yn="${yn:-Y}"
+  case "$yn" in [Yy]*)
+    echo "  Installing NVM..."
+    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash 2>&1 | tail -3
+    [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh" 2>/dev/null || true
+    nvm install 24 && nvm use 24 && nvm alias default 24
+    echo "  Node $(node --version) active via NVM ✓"
+    ;;
+  *)
+    echo "  Skipping — MCPs will be unavailable until Node 20+ is installed."
+    ;;
+  esac
+}
+
+_offer_nvm_switch() {
+  local current_major="$1"
+  if [ ! -t 0 ]; then
+    echo "     Run: nvm install 24 && nvm use 24"
+    return
+  fi
+  printf "  Switch to Node 24 LTS via NVM? [Y/n]: "
+  read -r yn </dev/tty
+  yn="${yn:-Y}"
+  case "$yn" in [Yy]*)
+    [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh" 2>/dev/null || true
+    if command -v nvm &>/dev/null; then
+      nvm install 24 2>&1 | tail -2
+      nvm use 24
+      nvm alias default 24
+      echo "  Node $(node --version) active via NVM ✓"
+    else
+      echo "  NVM not found — installing it first..."
+      curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash 2>&1 | tail -3
+      [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh" 2>/dev/null || true
+      nvm install 24 && nvm use 24 && nvm alias default 24
+      echo "  Node $(node --version) active via NVM ✓"
+    fi
+    ;;
+  *)
+    echo "  Skipping — continuing with Node $current_major (may cause build failures)."
+    ;;
+  esac
+}
+
+echo ""
+echo -n "Checking Node version... "
+check_node_version
+# ─────────────────────────────────────────────────────────────────────────────
+
 MODE="global"
 METHOD="copy"
 INSTALL_SEMGREP=false
