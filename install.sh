@@ -66,7 +66,7 @@ for arg in "$@"; do
       echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
       echo "  ./install.sh --no-playwright-mcp   Skip the playwright-mcp install"
-      echo "  ./install.sh --memory              Also install claude-memory MCP (cross-session memory)"
+      echo "  ./install.sh --memory              Also install bpm-memory-mcp MCP (cross-session memory)"
       echo "                                     Requires LM Studio for vector embeddings (BM25 fallback if absent)"
       echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback)"
       echo "                                     Works with Docker or Podman. Auto-detects:"
@@ -889,20 +889,20 @@ else
   echo "  All 4 community rule sources present ✓"
 fi
 
-# --- claude-memory MCP Setup (optional, --memory flag) ---
+# --- bpm-memory-mcp MCP Setup (optional, --memory flag) ---
 if [ "$INSTALL_MEMORY" = true ]; then
   echo ""
-  echo "Setting up claude-memory MCP (cross-session project memory)..."
+  echo "Setting up bpm-memory-mcp MCP (cross-session project memory)..."
 
-  MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/Code/claude-memory}"
+  MEMORY_DIR="${CLAUDE_MEMORY_DIR:-$HOME/Code/bpm-memory-mcp}"
   MEMORY_SERVER="${CLAUDE_MEMORY_PATH:-$MEMORY_DIR/mcp/memory-server/dist/index.js}"
-  MEMORY_REPO="https://github.com/bpmforge/claude-memory.git"
+  MEMORY_REPO="https://github.com/bpmforge/bpm-memory-mcp.git"
 
   if ! command -v node &>/dev/null; then
-    echo "  ⚠️  node not found — skipping claude-memory"
+    echo "  ⚠️  node not found — skipping bpm-memory-mcp"
   else
     if [ ! -d "$MEMORY_DIR/.git" ]; then
-      echo "  Cloning claude-memory → $MEMORY_DIR ..."
+      echo "  Cloning bpm-memory-mcp → $MEMORY_DIR ..."
       mkdir -p "$(dirname "$MEMORY_DIR")"
       if git clone --quiet --depth 1 "$MEMORY_REPO" "$MEMORY_DIR"; then
         echo "    cloned ✓"
@@ -912,11 +912,11 @@ if [ "$INSTALL_MEMORY" = true ]; then
       fi
     else
       (cd "$MEMORY_DIR" && git pull --ff-only --quiet 2>/dev/null) || true
-      echo "  claude-memory up to date"
+      echo "  bpm-memory-mcp up to date"
     fi
 
     if [ -n "${MEMORY_SERVER:-}" ] && { [ ! -f "$MEMORY_SERVER" ] || [ "$MEMORY_DIR/mcp/memory-server/src/index.ts" -nt "$MEMORY_SERVER" ]; }; then
-      echo "  Building claude-memory..."
+      echo "  Building bpm-memory-mcp..."
       if (cd "$MEMORY_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3; then
         [ -f "$MEMORY_SERVER" ] && echo "    build ✓" || { echo "    ⚠️  build failed"; MEMORY_SERVER=""; }
       fi

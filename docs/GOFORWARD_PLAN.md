@@ -13,7 +13,7 @@ This document captures the agreed architecture evolution and phased build plan f
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │  Layer 1 — Memory & Search                                    │
-│  claude-memory MCP  →  cross-session agent memory            │
+│  bpm-memory-mcp MCP  →  cross-session agent memory            │
 │  code-search MCP    →  semantic code retrieval on demand      │
 │  Agents pull context they need; never load whole files blind  │
 └──────────────────────────────────────────────────────────────┘
@@ -226,9 +226,9 @@ After the pattern is proven in Phases 3 and 4, apply to remaining fat agents. Pr
 
 ## Memory Integration (Cross-Phase)
 
-`claude-memory` MCP is already built (Jarvis project). Wire into bpm-opencode-experts:
+`bpm-memory-mcp` MCP is already built (Jarvis project). Wire into bpm-opencode-experts:
 
-- Add to `install.sh`: configure claude-memory MCP in `opencode.jsonc`
+- Add to `install.sh`: configure bpm-memory-mcp MCP in `opencode.jsonc`
 - Add to `agents/shared/SESSION_PRIMER.md`: session startup calls `memory_recall({ query: "project decisions constraints" })`
 - Add to specialist agents: `memory_store` after completing deliverables (decisions, findings, patterns)
 - Fallback if server not running: write to `docs/work/agent-memory.md` (human-readable flat file)

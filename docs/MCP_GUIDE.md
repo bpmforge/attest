@@ -189,21 +189,21 @@ Always call `resolve-library-id` first — library names don't map 1:1 to Contex
 
 **What it does:** Persistent memory store backed by SQLite + vector embeddings. Agents store decisions, constraints, patterns, and bug root causes; future sessions restore them. Hybrid search: vector (35%) + BM25 (35%) + link traversal (30%).
 
-**Prerequisite:** Build claude-memory first:
+**Prerequisite:** Build bpm-memory-mcp first:
 ```bash
-git clone https://github.com/bpmforge/claude-memory.git ~/Code/claude-memory
-cd ~/Code/claude-memory && npm install && npm run build
+git clone https://github.com/bpmforge/bpm-memory-mcp.git ~/Code/bpm-memory-mcp
+cd ~/Code/bpm-memory-mcp && npm install && npm run build
 ```
 
 **Install (handled by `install.sh` step 8):**
 ```bash
 # Claude Code
-claude mcp add memory node ~/Code/claude-memory/mcp/memory-server/dist/index.js
+claude mcp add memory node ~/Code/bpm-memory-mcp/mcp/memory-server/dist/index.js
 
 # OpenCode — in opencode.json
 "memory": {
   "type": "local",
-  "command": ["node", "~/Code/claude-memory/mcp/memory-server/dist/index.js"],
+  "command": ["node", "~/Code/bpm-memory-mcp/mcp/memory-server/dist/index.js"],
   "enabled": true
 }
 ```
