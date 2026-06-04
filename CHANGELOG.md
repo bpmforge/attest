@@ -2,6 +2,25 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.0.4] — 2026-06-04
+
+### Added
+- **3 new agents**: `changelog-writer` (git log → Keep-a-Changelog format), `migration-planner` (schema diff → ordered migration steps with rollback), `documentation-gap-finder` (scans exports vs docs, reports undocumented/stale)
+- **Context Budget (MANDATORY)** added to 11 primary agents: `architecture-designer`, `api-designer`, `db-architect`, `frontend-design`, `ux-engineer`, `container-ops`, `performance-engineer`, `git-expert`, `sre-engineer`, `test-engineer`, `ui-verifier`
+- **Context Budget + Loop Prevention** added to all 4 SDLC mode orchestrators: `sdlc-feature-mode`, `sdlc-improve-mode`, `sdlc-init-mode`, `sdlc-onboard-mode`
+- **Pre-Completion Gate** (4-item checklist) added to all 11 primary agents
+- **Completion Manifests** added to all 21 micro-agents (8 security, 7 code-review, 6 performance); all manifests include new "Model tier" field for coordinator visibility
+- `ANTI_SLOP_RULES`: **R-29 Prose Padding** — flags confidence-hedging openers, repetitive section openers, fake specificity (common local LLM patterns)
+- `BOUNDED_TASK_CONTRACT`: Rule 6 "Model tier" field in Completion Manifest template; Rule 7 Minimum Viable Output for short deliverables (exec summary, findings table, confidence score required even when output < 300 lines)
+
+### Changed
+- **Anti-Slop references (R-05/07/08/17/18)** added to design agents: `architecture-designer`, `api-designer`, `frontend-design`, `ux-engineer`
+- **Error recovery / confidence escalation rules** added to `ux-engineer`, `git-expert`, `sre-engineer`
+- **Loop Prevention** added to `architecture-designer` (was the only primary agent missing it)
+- `researcher.md`: cross-references canonical `LOOP_PREVENTION.md` from 3-strikes rule
+
+---
+
 ## [1.0.3] — 2026-06-02
 
 ### Fixed
