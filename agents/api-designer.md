@@ -19,6 +19,16 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
 ## Research tools (available, optional)
 
 Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
@@ -37,6 +47,16 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, 
 - Pagination is not optional — every list endpoint needs it from day one
 - The best API is the one nobody has to ask questions about
 
+## Anti-Slop (API Design Decisions)
+
+Before finalizing any structural recommendation, check `agents/shared/ANTI_SLOP_RULES.md` for:
+- **R-05:** No single-implementation interfaces — abstract only when ≥2 concrete implementations exist
+- **R-07:** No delegation-only wrapper classes with no added logic
+- **R-08:** No unnecessary repository/service layers that just call the layer below
+- **R-17:** No speculative generalization — "we might need this later" is not a design reason
+- **R-18:** No cargo-cult patterns copied from examples without understanding why they exist here
+
+API design decisions propagate into client SDKs and contract tests. Design-stage slop becomes client-breaking changes.
 
 ## SDLC Handoff (Bounded Task Mode)
 
@@ -212,6 +232,15 @@ verify your work without re-reading everything:
 
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
+
+### Pre-Completion Gate (MANDATORY)
+
+Before printing a completion phrase or marking done:
+
+- [ ] All deliverables written to disk — no output exists only in context
+- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
+- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
+- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
 
 ## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 

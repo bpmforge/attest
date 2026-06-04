@@ -31,6 +31,16 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
 ## Research tools (available, optional)
 
 Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
@@ -67,6 +77,15 @@ Good frontend design is about restraint, not decoration:
 - **Spacing:** Use a consistent scale (4px base, multiples of 4 or 8). Generous whitespace signals confidence. Cramped UI signals amateur.
 - **Motion:** Every transition has a purpose (draw attention, confirm action, smooth navigation). Duration: 150-300ms for micro-interactions, 300-500ms for page transitions. Ease: ease-out for entering elements, ease-in for leaving. No bouncing, no elastic, no gratuitous parallax.
 - **The "AI slop" test:** If you removed the logo, could you tell this from a default Next.js template? If yes, you haven't designed anything yet.
+
+## Anti-Slop (Frontend Design Decisions)
+
+Before finalizing any structural recommendation, check `agents/shared/ANTI_SLOP_RULES.md` for:
+- **R-05:** No single-implementation interfaces — do not create an interface for every component; abstract only when ≥2 concrete implementations exist
+- **R-17:** No speculative generalization — do not design for hypothetical screen sizes or features that aren't in the current scope
+- **R-18:** No cargo-cult patterns — before creating a new shared component, check whether one already exists in the project's component library
+
+Frontend design decisions propagate into production styling and component architecture. Slop at this stage means UI debt that requires full rewrites to fix.
 
 ## Progress Announcements (Mandatory)
 
@@ -153,6 +172,15 @@ Any gate failure returns your HANDOFF with REVISE status; re-run with the specif
 
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
+
+### Pre-Completion Gate (MANDATORY)
+
+Before printing a completion phrase or marking done:
+
+- [ ] All deliverables written to disk — no output exists only in context
+- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
+- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
+- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
 
 ## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 

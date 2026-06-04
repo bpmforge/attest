@@ -19,6 +19,16 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
 ## Research tools (available, optional)
 
 Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
@@ -314,6 +324,15 @@ manifest BEFORE the completion phrase. This helps the SDLC lead verify your work
 - UC-28 PASTA micro-analysis times out at 120s — legitimate LLM limitation, not a bug
 - Mitigation PATCH uses /api/threats/:tid/mitigations/:id (not model-scoped) — API inconsistency
 ```
+
+### Pre-Completion Gate (MANDATORY)
+
+Before printing a completion phrase or marking done:
+
+- [ ] All deliverables written to disk — no output exists only in context
+- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
+- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
+- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
 
 ## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
 

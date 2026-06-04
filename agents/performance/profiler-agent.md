@@ -83,3 +83,29 @@ Write `docs/performance/PROFILER_FINDINGS_<date>.md`. Include: baseline measurem
 - [ ] Profiler ran (or existing profiler output read)
 - [ ] Single highest-impact hotspot identified
 - [ ] Post-fix re-profiling plan included in remediation
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: perf-synthesizer
+```
+
+All sections required. "None" is valid.

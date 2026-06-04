@@ -96,3 +96,29 @@ Write `docs/security/LLM_FINDINGS_<date>.md` following `FINDING_SCHEMA.md`. Cate
 - [ ] LLM06b checked — is agent tool scope bounded to the current user's authorized data? Or can it access cross-user data?
 - [ ] LLM02b checked — do security scanning tools write unmasked secret output to committed files?
 - [ ] Output file written
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.

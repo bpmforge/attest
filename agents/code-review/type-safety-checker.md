@@ -72,3 +72,29 @@ Write `docs/reviews/TYPE_SAFETY_FINDINGS_<date>.md`. Per finding: file:line, typ
 - [ ] `any` escapes inventoried with justification assessment
 - [ ] `!` non-null assertions reviewed for invariant backing
 - [ ] TypeScript strict mode status noted in summary
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

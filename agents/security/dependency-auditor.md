@@ -98,3 +98,29 @@ Write `docs/security/DEPENDENCY_FINDINGS_<date>.md` using `FINDING_SCHEMA.md`. C
 - [ ] Slopsquatting check done if AI-assisted project indicators present
 - [ ] License audit completed
 - [ ] Package count noted in summary (N total, N audited, N with findings)
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.

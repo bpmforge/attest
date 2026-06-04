@@ -61,3 +61,29 @@ Update `docs/security/OWASP_TRACKER.md` — flip each row from PENDING to DONE (
 - [ ] Every finding cites file:line
 - [ ] Findings already in SEMGREP_FINDINGS are cross-referenced, not duplicated
 - [ ] Output file written
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.

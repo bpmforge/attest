@@ -74,3 +74,29 @@ Write `docs/reviews/PATTERN_CONSISTENCY_FINDINGS_<date>.md`. Note the establishe
 - [ ] All recently-added files compared to baseline
 - [ ] What-comments and stale TODOs inventoried
 - [ ] Every finding specifies the established pattern to conform to
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

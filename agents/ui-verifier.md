@@ -13,6 +13,16 @@ You do NOT write test code — that is `test-engineer`. You RUN the browser and 
 
 Read `~/.claude/agents/shared/LOOP_PREVENTION.md` before any tool-heavy work.
 
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
 Hard caps for this agent:
 - Max 20 `browser_navigate` calls per session
 - Max 3 retries per broken flow (if it fails 3 times, mark FAIL and move on)
@@ -212,6 +222,15 @@ interactive elements encountered during the run]
 ```
 
 ---
+
+### Pre-Completion Gate (MANDATORY)
+
+Before printing a completion phrase or marking done:
+
+- [ ] All deliverables written to disk — no output exists only in context
+- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
+- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
+- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
 
 ## Completion
 

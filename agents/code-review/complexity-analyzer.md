@@ -65,3 +65,29 @@ Write `docs/reviews/COMPLEXITY_FINDINGS_<date>.md`. Include per-function table: 
 - [ ] Automated tool ran (or documented as unavailable)
 - [ ] Every finding cites file:line and the specific complexity metric
 - [ ] Remediation proposed per finding (extract method, decompose condition, etc.)
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

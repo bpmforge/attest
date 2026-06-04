@@ -61,3 +61,29 @@ Write `docs/performance/STATIC_PERF_FINDINGS_<date>.md`. Per finding: file:line,
 - [ ] Confidence loop completed (score per scan dimension noted)
 - [ ] N+1 patterns noted with the specific ORM call and the outer loop
 - [ ] try/catch-in-loop findings marked HIGH/CRITICAL (always performance-blocking)
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: perf-synthesizer
+```
+
+All sections required. "None" is valid.

@@ -76,3 +76,29 @@ Write `docs/reviews/DUPLICATION_FINDINGS_<date>.md`. Include: duplicated block l
 - [ ] Git churn correlation checked
 - [ ] Every finding notes BOTH locations of the duplication
 - [ ] Abstraction recommendation is specific (not "refactor this")
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

@@ -228,6 +228,16 @@ Each rule is scored per finding:
 **Why it fails:** The LLM is an injection vector. Its output can be manipulated (prompt injection) to produce malicious SQL/HTML/commands. See OWASP LLM05.
 **Rule:** LLM output is always **untrusted user input**. Validate against a schema before use. Never pass LLM output to `eval()`, `exec()`, `db.execute()` without parameterization, or `innerHTML` without sanitization.
 
+### R-29 Prose Padding (Local LLM Output Slop)
+**Research basis:** Observed consistently across qwen3, gemma3, and similar local models when producing documentation, findings reports, and analysis. Distinct from R-13/R-14 (code comments) — this covers agent-generated *markdown prose*.
+**Pattern:** Three specific verbal tics that inflate word count without adding information:
+1. **Confidence-hedging openers:** "It's worth noting that…", "One might consider…", "It should be mentioned that…", "It is important to note that…"
+2. **Repetitive section openers:** Every finding begins "This is a significant [security/performance/quality] concern that…" — all findings start the same way.
+3. **Fake specificity:** Citing "industry best practices" or "modern approaches" or "established patterns" without naming the specific practice, standard, or source.
+**Why it fails:** Padding dilutes real signal. A report where every finding is prefixed with "It's important to note that this is a significant concern" forces the reader to parse 30% more text to get the same information. On local LLMs with tight output budgets, it also wastes tokens on noise.
+**Rule:** State findings directly. "This function has no error handling" not "It's worth noting that one might observe that this function arguably lacks error handling." If citing a practice, name it: "OWASP recommends parameterized queries (A03:2021)" not "industry best practices suggest using safe query patterns."
+**Grep signal:** `grep -rn "worth noting\|it should be mentioned\|one might consider\|important to note" docs/ agents/` — flag any occurrence in agent-produced deliverables.
+
 ---
 
 ## Detection Tools (2025-2026)

@@ -94,3 +94,29 @@ Include LDR scores in the summary table.
 - [ ] LDR measured for at least 5 files
 - [ ] Blocking violations (R-01, R-02, R-13, R-15, R-17, R-18) clearly marked
 - [ ] Detection tools section lists which tools were available and ran
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

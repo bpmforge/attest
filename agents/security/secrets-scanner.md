@@ -95,3 +95,29 @@ For git-history findings: note the commit hash and whether the secret is still l
 - [ ] CRITICAL for any confirmed active credential in source
 - [ ] `docs/security/trufflehog-output-masked.json` is added to `.gitignore` before marking complete
 - [ ] No security scan output file containing raw secret values is left in a tracked location
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.
