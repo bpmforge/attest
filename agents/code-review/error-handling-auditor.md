@@ -74,3 +74,29 @@ Write `docs/reviews/ERROR_HANDLING_FINDINGS_<date>.md`. Per finding: file:line, 
 - [ ] Serial awaits reviewed for Promise.all candidates
 - [ ] R-01 through R-04 all checked
 - [ ] Blocking violations clearly marked CRITICAL
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: code-health-synthesizer
+```
+
+All sections required. "None" is valid.

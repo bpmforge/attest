@@ -151,3 +151,29 @@ If `docs/security/final-report.md` exists, update the "Attack Chains" section wi
 - [ ] Attack narrative written for every CRITICAL chain — not just a table row
 - [ ] Remediation priority: fix the entry point of the chain first
 - [ ] Challenger Gate: this output is HIGH-stakes → Challenger mandatory before closing
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.

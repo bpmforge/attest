@@ -13,6 +13,14 @@ This file contains the Mode 3 workflow. The spine, shared protocols, discovery i
 
 Add a feature to an existing system without breaking it.
 
+## Loop Prevention (MANDATORY)
+
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 30 tool calls total for this orchestration session. At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
+
+## Context Budget (MANDATORY for local models)
+
+Read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md` before loading multiple documents. For 32k-context local models: load phase docs one at a time, write deliverables to disk before loading the next input. Never hold more than 4 large files in context simultaneously.
+
 ## Loop prevention (MANDATORY — rules are here, no file read required)
 
 **Class 2 — Schema-validation loop — STOP after 2 strikes.** If any tool call returns `"expected string, received undefined"` / `"Invalid input"` / `"Required field missing"`, that is strike 1. A second schema error on any tool = strike 2. Write this verbatim and end the turn:

@@ -362,6 +362,8 @@ After every successful tool call, ask yourself **before the next call**:
 
 If 3 consecutive successful calls to the same Q produce nothing new, the question is **as answered as it's going to get**. Mark DONE and move on. Repeating the same fetch pattern hoping for new info is the failure mode you must avoid.
 
+> This implements the Class 1 failure loop from `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. If that file is available, read it first — it covers additional loop classes beyond tool failures.
+
 ### Hard exit rule — 3 strikes (MANDATORY)
 
 **This rule overrides everything else. Apply it before reasoning about confidence or refining queries.**

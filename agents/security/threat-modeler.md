@@ -80,3 +80,29 @@ Write findings to `docs/security/THREAT_MODEL_FINDINGS_<date>.md` using `FINDING
 - [ ] Every CRITICAL/HIGH threat has a mitigation entry
 - [ ] No `[TODO]` or `[TBD]` in THREAT_MODEL.md
 - [ ] FINDING_SCHEMA output written
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: [next agent, e.g. "attack-chainer" or "security-auditor resume"]
+```
+
+All sections required. "None" is valid.

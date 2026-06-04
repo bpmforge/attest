@@ -82,3 +82,29 @@ Write `docs/performance/DB_QUERY_FINDINGS_<date>.md`. Per finding: table/model, 
 - [ ] N+1 patterns in ORM calls inventoried
 - [ ] Unbounded queries on user-data tables marked CRITICAL
 - [ ] Schema read (not just application code)
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: perf-synthesizer
+```
+
+All sections required. "None" is valid.

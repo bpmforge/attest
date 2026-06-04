@@ -94,3 +94,29 @@ Complete: "challenge done — perf"
 - [ ] Compound slowdown analysis done (not just finding list)
 - [ ] Top fix ranked by impact × traffic × cost
 - [ ] Challenger triggered if HIGH/CRITICAL present
+
+### Completion Manifest
+
+Before the completion phrase, output:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: challenger
+```
+
+All sections required. "None" is valid.

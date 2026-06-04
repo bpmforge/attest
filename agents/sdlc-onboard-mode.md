@@ -9,6 +9,16 @@ This file is the Mode 2 coordinator. It dispatches specialist sub-agents and kee
 
 ---
 
+## Loop Prevention (MANDATORY)
+
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 30 tool calls total for this orchestration session. At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
+
+## Context Budget (MANDATORY for local models)
+
+Read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md` before loading multiple documents. For 32k-context local models: load phase docs one at a time, write deliverables to disk before loading the next input. Never hold more than 4 large files in context simultaneously.
+
+---
+
 ## Three Depth Levels
 
 | Flag | Steps | Time | When to use |
