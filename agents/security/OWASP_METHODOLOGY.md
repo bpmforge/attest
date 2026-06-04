@@ -1010,7 +1010,7 @@ Write this to `docs/security/THREAT_MODEL_DFD.md`.
 ```mermaid
 graph TB
     subgraph "Trust Boundary: Internet"
-        User[fa:fa-user User/Browser]
+        User["fa:fa-user User/Browser"]
         ExtAPI[External API]
     end
     subgraph "Trust Boundary: DMZ"

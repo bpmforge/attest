@@ -264,7 +264,7 @@ Write this as a separate document at `docs/INFRASTRUCTURE.md`.
 
 ```mermaid
 graph TB
-    Internet --> CDN[CDN / WAF]
+    Internet --> CDN["CDN / WAF"]
     CDN --> LB[Load Balancer]
     LB --> App[App Servers]
     App --> Cache[(Cache)]

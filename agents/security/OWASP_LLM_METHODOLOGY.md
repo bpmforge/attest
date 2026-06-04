@@ -51,6 +51,30 @@ messages = [
 
 **Severity:** CRITICAL if user input reaches system prompt plane; HIGH otherwise.
 
+#### LLM01b — Indirect Prompt Injection via Retrieved Content
+
+**Pattern:** LLM agent fetches external content (web pages, files, API responses, database records) and processes it without an explicit "untrusted data" boundary. Injected instructions in fetched content can redirect the agent.
+
+**Code indicators:**
+```bash
+grep -rn "fetch\|web_research\|retrieve\|load_document\|read_url\|requests.get\|httpx\|aiohttp" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+grep -rn "messages.*content.*fetch\|prompt.*url\|context.*fetch\|insert.*retrieved" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+grep -rn "RAG\|retrieval\|vector_store\|web_search\|tool_result" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+```
+
+**What to look for:**
+- Retrieved content inserted directly into a prompt or message array with no sanitization boundary
+- No "content is untrusted data" marker in system prompt or tool-use instructions
+- LLM given tools (bash, file write, HTTP requests) in the same session that fetches untrusted content — means injected instructions can be executed
+- RAG pipelines where document chunks are inserted verbatim into the system message
+
+**Severity:** CRITICAL when the agent also has tool access (bash, file write, network calls). HIGH when output only.
+
+**Finding format:** Note file:line where retrieved content joins the prompt, note which tools the agent has access to, describe the exploitation chain.
+
 ---
 
 ## LLM02 — Sensitive Information Disclosure
@@ -78,6 +102,28 @@ return pii_scrubber.clean(response)
 - LLM responses returned to users without output filtering
 - Full LLM prompt/response logged to files or monitoring systems
 - No rate-limiting on enumeration probes (user can extract training data via repeated queries)
+
+#### LLM02b — Sensitive Data Written to Disk / Logged by Security Tools
+
+**Pattern:** Security scanning tools (secret scanners, SAST tools) write their full output — including discovered plaintext secrets — to files that may be committed or shipped.
+
+**Code indicators:**
+```bash
+grep -rn "tee\|\.json\|\.log\|\.txt\|writeFile\|open.*w" \
+  scripts/ tools/ ci/ .github/ --include="*.sh" --include="*.py" --include="*.yml" | grep -i "trufflehog\|gitleaks\|secret\|scan" | head -20
+grep -rn "tee.*security\|tee.*output\|tee.*findings" \
+  . --include="*.sh" --include="*.yml" | head -10
+```
+
+**What to look for:**
+- `trufflehog --json | tee output.json` — TruffleHog JSON includes `Raw` and `RawV2` fields with plaintext secrets
+- `gitleaks detect --report-path` — report includes plaintext secrets unless `--redact` flag is used
+- `semgrep --json > findings.json` — if rule matches include secret patterns, output may include secret values
+- These output files in project tree, not in `.gitignore`
+
+**Severity:** HIGH if output file is not gitignored. CRITICAL if file was already committed.
+
+**Mitigation:** Pipe through masking: `trufflehog … --json | jq 'del(.Raw, .RawV2)'`. Add `gitleaks --redact`. Add output files to `.gitignore`.
 
 ---
 
@@ -201,6 +247,28 @@ tools = [read_only_db_tool]   # read only
 - Tool scopes not following principle of least privilege
 - No human-in-the-loop for destructive or irreversible actions
 - `agent.run()` without output validation or action logging
+
+#### LLM06b — Confused Deputy / Scope Creep via LLM Tool Access
+
+**Pattern:** The LLM is given tools that access data or perform actions beyond the scope the end user authorized. The LLM acts as a deputy that can access more than the user can directly.
+
+**Code indicators:**
+```bash
+grep -rn "readFile\|fs\.read\|glob\|\*\*\/\*\|listdir\|os\.walk" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+grep -rn "memory.*recall\|vector.*search\|db\.query\|sql.*select" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+grep -rn "scope.*all\|cross.*user\|all.*memories\|global.*context" \
+  src/ app/ lib/ --include="*.ts" --include="*.py" --include="*.js" | head -20
+```
+
+**What to look for:**
+- Agent can read files outside the user's project/workspace scope (e.g., `~/.ssh/`, `/etc/`, env files)
+- Memory/vector store recall with `scope='all'` or no user-scoping — LLM can surface another user's stored data
+- Agent retrieves records from a shared database without a user-ID filter — LLM synthesizes and presents data the user shouldn't see
+- Agent has write access to shared state (memory, DB, files) that other users can read
+
+**Severity:** HIGH when multi-user system. MEDIUM in single-user but agent has OS-level file access.
 
 ---
 

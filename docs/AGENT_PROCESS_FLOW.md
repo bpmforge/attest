@@ -15,7 +15,7 @@ The flows below assume both. If either fires, the diagram pauses and the user ge
 
 ```mermaid
 flowchart TD
-    Start([User: /sdlc init my-app description]) --> Lead[SDLC Lead]
+    Start(["/sdlc init my-app description"]) --> Lead[SDLC Lead]
     Lead --> DI[Discovery Interview - 7 questions]
     DI --> P0[Phase 0: Ideation]
     P0 --> P1[Phase 1: Planning]
@@ -30,7 +30,7 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start[Phase 0: Ideation start] --> Git[task git-expert: init repo + sdlc/setup branch]
+    Start[Phase 0: Ideation start] --> Git["task git-expert: init repo + sdlc/setup branch"]
     Git --> Research[HANDOFF researcher: competitive landscape]
     Research --> Review[Research Findings Review Protocol]
     Review --> Surface{Contradicts DISCOVERY?}
@@ -52,7 +52,7 @@ flowchart TD
     Showstopper -->|yes| Surface[Surface to user before scope]
     Showstopper -->|no| Write[Write SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md]
     Surface --> Write
-    Write --> Gate[Gate -> Check-In -> P2]
+    Write --> Gate["Gate -> Check-In -> P2"]
 ```
 
 ### Phase 2 — Requirements
@@ -61,9 +61,9 @@ flowchart TD
 flowchart TD
     Start[Phase 2: Requirements] --> UX[HANDOFF ux-engineer: USER_FLOWS.md]
     UX --> Write[SDLC lead writes SRS.md + USER_STORIES.md]
-    Write --> UC[SDLC lead writes docs/testing/USE_CASES.md]
+    Write --> UC["SDLC lead writes docs/testing/USE_CASES.md"]
     UC --> TE[HANDOFF test-engineer: TEST_PLAN.md]
-    TE --> Gate[Gate -> Check-In -> P3]
+    TE --> Gate["Gate -> Check-In -> P3"]
 ```
 
 ### Phase 3 — Design
@@ -80,7 +80,7 @@ flowchart TD
     UI -->|no| Sec[HANDOFF security-auditor: THREAT_MODEL.md]
     Frontend --> Sec
     Sec --> Synth[SDLC lead writes ARCHITECTURE.md + PARALLELIZATION_MAP.md]
-    Synth --> Gate[Gate -> Merge sdlc/setup -> main -> P4]
+    Synth --> Gate["Gate -> Merge sdlc/setup -> main -> P4"]
 ```
 
 ### Phase 4 — Implementation (wave-based)
@@ -103,12 +103,12 @@ flowchart TD
     NextWave --> E2E[HANDOFF test-engineer: write E2E specs per P0 use case]
     E2E --> Disc[HANDOFF test-engineer: discovery audit on running app]
     Disc --> Container[HANDOFF container-ops: Dockerfile + compose]
-    Container --> SRE[HANDOFF sre-engineer: CI/CD + deploy]
+    Container --> SRE["HANDOFF sre-engineer: CI/CD + deploy"]
     SRE --> Reviews[Parallel review fan-out: code-reviewer + security + perf + ux]
     Reviews --> Synth[SDLC lead writes FIX_BACKLOG]
     Synth --> Loop[Fix-Verify Loop - max 3 iterations]
     Loop --> RuntimeGate[Runtime Validation Gate - blocking]
-    RuntimeGate --> FinalGate[Final gate: RUNTIME PASS + FIX_BACKLOG closed + 0 open CRITICAL/HIGH]
+    RuntimeGate --> FinalGate["Final gate: RUNTIME PASS + FIX_BACKLOG closed + 0 open CRITICAL/HIGH"]
     FinalGate --> Merge[task git-expert: PR ready + squash merge]
 ```
 
@@ -229,7 +229,7 @@ flowchart TD
     Check -->|no| Gap[4. GAP: re-discover ONLY uncovered rows]
     Gap --> Iter{Iterations >= 3?}
     Iter -->|no| Verify
-    Iter -->|yes| Escalate[5. ESCALATE: waiver / lower bar / specialist / manual]
+    Iter -->|yes| Escalate["5. ESCALATE: waiver / lower bar / specialist / manual"]
 ```
 
 Replaces confidence-score self-evaluation with coverage-percentage facts.
@@ -243,12 +243,12 @@ Three sub-skills trigger the individual onboard-deep steps: `/onboard-inventory`
 
 ```mermaid
 flowchart TD
-    Start([User: /sdlc feature 'add payment processing']) --> DI[Feature Discovery Interview - 7 questions]
+    Start(["/sdlc feature 'add payment processing'"]) --> DI[Feature Discovery Interview - 7 questions]
     DI --> Step1[Step 1: Impact Analysis - SDLC lead inline]
-    Step1 --> Impact[Write docs/FEATURE_IMPACT.md]
+    Step1 --> Impact["Write docs/FEATURE_IMPACT.md"]
     Impact --> Step2[Step 2: Design]
-    Step2 --> Specialist[HANDOFF: db-architect / api-designer / ux-engineer per impact]
-    Specialist --> UC[SDLC lead appends use cases to docs/testing/USE_CASES.md]
+    Step2 --> Specialist["HANDOFF: db-architect / api-designer / ux-engineer per impact"]
+    Specialist --> UC["SDLC lead appends use cases to docs/testing/USE_CASES.md"]
     UC --> AcceptanceTest[HANDOFF test-engineer: write acceptance test FIRST]
     AcceptanceTest --> Failing[Test FAILS - feature not built yet]
     Failing --> Step3[Step 3: Implement]
@@ -258,17 +258,17 @@ flowchart TD
     Step4 --> P0Gate[Gate: feature test + all P0 tests pass]
     P0Gate --> Reviews[HANDOFF code-reviewer + security-auditor if sensitive]
     Reviews --> Step5[Step 5: PR + Merge]
-    Step5 --> Merge[task git-expert: PR -> review -> merge]
+    Step5 --> Merge["task git-expert: PR -> review -> merge"]
 ```
 
 ## Mode 4: Improve
 
 ```mermaid
 flowchart TD
-    Start([User: /sdlc improve 'ux']) --> DI[Improvement Discovery Interview]
+    Start(["/sdlc improve 'ux'"]) --> DI[Improvement Discovery Interview]
     DI --> Step1[Step 1: Context Check - read AGENTS.md + docs + recent git]
     Step1 --> Step15[Step 1.5: Discovery Audit on running app]
-    Step15 --> Pre[PRODUCE docs/audits/discovery-pre-improve.md]
+    Step15 --> Pre["PRODUCE docs/audits/discovery-pre-improve.md"]
     Pre --> Step2[Step 2: Targeted Audits]
     Step2 --> Fan{Audit focus}
     Fan -->|UX| UX[HANDOFF ux-engineer]
@@ -281,11 +281,11 @@ flowchart TD
     Sec --> Step3[Step 3: Consolidate + Plan]
     Step3 --> Plan[SDLC lead writes IMPROVEMENT_PLAN.md with regression-test column]
     Plan --> Step4[Step 4: Implement Fixes]
-    Step4 --> PerFix[Per fix: implement -> regression test -> verify]
+    Step4 --> PerFix["Per fix: implement -> regression test -> verify"]
     PerFix --> Step5[Step 5: Verify]
     Step5 --> Rerun[Re-run discovery audit]
-    Rerun --> Compare[Compare before/after findings]
+    Rerun --> Compare["Compare before/after findings"]
     Compare --> AllP0[All P0 tests still pass - no regressions]
     AllP0 --> Step6[Step 6: PR + Merge]
-    Step6 --> Done[task git-expert: PR with before/after metrics]
+    Step6 --> Done["task git-expert: PR with before/after metrics"]
 ```

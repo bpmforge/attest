@@ -22,10 +22,10 @@ Referenced from: agents/sdlc-init-phases-3-4.md (Phase 3).
 <!-- Score this diagram with the C1 confidence loop before writing § 2.2 -->
 ```mermaid
 graph TB
-    [Persona1 from USER_PERSONAS.md]-->SystemBoundary[System Name]
-    [Persona2]-->SystemBoundary
-    SystemBoundary-->[ExternalSystem1 from SRS §5.2]
-    SystemBoundary-->[ExternalSystem2]
+    P1[Persona1 from USER_PERSONAS.md]-->SystemBoundary[System Name]
+    P2[Persona2]-->SystemBoundary
+    SystemBoundary-->Ext1["ExternalSystem1 from SRS §5.2"]
+    SystemBoundary-->Ext2[ExternalSystem2]
 ```
 
 ### 2.2 Container Diagram (C2)
@@ -34,8 +34,8 @@ graph TB
 ```mermaid
 graph TB
     subgraph System
-        [ServiceName from TECH_STACK.md]
-        ...
+        Svc1[ServiceName from TECH_STACK.md]
+        %% add more nodes here
     end
 ```
 
@@ -46,14 +46,14 @@ graph TB
 #### 2.3.1 [Service Name 1]
 ```mermaid
 graph TB
-    [RealModuleName]-->[OtherRealModule]
-    ...
+    ModA[RealModuleName]-->ModB[OtherRealModule]
+    %% add more nodes here
 ```
 
 #### 2.3.2 [Service Name 2]
 ```mermaid
 graph TB
-    ...
+    %% add more nodes here
 ```
 <!-- Add one 2.3.x subsection per major service -->
 
@@ -62,7 +62,7 @@ graph TB
 <!-- Score with Deployment confidence loop before writing § 2.5 -->
 ```mermaid
 graph TB
-    ...
+    %% add more nodes here
 ```
 
 ### 2.5 Data Flow Diagram
@@ -70,7 +70,7 @@ graph TB
 <!-- Score with Data Flow confidence loop before writing § 3 -->
 ```mermaid
 graph LR
-    ...
+    %% add more nodes here
 ```
 
 ### 2.6 Sequence Diagrams — one per P0 Use Case
@@ -80,9 +80,9 @@ graph LR
 #### [UC-001 name from USE_CASES.md]
 ```mermaid
 sequenceDiagram
-    participant [RealActorName]
-    participant [RealServiceName]
-    ...
+    participant RealActorName
+    participant RealServiceName
+    %% add more participants and steps here
     Note over API: On error: [specific error response]
 ```
 <!-- Add one sequence section per P0 use case -->

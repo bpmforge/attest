@@ -97,7 +97,7 @@ graph TB
 ```mermaid
 graph TB
     subgraph API Server
-        Router[Router/Middleware]
+        Router["Router/Middleware"]
         AuthMod[Auth Module]
         UserMod[User Module]
         PayMod[Payment Module]
