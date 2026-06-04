@@ -591,6 +591,47 @@ If any item is unchecked, complete it before proceeding. If an item cannot be co
 | AI-generated content | Very low — verify everything |
 | Sponsored content | Flag as potentially biased |
 
+### Domain-Specific Source Tiers
+
+Generic credibility is not enough. A "named expert blog" about glucose metabolism carries far less weight than a PubMed-indexed clinical trial. Use these domain tiers to assign credibility — and require that any factual claim from a Tier 3+ source be corroborated by a Tier 1 or 2 source before citing it as established fact.
+
+**Health / Medicine / Biology**
+| Tier | Sources | Credibility |
+|------|---------|-------------|
+| 1 | PubMed-indexed journals, Cochrane Reviews, RCTs with DOI, NIH (nih.gov), CDC (cdc.gov), WHO (who.int), FDA (fda.gov) | Very High |
+| 2 | Mayo Clinic, Cleveland Clinic, WebMD (clinical articles), academic medical centers (.edu hospitals), NICE (UK) | High |
+| 3 | Health journalism (Healthline, Medical News Today) — only if citing a specific study with link | Medium |
+| 4 | Personal health blogs, supplement company sites, wellness influencers, anecdotal forums | Low / Exclude |
+| ⚠️ | Industry-funded research (pharma/supplement co. funding author) — flag conflict of interest regardless of journal | Biased — note explicitly |
+
+**Security / CVEs / Vulnerabilities**
+| Tier | Sources | Credibility |
+|------|---------|-------------|
+| 1 | NIST NVD (nvd.nist.gov), CVE.mitre.org, OWASP.org, vendor security advisories (official), US-CERT | Very High |
+| 2 | Named security researchers (GitHub profiles, conference papers — DEF CON, Black Hat, USENIX), Shodan blog | High |
+| 3 | Security journalism (Krebs, Ars Technica security section, The Register) | Medium |
+| 4 | Anonymous blog posts, unattributed PoC write-ups | Low — verify independently |
+
+**Software / Technology / APIs**
+| Tier | Sources | Credibility |
+|------|---------|-------------|
+| 1 | Official docs (docs.rust-lang.org, docs.python.org, developer.mozilla.org, RFC editor), GitHub release notes | Very High |
+| 2 | Core maintainer blogs, major conference talks (FOSDEM, PyCon, RustConf), academic CS papers with DOI | High |
+| 3 | Stack Overflow (accepted answer, score > 20), established tech blogs (Martin Fowler, Netflix Tech Blog) | Medium |
+| 4 | Tutorial blogs without code tested against current version, anonymous dev.to posts | Low |
+
+**Legal / Regulatory / Compliance**
+| Tier | Sources | Credibility |
+|------|---------|-------------|
+| 1 | Legislation text (congress.gov, eur-lex.europa.eu), regulatory agency publications (FTC, FCA, GDPR official text) | Very High |
+| 2 | Bar association publications, law school reviews, named attorney analysis on firm sites | High |
+| 3 | Legal journalism (Law360, ABA Journal) | Medium |
+| 4 | Non-attorney legal advice sites, forum posts | Low / Exclude |
+
+**Corroboration rule:** A Tier 3 or 4 source making a specific factual claim (a statistic, a study result, a version number, a legal ruling) **must be corroborated by a Tier 1 or 2 source** before it appears in the report as established fact. If no corroboration is found, the claim must be flagged as `[SINGLE SOURCE — TIER 3 — UNVERIFIED]`.
+
+**Conflict of interest rule:** Always check: *who funded this research or runs this site?* A supplement company publishing a study about their supplement, a SaaS vendor benchmarking against competitors, or a lobby group publishing policy analysis — all are biased regardless of their domain tier. Mark these `[COI: <funder>]` in the checkpoint and treat as Tier 4 until an independent source corroborates.
+
 ### Content Quality Red Flags
 
 Downgrade credibility to LOW or EXCLUDE if ≥3 of these are present:
