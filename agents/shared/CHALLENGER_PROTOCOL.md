@@ -70,6 +70,22 @@ For each claim, search for evidence **that could refute it**. You are playing de
 
 **Hard cap: 4 tool calls per claim.** If you have not found refuting evidence in 4 calls, the verdict is UNVERIFIABLE — keep searching only if the claim concerns a CRITICAL finding.
 
+### Research Artifact Challenge Procedure
+
+When the artifact being challenged is a `RESEARCH_*.md` file (not a code file), apply this additional verification step for every cited claim:
+
+**For each CLAIM that includes a citation URL:**
+
+1. Call `web_fetch(citation_url)` to confirm the URL resolves and the page is accessible
+2. Check: does the retrieved content actually contain the asserted information?
+   - If YES and the content supports the claim: mark `CONFIRMED`
+   - If the URL returns 404, redirects to an unrelated page, or the content contradicts the claim: mark `CONTRADICTED` — this is a false citation
+   - If the URL returns a paywall, login page, or < 300 chars: mark `UNVERIFIABLE` — note "URL returns access-restricted content, cannot verify"
+
+3. For claims without a citation URL: mark `UNSOURCED` — flag for the researcher to add a source
+
+**Rule:** A research report claim is only `CONFIRMED` when the cited URL resolves and the content at that URL supports it. Plausible-sounding citations that 404 or contradict the claim are failures, not neutral.
+
 ---
 
 ## Verdicts

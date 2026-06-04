@@ -682,8 +682,8 @@ graph TB
 ```mermaid
 graph TB
     subgraph System
-        WebApp[Web App<br/>React/Next.js]
-        API[API Server<br/>Node.js/Fastify]
+        WebApp["Web App<br/>React/Next.js"]
+        API["API Server<br/>Node.js/Fastify"]
         DB[(PostgreSQL)]
         Cache[(Redis)]
         Queue[Message Queue<br/>RabbitMQ]

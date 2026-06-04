@@ -78,7 +78,7 @@ scan_file() {
     # Match [...] where content has / but is not already "..."
     # Exclude <br/> which is intentional HTML
     local stripped_br="${line//<br\/>/BRPLACEHOLDER}"
-    if [[ "$stripped_br" =~ \[([^\[\]\"]*\/[^\[\]\"]*)\] ]]; then
+    if [[ "$stripped_br" =~ \[([^]["]*\/[^]["]*)\] ]]; then
       local label="${BASH_REMATCH[1]}"
       # Ignore if the / appears inside a quoted edge label  -->|"text/text"|
       local arrow_label_pattern='-->\|.*".*".*\|'

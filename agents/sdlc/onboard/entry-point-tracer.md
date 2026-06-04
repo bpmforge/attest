@@ -97,7 +97,7 @@ sequenceDiagram
     SVC-->>API: processed result
     API-->>C: 201 Created
     Note over API: On validation error: 422 + field errors
-    Note over DB: On DB error: SVC throws → API returns 500 + logs
+    Note over DB: On DB error: SVC throws -> API returns 500 + logs
 ```
 
 **Each diagram must include at least one error path.**

@@ -29,7 +29,10 @@ name: 'Secrets Scanner'
 
 ```bash
 # Scan all git history for live credentials
-trufflehog git file://. --json 2>/dev/null | tee docs/security/trufflehog-output.json | head -100
+trufflehog git file://. --json 2>/dev/null \
+  | jq 'del(.Raw, .RawV2)' \
+  | tee docs/security/trufflehog-output-masked.json \
+  | head -100
 
 # If TruffleHog not available, use git-secrets or grep
 git log --all --full-history --pretty="%H %s" -- '*.env' '*.key' '*.pem' '*.p12' '*.pfx' 2>/dev/null | head -20
@@ -70,6 +73,12 @@ grep -rn "password\s*:\s*['\"]" . --include="*.yaml" --include="*.yml" --include
   --exclude-dir=".git" --exclude-dir="node_modules" 2>/dev/null | grep -v "password.*env\|password.*secret"
 ```
 
+```bash
+# Ensure scan output files are never committed
+grep -q "trufflehog-output" .gitignore 2>/dev/null || echo "docs/security/trufflehog-output*.json" >> .gitignore
+grep -q "gitleaks-report" .gitignore 2>/dev/null || echo "docs/security/gitleaks-report*" >> .gitignore
+```
+
 ### Phase 4 — Write Findings
 
 Write `docs/security/SECRETS_FINDINGS_<date>.md` using `FINDING_SCHEMA.md`. Category: `secrets`.
@@ -84,3 +93,5 @@ For git-history findings: note the commit hash and whether the secret is still l
 - [ ] Hardcoded fallback pattern checked: `process.env.X || "literal"`
 - [ ] Every finding notes whether the secret is live (active) or historical (rotated)
 - [ ] CRITICAL for any confirmed active credential in source
+- [ ] `docs/security/trufflehog-output-masked.json` is added to `.gitignore` before marking complete
+- [ ] No security scan output file containing raw secret values is left in a tracked location
