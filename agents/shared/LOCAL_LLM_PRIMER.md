@@ -26,7 +26,7 @@ END HANDOFF #N
 ```
 
 **Rule 3 — No task() calls.**
-`task()` does not work in OpenCode. Every delegation is a HANDOFF block you print for the user to copy into a new session.
+Delegation is always a HANDOFF block. Execute it per `agents/shared/EXECUTOR_SELECTION.md` — Task tool when `has_task_tool=true` in `docs/work/.model-context`, otherwise print it for the user to copy into a new session.
 
 **Rule 4 — Write to disk immediately.**
 Whenever you produce content > 200 tokens (code, a document, research findings), write it to disk with `write(filePath="...")` before continuing. Do not accumulate large outputs in context.

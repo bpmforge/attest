@@ -13,9 +13,9 @@ mode: "subagent"
 
 # Mode 1 — Phases 3–4: Design, Test Design, Implementation
 
-> Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, OpenCode delegation) live in sdlc-init-mode.md and apply here too.
+> Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § OpenCode Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 
 ## Phase 3: Design — HOW do we build it?
 
