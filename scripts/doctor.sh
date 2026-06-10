@@ -106,16 +106,23 @@ else
   bad "scripts/detect-model-context.sh missing"
 fi
 
-# ── 6. Agent discovery (cheap, no LLM call) ─────────────────────────────
+# ── 6. Agent discovery ──────────────────────────────────────────────────
+# Authoritative check = the agent FILES are installed (deterministic).
+# `opencode agent list` boots the runtime and returns a partial/varying list
+# across runs, so it's only an advisory cross-check — never a hard failure.
 echo ""
 echo "Agent discovery:"
+for a in sdlc-lead guide task-decomposer; do
+  if [ -f "$DIR/agents/$a.md" ]; then ok "agent installed: $a.md"; else bad "agent missing: $DIR/agents/$a.md — re-run ./install.sh"; fi
+done
+[ -d "$DIR/agents/compact" ] && warn "stale agents/compact/ present — duplicate registrations; rm -rf $DIR/agents/compact and re-install" || ok "no stale compact/ dir"
 if command -v opencode >/dev/null 2>&1; then
-  LIST=$(opencode agent list 2>/dev/null)
-  if echo "$LIST" | grep -q "sdlc-lead"; then ok "opencode discovers sdlc-lead"; else bad "opencode does not list sdlc-lead — agents not discovered"; fi
-  if echo "$LIST" | grep -q "task-decomposer"; then ok "opencode discovers task-decomposer"; else warn "task-decomposer not listed — install may be stale; re-run ./install.sh"; fi
-  if echo "$LIST" | grep -q "guide"; then ok "opencode discovers guide (front door)"; else warn "guide not listed — re-run ./install.sh"; fi
-  DUP=$(echo "$LIST" | grep -c "compact/" || true)
-  [ "$DUP" -eq 0 ] && ok "no duplicate compact/ registrations" || warn "$DUP compact/ duplicates registered — old layout; rm -rf $DIR/agents/compact and re-install"
+  LIST=$(cd /tmp && opencode agent list 2>/dev/null)
+  if echo "$LIST" | grep -qE "(^|[[:space:]])sdlc-lead([[:space:]]|\()"; then
+    ok "opencode enumerates agents ($(echo "$LIST" | grep -cE '\((primary|subagent|all)\)') listed)"
+  else
+    warn "opencode agent list did not show sdlc-lead this run — that command returns a partial list intermittently; the installed files above are the real signal"
+  fi
 fi
 
 # ── 7. Code-analysis tools ──────────────────────────────────────────────
