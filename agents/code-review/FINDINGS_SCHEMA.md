@@ -21,7 +21,7 @@ mechanism (the code-review equivalent of security's preconditions/yields).
 {
   "id": "string",
   "severity": "CRITICAL | HIGH | MEDIUM | LOW",
-  "dimension": "complexity | duplication | error-handling | type-safety | pattern-consistency | anti-slop",
+  "dimension": "complexity | duplication | error-handling | type-safety | pattern-consistency | anti-slop | dead-code",
   "title": "string",
   "file": "string (path:line — always specific, never a directory)",
   "module": "string (logical module key — see Module Key below)",
@@ -37,7 +37,7 @@ mechanism (the code-review equivalent of security's preconditions/yields).
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `id` | Yes | Stable identifier: `<DIM>-<NNN>` e.g. `CPLX-003`, `DUP-012`, `ERR-007`, `TYPE-002`, `PAT-005`, `SLOP-014` |
+| `id` | Yes | Stable identifier: `<DIM>-<NNN>` e.g. `CPLX-003`, `DUP-012`, `ERR-007`, `TYPE-002`, `PAT-005`, `SLOP-014`, `DEAD-009` |
 | `severity` | Yes | Per calibration table below |
 | `dimension` | Yes | Which specialist found it — used by synthesizer to count distinct dimensions per module |
 | `title` | Yes | One line: problem + location + consequence ("listUsers is CC 27 — untestable branch explosion") |
