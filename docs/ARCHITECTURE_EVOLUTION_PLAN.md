@@ -447,6 +447,21 @@ files ≤3. Total injected ≤1,200 tokens on tier=small. *(Amends 4.3 + 5.2 M4.
 
 ---
 
+---
+
+## Part 8 — Expert system review (2026-06-10)
+
+Full review in `docs/EXPERT_SYSTEM_REVIEW_2026-06-10.md`. Headlines:
+
+- **Ralph Wiggum and Challenger are real wiring, not prose** — script-enforced iteration cap with disk-persisted state; gate-blocking CONTRADICTED verdicts with structural independence. Gaps: `/sdlc feature` and `/sdlc improve` run no coverage loop; onboard has no Challenger.
+- **Handoff output side is 84/85 standardized; input side is unspecified.** entry-point-tracer violates the manifest rule; preconditions/yields chaining exists only in the security cluster.
+- **Average agent portability 2.4/5** — 22% of all agent tokens are duplicated boilerplate; researcher (6.9k tokens) and test-engineer (5.7k) are too large for tier=small; 5 in-prompt contradictions found.
+- **The split's premise changed:** OpenCode now ships a blocking Task tool with custom subagents (#20059 closed). Remaining: subagents can't execute MCP tools (#16491 open) and the native Task tool has no timeout (#6573). The subprocess `tools/task.ts` path bypasses both — executor selection must become capability-probed (G3 refined).
+- **Missing experts:** task-decomposer (keystone for small-LLM strategy — pairs with the 4.1 runner), end-user-simulator (persona-driven true UAT, distinct from ui-verifier), llm-integration-engineer, release-manager, and a 4-agent game-dev cluster (+ `--game` SDLC flavor) when a game project exists.
+- 11 enhancements queued as R1–R11 in the review doc; R1–R3 (boilerplate factoring + contradiction fixes + input contracts) are prerequisites for the small-LLM goal.
+
+---
+
 **Guiding rule for all of it:** anything environment-specific (paths, model names,
 context sizes, endpoints) lives in exactly one probed/generated config file; every
 `.md` the model reads references the config, never a literal. Deterministic scripts
