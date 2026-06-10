@@ -28,6 +28,21 @@
 
 ---
 
+## Compact agent variants (tier=small)
+
+On a 32k local model, install the compact agent variants — same behavior contract,
+~250 fewer instruction tokens per agent:
+
+```bash
+./install.sh --compact          # overlay the slimmed agents
+```
+
+They're generated from the full agents (`dist/compact-agents/`) with boilerplate
+reduced to pointers. `scripts/detect-model-context.sh` writes your tier and the
+`has_task_tool`/`mcp_in_subagents` capability flags to `docs/work/.model-context`;
+`agents/shared/MODEL_ADAPTER.md` defines per-tier behavior and
+`EXECUTOR_SELECTION.md` how delegation is chosen.
+
 ## Context limits by task type
 
 | Task | Tokens needed | Model minimum |

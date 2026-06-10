@@ -12,19 +12,19 @@ The SDLC Lead orchestrates four distinct modes based on user intent.
 flowchart TD
     Start([User types command or natural language])
     Start --> Detect{Detect intent}
-    
+
     Detect -->|"build new app / start project"| M1["Mode 1: /sdlc init"]
     Detect -->|"understand this codebase / onboard"| M2["Mode 2: /sdlc onboard"]
     Detect -->|"add X feature / build X"| M3["Mode 3: /sdlc feature"]
     Detect -->|"improve / audit / review / find gaps"| M4["Mode 4: /sdlc improve"]
     Detect -->|"single file/function review"| Direct["Direct to specialist<br/>/review-code or /security"]
-    
+
     M1 --> State{Check SDLC state<br/>detect-sdlc-state.sh}
     State -->|fresh| Interview["Discovery Interview<br/>7 questions"]
     State -->|partial| Resume["Resume from<br/>lowest incomplete phase"]
     State -->|brownfield| Onboard["Recommend /sdlc onboard first"]
     State -->|complete| Improve["Offer /sdlc improve or /sdlc feature"]
-    
+
     Interview --> Confirm[User confirms summary]
     Confirm --> Phase0["Phase 0: Ideation<br/>VISION.md, COMPETITIVE_ANALYSIS.md"]
     Phase0 --> Gate0{Gate 0 pass?}
@@ -63,7 +63,7 @@ sequenceDiagram
     LEAD->>LEAD: Write docs/IMPROVE_CONTEXT.md
     LEAD->>U: Confirm summary
 
-    Note over LEAD: Step 2 — Parallel Audit Fan-Out
+    Note over LEAD: Step 2 - Parallel Audit Fan-Out
 
     par Audit wave (all in parallel)
         LEAD->>U: HANDOFF #1 -> code-reviewer
@@ -96,7 +96,7 @@ sequenceDiagram
     LEAD->>U: Present ranked backlog (CRITICAL/HIGH/MEDIUM/LOW)
     U-->>LEAD: Approve priorities
 
-    Note over LEAD: Step 5 — Fix Execution Waves
+    Note over LEAD: Step 5 - Fix Execution Waves
 
     loop For each approved priority tier
         LEAD->>U: HANDOFF -> coding-agent (fix wave)

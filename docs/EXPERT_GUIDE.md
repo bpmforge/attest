@@ -4,6 +4,20 @@ This document explains each expert agent's methodology, when to use them, and wh
 
 ---
 
+## Guide — Concierge (`/guide`)
+
+The front door. Describe any goal in plain English and `guide` routes it to the
+right expert, explains the route, checks prerequisites (via `doctor.sh`), drives
+the workflow, and always offers the next step — especially "want me to fix what
+I found?".
+
+- **Routes everything:** SDLC, security (find + fix), code health, dead code, performance, database, UX, tests, releases, research, game dev.
+- **Guided security flow:** scope → scan (`/security`) → triage → fix (`/security --fix`).
+- **Multi-step goals:** sequences experts (e.g. "harden before launch" → security → review-code → perf → fix → tests).
+- **Big/unfamiliar work:** routes to `task-decomposer` → `scripts/run-plan.mjs` so it stays reliable on small models.
+
+It never produces deliverables itself — it gets you to the expert that does.
+
 ## SDLC Lead (`/sdlc`)
 
 **Role:** Program manager and lead architect. Orchestrates the full software development lifecycle.

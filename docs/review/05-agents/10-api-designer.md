@@ -19,26 +19,26 @@ sequenceDiagram
 
     LEAD->>API: HANDOFF (scope + API style)
     API->>FS: Read LOOP_PREVENTION.md
-    API->>FS: Phase 1 — Grep for existing routes, middleware, error handling
+    API->>FS: Phase 1 - Grep for existing routes, middleware, error handling
     API->>FS: Read existing endpoints for naming and response conventions
     API->>FS: Write phase1.md checkpoint
 
-    API->>FS: Phase 2 — Read framework routing docs
+    API->>FS: Phase 2 - Read framework routing docs
     API->>FS: Check existing error response format
 
-    loop Phase 3 — Design per resource (3-pass)
-        API->>API: Pass 1 — Model resource + define endpoints
-        API->>API: Pass 2 — Verify consistency (naming, types, pagination)
-        API->>API: Pass 3 — Review from consumer perspective
+    loop Phase 3 - Design per resource (3-pass)
+        API->>API: Pass 1 - Model resource + define endpoints
+        API->>API: Pass 2 - Verify consistency (naming, types, pagination)
+        API->>API: Pass 3 - Review from consumer perspective
         alt Any endpoint requires tribal knowledge to understand
             API->>API: Simplify and re-check
         end
     end
 
-    API->>FS: Phase 4 — Write full endpoint docs
+    API->>FS: Phase 4 - Write full endpoint docs
     API->>FS: Write docs/api/openapi.yaml
 
-    API->>API: Phase 5 — Verify design completeness
+    API->>API: Phase 5 - Verify design completeness
     Note over API: All list endpoints paginated
     Note over API: All errors use RFC 7807 format
     Note over API: No breaking changes without version bump
@@ -49,7 +49,7 @@ sequenceDiagram
         API->>FS: Add missing endpoints, re-run
     end
 
-    API->>FS: Phase 6 — Write API_DESIGN.md
+    API->>FS: Phase 6 - Write API_DESIGN.md
     API->>FS: Write Completion Manifest
     API-->>LEAD: Completion phrase + manifest
 ```

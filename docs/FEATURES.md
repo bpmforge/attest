@@ -4,15 +4,16 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (46)](#agents)
-  - [Primary agents (16)](#primary-agents)
+- [Agents (65)](#agents)
+  - [Primary agents (22)](#primary-agents)
   - [Security micro-agents (9)](#security-micro-agents)
-  - [Code-review micro-agents (7)](#code-review-micro-agents)
+  - [Code-review micro-agents (8)](#code-review-micro-agents)
   - [Performance micro-agents (6)](#performance-micro-agents)
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
+  - [Game-dev cluster (4)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (20)](#skills)
-- [Shared protocols (16)](#shared-protocols)
+- [Skills (26)](#skills)
+- [Shared protocols (17)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
@@ -227,6 +228,26 @@ Called by `sdlc-lead` in Phase 3 (Design), after `db-architect` and before `codi
 
 ---
 
+### `guide` — Expert-system concierge / front door (`mode: primary`)
+
+The entry point when you don't know which command to run. Takes a plain-English goal, routes it to the right expert, checks prerequisites (via `doctor.sh`), drives the workflow, and always offers the next step (especially "want me to fix what I found?"). Has the full intent→expert routing table, a guided security scan→triage→fix flow, and multi-step sequencing for goals like "harden before launch". Invoked with `/guide`.
+
+### `task-decomposer` — Plan-DAG builder (`mode: primary`)
+
+Turns any request into `plan.json` — a typed DAG of bounded leaf tasks sized to the executing model's tier, with scout-before-plan and verify nodes. Executed deterministically by `scripts/run-plan.mjs`. The keystone for running big work reliably on small local models.
+
+### `end-user-simulator` — Persona-driven UAT (`mode: primary`)
+
+Walks the live app as a first-time human user with **zero spec knowledge** — only a persona, a goal, and what's on screen. Produces friction logs with patience budgets and task-completion verdicts. Distinct from `ui-verifier` (which checks the implementation against the spec).
+
+### `llm-integration-engineer` — LLM feature design (`mode: primary`)
+
+Design-side expert for building LLM features: prompt architecture, eval harnesses, model routing/fallback, token budgeting, structured-output contracts, RAG shape. Six hard rules (verify model facts, API-layer schema enforcement, no-eval-no-ship, …). Not for LLM security audits — that's `owasp-llm-checker`.
+
+### `release-manager` — Release coordinator (`mode: primary`)
+
+Thin coordinator for shipping a release: version bump, changelog (via `changelog-writer`), tag, deploy-gate checklist, both-remotes push, and a doc-count audit that prevents version-metadata drift.
+
 ### Security micro-agents
 
 Live in `agents/security/`. Dispatched by `security-auditor` (coordinator) via HANDOFF — each runs in its own context window and writes findings to `docs/work/security/<slug>.md`.
@@ -258,8 +279,9 @@ Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in pa
 | `error-handling-auditor` | Silent failures, over-broad catch, missing boundary validation |
 | `type-safety-checker` | Any-cast abuse, non-null assertions, unsafe type coercions |
 | `pattern-consistency-checker` | Naming, import style, module structure — deviation from project conventions |
-| `anti-slop-auditor` | 20-rule AI slop catalog (R-01..R-20): bloat, dead code, speculative abstractions, generated filler |
-| `code-health-synthesizer` | Coordinator synthesizer — reads all six micro-agent outputs, produces `HEALTH_ASSESSMENT.md` with prioritized backlog |
+| `anti-slop-auditor` | 28-rule AI slop catalog (R-01..R-28): bloat, speculative abstractions, generated filler, slopsquatting, credential leakage |
+| `dead-code-detector` | Unimplemented stubs, never-called functions, unused exports, orphan files, disconnected pipelines, unreachable branches (tool-first: knip/ts-prune/vulture/staticcheck + grep fallback) |
+| `code-health-synthesizer` | Coordinator synthesizer — reads all seven micro-agent outputs, produces `HEALTH_ASSESSMENT.md` with prioritized backlog |
 
 Methodology: `agents/code-review/METHODOLOGY.md` — per-dimension grading rubrics, severity escalation rules, FIX_BACKLOG format.
 
@@ -295,6 +317,19 @@ Live in `agents/sdlc/onboard/`. Dispatched by `sdlc-onboard-mode` (coordinator) 
 
 ---
 
+### Game-dev cluster
+
+Live in `agents/game/`. Activated by the `/sdlc init "<name>" "<desc>" --game` flavor (swaps SRS→GDD, inserts a vertical-slice gate before content production). Reuse the generic engineering experts (coding-agent, perf, test, frontend) for everything else.
+
+| Agent | Purpose |
+|-------|---------|
+| `game-designer` | Core loop first, 3 pillars, lose-loop design; produces the GDD (Game Design Document, the SRS equivalent) with SLICE/POST-SLICE scoping |
+| `gameplay-engineer` | Engine-grain implementation (Godot/Unity/Phaser/Bevy): frame budget, fixed-timestep vs render FPS, allocation discipline, input buffering, determinism |
+| `game-balance-designer` | Progression curves, economy sinks/sources; **simulates 1000 player-sessions** as a rerunnable script before shipping numbers |
+| `playtest-evaluator` | Blind-first playtest of the vertical slice; 6 fun heuristics with evidence, time-to-first-success vs the slice acceptance test |
+
+---
+
 ### SDLC mode agents
 
 Thin orchestrators that drive each SDLC phase. Read by `sdlc-lead` on demand.
@@ -318,11 +353,12 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 
 | Skill | Agent | Purpose |
 |---|---|---|
-| `/sdlc` | `sdlc-lead` | Full SDLC workflow (init / onboard / feature / **improve** / gate / status) |
+| `/guide` | `guide` | **Front door** — describe any goal in plain English; routes to the right expert and drives the workflow |
+| `/sdlc` | `sdlc-lead` | Full SDLC workflow (init / onboard / feature / **improve** / gate / status); `--game` flavor for games |
 | `/code` | `coding-agent` | Implement from SDLC design docs — API verification, anti-slop enforcement, tech stack compliance |
 | `/git-expert` | `git-expert` | Git lifecycle (init / feature / release / recover / inspect / sync) |
-| `/security` | `security-auditor` | OWASP audit, threat model, Semgrep scan |
-| `/review-code` | `code-reviewer` | Code health review (review / debt / consolidate / patterns) |
+| `/security` | `security-auditor` | OWASP audit, threat model, Semgrep scan; **`--fix`** drives a verified remediation loop |
+| `/review-code` | `code-reviewer` | 8-dimension code health review incl. dead/unused-code (review / debt / consolidate / patterns) |
 | `/research` | `researcher` | Deep research with source evaluation |
 | `/test-expert` | `test-engineer` | Test strategy, unit/e2e tests, coverage |
 | `/perf` | `performance-engineer` | Profile, benchmark, optimize |
@@ -349,7 +385,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 
 ## Shared protocols
 
-Canonical reference files in `agents/shared/`. Single source of truth — update once, propagates to all 3 locations (claude-experts, bpm-opencode-experts, live `~/.config/opencode/agents/shared/`).
+Canonical reference files in `agents/shared/`. Single source of truth — update once in this canonical repo; `npm run build:claude` regenerates the claude-experts copies.
 
 | File | Purpose |
 |------|---------|
@@ -361,7 +397,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
 | `LOOP_PREVENTION.md` | Tool-selection cheat-sheet + three loop classes (failure / schema-validation / success) + BLOCKED-template |
 | `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP) |
-| `ANTI_SLOP_RULES.md` | 20-rule AI slop catalog (R-01..R-20) — over-engineering, defensive bloat, hallucinated patterns, generated filler |
+| `ANTI_SLOP_RULES.md` | 28-rule AI slop catalog (R-01..R-28) — over-engineering, defensive bloat, hallucinated patterns, slopsquatting, credential leakage |
 | `CHALLENGER_PROTOCOL.md` | Full Challenger adversarial review protocol — challenge categories, severity grades, rebuttal cycle, output format |
 | `GATE_SCORING_PROTOCOL.md` | HANDOFF resume scoring (1–10 scale, asymmetric threshold ≥7 pass / 5–6 revise / <5 auto-fail) + coverage validator table |
 | `PHASE_ROUTING_PROTOCOL.md` | Smart routing table per phase, escape hatches, validation gate chain, two-track system (Track 1: coverage loop; Track 2: confidence loop) |
@@ -369,6 +405,8 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `CONTEXT_BUDGET.md` | Context budget management — synthesis chunking, state-file discipline, when to stop and write to disk |
 | `SESSION_PRIMER.md` | ~600-token session primer with 7 core rules including HANDOFF format, disk discipline, and memory workflow |
 | `MEMORY_PRIMER.md` | Memory MCP protocol — 3-call workflow (session_restore → memory_store → session_save), trigger table, call format, flat-file fallback |
+| `EXECUTOR_SELECTION.md` | Capability-probed delegation — native Task tool / subprocess / manual paste, chosen by `has_task_tool`/`mcp_in_subagents` flags |
+| `MODEL_ADAPTER.md` | Per-tier behavior (small/medium/large) + compact-variant pointer |
 
 ---
 
@@ -443,7 +481,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Thirty-six bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Forty-one bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -487,6 +525,23 @@ Thirty-six bash validators + gate runners in `scripts/validators/`. Each returns
 | `run-handoff-gates.sh` | Scope + manifest + coverage gate runner with any-failure-aborts semantics |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
+
+---
+
+## Orchestration & quality scripts
+
+Deterministic scaffolding in `scripts/` — these own control flow and verification so models only do leaf work (which keeps heavy jobs reliable on small local models).
+
+| Script | Purpose |
+|--------|---------|
+| `run-plan.mjs` | DAG runner — executes a `task-decomposer` `plan.json` node by node: topological order, tier-scaled timeouts, pre-flight model-server health check, checkpoint-continue retries, journal-based resume, `--auto-replan` |
+| `fix-verify.mjs` | Deterministic re-verify gate — `snapshot`/`verify` a finding source (`semgrep` or any `validate-*.sh`), diff by fingerprint, report CLOSED / STILL-OPEN / NEW, exit non-zero if anything remains or a fix regressed |
+| `mermaid-fix.mjs` | Mechanical Mermaid autofixer (`--write`) — smart quotes→ASCII, em-dash→hyphen, unicode arrows→`-->`, quote labels with specials, `//`→`%%` |
+| `build-agents.mjs` | Single-source boilerplate — `--check`/`--fix`/`--compact` (generates `dist/compact-agents/` tier=small variants) |
+| `build-target-claude.mjs` | Generates the claude-experts copies from this canonical repo (`npm run build:claude[:check]`) |
+| `check-tools.sh` | Detects (and `--install`s) the optional analysis tools: semgrep, knip, ts-prune, jscpd, vulture, radon, lizard, staticcheck, trufflehog, mmdc |
+| `doctor.sh` | Post-install self-check — structure, deps, config permission, model backend, tier detection, agent discovery, tool presence |
+| `detect-model-context.sh` | Writes `docs/work/.model-context` (type/provider/model/context/tier + `has_task_tool`/`mcp_in_subagents` flags) |
 
 ---
 

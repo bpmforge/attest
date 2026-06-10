@@ -15,10 +15,10 @@ sequenceDiagram
 
     U->>GH: git clone bpm-opencode-experts
     U->>IS: ./install.sh [--project] [--link] [--semgrep] [--pullmd]
-    
+
     IS->>IS: Platform check (macOS/Linux/WSL only)
     IS->>IS: Parse flags: MODE, METHOD, INSTALL_SEMGREP
-    
+
     alt MODE = global (default)
         IS->>FS: Create ~/.config/opencode/{agents,skills,tools,commands,references,scripts,plugins}/
         IS->>FS: Copy / symlink agents/*.md
@@ -31,16 +31,16 @@ sequenceDiagram
         IS->>FS: Create .opencode/ in current directory
         IS->>FS: Copy / symlink to .opencode/
     end
-    
+
     IS->>FS: Register plugin in opencode.json
     IS->>NPM: npm install (for plugin dependencies)
-    
+
     alt INSTALL_SEMGREP = true
         IS->>SEMP: Install semgrep binary
         IS->>SEMP: Clone community rules (trailofbits, elttam, gitlab, 0xdea)
         IS->>FS: Copy 186 custom rules to ~/.config/opencode/.semgrep/
     end
-    
+
     IS->>IS: Run validate-tools.js (verify all tools have valid exports)
     IS-->>U: Installation complete
 ```

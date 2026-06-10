@@ -29,8 +29,10 @@ cd ~/Code/bpm-opencode-experts
 
 `install.sh` prompts y/n for each optional MCP, then clones, builds, and registers them. Pass `--yes` to accept all defaults without prompting.
 
+**Useful flags:** `--compact` (overlay compact agent variants for 32k local models), `--tools` (also install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--project` (install into `.opencode/` instead of global), `--link` (symlink for dev).
+
 **What it installs:**
-- Agents, skills, shared protocols, hooks, and scripts → `~/.claude/`
+- Agents, skills, shared protocols, hooks, and scripts → `~/.config/opencode/`
 - `bpm-code-search-mcp` → `~/Code/bpm-code-search-mcp/` + registers as `code-search` MCP
 - `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP
 - `playwright-mcp` → registered via `npx -y @playwright/mcp@latest`
@@ -151,7 +153,13 @@ cat ~/.config/opencode/opencode.json | python3 -m json.tool
 #   playwright-search  node ~/.local/share/playwright-search/dist/mcp.js  - ✓ Connected
 ```
 
-Then start a Claude Code session and test each MCP:
+**Run the self-checks:**
+```bash
+~/.config/opencode/scripts/doctor.sh        # structure, deps, config, model backend, agent discovery → Status: HEALTHY
+~/.config/opencode/scripts/check-tools.sh   # which optional analysis tools are present (add --install)
+```
+
+Then start an OpenCode session and test each MCP:
 ```
 code_index_status()        # should show provider + file/chunk counts
 session_restore()          # should return [] on a fresh install (no memories yet)

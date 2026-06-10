@@ -65,10 +65,10 @@ graph TD
     LEAD -->|HANDOFF| GIT[git-expert]
 
     subgraph Modes["SDLC Mode Files (loaded on demand)"]
-        M1["sdlc-init-mode — Mode 1: New Project"]
-        M2["sdlc-onboard-mode — Mode 2: Onboard"]
-        M3["sdlc-feature-mode — Mode 3: Feature"]
-        M4["sdlc-improve-mode — Mode 4: Improve"]
+        M1["sdlc-init-mode - Mode 1: New Project"]
+        M2["sdlc-onboard-mode - Mode 2: Onboard"]
+        M3["sdlc-feature-mode - Mode 3: Feature"]
+        M4["sdlc-improve-mode - Mode 4: Improve"]
     end
 
     LEAD --> Modes
