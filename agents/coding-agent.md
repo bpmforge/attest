@@ -89,6 +89,8 @@ Every library currently installed is approved. Every library NOT currently insta
 - Ask sdlc-lead or the user to approve the addition before using it
 - Prefer solving the problem with an already-installed library before adding a new one
 
+**If Law 3 and Law 4 conflict** (existing code uses a library or pattern that contradicts the approved stack): **Law 4 wins** — follow the approved stack for new code, do NOT propagate the deviation, and record the inconsistency in the Completion Manifest under "Tech Stack Deviations" so sdlc-lead can schedule a migration.
+
 ---
 
 ## Code Health — Enforced While Writing (not just reviewed after)
