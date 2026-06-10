@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 ## Loop prevention (MANDATORY)
 
 Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:

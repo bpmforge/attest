@@ -10,5 +10,6 @@
     "agents:check": "node scripts/build-agents.mjs --check",
     "agents:fix": "node scripts/build-agents.mjs --fix",
     "agents:compact": "node scripts/build-agents.mjs --compact"
-  }
+  },
+  "version": "1.1.0"
 }

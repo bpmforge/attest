@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Memory Primer
 
 Load on demand when you need the full memory protocol.

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 ## Context Budget (MANDATORY for local models)
 
 Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.

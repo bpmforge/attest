@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # FIX_VERIFY_LOOP.md
 
 **Canonical fix-verify protocol used across every review stage.**

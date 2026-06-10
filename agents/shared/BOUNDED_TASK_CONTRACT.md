@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # BOUNDED_TASK_CONTRACT.md
 
 **Six canonical rules that govern every HANDOFF in this system.**

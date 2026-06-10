@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # HANDOFF_TEMPLATES.md
 
 **Canonical HANDOFF block templates used by sdlc-lead across every mode.**

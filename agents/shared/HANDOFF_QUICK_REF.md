@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # HANDOFF Quick Reference
 
 > Use this for all standard HANDOFFs. Load full HANDOFF_TEMPLATES.md only for non-standard cases (parallel waves, remediation, IaC, etc.).

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Context Budget Protocol
 
 Every agent MUST check its context budget before loading files or running tool loops.

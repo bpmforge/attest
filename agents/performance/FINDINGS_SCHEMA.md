@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # FINDINGS_SCHEMA.md — Performance Cluster
 
 **Shared finding schema for all performance specialists.**

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 ## Research tools (available, optional)
 
 Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.

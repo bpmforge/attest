@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Executor Selection — how a HANDOFF actually runs
 
 The HANDOFF document is the delegation contract everywhere. What varies by
