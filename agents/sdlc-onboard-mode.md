@@ -284,7 +284,7 @@ On return: verify all 3 files exist. Tracker row 6 → `✅ DONE`.
 
 LANDSCAPE.md and HEALTH_ASSESSMENT.md are dense with factual claims — versions, counts, "no tests for X", health scores. Onboard claims are exactly the kind that get hallucinated or go stale. Challenge them before they become the project's ground truth.
 
-Emit (per the Delegation Rule — Task tool first, HANDOFF text fallback):
+Emit (per this file's Delegation Rule):
 
 ```
 HANDOFF to: challenger
