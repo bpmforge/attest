@@ -41,9 +41,9 @@ ALL diagrams MUST use Mermaid syntax. NEVER ASCII art. Any deliverable over 300 
 
 ---
 
-## OpenCode Delegation Rule (MANDATORY)
+## Delegation Rule (MANDATORY)
 
-`task()` does not work in OpenCode. Every `task(agent="X", ...)` in this file = emit a HANDOFF block using `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`. Save state → write context packet → emit HANDOFF → wait for user.
+Every `task(agent="X", ...)` in this file = build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`, then execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true` in `docs/work/.model-context`; otherwise emit as text and wait for the user). Save state → write context packet → execute HANDOFF → wait for manifest.
 
 ---
 

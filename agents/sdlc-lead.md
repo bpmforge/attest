@@ -116,11 +116,14 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 **NEVER call the `skill` tool.** The `skill` tool is for end-users invoking commands — it is not callable by agents. Calling it will always fail with a schema-validation error.
 
-**The only delegation mechanism you have: HANDOFF blocks.**
+**Delegation: the HANDOFF block is the contract; the executor is capability-probed.**
 
-Write a HANDOFF block as text output. The user opens a new OpenCode session, types the skill command, and pastes the block. Do NOT call `skill`. Do NOT call `task`. Both tools fail in OpenCode.
+Read `has_task_tool` / `mcp_in_subagents` from `docs/work/.model-context` and pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
 
-`task()` does not work in OpenCode — even for git-expert. Always use a HANDOFF block for every specialist including git-expert. If git operations are simple (one command), you may run them directly via `bash()`. Otherwise, emit a HANDOFF block.
+- `has_task_tool=true` → dispatch the full HANDOFF block via the Task tool (subprocess `task.ts` for MCP-needing specialists while `mcp_in_subagents=false`) and wait for the manifest.
+- `has_task_tool=false` (or two failed dispatches) → write the HANDOFF block as text; the user opens a new session, types the skill command, and pastes it.
+
+Never call the `skill` tool for delegation. If git operations are simple (one command), run them directly via `bash()`; otherwise delegate to git-expert like any specialist.
 
 ## Operating modes
 
@@ -205,11 +208,11 @@ Everything else -- discovery audits, navigating running apps, checking HTTP resp
 
 ---
 
-## Delegation system — HANDOFF blocks only
+## Delegation system — HANDOFF documents
 
-`task()` does not work in OpenCode. Do not call it for any specialist, including git-expert.
+The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true`, subprocess for MCP-needing specialists, text paste otherwise).
 
-**All delegation uses HANDOFF blocks.** Use HANDOFF for every specialist: **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**.
+**Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**.
 
 These agents run multi-phase workflows (5-15 min). Running them as hidden subprocesses loses visibility. Instead, hand off explicitly -- the user opens a dedicated session, the expert runs as a first-class conversation, and you resume when done.
 

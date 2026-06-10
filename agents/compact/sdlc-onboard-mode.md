@@ -39,9 +39,9 @@ ALL diagrams MUST use Mermaid syntax. NEVER ASCII art. Any deliverable over 300 
 
 ---
 
-## OpenCode Delegation Rule (MANDATORY)
+## Delegation Rule (MANDATORY)
 
-`task()` does not work in OpenCode. Every `task(agent="X", ...)` in this file = emit a HANDOFF block using `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`. Save state → write context packet → emit HANDOFF → wait for user.
+Every `task(agent="X", ...)` in this file = build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`, then execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true` in `docs/work/.model-context`; otherwise emit as text and wait for the user). Save state → write context packet → execute HANDOFF → wait for manifest.
 
 ---
 
@@ -277,6 +277,30 @@ Complete: "health-coordinator done — overall health [N]/10, [N] CRITICAL, [N] 
 On return: verify all 3 files exist. Tracker row 6 → `✅ DONE`.
 
 ---
+
+## Step 6b: Challenger Gate (MANDATORY before final documentation)
+
+LANDSCAPE.md and HEALTH_ASSESSMENT.md are dense with factual claims — versions, counts, "no tests for X", health scores. Onboard claims are exactly the kind that get hallucinated or go stale. Challenge them before they become the project's ground truth.
+
+Emit (per this file's Delegation Rule):
+
+```
+HANDOFF to: challenger
+Artifact:   docs/LANDSCAPE.md
+Context:    Onboard Step 6b — verify factual claims (stack versions, project size, structure, UI detection)
+Produce:    docs/reviews/CHALLENGE_REPORT_landscape_<date>.md
+Complete:   "challenge done — landscape"
+```
+
+```
+HANDOFF to: challenger
+Artifact:   docs/HEALTH_ASSESSMENT.md
+Context:    Onboard Step 6b — verify factual claims (dimension scores cite evidence, severity table matches specialist findings, top-3 issues have real file:line)
+Produce:    docs/reviews/CHALLENGE_REPORT_health_<date>.md
+Complete:   "challenge done — health"
+```
+
+Both reports must return with **zero CONTRADICTED verdicts** before Step 7. If CONTRADICTED: revise the affected document (re-verify the claim at its source), then re-run the challenger on the revised doc. Tracker row 6b → `✅ DONE` only when both reports are clean.
 
 ## Step 7: Produce Final Documentation (Inline)
 

@@ -7,6 +7,29 @@
 set -e
 
 CONTEXT_FILE="docs/work/.model-context"
+
+# -- Executor capability flags (see agents/shared/EXECUTOR_SELECTION.md) -----
+# has_task_tool: current OpenCode ships a blocking Task tool with custom
+#   subagents (anomalyco/opencode#20059, closed). Probe: opencode CLI present.
+# mcp_in_subagents: Task-tool subagents cannot execute MCP tools while
+#   anomalyco/opencode#16491 is open. Flip the default when it closes.
+# Both respect env overrides for unusual setups.
+detect_capabilities() {
+  if [[ -n "${OPENCODE_HAS_TASK_TOOL:-}" ]]; then
+    HAS_TASK_TOOL="$OPENCODE_HAS_TASK_TOOL"
+  elif command -v opencode >/dev/null 2>&1; then
+    HAS_TASK_TOOL="true"
+  else
+    HAS_TASK_TOOL="false"
+  fi
+  MCP_IN_SUBAGENTS="${OPENCODE_MCP_IN_SUBAGENTS:-false}"
+}
+detect_capabilities
+
+write_capabilities() {
+  echo "has_task_tool=$HAS_TASK_TOOL"       >> "$CONTEXT_FILE"
+  echo "mcp_in_subagents=$MCP_IN_SUBAGENTS" >> "$CONTEXT_FILE"
+}
 mkdir -p docs/work
 
 # Parse optional --model flag
@@ -26,7 +49,8 @@ if [[ -n "$ANTHROPIC_API_KEY" ]]; then
   echo "context=200000"       >> "$CONTEXT_FILE"
   echo "model=${MODEL_OVERRIDE:-claude-sonnet-4-5}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
-  cat "$CONTEXT_FILE"
+  write_capabilities
+cat "$CONTEXT_FILE"
   exit 0
 fi
 
@@ -36,7 +60,8 @@ if [[ -n "$GOOGLE_GENERATIVE_AI_API_KEY" ]]; then
   echo "context=1000000"      >> "$CONTEXT_FILE"
   echo "model=${MODEL_OVERRIDE:-gemini-2.0-flash}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
-  cat "$CONTEXT_FILE"
+  write_capabilities
+cat "$CONTEXT_FILE"
   exit 0
 fi
 
@@ -46,7 +71,8 @@ if [[ -n "$OPENAI_API_KEY" ]]; then
   echo "context=128000"       >> "$CONTEXT_FILE"
   echo "model=${MODEL_OVERRIDE:-gpt-4o}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
-  cat "$CONTEXT_FILE"
+  write_capabilities
+cat "$CONTEXT_FILE"
   exit 0
 fi
 
@@ -60,7 +86,8 @@ if [[ -z "$MODELS_JSON" ]]; then
   echo "context=32000"        >> "$CONTEXT_FILE"
   echo "tier=small"           >> "$CONTEXT_FILE"
   echo "WARNING: Could not reach LM Studio at $LMSTUDIO_URL — defaulting to 32k budget" >&2
-  cat "$CONTEXT_FILE"
+  write_capabilities
+cat "$CONTEXT_FILE"
   exit 0
 fi
 
@@ -119,4 +146,5 @@ echo "model=$MODEL_ID"       >> "$CONTEXT_FILE"
 echo "context=$CONTEXT"      >> "$CONTEXT_FILE"
 echo "tier=$TIER"            >> "$CONTEXT_FILE"
 
+write_capabilities
 cat "$CONTEXT_FILE"

@@ -105,11 +105,11 @@ Starting API design / contract work. Plan: 6 phases
 
 Then execute phases sequentially in this conversation:
 
-> **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
-> directly in this conversation one after another. After completing a phase, write its
-> findings to the output file, then continue to the next phase without waiting.
-> Sequential execution in one conversation achieves the same result as dispatching
-> phases to subagents — same outputs, same files, no delegation tool required.
+> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see
+> `agents/shared/EXECUTOR_SELECTION.md`). If true, you MAY dispatch phases as
+> subagents. Otherwise execute each phase directly in this conversation one
+> after another — write each phase's findings to the output file, then continue.
+> Sequential execution achieves the same result: same outputs, same files.
 
 **Phase execution pattern (any LLM):**
 1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`

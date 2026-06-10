@@ -54,14 +54,14 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 - **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh` and `validate-mermaid.sh` on every book before marking the deliverable DONE.
 
-## OpenCode Delegation Rule (MANDATORY — read before any delegation step)
+## Delegation Rule (MANDATORY — read before any delegation step)
 
-> **`task()` does not work in OpenCode.** This file uses `task(agent="X", ...)` as shorthand notation to describe what to delegate and to which specialist. When you encounter any `task(agent="X", ...)` call in this file, **do not call `task()`.** Instead:
+> This file uses `task(agent="X", ...)` as shorthand notation for delegation. When you encounter one:
 >
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
-> 3. Emit a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Wait for the user to return and say "<agent> done" before proceeding
+> 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: `has_task_tool=true` in `docs/work/.model-context` → dispatch via the Task tool and wait for the manifest; otherwise emit the block as text and wait for the user to return and say "<agent> done"
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
@@ -489,7 +489,19 @@ Print exactly: "ux done — [finding counts, CRITICAL/HIGH block merge]"
 
 After every review's completion phrase returns, read each review file and write `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` (format in the protocol). Deduplicate findings that multiple reviewers flagged on the same file:line. Every merge-blocking row MUST have an observable Verify criterion.
 
-If the FIX_BACKLOG "Merge-blocking" section is empty → reviews gate passes. Skip to block 7.
+**5b. Coverage mini-loop (MANDATORY — scoped Ralph Wiggum, cap 2):**
+
+Before the reviews gate can pass, every source file changed on this branch must be covered by at least one review artifact:
+
+```
+bash(command="./scripts/validators/run-coverage-loop.sh feature 2>/dev/null || bash ~/.config/opencode/scripts/validators/run-coverage-loop.sh feature")
+```
+
+- **exit 0** — every changed file is covered; continue.
+- **exit 1** — read `docs/work/COVERAGE_LOOP_feature_<date>.md`; for each uncovered file emit ONE targeted review HANDOFF (route by file type: code → code-reviewer, query/schema → db-architect via security if auth-touching, UI → ux-engineer). Then re-run the script.
+- **exit 2** — cap (2) reached with gaps: emit the escalation block from `agents/shared/RALPH_WIGGUM_LOOP.md` and STOP for user decision.
+
+If the FIX_BACKLOG "Merge-blocking" section is empty AND the coverage loop exits 0 → reviews gate passes. Skip to block 7.
 
 **6. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
 
