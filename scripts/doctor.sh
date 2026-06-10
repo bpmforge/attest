@@ -113,6 +113,7 @@ if command -v opencode >/dev/null 2>&1; then
   LIST=$(opencode agent list 2>/dev/null)
   if echo "$LIST" | grep -q "sdlc-lead"; then ok "opencode discovers sdlc-lead"; else bad "opencode does not list sdlc-lead — agents not discovered"; fi
   if echo "$LIST" | grep -q "task-decomposer"; then ok "opencode discovers task-decomposer"; else warn "task-decomposer not listed — install may be stale; re-run ./install.sh"; fi
+  if echo "$LIST" | grep -q "guide"; then ok "opencode discovers guide (front door)"; else warn "guide not listed — re-run ./install.sh"; fi
   DUP=$(echo "$LIST" | grep -c "compact/" || true)
   [ "$DUP" -eq 0 ] && ok "no duplicate compact/ registrations" || warn "$DUP compact/ duplicates registered — old layout; rm -rf $DIR/agents/compact and re-install"
 fi

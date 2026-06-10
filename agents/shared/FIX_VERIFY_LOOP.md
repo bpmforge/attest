@@ -89,13 +89,38 @@ Output:
 
 ## Step 4: Targeted re-verification
 
-Emit ONE re-verification HANDOFF per reviewer using Template 3 from `HANDOFF_TEMPLATES.md`. The reviewer verifies ONLY the backlog rows — does not scan for new issues.
+**Deterministic re-verify first (when a finding came from a tool).** Before
+asking a model to judge "is it fixed?", run the script that found it — the
+verdict that can't be faked:
+
+```
+# baseline BEFORE the fix (Step 3), per finding source:
+node scripts/fix-verify.mjs snapshot semgrep                 # SAST findings
+node scripts/fix-verify.mjs snapshot validate-dead-code.sh   # dead/stub code
+node scripts/fix-verify.mjs snapshot validate-deps.sh        # dependency CVEs
+
+# AFTER the fix:
+node scripts/fix-verify.mjs verify semgrep --floor ERROR
+```
+
+`fix-verify` re-runs the scan and diffs by fingerprint (rule + file + matched
+code, so it survives line drift): prints CLOSED / STILL-OPEN / NEW and exits
+non-zero if any in-scope finding remains OR the fix introduced a regression. A
+backlog row whose source is scriptable is PASS **only** when fix-verify shows
+it CLOSED — never on the model's say-so.
+
+**Model re-verify for the rest.** Findings from manual review (OWASP logic,
+design issues, UX) have no script — emit ONE re-verification HANDOFF per
+reviewer using Template 3 from `HANDOFF_TEMPLATES.md`. The reviewer verifies
+ONLY the backlog rows — does not scan for new issues.
 
 Output:
-- `docs/reviews/VERIFY_<feature>_<iteration>_<date>.md`
-- Per-row: PASS / FAIL / INCONCLUSIVE + evidence
+- `docs/reviews/VERIFY_<feature>_<iteration>_<date>.md` — per-row PASS / FAIL / INCONCLUSIVE + evidence
+- The fix-verify JSON reports under `docs/security/fix-verify-*.json` are the evidence for scriptable rows.
 
-Targeted verification saves tokens vs. re-running a full review.
+This is the canonical division: **scriptable findings get a deterministic gate,
+judgment findings get a model gate.** Add a `Verify-by` column to the
+FIX_BACKLOG (`fix-verify:<source>` or `manual`) so each row's gate is explicit.
 
 ---
 
