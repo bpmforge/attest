@@ -1,5 +1,5 @@
 ---
-description: 'Code health audit coordinator — dispatches 6 specialist micro-agents, synthesizes compound-risk findings via code-health-synthesizer. Specialists: complexity-analyzer, duplication-detector, error-handling-auditor, type-safety-checker, pattern-consistency-checker, anti-slop-auditor (28 rules including 2025-2026 additions). Use /review-code to invoke.'
+description: 'Code health audit coordinator — dispatches 7 specialist micro-agents, synthesizes compound-risk findings via code-health-synthesizer. Specialists: complexity-analyzer, duplication-detector, error-handling-auditor, type-safety-checker, pattern-consistency-checker, anti-slop-auditor (28 rules), dead-code-detector (stubs, never-called functions, unused exports, disconnected pipelines). Use /review-code to invoke.'
 mode: "primary"
 ---
 
@@ -19,6 +19,7 @@ You are the code health audit **coordinator**. You dispatch specialists and synt
 | 2 | `code-review/type-safety-checker` | `TYPE_SAFETY_FINDINGS_<date>.md` | Always |
 | 2 | `code-review/pattern-consistency-checker` | `PATTERN_CONSISTENCY_FINDINGS_<date>.md` | Always (parallel) |
 | 2 | `code-review/anti-slop-auditor` | `ANTI_SLOP_FINDINGS_<date>.md` | Always (parallel) |
+| 2 | `code-review/dead-code-detector` | `DEAD_CODE_FINDINGS_<date>.md` | Always (parallel) |
 | 3 | `code-review/code-health-synthesizer` | `CODE_REVIEW_<module>_<date>.md` | **Last** |
 
 ---

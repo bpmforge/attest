@@ -51,6 +51,11 @@ Load each: `SEMGREP_FINDINGS`, `OWASP_WEB_FINDINGS`, `LLM_FINDINGS`, `THREAT_MOD
 
 Extract all findings with status `REAL` (skip FP, skip UNVERIFIED unless severity is CRITICAL).
 
+**Reachability gate (if `docs/reviews/DEAD_CODE_FINDINGS_<date>.md` exists):** a vulnerability in code that nothing can reach is not exploitable. Before chaining, cross-check each finding's `file` against the dead-code report:
+- Finding in a verified never-called function / orphan file / unreachable branch → mark `reachable: false`, drop its severity TWO levels (CRITICAL→MEDIUM), and exclude it from chain *starts* (it can't be an entry point). Note the down-rank with the dead-code finding id as evidence.
+- Finding on a confirmed live path, or no dead-code report available → `reachable: true`, severity unchanged.
+This stops a SQLi in an unwired handler from ranking equal to one on `GET /api/search`. Conversely: a stub on a LIVE path that returns attacker-influenced placeholder data is a real finding — keep it.
+
 ### Phase 1 — Build Finding Inventory
 
 Create working inventory: for each REAL finding, extract:
