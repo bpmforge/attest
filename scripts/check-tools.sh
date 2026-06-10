@@ -30,6 +30,7 @@ radon|complexity-analyzer (Python)|pipx install radon|pipx install radon
 lizard|complexity-analyzer (multi-lang)|pipx install lizard|pipx install lizard
 staticcheck|dead-code-detector (Go)|go install honnef.co/go/tools/cmd/staticcheck@latest|
 trufflehog|secrets-scanner|brew install trufflehog|
+mmdc|validate-mermaid (authoritative render)|npm i -g @mermaid-js/mermaid-cli|npm i -g @mermaid-js/mermaid-cli
 "
 
 echo "Code-analysis tools (all optional — agents fall back to grep):"

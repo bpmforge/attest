@@ -169,11 +169,12 @@ When to use a chapter directory: if a single findings chapter would have 8+ sub-
 After writing all book files, run:
 
 ```bash
+node scripts/mermaid-fix.mjs docs/<deliverable-slug>/ --write   # auto-repair mechanical Mermaid issues first
 bash scripts/validators/validate-book-structure.sh docs/<deliverable-slug>/
 bash scripts/validators/validate-mermaid.sh . docs/<deliverable-slug>/
 ```
 
-Both must exit 0 before the deliverable is marked DONE.
+Both validators must exit 0 before the deliverable is marked DONE. Authoring rules: `references/mermaid-safe-syntax.md`.
 
 `validate-book-structure.sh` checks:
 - Book `README.md` exists and has a navigation table

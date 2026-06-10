@@ -9,6 +9,16 @@
 #   M004  Unquoted | in node label context  [a|b text] (likely meant "alias pipe")
 #   M005  Empty node label                  [] or ()
 #   M006  Unclosed mermaid fenced block
+#   M007  Unquoted ( ) in node label         [Do (async)] → ["Do (async)"]
+#   M008  Reserved word 'end' as node id     end[X] → End[X] (lowercase end closes blocks)
+#   M009  Smart quotes / em-dash / nbsp      “ ” ‘ ’ — – (non-breaking space) → ASCII
+#   M010  Markdown emphasis in label         [**Bold**] / [`code`] → plain or quoted
+#   M011  // line comment in mermaid          // → %% (Mermaid comments are %%)
+#   M012  Unbalanced [ ] on a node line       count mismatch → typo
+#
+# If the mermaid CLI (mmdc) is installed, ALSO renders every block headlessly
+# and surfaces real parser errors (authoritative — catches everything the
+# static checks don't). Set MERMAID_NO_RENDER=1 to skip.
 #
 # Usage:
 #   validate-mermaid.sh [root-dir] [scan-path]
@@ -118,6 +128,59 @@ scan_file() {
       file_errors=$((file_errors + 1))
     fi
 
+    # ── M007: unquoted parentheses inside a square-bracket node label ──────
+    # [Do thing (async)] — the ( starts a new shape and breaks the parser.
+    # Skip already-quoted labels ["..."] and shape combos like ([...]) / [(...)]
+    local paren_label_pat='\[[^]"]*[()][^]"]*\]'
+    if [[ "$line" =~ $paren_label_pat && "$line" != *'["'* && "$line" != *'(['* && "$line" != *'[('* ]]; then
+      emit "error" "$file" "$lineno" "M007" \
+        "Unquoted ( ) in node label — wrap the label text in double quotes"
+      file_errors=$((file_errors + 1))
+    fi
+
+    # ── M008: reserved word 'end' (lowercase) used as a node id ────────────
+    # 'end' closes subgraph/loop blocks; as a node (end[...] / end(...) / end{) it breaks flowcharts.
+    if [[ "$diagram_type" == "flowchart" || "$diagram_type" == "graph" ]] && \
+       [[ "$line" =~ (^|[[:space:]])end[\[\(\{] ]]; then
+      emit "error" "$file" "$lineno" "M008" \
+        "Reserved word 'end' as node id — rename to 'End' or 'endNode' (lowercase end closes blocks)"
+      file_errors=$((file_errors + 1))
+    fi
+
+    # ── M009: smart quotes / em-dash / en-dash / non-breaking space ────────
+    if [[ "$line" == *$'“'* || "$line" == *$'”'* || "$line" == *$'‘'* || \
+          "$line" == *$'’'* || "$line" == *$'—'* || "$line" == *$'–'* || \
+          "$line" == *$' '* ]]; then
+      emit "error" "$file" "$lineno" "M009" \
+        "Smart quote / em-dash / non-breaking space in Mermaid — use straight ASCII quotes and hyphens (run mermaid-fix.mjs --write)"
+      file_errors=$((file_errors + 1))
+    fi
+
+    # ── M010: markdown emphasis or backticks inside a node label ───────────
+    if [[ "$line" =~ \[[^]\"]*(\*\*|\`)[^]\"]*\] ]]; then
+      emit "warning" "$file" "$lineno" "M010" \
+        "Markdown (** or backtick) inside node label — Mermaid renders it literally; remove or quote"
+      file_warnings=$((file_warnings + 1))
+    fi
+
+    # ── M011: // comment (Mermaid uses %%) ─────────────────────────────────
+    if [[ "$line" =~ ^[[:space:]]*// ]]; then
+      emit "error" "$file" "$lineno" "M011" \
+        "// is not a Mermaid comment — use %% instead"
+      file_errors=$((file_errors + 1))
+    fi
+
+    # ── M012: unbalanced [ ] on a node line ────────────────────────────────
+    # Only count when the line actually uses node-label brackets.
+    if [[ "$line" == *"["* || "$line" == *"]"* ]]; then
+      local opens="${line//[^[]/}"; local closes="${line//[^]]/}"
+      if [[ "${#opens}" -ne "${#closes}" ]]; then
+        emit "error" "$file" "$lineno" "M012" \
+          "Unbalanced square brackets (${#opens} '[' vs ${#closes} ']') — likely a typo"
+        file_errors=$((file_errors + 1))
+      fi
+    fi
+
   done < "$file"
 
   # ── M006: unclosed mermaid block ───────────────────────────────────────
@@ -134,11 +197,44 @@ scan_file() {
 
 # ── scan all markdown files ───────────────────────────────────────────────────
 
+# ── optional authoritative render check via mermaid CLI ───────────────────────
+# Extracts each ```mermaid block and asks mmdc to parse/render it. Any block the
+# static checks passed but the real parser rejects is caught here. Opt-out with
+# MERMAID_NO_RENDER=1; auto-skips when mmdc is absent (static checks still run).
+MMDC=""
+if [[ "${MERMAID_NO_RENDER:-0}" != "1" ]]; then
+  if command -v mmdc >/dev/null 2>&1; then MMDC="mmdc";
+  elif command -v npx >/dev/null 2>&1 && npx --no-install mmdc --version >/dev/null 2>&1; then MMDC="npx --no-install mmdc"; fi
+fi
+
+render_check_file() {
+  local file="$1" lineno=0 in_m=0 open_line=0 block="" tmp rc errout
+  while IFS= read -r l; do
+    lineno=$((lineno + 1))
+    if [[ "$l" =~ ^[[:space:]]*\`\`\`mermaid$ ]]; then in_m=1; open_line=$lineno; block=""; continue; fi
+    if [[ $in_m -eq 1 && "$l" =~ ^[[:space:]]*\`\`\`[[:space:]]*$ ]]; then
+      in_m=0
+      tmp="$(mktemp -t mermaid.XXXXXX.mmd)"
+      printf '%s\n' "$block" > "$tmp"
+      errout="$($MMDC -i "$tmp" -o "$tmp.svg" 2>&1)"; rc=$?
+      rm -f "$tmp" "$tmp.svg"
+      if [[ $rc -ne 0 ]]; then
+        local msg; msg="$(printf '%s' "$errout" | grep -iE 'error|expecting|parse' | head -1)"
+        emit "error" "$file" "$open_line" "MRENDER" "Mermaid render failed: ${msg:-see mmdc output}"
+        total_errors=$((total_errors + 1))
+      fi
+      continue
+    fi
+    [[ $in_m -eq 1 ]] && block+="$l"$'\n'
+  done < "$file"
+}
+
 while IFS= read -r -d '' mdfile; do
   [[ "$mdfile" == *"/node_modules/"* ]] && continue
   [[ "$mdfile" == *"/.git/"* ]] && continue
   files_scanned=$((files_scanned + 1))
   scan_file "$mdfile" || true
+  [[ -n "$MMDC" ]] && render_check_file "$mdfile"
 done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
 
 # ── summary to stderr ─────────────────────────────────────────────────────────
@@ -155,7 +251,18 @@ done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
     echo "  M004  Unquoted | in node label"
     echo "  M005  Empty node label"
     echo "  M006  Unclosed mermaid block"
+    echo "  M007  Unquoted ( ) in node label"
+    echo "  M008  Reserved 'end' as node id"
+    echo "  M009  Smart quote / em-dash / nbsp"
+    echo "  M010  Markdown in node label"
+    echo "  M011  // comment (use %%)"
+    echo "  M012  Unbalanced [ ]"
+    echo "  MRENDER  Real mmdc parse failure"
+    echo ""
+    echo "  Auto-fix the mechanical ones:  node scripts/mermaid-fix.mjs <file> --write"
   fi
+  [[ -z "$MMDC" && "${MERMAID_NO_RENDER:-0}" != "1" ]] && \
+    echo "  (mmdc not installed — static checks only; install @mermaid-js/mermaid-cli for authoritative render validation)"
 } >&2
 
 [[ $total_errors -eq 0 ]]
