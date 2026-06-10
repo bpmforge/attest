@@ -489,7 +489,19 @@ Print exactly: "ux done — [finding counts, CRITICAL/HIGH block merge]"
 
 After every review's completion phrase returns, read each review file and write `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` (format in the protocol). Deduplicate findings that multiple reviewers flagged on the same file:line. Every merge-blocking row MUST have an observable Verify criterion.
 
-If the FIX_BACKLOG "Merge-blocking" section is empty → reviews gate passes. Skip to block 7.
+**5b. Coverage mini-loop (MANDATORY — scoped Ralph Wiggum, cap 2):**
+
+Before the reviews gate can pass, every source file changed on this branch must be covered by at least one review artifact:
+
+```
+bash(command="./scripts/validators/run-coverage-loop.sh feature 2>/dev/null || bash ~/.config/opencode/scripts/validators/run-coverage-loop.sh feature")
+```
+
+- **exit 0** — every changed file is covered; continue.
+- **exit 1** — read `docs/work/COVERAGE_LOOP_feature_<date>.md`; for each uncovered file emit ONE targeted review HANDOFF (route by file type: code → code-reviewer, query/schema → db-architect via security if auth-touching, UI → ux-engineer). Then re-run the script.
+- **exit 2** — cap (2) reached with gaps: emit the escalation block from `agents/shared/RALPH_WIGGUM_LOOP.md` and STOP for user decision.
+
+If the FIX_BACKLOG "Merge-blocking" section is empty AND the coverage loop exits 0 → reviews gate passes. Skip to block 7.
 
 **6. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
 

@@ -15,6 +15,8 @@
 #   phase-5        -- Release (FIX_BACKLOG closed, all reviews READY)
 #   onboard-deep   -- Onboard deep mode (INVENTORY + ARCHITECTURE + ERD)
 #   security-deep  -- Security deep mode (OWASP all 10 ≥ 7 + attack chains)
+#   feature        -- Scoped: changed files on branch all covered by reviews
+#   improve        -- Scoped: every audit synthesized into IMPROVEMENT_BACKLOG
 #
 # Exits 0 if every relevant validator passes, 1 otherwise. Aggregated JSON
 # gap list on stdout.
@@ -150,6 +152,12 @@ case "$PHASE" in
     ;;
   security-deep)
     GATE_VALIDATORS=("validate-owasp.sh")
+    ;;
+  feature)
+    GATE_VALIDATORS=("validate-feature-coverage.sh")
+    ;;
+  improve)
+    GATE_VALIDATORS=("validate-improve-coverage.sh")
     ;;
   *)
     fatal "unknown phase: $PHASE"

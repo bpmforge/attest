@@ -9,7 +9,7 @@
 # Usage:
 #   run-coverage-loop.sh <phase> [project-root]
 #
-# Phases: phase-0..5 | onboard-deep | security-deep
+# Phases: phase-0..5 | onboard-deep | security-deep | feature | improve (cap 2)
 #
 # Behavior per call:
 #   1. Run validate-phase-gate.sh <phase>
@@ -43,6 +43,23 @@ DATE=$(date +%Y-%m-%d)
 LOOP_FILE="$ROOT/docs/work/COVERAGE_LOOP_${PHASE}_${DATE}.md"
 mkdir -p "$ROOT/docs/work"
 
+# Scoped phases (feature/improve) get a tighter cap than full-phase loops
+case "$PHASE" in
+  feature|improve) CAP=2 ;;
+  *)               CAP=3 ;;
+esac
+
+# Archive stale loop files from previous days so sessions never pay tokens
+# re-reading dead loops (and the iteration counter never reads a stale file).
+STALE=$(find "$ROOT/docs/work" -maxdepth 1 -name "COVERAGE_LOOP_${PHASE}_*.md" ! -name "COVERAGE_LOOP_${PHASE}_${DATE}.md" 2>/dev/null || true)
+if [[ -n "$STALE" ]]; then
+  mkdir -p "$ROOT/docs/work/archive"
+  while IFS= read -r sf; do
+    [[ -n "$sf" ]] && mv "$sf" "$ROOT/docs/work/archive/$(basename "$sf")"
+  done <<< "$STALE"
+  echo "[run-coverage-loop] archived $(echo "$STALE" | wc -l | tr -d ' ') stale loop file(s) to docs/work/archive/"
+fi
+
 # Read current iteration from loop file (or 0 if new)
 ITER=0
 if [[ -f "$LOOP_FILE" ]]; then
@@ -59,15 +76,15 @@ if [[ "$ITER" -eq 1 ]]; then
 
 **Project:** ${ROOT}
 **Phase:** ${PHASE}
-**Cap:** 3 iterations before escalation
+**Cap:** ${CAP} iterations before escalation
 
 ## Protocol
 
 1. Run \`./scripts/validators/run-coverage-loop.sh ${PHASE}\` (this script).
 2. If exit 0: phase gate clean — proceed to next phase.
-3. If exit 1: gaps remain (iteration < 3). Read the gap list below; emit
+3. If exit 1: gaps remain (iteration < cap). Read the gap list below; emit
    focused gap-fill HANDOFFs (one row per HANDOFF); run validators again.
-4. If exit 2: 3 iterations exhausted with gaps remaining. Emit the
+4. If exit 2: cap reached with gaps remaining. Emit the
    escalation block from \`agents/shared/RALPH_WIGGUM_LOOP.md\` and stop.
 
 EOF
@@ -130,14 +147,14 @@ if [[ "$GAPS" -eq 0 ]]; then
   exit 0
 fi
 
-if [[ "$ITER" -ge 3 ]]; then
-  echo "[run-coverage-loop] ${PHASE} ESCALATION (3 iterations exhausted, ${GAPS} gap(s) remain)"
+if [[ "$ITER" -ge "$CAP" ]]; then
+  echo "[run-coverage-loop] ${PHASE} ESCALATION (${CAP} iterations exhausted, ${GAPS} gap(s) remain)"
   echo "  loop file: ${LOOP_FILE#"$ROOT/"}"
   echo "  emit the escalation block from agents/shared/RALPH_WIGGUM_LOOP.md"
   exit 2
 fi
 
-echo "[run-coverage-loop] ${PHASE} iteration ${ITER}/3 — ${GAPS} gap(s) remain"
+echo "[run-coverage-loop] ${PHASE} iteration ${ITER}/${CAP} — ${GAPS} gap(s) remain"
 echo "  loop file: ${LOOP_FILE#"$ROOT/"}"
 echo "  emit gap-fill HANDOFFs for each row, then re-run this script"
 exit 1
