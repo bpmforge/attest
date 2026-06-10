@@ -139,6 +139,7 @@ for arg in "$@"; do
   case $arg in
     --project)              MODE="project" ;;
     --compact)               COMPACT_AGENTS=true ;;
+    --tools)                 INSTALL_TOOLS=true ;;
     --link)                 METHOD="link" ;;
     --uninstall)            MODE="uninstall" ;;
     --semgrep)              INSTALL_SEMGREP=true ;;
@@ -162,6 +163,7 @@ for arg in "$@"; do
       echo "                                     Requires LM Studio for vector embeddings (BM25 fallback if absent)"
       echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback)"
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
+      echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
       echo "                                     Works with Docker or Podman. Auto-detects:"
       echo "                                       docker compose  (Docker Desktop / Engine v2)"
       echo "                                       podman compose  (Podman 4.x built-in)"
@@ -185,7 +187,7 @@ done
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   echo ""
-  echo "bpm-opencode-experts v1.3.0 — Installation"
+  echo "bpm-opencode-experts v1.4.0 — Installation"
   echo "==========================================="
   echo ""
   echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"
@@ -1347,6 +1349,12 @@ echo "  semgrep-full-audit.sh --offline      Air-gapped scan (cached packs only)
 echo "  semgrep-full-audit.sh --autofix      OPT-IN autofix (LOW/WARNING only)"
 echo "  Custom gap-filler rules: $DEST/.semgrep/ (186 rules, 11 languages)"
 echo "  Community rules cache:   ~/.semgrep/rules/"
+echo ""
+if [ "${INSTALL_TOOLS:-false}" = true ]; then
+  bash "$SCRIPT_DIR/scripts/check-tools.sh" --install
+else
+  bash "$SCRIPT_DIR/scripts/check-tools.sh"
+fi
 echo ""
 echo "Optional: Copy AGENTS.md to your project root:"
 echo "  cp $SCRIPT_DIR/examples/AGENTS.md ./AGENTS.md"
