@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.5.0] — 2026-06-10
+
+### Added
+- **`scripts/fix-verify.mjs` — deterministic re-verify gate for fix loops.** Turns the "is this finding actually closed?" step from model judgment into a script that can't be faked. `snapshot <source>` records a baseline; after fixes, `verify <source>` re-runs the scan and diffs by fingerprint (rule + file + matched code — survives line-number drift), printing CLOSED / STILL-OPEN / NEW and exiting non-zero if any in-scope finding remains or the fix introduced a regression. Works for any scriptable source: `semgrep` (SAST) and any `validate-*.sh` validator (dead-code, deps, ...). Severity floor for semgrep (`--floor ERROR`).
+- FIX_VERIFY_LOOP and `/security --fix` now use it: scriptable findings (SAST, dead-code, CVEs) get the deterministic gate — a row is CLOSED only when fix-verify proves it — while judgment findings (manual OWASP, UX) keep the model gate. Each backlog row declares its `Verify-by` (`fix-verify:<source>` or `manual`). This is the script half of guide → decompose → run-plan → fix that makes heavy fix work reliable on small local models.
+
+### Note
+- Bug caught while building: Node's `process.exit()` truncates buffered stdout on a pipe — switched to `process.exitCode` so verdict lines aren't dropped.
+
 ## [1.4.0] — 2026-06-10
 
 ### Added
