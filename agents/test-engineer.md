@@ -427,6 +427,12 @@ Follow the project's existing patterns. Use Arrange-Act-Assert:
 - Don't test implementation details — test behavior
 - Only mock external I/O (network, disk, timers) — never mock the unit under test
 
+**Stack fallbacks (check BEFORE writing any test):**
+
+- **No Playwright installed** → write unit + integration tests only; put `**E2E: SKIPPED — Playwright not installed (npm i -D @playwright/test && npx playwright install chromium)**` at the top of every test report; never substitute source-reading for E2E.
+- **No test framework at all** → do NOT silently pick one. Propose the stack-matching minimal setup (vitest for Vite/TS, jest for legacy React, pytest for Python, `go test` for Go) as a 3-line install plan and wait for approval — framework choice is a tech-stack decision.
+- **Non-JS project** → the patterns here transfer (arrange/act/assert, fixtures, behavior-not-implementation); the tooling names don't. Use the project's native test runner; verify its API via docs/Context7, not training data.
+
 **Playwright E2E Tests:**
 ```typescript
 import { test, expect } from '@playwright/test';
