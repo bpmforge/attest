@@ -117,6 +117,18 @@ if command -v opencode >/dev/null 2>&1; then
   [ "$DUP" -eq 0 ] && ok "no duplicate compact/ registrations" || warn "$DUP compact/ duplicates registered — old layout; rm -rf $DIR/agents/compact and re-install"
 fi
 
+# ── 7. Code-analysis tools ──────────────────────────────────────────────
+echo ""
+echo "Code-analysis tools (optional — agents fall back to grep):"
+TOOLS_PRESENT=0; TOOLS_TOTAL=0
+for tool in semgrep knip ts-prune jscpd vulture radon lizard staticcheck trufflehog; do
+  TOOLS_TOTAL=$((TOOLS_TOTAL+1))
+  if command -v "$tool" >/dev/null 2>&1; then ok "$tool present"; TOOLS_PRESENT=$((TOOLS_PRESENT+1)); fi
+done
+if [ "$TOOLS_PRESENT" -lt "$TOOLS_TOTAL" ]; then
+  warn "$TOOLS_PRESENT/$TOOLS_TOTAL analysis tools present — run scripts/check-tools.sh to see which, or ./install.sh --tools to add the easy ones"
+fi
+
 # ── Summary ─────────────────────────────────────────────────────────────
 echo ""
 echo "RESULT: $PASS pass, $WARN warn, $FAIL fail"
