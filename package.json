@@ -9,7 +9,9 @@
     "check": "npm test",
     "agents:check": "node scripts/build-agents.mjs --check",
     "agents:fix": "node scripts/build-agents.mjs --fix",
-    "agents:compact": "node scripts/build-agents.mjs --compact"
+    "agents:compact": "node scripts/build-agents.mjs --compact",
+    "build:claude": "node scripts/build-target-claude.mjs --write",
+    "build:claude:check": "node scripts/build-target-claude.mjs --check"
   },
-  "version": "1.1.0"
+  "version": "1.2.0"
 }

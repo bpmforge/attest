@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.2.0] — 2026-06-10
+
+### Added
+- **DAG runner** (`scripts/run-plan.mjs`) — executes task-decomposer plans deterministically: topological order, per-node tier-scaled timeouts, pre-flight model-server health checks, checkpoint-continue retries (max 2, then escalate; independent branches keep running), journal-based resume, `plan_invalidating` replan support (`--auto-replan`), `--dry-run`/`--node`/`--parallel`/`--cmd`. Live-verified end-to-end against opencode 1.15.3 (2-node plan: dependency data flow, retry, resume all confirmed). Found+fixed: spawned CLIs must get stdin IGNORED — a piped-but-unclosed stdin makes `opencode run` wait forever.
+- **Single-source build step** (`scripts/build-target-claude.mjs`, `npm run build:claude[:check]`) — this repo is now the canonical source for agents/, references/, validators, compact variants, and shared tooling; the claude-experts copies are GENERATED (path rewrites + prose rewrites + per-target overrides in `build/overrides/claude/`). `--check` is a drift gate that replaces the manual dual-repo sync rule. Writes `GENERATED_FILES.txt` manifest to the target.
+
 ## [1.1.0] — 2026-06-10
 
 The expert-hardening release: every item from the 2026-06-10 system review (R1–R11) plus distribution hardening. See `docs/ARCHITECTURE_EVOLUTION_PLAN.md` and `docs/EXPERT_SYSTEM_REVIEW_2026-06-10.md`.
