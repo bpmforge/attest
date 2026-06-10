@@ -19,19 +19,19 @@ sequenceDiagram
 
     LEAD->>TEST: HANDOFF (scope + test type)
     TEST->>FS: Read LOOP_PREVENTION.md
-    TEST->>FS: Phase 1 — Glob existing test files, read test config
+    TEST->>FS: Phase 1 - Glob existing test files, read test config
     TEST->>SH: Run existing test suite to establish baseline
     TEST->>FS: Write phase1.md checkpoint
 
-    TEST->>FS: Phase 2 — Read framework docs and existing patterns
-    TEST->>FS: Phase 3 — Plan test targets and categories
+    TEST->>FS: Phase 2 - Read framework docs and existing patterns
+    TEST->>FS: Phase 3 - Plan test targets and categories
     TEST->>FS: Write phase3.md checkpoint
 
-    loop Phase 4 — Per function or module (4-pass)
-        TEST->>FS: Pass 1 — Happy path tests
-        TEST->>FS: Pass 2 — Error path tests
-        TEST->>FS: Pass 3 — Edge case tests
-        TEST->>TEST: Pass 4 — Verify (break code, confirm tests catch it)
+    loop Phase 4 - Per function or module (4-pass)
+        TEST->>FS: Pass 1 - Happy path tests
+        TEST->>FS: Pass 2 - Error path tests
+        TEST->>FS: Pass 3 - Edge case tests
+        TEST->>TEST: Pass 4 - Verify (break code, confirm tests catch it)
     end
 
     alt SDLC new project
@@ -41,7 +41,7 @@ sequenceDiagram
         TEST->>FS: Write CI workflow yml
     end
 
-    TEST->>SH: Phase 5 — npm test (run twice if any flakiness suspected)
+    TEST->>SH: Phase 5 - npm test (run twice if any flakiness suspected)
     SH-->>TEST: All pass or failures
     alt Tests fail
         TEST->>FS: Fix test infrastructure (never the test assertions)
@@ -49,7 +49,7 @@ sequenceDiagram
     end
 
     TEST->>SH: validate-test-design.sh
-    TEST->>FS: Phase 6 — Write TEST_PLAN.md and TEST_STRATEGY.md
+    TEST->>FS: Phase 6 - Write TEST_PLAN.md and TEST_STRATEGY.md
     TEST->>FS: Write Completion Manifest
     TEST-->>LEAD: Completion phrase + manifest
 ```

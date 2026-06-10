@@ -37,13 +37,13 @@ sequenceDiagram
             UX->>PW: Screenshot at 1440px, 768px, 375px
             PW-->>UX: Screenshots per breakpoint
         end
-        UX->>UX: Phase 1 — Interaction and user flow
-        UX->>UX: Phase 2 — Responsiveness
-        UX->>UX: Phase 3 — Visual polish
-        UX->>UX: Phase 4 — Accessibility (WCAG 2.2 AA)
-        UX->>UX: Phase 5 — Robustness
-        UX->>UX: Phase 6 — Code health
-        UX->>UX: Phase 7 — Content and console
+        UX->>UX: Phase 1 - Interaction and user flow
+        UX->>UX: Phase 2 - Responsiveness
+        UX->>UX: Phase 3 - Visual polish
+        UX->>UX: Phase 4 - Accessibility (WCAG 2.2 AA)
+        UX->>UX: Phase 5 - Robustness
+        UX->>UX: Phase 6 - Code health
+        UX->>UX: Phase 7 - Content and console
         UX->>FS: Write UX_REVIEW.md (Blocker, High, Medium, Nit)
     else "--audit" mode
         UX->>UX: WCAG 2.2 AA audit (perceivable, operable, understandable, robust)

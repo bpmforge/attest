@@ -8,6 +8,7 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 - [Core concepts](#core-concepts)
 - [Typical workflows](#typical-workflows)
 - [Per-expert usage](#per-expert-usage)
+  - [`/guide` — Concierge / front door](#guide)
   - [`/sdlc` — SDLC workflow (4 modes)](#sdlc)
   - [`/code` — Doc-driven implementation](#code)
   - [`/git-expert` — Git & forges](#git-expert)
@@ -192,6 +193,12 @@ Full protocols at `~/.claude/agents/shared/MEMORY_PRIMER.md` and `docs/MCP_GUIDE
 
 ## Typical workflows
 
+### Not sure which command? Start at the front door
+```
+/guide
+```
+Describe your goal in plain English ("securely check all my source and help fix the issues", "this codebase is unfamiliar — where do I start?", "harden before launch"). `guide` picks the expert, explains the route, checks prerequisites, drives the workflow, and always offers the next step — including "want me to fix what I found?".
+
 ### New project from scratch
 ```
 /sdlc init my-app "Short description of what it is"
@@ -230,11 +237,25 @@ Reach for `--deep` before contract bids, diligence reviews, security-sensitive t
 ```
 `sdlc-lead` creates an `improve/[slug]` branch, runs a discovery interview to determine which audits to run, runs targeted specialist audits (UX, code quality, performance, security, DB), synthesizes findings into a ranked backlog with S/M/L sizing, and lets you pick which items to execute. Each item is verified by the same specialist that found it. All work committed via PR to `main`.
 
+### Securely check all your source and fix the issues
+```
+/security              # audit: OWASP + Semgrep + secrets + deps, ranked by real reachability
+/security --fix        # audit, then a verified fix loop: remediate → re-scan to confirm CLOSED
+/security --deep --fix # exhaustive find-and-fix before a production deploy
+```
+`security-auditor` produces `docs/security/final-report.md` (severity, file:line, evidence, remediation). `--fix` builds a fix backlog (CRITICAL+HIGH by default), dispatches `coding-agent` to remediate, then re-runs the scan via `scripts/fix-verify.mjs` to confirm each finding is actually closed — never on the model's say-so. Findings in dead/unreachable code are skipped; auth/crypto/input fixes are flagged for human review.
+
+### Build a game
+```
+/sdlc init my-game "A roguelike about ..." --game
+```
+Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator).
+
 ### Cut a release
 ```
 /git-expert --release
 ```
-Computes next semver from conventional commits since last tag, generates Keep-a-Changelog entry, creates signed annotated tag, pushes to all remotes, drafts GitHub + Gitea releases.
+Computes next semver from conventional commits since last tag, generates Keep-a-Changelog entry, creates signed annotated tag, pushes to all remotes, drafts GitHub + Gitea releases. For a fuller checklist (version-site grep, doc-count audit, both-remotes verify) dispatch the `release-manager` agent.
 
 ### Hunt a regression
 ```

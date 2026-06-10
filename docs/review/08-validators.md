@@ -43,21 +43,21 @@ sequenceDiagram
     participant SPEC as Specialist Agent
 
     LEAD->>CL: run-coverage-loop.sh phase-N
-    
+
     loop Max 3 iterations
         CL->>VAL: Run phase-N validators
         VAL-->>CL: exit 0 (clean) or exit 1 (gaps) or exit 2 (exhausted)
-        
-        alt exit 0 — clean
+
+        alt exit 0 - clean
             CL-->>LEAD: All rows covered
             LEAD->>LEAD: Mark tracker DONE, advance
             Note over LEAD: Loop ends
-        else exit 1 — gaps remain (iter < 3)
+        else exit 1 - gaps remain (iter < 3)
             CL-->>LEAD: docs/work/COVERAGE_LOOP_phase_date.md
             LEAD->>LEAD: Read gap list
-            LEAD->>SPEC: HANDOFF — fill specific gaps
+            LEAD->>SPEC: HANDOFF - fill specific gaps
             SPEC-->>LEAD: Gaps filled
-        else exit 2 — 3 iterations exhausted
+        else exit 2 - 3 iterations exhausted
             CL-->>LEAD: Escalation block
             LEAD->>LEAD: Read RALPH_WIGGUM_LOOP.md
             LEAD->>LEAD: Offer: waiver / lower-bar / specialist / manual

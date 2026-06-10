@@ -32,11 +32,11 @@ sequenceDiagram
     U->>LEAD: "[agent] done"
     LEAD->>DISK: Read docs/work/sdlc-state.md (confirm which agent)
     LEAD->>VAL: run-handoff-gates.sh --scope --manifest [--coverage]
-    
+
     VAL->>VAL: Gate 1: git status within WRITE-SCOPE
     VAL->>VAL: Gate 2: Completion Manifest schema valid
     VAL->>VAL: Gate 3: Coverage validator (optional)
-    
+
     alt All gates pass
         VAL-->>LEAD: exit 0
         LEAD->>LEAD: Score 1-10
@@ -46,7 +46,7 @@ sequenceDiagram
         else Score 5-6
             LEAD->>U: Request revision (up to 3x)
         else Score < 5
-            LEAD->>U: Auto-fail — specific corrections needed
+            LEAD->>U: Auto-fail - specific corrections needed
         end
     else Gate fails
         VAL-->>LEAD: exit 1 + JSON gap list
@@ -58,7 +58,7 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    A["════════════════\nHANDOFF #N -> agent\nUSER: copy below\n════════════════"] --> B["SDLC-TASK for agent-name:\n\nROLE: ...\n\nCONTEXT:\n- BOUNDED_TASK_CONTRACT.md\n- context-for-agent.md\n- relevant source files\n\nWRITE-SCOPE:\n- dir/ only\n\nYOUR TASK:\n2-4 sentence description\n\nPRODUCE:\n- exact output files\n\nWhen done print exactly:\n'agent done — ...'"] --> C["════════════════\nEND HANDOFF #N\n════════════════"]
+    A["════════════════\nHANDOFF #N -> agent\nUSER: copy below\n════════════════"] --> B["SDLC-TASK for agent-name:\n\nROLE: ...\n\nCONTEXT:\n- BOUNDED_TASK_CONTRACT.md\n- context-for-agent.md\n- relevant source files\n\nWRITE-SCOPE:\n- dir/ only\n\nYOUR TASK:\n2-4 sentence description\n\nPRODUCE:\n- exact output files\n\nWhen done print exactly:\n'agent done - ...'"] --> C["════════════════\nEND HANDOFF #N\n════════════════"]
 ```
 
 ---
