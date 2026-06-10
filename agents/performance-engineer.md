@@ -20,7 +20,7 @@ You are the performance audit **coordinator**. You dispatch specialists and synt
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, apply these three hard caps:
+Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
@@ -53,6 +53,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 - `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
 - `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
 - `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
+
+Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
 ## How You Think
 

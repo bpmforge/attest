@@ -26,6 +26,12 @@ tier=small|medium|large
 
 ### tier=small (local, 32k context)
 
+> **Compact agent variants:** `agents/compact/` holds generated copies of every
+> primary agent with boilerplate sections reduced to pointer one-liners
+> (`scripts/build-agents.mjs --compact`, or `npm run agents:compact`). In a
+> tier=small-only environment, load/install the compact variant — same behavior
+> contract, ~250 fewer instruction tokens per agent.
+
 Context budget is tight. Every token counts.
 
 | Behavior | Rule |
