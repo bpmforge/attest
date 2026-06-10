@@ -24,14 +24,14 @@ sequenceDiagram
         SEC->>FS: Read OWASP_METHODOLOGY.md
     end
 
-    SEC->>FS: Phase 1 — Read entry points, auth flows, data flows
+    SEC->>FS: Phase 1 - Read entry points, auth flows, data flows
     SEC->>FS: Write phase1.md checkpoint
 
-    SEC->>SH: Phase 2 — semgrep --config per rule file
+    SEC->>SH: Phase 2 - semgrep --config per rule file
     SEC->>SH: Dependency audit + secret scan
     SEC->>SEC: Triage each finding (REAL, FALSE POSITIVE, UNVERIFIED)
 
-    loop Phase 3 — OWASP Manual (per category)
+    loop Phase 3 - OWASP Manual (per category)
         SEC->>FS: Verify finding against actual code
         alt "--deep" mode
             SEC->>SEC: Iterate until confidence >= 7 (max 3 passes)
@@ -40,17 +40,17 @@ sequenceDiagram
         end
     end
 
-    SEC->>SEC: Phase 4 — Cross-check and deduplicate findings
+    SEC->>SEC: Phase 4 - Cross-check and deduplicate findings
 
     alt "--deep" flag
-        loop Phase 5 — Attack chain analysis (max 3 iterations)
+        loop Phase 5 - Attack chain analysis (max 3 iterations)
             SEC->>SEC: Chain verified findings into multi-step exploits
             SEC->>SEC: Test finding pairs and triples
         end
         SEC->>SH: validate-phase-gate.sh security-deep
     end
 
-    SEC->>FS: Phase 6 — Write OWASP_TRACKER.md
+    SEC->>FS: Phase 6 - Write OWASP_TRACKER.md
     SEC->>FS: Write attack-chains.md (deep mode only)
     SEC->>FS: Write final-report.md
     SEC->>FS: Write Completion Manifest

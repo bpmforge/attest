@@ -16,7 +16,9 @@ The SDLC workflow provides structured project management through four operating 
 
 | Command | Mode | When to use |
 |---------|------|-------------|
+| `/guide` | **Concierge** | Not sure which command — describe the goal in plain English |
 | `/sdlc init <name> "<desc>"` | New Project | Starting from scratch |
+| `/sdlc init <name> "<desc>" --game` | New Game | Game projects (GDD, vertical-slice gate, game-dev cluster) |
 | `/sdlc onboard` | Understand Codebase | First time in an unfamiliar repo |
 | `/sdlc feature "<description>"` | Add Feature | Adding to a working system |
 | `/sdlc improve ["<focus>"]` | Audit & Improve | Improving an existing system |

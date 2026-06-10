@@ -1,8 +1,10 @@
 # BPM OpenCode Experts
 
-Expert agent system for [OpenCode](https://opencode.ai) — 33 primary expert agents + 30 cluster specialists (security, code-review, performance, onboarding, game dev), 25 skills, a 4-mode SDLC workflow, full git lifecycle management, and 40 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
+Expert agent system for [OpenCode](https://opencode.ai) — 34 primary expert agents + 31 cluster specialists (security, code-review, performance, onboarding, game dev), 26 skills, a 4-mode SDLC workflow, full git lifecycle management, and 41 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
-Sibling project: [`claude-experts`](https://github.com/bpmforge/claude-experts) — same experts for Claude Code.
+**Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
+
+Sibling project: [`claude-experts`](https://github.com/bpmforge/claude-experts) — same experts for Claude Code, generated from this repo.
 
 ## Install
 
@@ -12,40 +14,57 @@ cd bpm-opencode-experts
 ./install.sh
 ```
 
-Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2.
+Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--tools` (install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2.
 
 **Verify the install:**
 
 ```bash
-~/.config/opencode/scripts/doctor.sh
+~/.config/opencode/scripts/doctor.sh        # structure, deps, config, model backend, agent discovery
+~/.config/opencode/scripts/check-tools.sh   # which optional analysis tools are present (add: --install)
 ```
 
-Checks structure, runtime deps, config permissions, model backend, tier detection, and agent discovery — `Status: HEALTHY` means everything works. Re-run it any time something feels broken.
+`Status: HEALTHY` means everything works. Re-run any time something feels broken.
 
 **Update:** `git pull && ./install.sh` (idempotent — re-running is always safe), then `doctor.sh` again.
 
 ## First command
 
+Two ways to start:
+
 ```
-/sdlc init my-project "short description"
+/guide                                       # describe any goal in plain English
+/sdlc init my-project "short description"     # or go straight to a workflow
 ```
 
-Or plain English — the SDLC lead detects intent and routes automatically:
+Plain English routes automatically — `/guide` (or the SDLC lead) detects intent:
 
 | You say | Runs |
 |---------|------|
+| "I don't know where to start / what can this do?" | `/guide` |
 | "build a new app" | `/sdlc init` |
+| "build a game" | `/sdlc init --game` |
 | "understand this codebase" | `/sdlc onboard` |
 | "add X feature" | `/sdlc feature` |
 | "review / audit / find gaps / make it better" | `/sdlc improve` |
+| "securely check my source and help fix it" | `/security --fix` |
+| "is there code nothing uses?" | `/review-code` (dead-code dimension) |
+
+## Highlights
+
+- **`/guide` concierge** — front door that routes any goal to the right expert.
+- **Security find-and-fix** — `/security` audits all source; `/security --fix` drives a verified remediation loop (fix → re-scan to confirm closed, never the model's say-so).
+- **8-dimension code health** including a dead-code/stub/unused-export detector.
+- **Deterministic scaffolding** — `run-plan.mjs` (DAG runner for decomposed tasks), `fix-verify.mjs` (re-verify gate), `mermaid-fix.mjs` + render-validated diagrams. Scripts own control flow and verification; models do the judgment work — which keeps heavy jobs reliable on small local models.
+- **Any LLM** — tier detection, compact agent variants (`dist/compact-agents/`, install with `--compact`), and capability-probed delegation (`agents/shared/EXECUTOR_SELECTION.md`).
 
 ## Docs
 
-- [docs/SETUP.md) — **start here**: prerequisites, embedding models, env vars, troubleshooting
-- [docs/USERGUIDE.md](docs/USERGUIDE.md](docs/USERGUIDE.md) — how to invoke each expert
+- [docs/SETUP.md](docs/SETUP.md) — **start here**: prerequisites, embedding models, env vars, troubleshooting
+- [docs/USERGUIDE.md](docs/USERGUIDE.md) — how to invoke each expert
 - [docs/FEATURES.md](docs/FEATURES.md) — full agent, skill, validator, and protocol catalog
 - [docs/SDLC_GUIDE.md](docs/SDLC_GUIDE.md) — SDLC workflow, phases, git model, and traceability chain
-- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills
+- [docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md) — running on local models (tiers, compact variants)
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for claude-experts)
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 
 ## License

@@ -23,7 +23,7 @@ sequenceDiagram
     COD->>FS: Read all design docs listed in context
     COD->>FS: Read 2-3 existing files in target directories
 
-    loop Phase 2 — API Verification (per library)
+    loop Phase 2 - API Verification (per library)
         COD->>CTX: resolve-library-id + get-library-docs
         alt Context7 available
             CTX-->>COD: Current API docs
@@ -32,7 +32,7 @@ sequenceDiagram
         end
     end
 
-    loop Phase 3 — Implement (per file in PRODUCE list)
+    loop Phase 3 - Implement (per file in PRODUCE list)
         COD->>FS: Read existing file before editing
         COD->>FS: Write implementation file
         COD->>FS: Write companion test file
@@ -47,7 +47,7 @@ sequenceDiagram
         COD->>SH: npm test (retry)
     end
 
-    loop Phase 5 — Self-Audit (7 dimensions)
+    loop Phase 5 - Self-Audit (7 dimensions)
         COD->>COD: Score each dimension 1-10
         alt Any dimension < 7
             COD->>FS: Fix and re-score (max 3 attempts)

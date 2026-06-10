@@ -19,20 +19,20 @@ sequenceDiagram
 
     LEAD->>CONT: HANDOFF (scope + mode flag)
     CONT->>FS: Read LOOP_PREVENTION.md + TECH_STACK.md
-    CONT->>FS: Phase 1 — Glob Dockerfiles, docker-compose.yml, .dockerignore
+    CONT->>FS: Phase 1 - Glob Dockerfiles, docker-compose.yml, .dockerignore
     CONT->>SH: podman ps -a (check container state)
     CONT->>SH: podman images (check current image sizes)
 
-    CONT->>SH: Phase 2 — podman logs --tail 50 (if debugging)
+    CONT->>SH: Phase 2 - podman logs --tail 50 (if debugging)
     CONT->>SH: trivy image (CVE scan if Trivy available)
 
-    CONT->>CONT: Phase 3 — Plan changes and identify risks
+    CONT->>CONT: Phase 3 - Plan changes and identify risks
 
     alt "--build" or default
         loop Per Dockerfile (3-pass)
-            CONT->>FS: Pass 1 — Functionality (builds and runs)
-            CONT->>FS: Pass 2 — Security (non-root, no secrets in layers)
-            CONT->>FS: Pass 3 — Optimization (multi-stage, layer caching)
+            CONT->>FS: Pass 1 - Functionality (builds and runs)
+            CONT->>FS: Pass 2 - Security (non-root, no secrets in layers)
+            CONT->>FS: Pass 3 - Optimization (multi-stage, layer caching)
         end
         alt Image > 500MB
             CONT->>CONT: Force optimization pass
@@ -49,10 +49,10 @@ sequenceDiagram
         CONT->>CONT: npm ci --omit=dev, multi-stage build
     end
 
-    CONT->>SH: Phase 5 — podman build . (verify syntax)
+    CONT->>SH: Phase 5 - podman build . (verify syntax)
     CONT->>SH: podman-compose config (verify compose syntax)
     CONT->>SH: trivy image (final CVE scan)
-    CONT->>FS: Phase 6 — Write CONTAINER_REPORT.md
+    CONT->>FS: Phase 6 - Write CONTAINER_REPORT.md
     CONT->>FS: Write Completion Manifest
     CONT-->>LEAD: Completion phrase + manifest
 ```

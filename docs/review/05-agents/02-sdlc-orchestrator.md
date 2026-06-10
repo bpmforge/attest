@@ -65,7 +65,7 @@ sequenceDiagram
     LEAD-->>U: Discovery Interview (7 questions)
     U->>LEAD: Answers confirmed
     LEAD->>LEAD: Write docs/DISCOVERY.md
-    LEAD->>GIT: HANDOFF — create sdlc/setup branch
+    LEAD->>GIT: HANDOFF - create sdlc/setup branch
 
     loop Phases 0-2 (Ideation, Planning, Requirements)
         LEAD->>LEAD: Write phase documents directly
@@ -73,7 +73,7 @@ sequenceDiagram
         GATE-->>LEAD: exit 0 or gap list
     end
 
-    LEAD-->>U: Gate A — approve Phase 3 design?
+    LEAD-->>U: Gate A - approve Phase 3 design?
     U->>LEAD: Yes
 
     par Phase 3 Design HANDOFFs
@@ -86,21 +86,21 @@ sequenceDiagram
     LEAD->>GATE: validate-phase-gate.sh phase-3
 
     LEAD->>SPEC: test-engineer (TEST_DESIGN.md)
-    LEAD-->>U: Gate B — approve implementation?
+    LEAD-->>U: Gate B - approve implementation?
     U->>LEAD: Yes
 
-    loop Phase 4 — Per Wave
+    loop Phase 4 - Per Wave
         LEAD->>COD: HANDOFF coding-agent (module wave)
         COD-->>LEAD: Wave complete
         LEAD->>GATE: validate-build + validate-tests
     end
 
-    par Phase 5 — Final Reviews
+    par Phase 5 - Final Reviews
         LEAD->>SPEC: code-reviewer
         LEAD->>SPEC: security-auditor
     end
     LEAD->>COD: HANDOFF Fix-Verify loop (up to 3x)
-    LEAD->>GIT: HANDOFF — merge PR and tag release
+    LEAD->>GIT: HANDOFF - merge PR and tag release
     LEAD-->>U: Release complete
 ```
 
@@ -118,28 +118,28 @@ sequenceDiagram
     participant SPEC as Specialist Agents
     participant VAL as run-coverage-loop.sh
 
-    LEAD->>GIT: HANDOFF — create docs/onboard branch
-    LEAD->>LEAD: Step 1 — Map landscape (README, package.json, globs)
-    LEAD->>LEAD: Step 2 — Trace entry points and sequence diagrams
-    LEAD->>GIT: HANDOFF — git checkpoint
+    LEAD->>GIT: HANDOFF - create docs/onboard branch
+    LEAD->>LEAD: Step 1 - Map landscape (README, package.json, globs)
+    LEAD->>LEAD: Step 2 - Trace entry points and sequence diagrams
+    LEAD->>GIT: HANDOFF - git checkpoint
 
-    LEAD->>SPEC: db-architect — Step 3: reverse-engineer ERD
-    LEAD->>LEAD: Step 4 — Map components (C2 + C3 diagrams)
-    LEAD->>LEAD: Step 5 — Identify patterns
+    LEAD->>SPEC: db-architect - Step 3: reverse-engineer ERD
+    LEAD->>LEAD: Step 4 - Map components (C2 + C3 diagrams)
+    LEAD->>LEAD: Step 5 - Identify patterns
 
-    par Step 6 — Health Audits
+    par Step 6 - Health Audits
         LEAD->>SPEC: code-reviewer (health, debt, patterns)
         LEAD->>SPEC: security-auditor (OWASP Top 10)
         LEAD->>SPEC: test-engineer (coverage analysis)
         LEAD->>SPEC: performance-engineer (static scan)
     end
 
-    LEAD->>LEAD: Step 7 — Produce ARCHITECTURE.md + ONBOARDING.md
-    LEAD->>GIT: HANDOFF — commit and open PR
+    LEAD->>LEAD: Step 7 - Produce ARCHITECTURE.md + ONBOARDING.md
+    LEAD->>GIT: HANDOFF - commit and open PR
 
     alt "--deep" flag
         loop Ralph Wiggum loop (max 3 iterations)
-            LEAD->>SPEC: researcher — full inventory
+            LEAD->>SPEC: researcher - full inventory
             LEAD->>VAL: validate-inventory.sh
             VAL-->>LEAD: exit 0 (done) or exit 1 (gaps)
             LEAD->>SPEC: Gap-fill HANDOFFs per flagged row
@@ -167,8 +167,8 @@ sequenceDiagram
 
     LEAD-->>U: Feature Discovery Interview (7 questions)
     U->>LEAD: Answers confirmed
-    LEAD->>LEAD: Step 1 — Impact analysis (grep + call-chain trace)
-    LEAD->>LEAD: Step 2 — Design (options doc if non-trivial)
+    LEAD->>LEAD: Step 1 - Impact analysis (grep + call-chain trace)
+    LEAD->>LEAD: Step 2 - Design (options doc if non-trivial)
 
     par Conditional Design HANDOFFs
         LEAD->>SPEC: db-architect (if schema changes)
@@ -176,9 +176,9 @@ sequenceDiagram
         LEAD->>SPEC: security-auditor (if auth or user input touched)
     end
 
-    LEAD->>GIT: HANDOFF — create feat/slug branch and draft PR
-    LEAD->>TEST: HANDOFF — write E2E acceptance tests (TDD)
-    LEAD-->>U: Implementation checkpoint — make tests pass
+    LEAD->>GIT: HANDOFF - create feat/slug branch and draft PR
+    LEAD->>TEST: HANDOFF - write E2E acceptance tests (TDD)
+    LEAD-->>U: Implementation checkpoint - make tests pass
     U->>LEAD: Implementation done
 
     par Parallel Reviews (auto-triggered)
@@ -191,8 +191,8 @@ sequenceDiagram
     LEAD->>LEAD: Synthesize FIX_BACKLOG
 
     loop Fix-Verify loop (max 3x)
-        LEAD->>COD: HANDOFF — fix backlog items
-        LEAD->>SPEC: HANDOFF — targeted re-verify
+        LEAD->>COD: HANDOFF - fix backlog items
+        LEAD->>SPEC: HANDOFF - targeted re-verify
         alt All PASS
             LEAD->>LEAD: Exit loop
         else Failures remain
@@ -201,7 +201,7 @@ sequenceDiagram
     end
 
     LEAD->>LEAD: Run runtime gate validators
-    LEAD->>GIT: HANDOFF — squash merge and delete branch
+    LEAD->>GIT: HANDOFF - squash merge and delete branch
     LEAD-->>U: Feature shipped
 ```
 
@@ -218,11 +218,11 @@ sequenceDiagram
     participant COD as coding-agent
     participant RES as researcher
 
-    LEAD->>GIT: HANDOFF — create improve/slug branch
-    LEAD->>LEAD: Step 1 — Check for existing Mode 2 docs
-    LEAD->>SPEC: test-engineer — discovery audit (if running instance)
+    LEAD->>GIT: HANDOFF - create improve/slug branch
+    LEAD->>LEAD: Step 1 - Check for existing Mode 2 docs
+    LEAD->>SPEC: test-engineer - discovery audit (if running instance)
 
-    par Step 2 — Audit HANDOFFs (parallel or sequential per user choice)
+    par Step 2 - Audit HANDOFFs (parallel or sequential per user choice)
         LEAD->>SPEC: security-auditor
         LEAD->>SPEC: code-reviewer
         LEAD->>SPEC: performance-engineer
@@ -230,12 +230,12 @@ sequenceDiagram
         LEAD->>SPEC: ux-engineer (if UI project)
     end
 
-    LEAD->>RES: HANDOFF — vision research (if user gave desired state)
-    LEAD->>LEAD: Step 3 — Synthesize into IMPROVEMENT_BACKLOG.md
-    LEAD-->>U: Step 4 — Present backlog, wait for item selection
+    LEAD->>RES: HANDOFF - vision research (if user gave desired state)
+    LEAD->>LEAD: Step 3 - Synthesize into IMPROVEMENT_BACKLOG.md
+    LEAD-->>U: Step 4 - Present backlog, wait for item selection
     U->>LEAD: Items N approved
 
-    loop Step 5 — Per approved item
+    loop Step 5 - Per approved item
         alt Size S (single-file)
             LEAD-->>U: Implementation checkpoint
             LEAD->>SPEC: Targeted verification HANDOFF
@@ -246,12 +246,12 @@ sequenceDiagram
         else Size L (architectural)
             LEAD->>LEAD: Launch Mode 3 sub-workflow
         end
-        LEAD->>GIT: HANDOFF — git checkpoint
+        LEAD->>GIT: HANDOFF - git checkpoint
     end
 
-    LEAD->>SPEC: test-engineer — post-improvement discovery audit
+    LEAD->>SPEC: test-engineer - post-improvement discovery audit
     LEAD->>LEAD: Compare DISCOVERY_PRE vs DISCOVERY_POST
-    LEAD->>GIT: HANDOFF — final PR
+    LEAD->>GIT: HANDOFF - final PR
     LEAD-->>U: Improvement session complete
 ```
 

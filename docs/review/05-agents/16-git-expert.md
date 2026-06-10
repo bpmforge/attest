@@ -32,17 +32,17 @@ sequenceDiagram
         loop Per logical unit
             GIT->>GIT: Secret scan (staged files vs known patterns)
             alt Secret found
-                GIT-->>LEAD: STOP — surface file and line to user
+                GIT-->>LEAD: STOP - surface file and line to user
             end
             GIT->>SH: git add -p and git commit (atomic)
             GIT->>SH: git push
         end
 
         GIT->>GIT: Check 4-condition merge gate
-        Note over GIT: 1 — RUNTIME report PASS
-        Note over GIT: 2 — CI pipeline green
-        Note over GIT: 3 — FIX_BACKLOG merge-blocking empty
-        Note over GIT: 4 — No open CRITICAL or HIGH review verdicts
+        Note over GIT: 1 - RUNTIME report PASS
+        Note over GIT: 2 - CI pipeline green
+        Note over GIT: 3 - FIX_BACKLOG merge-blocking empty
+        Note over GIT: 4 - No open CRITICAL or HIGH review verdicts
         GIT->>SH: gh pr merge --squash
         GIT->>SH: Delete branch
     else "--release" mode

@@ -40,17 +40,17 @@ sequenceDiagram
 
     LLM->>Guard: bash({command: "ls -la", workdir?, timeout?})
     Guard->>Guard: Check DANGEROUS_BASH patterns
-    
+
     alt command is safe
         Guard->>BT: execute(args, context)
         BT->>BT: Validate args.command present
-        
+
         alt args.command missing
             BT-->>LLM: "[LOOP STOP] bash called without command..."
         end
-        
+
         BT->>OS: spawn(command, {cwd, shell:true})
-        
+
         par stdout collection
             OS-->>BT: data chunks -> output string
         and stderr collection
@@ -58,7 +58,7 @@ sequenceDiagram
         and timeout
             BT->>BT: setTimeout(timeout*1000)
         end
-        
+
         alt process completes (exit 0)
             BT-->>LLM: output string
         else non-zero exit
@@ -84,32 +84,32 @@ sequenceDiagram
     participant SA as Specialist Agent
 
     LEAD->>TT: task({agent, prompt, timeout})
-    TT->>TT: context.metadata({title: "task: agent — starting..."})
+    TT->>TT: context.metadata({title: "task: agent - starting..."})
     TT->>OC: spawn("opencode run --agent agent --format json prompt")
-    
+
     loop Every 5 seconds (heartbeat)
         TT->>TT: update metadata title with elapsed time + last snippet
     end
-    
+
     loop stdout data events
         OC-->>TT: JSON event lines
-        TT->>TT: processLine() — parse assistant messages
+        TT->>TT: processLine() - parse assistant messages
         TT->>TT: extract lastSnippet for real-time progress
     end
-    
+
     OC->>SA: Load agent prompt file from ~/.config/opencode/agents/
     SA->>SA: Execute multi-phase workflow
     SA-->>OC: JSON event stream (messages, tool calls, results)
     OC-->>TT: exit 0 or non-zero
-    
+
     alt exit 0
-        TT->>TT: extractText(raw) — parse assistant content from JSON stream
+        TT->>TT: extractText(raw) - parse assistant content from JSON stream
         TT-->>LEAD: Plain text summary of findings
     else timeout
         TT->>OC: proc.kill("SIGTERM")
-        TT-->>LEAD: "[task: TIMEOUT] Partial output: ..."
+        TT-->>LEAD: "["task: TIMEOUT"] Partial output: ..."
     else spawn error
-        TT-->>LEAD: "[task: spawn error] Could not start opencode: ..."
+        TT-->>LEAD: "["task: spawn error"] Could not start opencode: ..."
     end
 ```
 

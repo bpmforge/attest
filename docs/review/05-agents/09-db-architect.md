@@ -19,18 +19,18 @@ sequenceDiagram
 
     LEAD->>DBA: HANDOFF (scope + DB type)
     DBA->>FS: Read LOOP_PREVENTION.md
-    DBA->>FS: Phase 1 — Glob schema, migration, and ORM files
+    DBA->>FS: Phase 1 - Glob schema, migration, and ORM files
     DBA->>FS: Read existing schema and detect DB type from package.json
     DBA->>DBA: Identify access patterns (read-heavy vs write-heavy)
     DBA->>FS: Write phase1.md checkpoint
 
-    DBA->>FS: Phase 2 — Read ORM docs and naming conventions
+    DBA->>FS: Phase 2 - Read ORM docs and naming conventions
     DBA->>SH: EXPLAIN QUERY PLAN on any slow queries
 
-    loop Phase 3-4 — Design per table (3-pass)
-        DBA->>DBA: Pass 1 — Design from requirements
-        DBA->>DBA: Pass 2 — Verify access patterns covered by indexes
-        DBA->>DBA: Pass 3 — Check cascade behavior and N+1 risk
+    loop Phase 3-4 - Design per table (3-pass)
+        DBA->>DBA: Pass 1 - Design from requirements
+        DBA->>DBA: Pass 2 - Verify access patterns covered by indexes
+        DBA->>DBA: Pass 3 - Check cascade behavior and N+1 risk
         alt Any access pattern requires full table scan
             DBA->>DBA: Fix schema and re-check
         end
@@ -41,13 +41,13 @@ sequenceDiagram
     DBA->>FS: Write ORM model files (one per table)
     DBA->>FS: Write CRUD operation implementations
 
-    DBA->>DBA: Phase 5 — Verify FK references, index alignment
+    DBA->>DBA: Phase 5 - Verify FK references, index alignment
     DBA->>SH: validate-erd-coverage.sh
     alt Validator reports gaps
         DBA->>FS: Fix and re-run until exit 0
     end
 
-    DBA->>FS: Phase 6 — Write DATABASE.md (ERD + index strategy)
+    DBA->>FS: Phase 6 - Write DATABASE.md (ERD + index strategy)
     DBA->>FS: Write Completion Manifest
     DBA-->>LEAD: Completion phrase + manifest
 ```
