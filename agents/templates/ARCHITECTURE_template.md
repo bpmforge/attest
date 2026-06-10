@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 <!--
 ARCHITECTURE.md template — used by SDLC Lead Mode 1 Phase 3.
 Copy this content into docs/ARCHITECTURE.md and fill in project-specific details.

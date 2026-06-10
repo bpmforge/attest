@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # BOOK_PROTOCOL.md
 
 **Canonical rule for structuring long-form deliverables as multi-page books.**

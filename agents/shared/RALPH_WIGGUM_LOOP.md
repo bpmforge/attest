@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # RALPH_WIGGUM_LOOP.md
 
 **Canonical universal coverage loop.**

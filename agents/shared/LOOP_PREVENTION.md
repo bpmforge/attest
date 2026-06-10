@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # LOOP_PREVENTION.md
 
 **Canonical loop-prevention rules for ALL agents.** These rules override any "be thorough", "try harder", or "iterate more" instinct. Read this once at the start of any task that involves tool calls.

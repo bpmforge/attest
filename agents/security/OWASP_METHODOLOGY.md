@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Security Auditor — OWASP Methodology
 
 > Load this file only when running a full OWASP scan (--deep mode) or producing SECURITY_CONTROLS.md.

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Model Adapter — Adaptive Behavior by Context Tier
 
 Agents read `docs/work/.model-context` at session start to adapt behavior.
@@ -26,11 +32,11 @@ tier=small|medium|large
 
 ### tier=small (local, 32k context)
 
-> **Compact agent variants:** `agents/compact/` holds generated copies of every
+> **Compact agent variants:** `dist/compact-agents/` holds generated copies of every
 > primary agent with boilerplate sections reduced to pointer one-liners
 > (`scripts/build-agents.mjs --compact`, or `npm run agents:compact`). In a
-> tier=small-only environment, load/install the compact variant — same behavior
-> contract, ~250 fewer instruction tokens per agent.
+> tier=small-only environment, install them with `./install.sh --compact` — same
+> behavior contract, ~250 fewer instruction tokens per agent.
 
 Context budget is tight. Every token counts.
 

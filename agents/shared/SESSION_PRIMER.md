@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Session Primer
 
 > Paste this at the START of any OpenCode session to reinforce the six core rules.
