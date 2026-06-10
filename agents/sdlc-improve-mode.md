@@ -621,6 +621,18 @@ Next after resume: Step 4 — Execute approved items
 ")
 ```
 
+## Step 3b: Synthesis Coverage Gate (MANDATORY — scoped Ralph Wiggum, cap 2)
+
+Every audit produced in Step 2 must be referenced in IMPROVEMENT_BACKLOG.md — an audit the synthesis never mentions was silently dropped:
+
+```
+bash(command="./scripts/validators/run-coverage-loop.sh improve 2>/dev/null || bash ~/.config/opencode/scripts/validators/run-coverage-loop.sh improve")
+```
+
+- **exit 0** — all audits synthesized; continue to Step 4.
+- **exit 1** — read `docs/work/COVERAGE_LOOP_improve_<date>.md`; fold each unsynthesized audit's findings into the backlog (re-read the audit file, add its items with severity + source reference), then re-run the script.
+- **exit 2** — cap (2) reached: emit the escalation block from `agents/shared/RALPH_WIGGUM_LOOP.md` and STOP for user decision.
+
 ## Step 4: Prioritization Review
 
 Present the backlog to the user. Do not execute yet — get approval first.
