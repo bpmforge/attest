@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.1] — 2026-06-10
+
+### Fixed
+- `doctor.sh` no longer reports a false `BROKEN` when `opencode agent list` returns a partial result (it boots the runtime and intermittently lists 71–76 of 76 agents). Agent **file presence** is now the authoritative pass/fail; the runtime enumeration is advisory only. Also fixed a loose `grep guide` that gave a false PASS. The install was never actually broken — this was a doctor false-negative.
+
 ## [1.6.0] — 2026-06-10
 
 ### Added — Mermaid hardening (prevent + fix generation parse errors)
