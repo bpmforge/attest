@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Cloud Security Methodology — AWS + GCP
 
 > Load this file when the project deploys to AWS or GCP, or when AWS/GCP SDKs are present.

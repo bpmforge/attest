@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Code Reviewer — Deep Methodology
 
 > Load when starting a full code review (--review, --debt, --consolidate, --patterns).

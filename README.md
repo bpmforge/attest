@@ -1,6 +1,6 @@
 # BPM OpenCode Experts
 
-Expert agent system for [OpenCode](https://opencode.ai) — 15 specialist agents, 24 skills, a 4-mode SDLC workflow, full git lifecycle management, and 36 automated validators that enforce quality gates at every phase.
+Expert agent system for [OpenCode](https://opencode.ai) — 33 primary expert agents + 30 cluster specialists (security, code-review, performance, onboarding, game dev), 25 skills, a 4-mode SDLC workflow, full git lifecycle management, and 40 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
 Sibling project: [`claude-experts`](https://github.com/bpmforge/claude-experts) — same experts for Claude Code.
 
@@ -12,7 +12,17 @@ cd bpm-opencode-experts
 ./install.sh
 ```
 
-Common flags: `--project` (install into `.opencode/` instead of global), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2.
+Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2.
+
+**Verify the install:**
+
+```bash
+~/.config/opencode/scripts/doctor.sh
+```
+
+Checks structure, runtime deps, config permissions, model backend, tier detection, and agent discovery — `Status: HEALTHY` means everything works. Re-run it any time something feels broken.
+
+**Update:** `git pull && ./install.sh` (idempotent — re-running is always safe), then `doctor.sh` again.
 
 ## First command
 

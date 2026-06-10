@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # OWASP LLM Top 10 Methodology
 
 > Load this file when running `/security --llm` or when the project uses LLM/AI APIs.

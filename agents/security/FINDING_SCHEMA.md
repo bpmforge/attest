@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # FINDING_SCHEMA.md
 
 **Shared finding schema for all security specialists.**

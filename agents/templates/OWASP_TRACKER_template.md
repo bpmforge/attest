@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 <!--
 OWASP_TRACKER template — used by /security audit modes.
 Copy this content into docs/security/OWASP_TRACKER.md at the start of every audit pass.

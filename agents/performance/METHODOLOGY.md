@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Performance Engineer — Methodology
 
 > Load this file when starting any substantive performance work.

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Browser Testing Primer
 
 Load when you need to use `playwright-mcp` for browser automation, screenshots, or E2E verification.
