@@ -290,6 +290,12 @@ Before any schema work:
 - Identify access patterns — what queries will be most frequent? Read-heavy vs write-heavy?
 - Check for existing migration numbering convention
 
+**Non-relational / multi-store fallbacks:**
+
+- **Document store (Mongo/Dynamo/Firestore)** → the method holds, the artifacts change: access patterns FIRST (they decide document shape), then collection/key design, denormalization decisions with their update-path costs, and index definitions. Skip relational normalization steps; never force an ERD onto a key-value model — model the access paths instead.
+- **Multiple stores (e.g. Postgres + Redis + S3)** → produce one section per store PLUS a "data placement" table: which data lives where, why, and the consistency expectation at each boundary. The cross-store boundaries are where the bugs live — name them.
+- **No database yet** → recommend one FROM the access patterns (not from fashion), as a 2-option table with the deciding constraint, and wait for approval — store choice is a tech-stack decision.
+
 ### Phase 2: Research
 - Read the database-specific documentation if needed (SQLite vs PostgreSQL differences)
 - Check existing naming conventions (snake_case? plural tables? column prefixes?)

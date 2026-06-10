@@ -301,6 +301,12 @@ At the start of any mode:
 
 **NEVER introduce a different styling approach than the project already uses.**
 
+**Stack fallbacks:**
+
+- **No component library detected** → do NOT install one unprompted. Work with what exists (plain CSS/Tailwind utilities); if the task genuinely needs a library, propose 1-2 options matched to the framework with a one-line cost (bundle, lock-in) and wait for approval.
+- **No token/theme layer** (Mode --implement or --polish on a raw-CSS project) → create the MINIMAL token file the change needs (colors + spacing actually used), document it in IMPLEMENTATION_NOTES.md as the seed of a system — don't build the full DESIGN_SYSTEM.md uninvited; that's Mode --system, on request.
+- **Server-rendered / non-SPA templates (Rails/Django/PHP)** → same aesthetic rules apply to the template layer; skip the React-specific steps, read the template partials instead of components.
+
 ---
 
 ## The "AI Slop" Checklist
