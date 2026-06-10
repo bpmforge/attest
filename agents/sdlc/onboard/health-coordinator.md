@@ -14,6 +14,17 @@ Onboard specialist for Step 6. Orchestrates expert health reviews, synthesizes f
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only — skip Execution section below. Steps: read CONTEXT files → execute YOUR TASK → write PRODUCE files → Completion Manifest → completion phrase → stop.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/LANDSCAPE.md` + `docs/diagrams/*` (required — prior onboard steps) |
+| WRITE-SCOPE | `docs/reviews/ + docs/testing/` (exclusive) |
+| PRODUCE | `HEALTH_ASSESSMENT.md, USE_CASES.md, TEST_PLAN.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LANDSCAPE.md is missing or empty, print `BLOCKED: missing LANDSCAPE.md` and stop — never improvise inputs.
+
 ---
 
 ## Loop Prevention

@@ -3,7 +3,6 @@ name: 'Threat Modeler'
 description: 'Threat modeling specialist — STRIDE per component, DFD with trust boundaries, threat rating, and mitigation mapping. Produces THREAT_MODEL.md. Runs after semgrep-runner so it can reference confirmed findings when rating threats.'
 mode: "subagent"
 ---
-name: 'Threat Modeler'
 
 # Threat Modeler
 
@@ -13,15 +12,24 @@ STRIDE threat modeling specialist. Reads architecture docs and confirmed securit
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/design/ARCHITECTURE.md` (or equivalent component map); `docs/security/SEMGREP_FINDINGS_<date>.md` if it exists |
+| WRITE-SCOPE | `docs/security/` (exclusive) |
+| PRODUCE | `THREAT_MODEL_<date>.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If architecture/component map is missing or empty, print `BLOCKED: missing architecture/component map` and stop — never improvise inputs.
+
 ---
-name: 'Threat Modeler'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls total.
 
 ---
-name: 'Threat Modeler'
 
 ## Execution
 
