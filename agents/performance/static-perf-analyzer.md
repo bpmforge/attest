@@ -23,6 +23,8 @@ Finds structural performance problems without running the code. The 5 scan patte
 
 If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If analysis target path is missing or empty, print `BLOCKED: missing analysis target path` and stop — never improvise inputs.
 
+**Findings format (MANDATORY):** every finding conforms to `agents/performance/FINDINGS_SCHEMA.md` — IDs, severity calibration, `hot_path` key (the synthesizer multiplies costs along exact hot-path match; a wrong key escapes compounding), impact + scale_factor, measured flag, fix. Use its Markdown Report Format for the output file.
+
 ---
 
 ## Loop Prevention

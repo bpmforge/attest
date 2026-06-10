@@ -25,6 +25,8 @@ Run only after all other code-health specialists complete.
 
 If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If any of the six FINDINGS files is missing or empty, print `BLOCKED: missing any of the six FINDINGS files` and stop — never improvise inputs.
 
+**Input format:** specialist files conform to `agents/code-review/FINDINGS_SCHEMA.md`. Apply its Compounding Rules exactly: 3+ dimensions on one `module` → compound risk at max(severity)+1; same file:line from 2+ specialists → merge, keep both dimension tags.
+
 ---
 
 ## Loop Prevention
