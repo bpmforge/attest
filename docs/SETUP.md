@@ -27,7 +27,7 @@ cd ~/Code/bpm-opencode-experts
 ./install.sh
 ```
 
-`install.sh` prompts y/n for each optional MCP, then clones, builds, and registers them. Pass `--yes` to accept all defaults without prompting.
+`install.sh` prompts y/n for each optional MCP, then clones, builds, and registers them. Pass `--yes` to accept all defaults without prompting. Useful flags: `--compact` (compact agent variants for 32k local models), `--tools` (also install the optional code-analysis tools).
 
 **Useful flags:** `--compact` (overlay compact agent variants for 32k local models), `--tools` (also install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--project` (install into `.opencode/` instead of global), `--link` (symlink for dev).
 
