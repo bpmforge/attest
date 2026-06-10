@@ -12,6 +12,17 @@ Onboard specialist for Steps 2 and 2b. Finds every entry point, traces the full 
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only — skip Execution section below. Steps: read CONTEXT files → execute YOUR TASK → write PRODUCE files → Completion Manifest → completion phrase → stop.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/LANDSCAPE.md` (required — framework + structure) |
+| WRITE-SCOPE | `docs/diagrams/` (exclusive) |
+| PRODUCE | `entry-points.md + sequences/*.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LANDSCAPE.md is missing or empty, print `BLOCKED: missing LANDSCAPE.md` and stop — never improvise inputs.
+
 ---
 
 ## Loop Prevention
@@ -131,5 +142,30 @@ Verify each file before moving to the next.
 - [ ] Every major entry point has a sequenceDiagram with error path
 - [ ] `docs/diagrams/sequences/` contains ≥ 4 files
 - [ ] Each sequences file has a `sequenceDiagram` block with at least one error path annotation
+
+### Completion Manifest (MANDATORY — write before the completion phrase)
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `docs/diagrams/entry-points.md` — [N] entry points, [N] sequenceDiagrams — [line count]
+- `docs/diagrams/sequences/<file>.md` — one line per file
+
+## Files modified
+- [path] — [what changed] (or "None")
+
+## Decisions made
+- [e.g., which operation chosen as primary write/read, and why]
+
+## Known issues / deferred
+- [entry points not traced + why] (or "None")
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+## Ready for: component-mapper
+```
+
+All sections required. "None" is valid.
 
 Print: `✓ entry-point-tracer done — [N] entry points traced, [N] sequence diagrams produced`

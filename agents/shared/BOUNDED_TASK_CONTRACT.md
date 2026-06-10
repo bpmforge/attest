@@ -28,6 +28,8 @@ The HANDOFF lists exact files under `PRODUCE`. Create those files and no others.
 
 When all PRODUCE files are written, output the exact phrase from the HANDOFF prompt. Copy it character-for-character. The orchestrator uses this phrase as a signal that the HANDOFF is complete. Paraphrasing or rewording it breaks the resume flow.
 
+If the HANDOFF does not specify a completion phrase, use the default phrase declared in your own agent file (the `Print:` line). Fill any `[N]`/`[summary]` placeholders with real values — the prefix before the first placeholder must stay verbatim, because the orchestrator matches on it.
+
 ---
 
 ## Rule 4 — No scope expansion
