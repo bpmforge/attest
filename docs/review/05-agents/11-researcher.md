@@ -21,16 +21,16 @@ sequenceDiagram
 
     LEAD->>RES: HANDOFF (research topic + mode)
     RES->>RES: Select mode (Quick, Comparison, Deep Dive, Fact Check)
-    RES->>RES: Step 1 — Define 3-5 focused sub-questions
+    RES->>RES: Step 1 - Define 3-5 focused sub-questions
 
-    loop Step 2 — Per sub-question
-        RES->>T1: web_search_pullmd (tier 1 — always start here)
+    loop Step 2 - Per sub-question
+        RES->>T1: web_search_pullmd (tier 1 - always start here)
         T1-->>RES: Triage results
         alt < 2 useful sources
-            RES->>T2: web_research_pullmd (tier 2 — full content)
+            RES->>T2: web_research_pullmd (tier 2 - full content)
             T2-->>RES: Full page content
             alt Still < 2 useful sources
-                RES->>T3: web_research (tier 3 — escalation only)
+                RES->>T3: web_research (tier 3 - escalation only)
             end
         end
         RES->>FS: Write full source content to checkpoint file
@@ -38,14 +38,14 @@ sequenceDiagram
         alt Confidence >= 8 or 3 calls with no new facts
             RES->>FS: Mark question DONE
         else Confidence < 5 after pass 2
-            RES-->>LEAD: RESEARCH BLOCKED — surface to user
+            RES-->>LEAD: RESEARCH BLOCKED - surface to user
         end
     end
 
-    RES->>RES: Step 2.5 — Gate: all questions must be DONE before synthesis
-    RES->>RES: Step 3 — Cross-reference key claims across 2+ sources
-    RES->>FS: Step 4 — Read ALL checkpoint files before synthesis
-    RES->>FS: Step 5 — Write research report
+    RES->>RES: Step 2.5 - Gate: all questions must be DONE before synthesis
+    RES->>RES: Step 3 - Cross-reference key claims across 2+ sources
+    RES->>FS: Step 4 - Read ALL checkpoint files before synthesis
+    RES->>FS: Step 5 - Write research report
 
     alt Report > 300 lines
         RES->>FS: Split into multi-chapter book directory

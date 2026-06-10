@@ -19,24 +19,24 @@ sequenceDiagram
 
     LLM->>OC: Call tool(name, args)
     OC->>HB: before(input, output)
-    
+
     alt tool is "bash" or "run"
         HB->>HB: Check DANGEROUS_BASH patterns<br/>(8 regex rules)
         alt pattern matches
             HB-->>OC: throw Error("BLOCKED: ...")
-            OC-->>LLM: Tool error — blocked
+            OC-->>LLM: Tool error - blocked
         end
     end
-    
+
     alt tool is "write" or "edit"
         HB->>HB: Extract filePath from args
         HB->>HB: Check BLOCKED_FILE_PATTERNS<br/>(.env, .key, .pem, credentials.json, SSH keys)
         alt pattern matches
             HB-->>OC: throw Error("BLOCKED: ...")
-            OC-->>LLM: Tool error — blocked
+            OC-->>LLM: Tool error - blocked
         end
     end
-    
+
     HB-->>OC: (no throw = pass through)
     OC->>T: Execute tool(args)
     T-->>OC: result
@@ -60,10 +60,10 @@ sequenceDiagram
     HA->>HA: Check: is write/edit tool?
     HA->>HA: Extract filePath
     HA->>HA: Check SKIP_EXTENSIONS<br/>(images, binaries, lock files)
-    
+
     alt extension not skipped
         HA->>HA: Promise.allSettled([...])
-        
+
         par Format
             HA->>FMT: format(filePath, ext)
             Note over FMT: Best-effort, failure = console.warn
@@ -76,10 +76,10 @@ sequenceDiagram
             HA->>SS: cat filePath -> test 8 patterns
             Note over SS: AWS keys, API keys, passwords,<br/>bearer tokens, DB connection strings,<br/>PEM keys, auth tokens
         end
-        
+
         Note over HA: All run concurrently,<br/>failures logged, never blocking
     end
-    
+
     HA-->>OC: (hook complete)
 ```
 

@@ -19,20 +19,20 @@ sequenceDiagram
 
     LEAD->>SRE: HANDOFF (scope + mode flag)
     SRE->>FS: Read LOOP_PREVENTION.md + TECH_STACK.md + ARCHITECTURE.md
-    SRE->>FS: Phase 1 — Glob docker-compose.yml, CI configs, deploy scripts
+    SRE->>FS: Phase 1 - Glob docker-compose.yml, CI configs, deploy scripts
     SRE->>FS: Read existing runbooks and monitoring configs
     SRE->>FS: Identify deployment target and failure domains
 
-    SRE->>FS: Phase 2 — Read deploy scripts, check service dependencies
+    SRE->>FS: Phase 2 - Read deploy scripts, check service dependencies
     SRE->>SH: Identify monitoring gaps
 
-    SRE->>SRE: Phase 3 — Plan: state goal, risks, blast radius
+    SRE->>SRE: Phase 3 - Plan: state goal, risks, blast radius
 
     alt "--runbook" flag
         loop Per procedure (3-pass)
-            SRE->>FS: Pass 1 — Write procedure steps
-            SRE->>FS: Pass 2 — Add verify-it-worked after each step
-            SRE->>FS: Pass 3 — Add rollback for each step
+            SRE->>FS: Pass 1 - Write procedure steps
+            SRE->>FS: Pass 2 - Add verify-it-worked after each step
+            SRE->>FS: Pass 3 - Add rollback for each step
             SRE->>SRE: Walk-through from scratch
         end
     else "--cicd" flag
@@ -46,9 +46,9 @@ sequenceDiagram
         SRE->>FS: Include blameless post-mortem template (within 48h)
     end
 
-    SRE->>SH: Phase 5 — Validate YAML/JSON syntax, check script shebangs
+    SRE->>SH: Phase 5 - Validate YAML/JSON syntax, check script shebangs
     SRE->>SRE: Verify rollback procedures completeness
-    SRE->>FS: Phase 6 — Write ops report to docs/ops/
+    SRE->>FS: Phase 6 - Write ops report to docs/ops/
     SRE->>FS: Write Completion Manifest
     SRE-->>LEAD: Completion phrase + manifest
 ```

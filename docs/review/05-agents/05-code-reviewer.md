@@ -22,18 +22,18 @@ sequenceDiagram
     REV->>FS: Read anti-slop-audit.md
     REV->>FS: Read LOOP_PREVENTION.md
 
-    REV->>FS: Phase 1 — Read entry points and existing patterns
+    REV->>FS: Phase 1 - Read entry points and existing patterns
     REV->>FS: Write phase1.md checkpoint
 
-    REV->>SH: Phase 2 — Run anti-slop validator script
+    REV->>SH: Phase 2 - Run anti-slop validator script
     REV->>FS: Write per-file tooling findings
 
-    loop Phase 3 — 8 review passes (one per dimension)
+    loop Phase 3 - 8 review passes (one per dimension)
         REV->>FS: Read source files for verbatim snippets
         REV->>FS: Write findings (file:line + snippet + fix)
     end
 
-    REV->>FS: Phase 4 — Synthesize Health Dashboard
+    REV->>FS: Phase 4 - Synthesize Health Dashboard
     REV->>FS: Write mode-specific output file
     REV->>SH: validate-book-structure.sh (if output > 300 lines)
     REV->>SH: validate-mermaid.sh

@@ -20,7 +20,7 @@ sequenceDiagram
 
     LEAD->>FE: HANDOFF (scope + mode flag)
     FE->>FS: Read LOOP_PREVENTION.md
-    FE->>FS: Read package.json — detect framework and component library
+    FE->>FS: Read package.json - detect framework and component library
     FE->>FS: Read tailwind.config.ts or equivalent theme file
     FE->>FS: Read 3 existing components to match established patterns
 

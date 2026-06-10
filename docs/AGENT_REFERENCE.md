@@ -6,6 +6,17 @@ One-page summary per agent. For full docs, read the agent file directly.
 
 ## Orchestrators
 
+### guide
+**What:** Expert-system concierge / front door.  
+**When to use:** When you don't know which command fits — describe any goal in plain English.  
+**Modes:** `/guide`  
+**Output:** Routes to the right expert, drives the workflow, always offers the fix path.
+
+### task-decomposer
+**What:** Turns any request into a typed DAG (`plan.json`) of bounded leaf tasks.  
+**When to use:** Big/vague/multi-file work, or whenever the executing model is tier=small.  
+**Output:** `docs/work/plan/plan.json` — run it with `scripts/run-plan.mjs`.
+
 ### sdlc-lead
 **What:** Program manager and lead architect. Routes all SDLC work.  
 **When to use:** Entry point for everything — new project, onboarding, adding a feature, or improving an existing system.  
@@ -137,6 +148,27 @@ One-page summary per agent. For full docs, read the agent file directly.
 **Output:** Design token definitions + component specs + visual audit findings.
 
 ---
+
+## Newer specialists
+
+### end-user-simulator
+**What:** Persona-driven UAT — walks the live app as a first-time user with zero spec knowledge.  
+**When to use:** After a UI is built/changed; produces friction logs + task-completion verdicts.
+
+### llm-integration-engineer
+**What:** Design-side LLM-feature expert — prompts, evals, model routing, structured output, RAG.  
+**When to use:** Adding or changing LLM-powered functionality (not security — that's owasp-llm-checker).
+
+### release-manager
+**What:** Release coordinator — version, changelog, tag, deploy-gate checklist, doc-count audit.  
+**When to use:** Cutting a release; prevents version-metadata drift.
+
+### Game-dev cluster (`agents/game/`)
+Activated by `/sdlc init "<name>" "<desc>" --game`:
+- **game-designer** — GDD, core loop, pillars, vertical-slice scoping
+- **gameplay-engineer** — engine-grain implementation (frame budget, timestep, determinism)
+- **game-balance-designer** — progression/economy, simulates 1000 sessions before shipping numbers
+- **playtest-evaluator** — blind-first playtest, 6 fun heuristics
 
 ## Notes
 
