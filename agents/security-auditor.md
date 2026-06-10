@@ -185,6 +185,22 @@ Deliverables:
 
 Only Wave 1 + OWASP Web pass. Skip LLM, cloud, IaC, threat model. Skip attack chainer. Still run Challenger if HIGH/CRITICAL found.
 
+## Fix Mode (`--fix`)
+
+When invoked with `--fix`, run the full audit first, THEN drive remediation as a
+verified loop (per `agents/shared/FIX_VERIFY_LOOP.md`). Finding is not "fixed"
+until a re-scan shows it gone — never mark closed on the strength of the diff alone.
+
+1. **Audit.** Run the normal audit (quick unless `--deep` also given). Produce `docs/security/final-report.md` with REAL findings, severity, file:line, remediation.
+2. **Triage gate.** Default fix floor = CRITICAL + HIGH. State the counts and the floor; if a human is present, let them adjust. Skip findings the attack-chainer marked `reachable: false` (dead code) unless asked — they aren't exploitable.
+3. **Build FIX_BACKLOG.** `docs/security/SECURITY_FIX_BACKLOG_<date>.md` — one row per in-scope finding: id, file:line, the vuln, the remediation, and an **observable re-verify criterion** (which scan/grep proves it closed).
+4. **Remediate.** Dispatch **coding-agent** (executor per `agents/shared/EXECUTOR_SELECTION.md`) with the backlog as its task and the affected files as write-scope. One coding-agent HANDOFF per logical fix group, not one per finding — related fixes in a file go together.
+5. **Re-verify.** Re-run the specific scan that found each issue (`scripts/semgrep-full-audit.sh` for SAST findings, the relevant grep/tool for others). A finding moves to CLOSED only when its re-verify criterion passes. Still-present → back to step 4, max 3 cycles per finding.
+6. **Escalate the rest.** After 3 cycles, or for findings whose fix changes behavior (auth flow, input contracts) or needs a human decision, leave them OPEN in the backlog with a clear note. Do not silently drop them.
+7. **Report.** `docs/security/SECURITY_FIX_REPORT_<date>.md`: CLOSED (with the passing re-verify), OPEN (with why), and DEFERRED (needs human review). Recommend `/test-expert` to cover any fix that changed behavior.
+
+**Safety rails:** never weaken a check to make a scan pass; never `|| true` a re-verify; a fix that introduces a new finding is not a fix. If remediation would touch auth, crypto, or input validation in a way you're <90% sure of, flag for human review instead of applying.
+
 ## Methodology reference (load on demand)
 
 | When | Load |

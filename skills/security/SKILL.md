@@ -16,6 +16,10 @@ Performs a professional security assessment following OWASP, NIST, and industry-
 | `/security` / `/security --quick` | Phases 1-3: understand, automated scan, one-pass OWASP | ~10 min |
 | `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom semgrep rule file walked, iterative attack-chain until stable. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
 
+## Fix mode
+
+- `/security --fix` — audit, then drive a **verified fix loop**: build a fix backlog (CRITICAL+HIGH by default), dispatch coding-agent to remediate, and **re-scan to confirm each finding is actually closed** before marking it fixed (per `agents/shared/FIX_VERIFY_LOOP.md`). Findings in dead/unreachable code are skipped (not exploitable). Combine with `--deep` for an exhaustive find-and-fix pass: `/security --deep --fix`. Anything whose fix changes auth/crypto/input behavior is flagged for human review, not silently applied.
+
 ## Focused modes
 
 - `/security --threat-model` — STRIDE threat analysis
