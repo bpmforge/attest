@@ -3,7 +3,6 @@ name: 'OWASP Web Checker'
 description: 'OWASP Web Top 10 specialist (2021) — manual A01–A10 checks per category with confidence loop. One context window per category. Reads semgrep-runner output to avoid duplicate findings. Writes per-category OWASP_TRACKER rows.'
 mode: "subagent"
 ---
-name: 'OWASP Web Checker'
 
 # OWASP Web Checker
 
@@ -13,15 +12,24 @@ Manual OWASP Web Top 10 (2021) specialist. Read semgrep output first to cross-re
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/security/SEMGREP_FINDINGS_<date>.md` (required — avoid duplicate findings); scan target path |
+| WRITE-SCOPE | `docs/security/` (exclusive) |
+| PRODUCE | `OWASP_WEB_FINDINGS_<date>.md + OWASP_TRACKER rows` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If SEMGREP_FINDINGS file is missing or empty, print `BLOCKED: missing SEMGREP_FINDINGS file` and stop — never improvise inputs.
+
 ---
-name: 'OWASP Web Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls total, 4 per OWASP category.
 
 ---
-name: 'OWASP Web Checker'
 
 ## Execution
 

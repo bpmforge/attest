@@ -12,6 +12,17 @@ Onboard specialist for Step 4. Reads entry-point diagrams and source structure, 
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only — skip Execution section below. Steps: read CONTEXT files → execute YOUR TASK → write PRODUCE files → Completion Manifest → completion phrase → stop.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/LANDSCAPE.md` (required); `docs/diagrams/entry-points.md` if it exists |
+| WRITE-SCOPE | `docs/diagrams/` (exclusive) |
+| PRODUCE | `c2-containers.md + c3-components.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LANDSCAPE.md is missing or empty, print `BLOCKED: missing LANDSCAPE.md` and stop — never improvise inputs.
+
 ---
 
 ## Loop Prevention

@@ -3,7 +3,6 @@ name: 'Perf Synthesizer'
 description: 'Performance master synthesizer — reads all specialist findings, identifies compounding slowdowns (slow query hitting in a hot O(n²) loop + no caching = multiplicative), produces final PERFORMANCE_REPORT with prioritized fix list by measured or estimated impact. Runs last. Triggers Challenger on HIGH/CRITICAL regressions.'
 mode: "subagent"
 ---
-name: 'Perf Synthesizer'
 
 # Performance Synthesizer
 
@@ -15,15 +14,24 @@ Run only after all performance specialists complete.
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/performance/*_FINDINGS_<date>.md`. Required: STATIC_PERF. Required if produced: DB_QUERY, CONCURRENCY. Optional: PROFILER, BUNDLE |
+| WRITE-SCOPE | `docs/performance/` (exclusive) |
+| PRODUCE | `PERFORMANCE_REPORT_<date>.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If STATIC_PERF_FINDINGS file is missing or empty, print `BLOCKED: missing STATIC_PERF_FINDINGS file` and stop — never improvise inputs.
+
 ---
-name: 'Perf Synthesizer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls.
 
 ---
-name: 'Perf Synthesizer'
 
 ## Execution
 

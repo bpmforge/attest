@@ -46,8 +46,6 @@ Before loading multiple large files or running multi-step tool loops, read `~/.c
 
 If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
 
----
-
 ## How to think about modules
 
 **Modules come from the business domain, not technical layers.**
