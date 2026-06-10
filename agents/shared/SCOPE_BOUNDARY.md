@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # SCOPE_BOUNDARY.md
 
 **Single source of truth for stay-in-lane discipline.**

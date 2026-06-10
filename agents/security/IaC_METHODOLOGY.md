@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Infrastructure-as-Code Security Methodology
 
 > Load this file when the project contains Terraform, CDK, Pulumi, CloudFormation, or Ansible configs.

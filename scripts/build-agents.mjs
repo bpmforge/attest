@@ -7,7 +7,7 @@
 //
 //   --check    exit 1 listing every agent whose block section drifted (CI gate)
 //   --fix      rewrite drifted sections to the canonical text
-//   --compact  emit agents/compact/<agent>.md with boilerplate sections
+//   --compact  emit dist/compact-agents/<agent>.md with boilerplate sections
 //              replaced by the .compact.md variants (for tier=small installs)
 //
 // Section matching is by exact heading; agents without a given heading are
@@ -19,7 +19,7 @@ import { join, basename } from 'node:path';
 const ROOT = new URL('..', import.meta.url).pathname;
 const AGENTS_DIR = join(ROOT, 'agents');
 const BLOCKS_DIR = join(AGENTS_DIR, 'shared', 'blocks');
-const COMPACT_DIR = join(AGENTS_DIR, 'compact');
+const COMPACT_DIR = join(ROOT, 'dist', 'compact-agents');
 
 const BLOCKS = [
   { name: 'loop-prevention', heading: '## Loop prevention (MANDATORY)' },
@@ -42,8 +42,16 @@ if (!['--check', '--fix', '--compact'].includes(mode)) {
   process.exit(2);
 }
 
-const loadBlock = (name, compact = false) =>
-  readFileSync(join(BLOCKS_DIR, `${name}${compact ? '.compact' : ''}.md`), 'utf8').trimEnd() + '\n';
+// Block files carry disable frontmatter so runtimes don't register them as
+// agents — strip it before injection.
+const loadBlock = (name, compact = false) => {
+  let text = readFileSync(join(BLOCKS_DIR, `${name}${compact ? '.compact' : ''}.md`), 'utf8');
+  if (text.startsWith('---\n')) {
+    const end = text.indexOf('\n---\n', 4);
+    if (end !== -1) text = text.slice(end + 5).replace(/^\n+/, '');
+  }
+  return text.trimEnd() + '\n';
+};
 
 // Replace the section under `heading` (up to the next ## or EOF) with `body`.
 // Returns null when the heading is absent.
@@ -113,7 +121,7 @@ for (const file of agentFiles) {
 }
 
 if (mode === '--compact') {
-  console.log(`compact variants written: ${compacted} → agents/compact/`);
+  console.log(`compact variants written: ${compacted} → dist/compact-agents/`);
 } else if (drifted.length) {
   console.log(`${mode === '--fix' ? 'fixed' : 'DRIFTED'} (${drifted.length}):`);
   for (const d of drifted) console.log('  ' + d);

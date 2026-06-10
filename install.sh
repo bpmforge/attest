@@ -138,6 +138,7 @@ INSTALL_CODE_SEARCH=true
 for arg in "$@"; do
   case $arg in
     --project)              MODE="project" ;;
+    --compact)               COMPACT_AGENTS=true ;;
     --link)                 METHOD="link" ;;
     --uninstall)            MODE="uninstall" ;;
     --semgrep)              INSTALL_SEMGREP=true ;;
@@ -160,6 +161,7 @@ for arg in "$@"; do
       echo "  ./install.sh --memory              Also install bpm-memory-mcp MCP (cross-session memory)"
       echo "                                     Requires LM Studio for vector embeddings (BM25 fallback if absent)"
       echo "  ./install.sh --pullmd              Also clone + start pullmd (URL→markdown fallback)"
+      echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
       echo "                                     Works with Docker or Podman. Auto-detects:"
       echo "                                       docker compose  (Docker Desktop / Engine v2)"
       echo "                                       podman compose  (Podman 4.x built-in)"
@@ -183,7 +185,7 @@ done
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   echo ""
-  echo "bpm-opencode-experts v1.0.0 — Installation"
+  echo "bpm-opencode-experts v1.1.0 — Installation"
   echo "==========================================="
   echo ""
   echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"
@@ -271,6 +273,20 @@ for dir in $DIRS; do
     echo "  Copied $dir/ ($count files) → $DEST/$dir/"
   fi
 done
+
+# --- Compact agent overlay (tier=small installs) ---
+if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
+  if [ -d "$SCRIPT_DIR/dist/compact-agents" ]; then
+    overlaid=0
+    for f in "$SCRIPT_DIR"/dist/compact-agents/*.md; do
+      cp "$f" "$DEST/agents/$(basename "$f")"
+      overlaid=$((overlaid + 1))
+    done
+    echo "  Overlaid $overlaid compact agent variants (tier=small) → $DEST/agents/"
+  else
+    echo "  WARNING: --compact requested but dist/compact-agents/ missing — run: node scripts/build-agents.mjs --compact"
+  fi
+fi
 
 # --- Install audit scripts globally ---
 # Copy the Semgrep audit scripts so they're usable from ~/.config/opencode/scripts/
@@ -445,6 +461,26 @@ else
 }
 CONFIGEOF
   echo "  Created $CONFIG_FILE with Context7 MCP configured"
+fi
+
+# Merge external_directory permission so agents can read shared protocol files
+# from the install dir during `opencode run` (non-interactive runs auto-reject
+# permission asks — without this, every agents/shared/* read fails).
+PERM_PATTERN="$GLOBAL_DIR/**"
+if command -v jq &>/dev/null && [ -f "$CONFIG_FILE" ]; then
+  if jq -e --arg p "$PERM_PATTERN" '.permission.external_directory[$p]' "$CONFIG_FILE" &>/dev/null; then
+    echo "  external_directory permission already configured — skipping"
+  else
+    jq --arg p "$PERM_PATTERN" '.permission = (.permission // {}) | .permission.external_directory = (.permission.external_directory // {}) + {($p): "allow"}' "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+    echo "  Added external_directory allow for $GLOBAL_DIR/** (protocol reads in opencode run)"
+  fi
+elif [ -f "$CONFIG_FILE" ]; then
+  if grep -q "external_directory" "$CONFIG_FILE" 2>/dev/null; then
+    echo "  external_directory permission appears configured — skipping"
+  else
+    echo "  ⚠️  Add this manually to $CONFIG_FILE so agents can read shared protocols:"
+    echo '    "permission": { "external_directory": { "'"$PERM_PATTERN"'": "allow" } }'
+  fi
 fi
 
 echo ""

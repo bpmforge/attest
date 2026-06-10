@@ -1,0 +1,131 @@
+#!/usr/bin/env bash
+#
+# doctor.sh — post-install self-check for BPM OpenCode Experts.
+#
+# Run after ./install.sh (or anytime something feels broken):
+#   ~/.config/opencode/scripts/doctor.sh
+#
+# Exit codes: 0 = healthy, 1 = FAIL items present (system won't work fully).
+# WARN items are degraded-but-functional (optional features missing).
+
+set -u
+
+DIR="${1:-$HOME/.config/opencode}"
+PASS=0; WARN=0; FAIL=0
+
+ok()   { printf '  \033[32m[PASS]\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
+warn() { printf '  \033[33m[WARN]\033[0m %s\n' "$1"; WARN=$((WARN+1)); }
+bad()  { printf '  \033[31m[FAIL]\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); }
+
+echo "BPM OpenCode Experts — doctor"
+echo "Checking install at: $DIR"
+echo ""
+
+# ── 1. Install structure ────────────────────────────────────────────────
+echo "Install structure:"
+[ -d "$DIR" ] && ok "install dir exists" || { bad "install dir missing — run ./install.sh"; echo ""; echo "RESULT: $PASS pass, $WARN warn, $FAIL fail"; exit 1; }
+for d in agents skills scripts references; do
+  [ -d "$DIR/$d" ] && ok "$d/ present" || bad "$d/ missing — re-run ./install.sh"
+done
+
+AGENT_COUNT=$(find "$DIR/agents" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d ' ')
+[ "$AGENT_COUNT" -ge 30 ] && ok "primary agents: $AGENT_COUNT (expect 30+)" || bad "only $AGENT_COUNT primary agents found (expect 30+)"
+
+VAL_COUNT=$(find "$DIR/scripts/validators" -name "validate-*.sh" 2>/dev/null | wc -l | tr -d ' ')
+[ "$VAL_COUNT" -ge 40 ] && ok "validators: $VAL_COUNT (expect 40+)" || bad "only $VAL_COUNT validators (expect 40+)"
+
+for p in LOOP_PREVENTION CONTEXT_BUDGET BOUNDED_TASK_CONTRACT HANDOFF_TEMPLATES EXECUTOR_SELECTION MODEL_ADAPTER; do
+  [ -f "$DIR/agents/shared/$p.md" ] && ok "protocol $p.md present" || bad "agents/shared/$p.md missing"
+done
+
+if [ -d "$DIR/agents/compact" ]; then
+  warn "agents/compact/ inside install — old layout; compact variants now overlay via ./install.sh --compact (rm -rf $DIR/agents/compact and re-install)"
+fi
+
+# ── 2. Runtime ──────────────────────────────────────────────────────────
+echo ""
+echo "Runtime:"
+if command -v opencode >/dev/null 2>&1; then
+  ok "opencode CLI: $(opencode --version 2>/dev/null | head -1)"
+else
+  bad "opencode CLI not found — install: https://opencode.ai"
+fi
+command -v node >/dev/null 2>&1 && ok "node: $(node --version)" || bad "node missing (custom tools need it)"
+command -v jq   >/dev/null 2>&1 && ok "jq present" || warn "jq missing — install.sh cannot safely merge opencode.json (brew install jq)"
+command -v git  >/dev/null 2>&1 && ok "git present" || bad "git missing"
+command -v semgrep >/dev/null 2>&1 && ok "semgrep: $(semgrep --version 2>/dev/null | head -1)" || warn "semgrep missing — security scans degraded (brew install semgrep / pipx install semgrep)"
+
+# ── 3. Config ───────────────────────────────────────────────────────────
+echo ""
+echo "Config ($DIR/opencode.json):"
+CFG="$DIR/opencode.json"
+if [ -f "$CFG" ]; then
+  ok "opencode.json present"
+  if command -v jq >/dev/null 2>&1; then
+    jq -e '.mcp.context7' "$CFG" >/dev/null 2>&1 && ok "context7 MCP configured" || warn "context7 MCP not configured (library docs lookup degraded)"
+    if jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
+      ok "external_directory permission configured (protocol reads work in opencode run)"
+    else
+      bad "external_directory permission MISSING — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
+    fi
+  else
+    grep -q "external_directory" "$CFG" && ok "external_directory permission appears configured" || bad "external_directory permission missing — re-run ./install.sh (with jq installed)"
+  fi
+else
+  bad "opencode.json missing — re-run ./install.sh"
+fi
+
+# ── 4. Model backend ────────────────────────────────────────────────────
+echo ""
+echo "Model backend:"
+FOUND_BACKEND=false
+for url in "${LMSTUDIO_URL:-http://127.0.0.1:1234}" "http://127.0.0.1:11434"; do
+  if curl -s --max-time 2 "$url/v1/models" >/dev/null 2>&1 || curl -s --max-time 2 "$url/api/tags" >/dev/null 2>&1; then
+    ok "local model server reachable at $url"
+    FOUND_BACKEND=true
+    break
+  fi
+done
+for key in ANTHROPIC_API_KEY OPENAI_API_KEY GOOGLE_GENERATIVE_AI_API_KEY; do
+  if [ -n "${!key:-}" ]; then ok "cloud key set: $key"; FOUND_BACKEND=true; fi
+done
+$FOUND_BACKEND || warn "no local model server reachable and no cloud API key in env — opencode's own provider config may still work; verify with: opencode run 'say hi'"
+
+# ── 5. Detection script ─────────────────────────────────────────────────
+echo ""
+echo "Model detection:"
+if [ -x "$DIR/scripts/detect-model-context.sh" ] || [ -f "$DIR/scripts/detect-model-context.sh" ]; then
+  TMPD=$(mktemp -d)
+  if (cd "$TMPD" && bash "$DIR/scripts/detect-model-context.sh" >/dev/null 2>&1) && grep -q "tier=" "$TMPD/docs/work/.model-context" 2>/dev/null; then
+    ok "detect-model-context.sh runs: $(grep -E '^(tier|has_task_tool|mcp_in_subagents)=' "$TMPD/docs/work/.model-context" | tr '\n' ' ')"
+  else
+    warn "detect-model-context.sh did not produce .model-context (run it inside a project to debug)"
+  fi
+  rm -rf "$TMPD"
+else
+  bad "scripts/detect-model-context.sh missing"
+fi
+
+# ── 6. Agent discovery (cheap, no LLM call) ─────────────────────────────
+echo ""
+echo "Agent discovery:"
+if command -v opencode >/dev/null 2>&1; then
+  LIST=$(opencode agent list 2>/dev/null)
+  if echo "$LIST" | grep -q "sdlc-lead"; then ok "opencode discovers sdlc-lead"; else bad "opencode does not list sdlc-lead — agents not discovered"; fi
+  if echo "$LIST" | grep -q "task-decomposer"; then ok "opencode discovers task-decomposer"; else warn "task-decomposer not listed — install may be stale; re-run ./install.sh"; fi
+  DUP=$(echo "$LIST" | grep -c "compact/" || true)
+  [ "$DUP" -eq 0 ] && ok "no duplicate compact/ registrations" || warn "$DUP compact/ duplicates registered — old layout; rm -rf $DIR/agents/compact and re-install"
+fi
+
+# ── Summary ─────────────────────────────────────────────────────────────
+echo ""
+echo "RESULT: $PASS pass, $WARN warn, $FAIL fail"
+if [ "$FAIL" -gt 0 ]; then
+  echo "Status: BROKEN — fix [FAIL] items above."
+  exit 1
+elif [ "$WARN" -gt 0 ]; then
+  echo "Status: FUNCTIONAL — [WARN] items are optional features."
+else
+  echo "Status: HEALTHY"
+fi
+exit 0

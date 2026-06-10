@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # Local LLM Session Primer
 
 > Paste this at the START of every new OpenCode session when using a local model.

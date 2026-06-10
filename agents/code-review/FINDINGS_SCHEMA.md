@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # FINDINGS_SCHEMA.md — Code Review Cluster
 
 **Shared finding schema for all code-review specialists.**

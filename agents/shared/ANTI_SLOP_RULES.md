@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # ANTI_SLOP_RULES.md
 
 **Canonical list of AI code-quality anti-patterns ("AI slop").**

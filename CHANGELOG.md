@@ -2,6 +2,30 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.1.0] — 2026-06-10
+
+The expert-hardening release: every item from the 2026-06-10 system review (R1–R11) plus distribution hardening. See `docs/ARCHITECTURE_EVOLUTION_PLAN.md` and `docs/EXPERT_SYSTEM_REVIEW_2026-06-10.md`.
+
+### Added
+- **8 new experts:** task-decomposer (plan.json DAGs for small-model execution), end-user-simulator (blind persona UAT), llm-integration-engineer, release-manager, and the `agents/game/` cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator) with a `--game` SDLC flavor (SRS→GDD, vertical-slice gate).
+- **Capability-probed delegation (R8):** `detect-model-context.sh` writes `has_task_tool`/`mcp_in_subagents` flags; `agents/shared/EXECUTOR_SELECTION.md` defines the Task-tool / subprocess / manual-paste executor ladder. All "task() does not work" prose is now flag-conditional.
+- **Findings schemas (R4):** `code-review/FINDINGS_SCHEMA.md` (module-key compounding) and `performance/FINDINGS_SCHEMA.md` (hot-path multiplication, measured-over-estimated) mirroring the security cluster.
+- **Scoped coverage loops (R5):** `/sdlc feature` and `/sdlc improve` get 2-iteration Ralph Wiggum mini-loops (`validate-feature-coverage.sh`, `validate-improve-coverage.sh`).
+- **Onboard Challenger gate (R6):** LANDSCAPE.md + HEALTH_ASSESSMENT.md challenged before final documentation.
+- **Input Contracts (R3):** every micro-agent declares expected HANDOFF fields + a BLOCKED rule for missing inputs.
+- **Single-source boilerplate (R1):** `agents/shared/blocks/` + `scripts/build-agents.mjs` (`npm run agents:check|fix|compact`); compact tier=small agent variants generated to `dist/compact-agents/`, installable via `./install.sh --compact`.
+- **`scripts/doctor.sh`** — post-install self-check (structure, runtime deps, config, model backend, detection, agent discovery).
+- **Stack fallbacks (R11)** in test-engineer (no Playwright / no framework), db-architect (document/multi-store), frontend-design (no component library / tokens).
+
+### Fixed
+- **`opencode run` permission failure:** install.sh now merges an `external_directory` allow for the install dir into opencode.json — without it, every `agents/shared/*` protocol read auto-rejects in non-interactive runs (verified live against opencode 1.15.3).
+- **Agent roster pollution:** 35 reference docs (protocols, schemas, methodologies, templates, blocks) carried no frontmatter and registered as agents; all now carry `disable: true`. Compact variants moved out of `agents/` (they registered as 23 duplicates).
+- **Loop-file archival (R7):** `run-coverage-loop.sh` archives prior-day COVERAGE_LOOP files; iteration counter can no longer read stale files.
+- **Prompt contradictions (R2):** task-pattern wording in 7 agents, code-reviewer/performance-engineer mode-selection fork, coding-agent Law 3 vs 4 precedence, ux-engineer mode count.
+- **67 stray `name:` lines** removed from 22 micro-agents (bulk-script frontmatter-delimiter collision).
+- **entry-point-tracer** was missing its mandatory Completion Manifest.
+- README counts corrected (33+30 agents, 25 skills, 40 validators).
+
 ## [1.0.4] — 2026-06-04
 
 ### Added

@@ -1,3 +1,9 @@
+---
+description: 'Reference document — read on demand, not an agent.'
+disable: true
+mode: "all"
+---
+
 # CHALLENGER_PROTOCOL.md
 
 **Canonical veracity-challenge rules for ALL agents.**
