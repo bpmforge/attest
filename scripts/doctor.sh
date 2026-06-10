@@ -117,12 +117,17 @@ for a in sdlc-lead guide task-decomposer; do
 done
 [ -d "$DIR/agents/compact" ] && warn "stale agents/compact/ present — duplicate registrations; rm -rf $DIR/agents/compact and re-install" || ok "no stale compact/ dir"
 if command -v opencode >/dev/null 2>&1; then
-  LIST=$(cd /tmp && opencode agent list 2>/dev/null)
-  if echo "$LIST" | grep -qE "(^|[[:space:]])sdlc-lead([[:space:]]|\()"; then
-    ok "opencode enumerates agents ($(echo "$LIST" | grep -cE '\((primary|subagent|all)\)') listed)"
-  else
-    warn "opencode agent list did not show sdlc-lead this run — that command returns a partial list intermittently; the installed files above are the real signal"
-  fi
+  # `opencode agent list` returns a partial/varying list per run, so retry a few
+  # times and pass if any attempt enumerates sdlc-lead. Only warn if all fail.
+  enum_ok=0; enum_count=0
+  for _ in 1 2 3; do
+    LIST=$(cd /tmp && opencode agent list 2>/dev/null)
+    if echo "$LIST" | grep -qE "(^|[[:space:]])sdlc-lead([[:space:]]|\()"; then
+      enum_ok=1; enum_count=$(echo "$LIST" | grep -cE '\((primary|subagent|all)\)'); break
+    fi
+  done
+  if [ "$enum_ok" -eq 1 ]; then ok "opencode enumerates agents (${enum_count} listed)"
+  else warn "opencode agent list never showed sdlc-lead across 3 tries — runtime enumeration may be degraded; the installed files above are the real signal"; fi
 fi
 
 # ── 7. Code-analysis tools ──────────────────────────────────────────────
