@@ -107,6 +107,7 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 - Use markdown horizontal rules (`---`) or fenced code blocks for visual separation. Do not draw banner lines with repeated `=` or `═` characters.
 - Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
+- Follow `references/mermaid-safe-syntax.md` when writing Mermaid (quote labels with specials, ASCII only, no `end` node id). Auto-repair with `node scripts/mermaid-fix.mjs <file> --write`, then gate with `validate-mermaid.sh` (renders via mmdc when installed).
 
 This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 

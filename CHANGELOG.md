@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.6.0] — 2026-06-10
+
+### Added — Mermaid hardening (prevent + fix generation parse errors)
+- **6 new static checks** in `validate-mermaid.sh` (M007–M012): unquoted parentheses in node labels, reserved word `end` as a node id, smart-quote/em-dash/non-breaking-space, Markdown inside labels, `//` comments, unbalanced brackets — the highest-frequency LLM-generation failures.
+- **Authoritative render gate:** when `@mermaid-js/mermaid-cli` (`mmdc`) is installed, the validator renders every block headlessly and surfaces *real* parser errors (`MRENDER`) — catching everything the static patterns can't (proven: `B --> C --` passes static checks, fails the render gate). Opt out with `MERMAID_NO_RENDER=1`; auto-skips when mmdc absent.
+- **`scripts/mermaid-fix.mjs`** — mechanical autofixer: smart quotes→ASCII, em/en-dash→hyphen, Unicode arrows→`-->`, `//`→`%%`, `<br>`→`<br/>`, and quotes any `[label]` containing `()`/`:`/Markdown (stripping `**`/backticks). `--write` to apply, dry-run by default. Operates only inside ```mermaid blocks.
+- **`references/mermaid-safe-syntax.md`** — the 7 authoring rules agents follow when generating diagrams; wired into the document-hygiene rule (sdlc-lead) and the book-deliverable validation step (BOOK_PROTOCOL now runs mermaid-fix before the gate).
+- `mmdc` added to `check-tools.sh` (detect + `--install`).
+
 ## [1.5.0] — 2026-06-10
 
 ### Added
