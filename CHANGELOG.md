@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.3.0] — 2026-06-10
+
+### Added
+- **Dead/unutilized code detection** — new code-review dimension (8th). `dead-code-detector` specialist hunts unimplemented stubs, defined-but-never-called functions, unused exports, orphan files, disconnected pipelines (code wired to nothing), and unreachable branches — the #1 unreported debt class in AI-assisted codebases. Five scans, tool-first (knip/ts-prune/vulture/staticcheck) with grep fallback for any language; every tool hit hand-verified against dynamic dispatch/DI/route tables before becoming a finding. Reports a Utilization Summary ("X% of exports never imported").
+- `validate-dead-code.sh` — deterministic gate (stubs, unreachable-after-return, constant-false guards, tool-based unused detection); wired into phase-4 and phase-5 gates.
+- **Security reachability gate** — attack-chainer now cross-checks findings against the dead-code report: a vuln in never-called/orphan/unreachable code drops two severity levels and cannot start an exploit chain (a SQLi in an unwired handler no longer ranks equal to one on a live route). A stub on a *live* path that returns attacker-influenced data stays a real finding.
+
 ## [1.2.0] — 2026-06-10
 
 ### Added

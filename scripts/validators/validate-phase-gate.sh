@@ -116,6 +116,7 @@ case "$PHASE" in
       "validate-iac.sh"
       "validate-module-boundaries.sh"
       "validate-code-health.sh"
+      "validate-dead-code.sh"
     )
     # UI-bearing: validate design system was implemented
     if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
@@ -135,6 +136,7 @@ case "$PHASE" in
       "validate-smoke.sh"
       "validate-fix-backlog-closed.sh"
       "validate-code-health.sh"
+      "validate-dead-code.sh"
       "validate-module-boundaries.sh"
       "validate-release-readiness.sh"
     )

@@ -19,11 +19,11 @@ Run only after all other code-health specialists complete.
 
 | HANDOFF field | Expected |
 |---|---|
-| CONTEXT (≤3 files) | ALL six `docs/reviews/*_FINDINGS_<date>.md` files: COMPLEXITY, DUPLICATION, ERROR_HANDLING, TYPE_SAFETY, PATTERN_CONSISTENCY, ANTI_SLOP — all required |
+| CONTEXT (≤3 files) | ALL seven `docs/reviews/*_FINDINGS_<date>.md` files: COMPLEXITY, DUPLICATION, ERROR_HANDLING, TYPE_SAFETY, PATTERN_CONSISTENCY, ANTI_SLOP, DEAD_CODE — all required |
 | WRITE-SCOPE | `docs/reviews/` (exclusive) |
 | PRODUCE | `CODE_REVIEW_<module>_<date>.md (incl. FIX_BACKLOG)` |
 
-If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If any of the six FINDINGS files is missing or empty, print `BLOCKED: missing any of the six FINDINGS files` and stop — never improvise inputs.
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If any of the seven FINDINGS files is missing or empty, print `BLOCKED: missing any of the seven FINDINGS files` and stop — never improvise inputs.
 
 **Input format:** specialist files conform to `agents/code-review/FINDINGS_SCHEMA.md`. Apply its Compounding Rules exactly: 3+ dimensions on one `module` → compound risk at max(severity)+1; same file:line from 2+ specialists → merge, keep both dimension tags.
 
@@ -44,7 +44,8 @@ Load all specialist output files:
 ```bash
 ls docs/reviews/COMPLEXITY_FINDINGS_*.md docs/reviews/DUPLICATION_FINDINGS_*.md \
    docs/reviews/ERROR_HANDLING_FINDINGS_*.md docs/reviews/TYPE_SAFETY_FINDINGS_*.md \
-   docs/reviews/PATTERN_CONSISTENCY_FINDINGS_*.md docs/reviews/ANTI_SLOP_FINDINGS_*.md 2>/dev/null
+   docs/reviews/PATTERN_CONSISTENCY_FINDINGS_*.md docs/reviews/ANTI_SLOP_FINDINGS_*.md \
+   docs/reviews/DEAD_CODE_FINDINGS_*.md 2>/dev/null
 ```
 
 Read each. Extract: file:line → findings list per file.
