@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.4.0] — 2026-06-10
+
+### Added
+- **`guide` — expert-system concierge / front door.** A top-level orchestrator: describe any goal in plain English and it routes to the right expert, explains the route, checks prerequisites, drives the workflow, and always offers the next step (especially "want me to fix what I found?"). Full intent→expert routing table covering every skill; a dedicated guided **security scan→triage→fix** flow; multi-step sequencing for goals like "harden before launch". `/guide`.
+- **`/security --fix`** — verified security remediation loop. Audits, builds a fix backlog (CRITICAL+HIGH default), dispatches coding-agent to remediate, then **re-scans to confirm each finding is actually closed** before marking it fixed (FIX_VERIFY_LOOP). Skips findings in dead/unreachable code; flags auth/crypto/input-validation fixes for human review instead of silently applying. Combine with `--deep`.
+- **`scripts/check-tools.sh`** — detects the external analysis tools each specialist uses (semgrep, knip, ts-prune, jscpd, vulture, radon, lizard, staticcheck, trufflehog), reports present/missing with install hints, and `--install` adds the npm/pipx ones (never sudo, never a package manager). Wired into `install.sh` (runs at end; `./install.sh --tools` auto-installs) and `doctor.sh` (presence check). Every agent falls back to grep when a tool is absent — these upgrade heuristic to deterministic.
+
 ## [1.3.0] — 2026-06-10
 
 ### Added
