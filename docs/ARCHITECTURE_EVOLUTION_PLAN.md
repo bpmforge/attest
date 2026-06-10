@@ -363,6 +363,90 @@ re-read because a fact answered the question*.
 | 11 | 4.9 + 4.11 + 4.12: distillation loop, eval suite, telemetry | compounding long-term improvement | M–L |
 | 12 | D5/D6: skill back-ports + README counts (fold into #2's manifest) | hygiene | S |
 
+---
+
+## Part 7 — Walkthrough validation (POV stress test)
+
+Before implementing, the plan was traced end-to-end from the agent's point of view:
+*a 32k Qwen on OpenCode (LM Studio, M2 Max) running `/sdlc feature "add rate limiting"`
+under the improved architecture, with cloud available as escalation tier.* The trace
+confirmed the overall shape and found 8 gaps. These amendments are normative — they
+override the corresponding earlier sections.
+
+### The trace (condensed)
+
+| Step | What happens | Verdict |
+|---|---|---|
+| 0. Session start | Hook probes LM Studio, writes `.model-context` tier=small; loud failure if unreachable | ✓ holds, with G1 fix |
+| 1. Memory assemble | `memory_context_assemble({task, tokenBudget: 600})`, tier-scaled | ✓ holds |
+| 2. Planning | Planner emits `plan.json` DAG | ✗ breaks — see G2 |
+| 3. Explore node | Runner spawns `opencode run --agent explore` + packet + exemplar; ~4k instruction + reads fits 32k | ✓ holds, simplifies F (G3) |
+| 4. Verify node | Fresh-session verifier, rubric + artifact ≈ 5k tokens — genuinely cheap | ✓ holds, with G4 dependency check |
+| 5. Code node | Triage routed; local drafts, cloud repairs | ✓ holds |
+| 6. Budget blown mid-node | Agent checkpoints and exits at 87.5%; runner sees incomplete node | ✗ underspecified — see G5 |
+| 7. Phase boundary | `checkpoint_task` + decision stores + STATE.md rewrite | ✓ holds |
+
+### Gaps found and amendments
+
+**G1 — Probe the *loaded* context, not the model max.** LM Studio loads models with a
+user-configured context that is often far below the model's maximum (e.g. qwen loaded
+at 8k on a 32GB machine to save RAM). `/api/v0/models` reports both; the detection
+script must use the loaded/configured value. Probing max would over-tier and cause
+the exact silent overflow the probe exists to prevent. *(Amends B.)*
+
+**G2 — Plans must be amendable; discovery precedes planning.** A static upfront DAG
+is wrong by construction: the correct nodes for "add rate limiting" depend on what
+exploration finds. Standard shape: **scout → plan → execute**, and any node may set
+`plan_invalidating: true` in its manifest, which makes the runner re-invoke the
+planner with STATE.md + the new discovery before continuing. The journal keeps
+completed nodes; only the unexecuted tail is re-planned. *(Amends 4.1.)*
+
+**G3 — The runner collapses F's three executors to two.** `opencode run` subprocess
+spawning works regardless of model size, so once the DAG runner exists, manual
+HANDOFF copy-paste is no longer the tier=small execution mode — it's the *fallback*
+when no runner is available (interactive sessions, runtimes without subprocess
+support). Claude Code keeps native Task-tool orchestration; the single-source build
+(A) sets the executor per target. *(Simplifies F.)*
+
+**G4 — Verify the structured-output pass-through before building on 4.10.**
+Schema-constrained decoding requires the runtime to pass `response_format`/JSON-schema
+to the model server. `tools/task.ts` shells out to `opencode run`, which may not
+expose this. Check OpenCode's capability first; if absent, the verifier/validator
+tools should call the model server API directly (they're narrow, single-turn calls —
+exactly the case where bypassing the agent loop is fine). *(Dependency gate for 4.10.)*
+
+**G5 — Node retry semantics: checkpoint-continue, capped, then escalate.** When a
+node exits incomplete (budget stop, crash, timeout): retry **from its checkpoint
+file** with a "continue from checkpoint" packet — never from scratch (re-burning the
+budget that just ran out). Max 2 continuation attempts, then re-emit the node at the
+next tier up (4.7 ladder). *(Amends 4.1 + D.)*
+
+**G6 — Pre-flight health check per node.** Local model servers fail transiently
+(LM Studio "model crashed" errors observed in production use). Before each node the
+runner curls the server, re-warms the model if needed, and retries spawn once with
+backoff. Node timeouts must be tier-scaled — local generation on a 32GB M2 Max can
+legitimately take 10–15+ minutes per node; a cloud-calibrated timeout would kill
+healthy work. *(Amends 4.1.)*
+
+**G7 — Cross-domain exemplars only.** Small models copy exemplar *content*, not just
+shape: an ERD exemplar from an e-commerce domain used for an e-commerce task will
+leak entities into the output. Rule: the exemplar attached to a HANDOFF must come
+from a different domain than the task, so only structure transfers. *(Amends 4.3.)*
+
+**G8 — Explicit packet layout.** The HANDOFF packet now carries task + memory slice +
+exemplar + file list inside one budget. Fix the layout instead of letting parts fight:
+task packet ≤400 words, memory slice ≤200 tokens, exemplar by pointer (the executor
+inlines it only if node instructions + exemplar fit the tier's instruction budget),
+files ≤3. Total injected ≤1,200 tokens on tier=small. *(Amends 4.3 + 5.2 M4.)*
+
+### What the trace confirmed (no change needed)
+- The verifier split is real: verification fits comfortably in 32k even where generation doesn't.
+- Tier-scaled memory assembly works and has no circular dependency (tier is known before the first memory call).
+- Draft-then-repair has no hidden cost: the cloud repair pass needs only draft + diff context.
+- The journal/resume design survives runner crashes as specified.
+
+---
+
 **Guiding rule for all of it:** anything environment-specific (paths, model names,
 context sizes, endpoints) lives in exactly one probed/generated config file; every
 `.md` the model reads references the config, never a literal. Deterministic scripts
