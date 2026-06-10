@@ -79,11 +79,11 @@ Starting test strategy / test writing. Plan: 6 phases
 
 Then execute phases sequentially in this conversation:
 
-> **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
-> directly in this conversation one after another. After completing a phase, write its
-> findings to the output file, then continue to the next phase without waiting.
-> Sequential execution in one conversation achieves the same result as dispatching
-> phases to subagents — same outputs, same files, no delegation tool required.
+> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see
+> `agents/shared/EXECUTOR_SELECTION.md`). If true, you MAY dispatch phases as
+> subagents. Otherwise execute each phase directly in this conversation one
+> after another — write each phase's findings to the output file, then continue.
+> Sequential execution achieves the same result: same outputs, same files.
 
 **Phase execution pattern (any LLM):**
 1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`
@@ -408,6 +408,12 @@ Follow the project's existing patterns. Use Arrange-Act-Assert:
 - Test edge cases: null, empty, boundary values, error conditions
 - Don't test implementation details — test behavior
 - Only mock external I/O (network, disk, timers) — never mock the unit under test
+
+**Stack fallbacks (check BEFORE writing any test):**
+
+- **No Playwright installed** → write unit + integration tests only; put `**E2E: SKIPPED — Playwright not installed (npm i -D @playwright/test && npx playwright install chromium)**` at the top of every test report; never substitute source-reading for E2E.
+- **No test framework at all** → do NOT silently pick one. Propose the stack-matching minimal setup (vitest for Vite/TS, jest for legacy React, pytest for Python, `go test` for Go) as a 3-line install plan and wait for approval — framework choice is a tech-stack decision.
+- **Non-JS project** → the patterns here transfer (arrange/act/assert, fixtures, behavior-not-implementation); the tooling names don't. Use the project's native test runner; verify its API via docs/Context7, not training data.
 
 **Playwright E2E Tests:**
 ```typescript

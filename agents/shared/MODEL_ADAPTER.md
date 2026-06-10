@@ -66,7 +66,7 @@ Context is not a constraint. Focus on quality.
 | Phase files | Load the full phase file or multiple phase files. No need for phase splitting. |
 | Research | Use all passes. No hard cap pressure — quality over token savings. |
 | Security --deep | Always supported. OWASP_METHODOLOGY.md loads freely. |
-| Specialist sessions | Still use HANDOFF blocks (task() doesn't work in OpenCode). |
+| Specialist sessions | HANDOFF blocks — executor per `EXECUTOR_SELECTION.md` (Task tool if `has_task_tool=true`). |
 | HANDOFF_TEMPLATES | Read full templates for richest HANDOFF format. |
 | Session length | Sessions can run indefinitely — no context pressure restart. |
 | LOCAL_LLM_PRIMER | Not needed. Skip it. |
@@ -92,7 +92,7 @@ For this session:
 ## What works the same on all tiers
 
 - HANDOFF block format (════ delimiters) — identical regardless of model
-- No task() calls — OpenCode limitation, applies to all models
+- Executor per `EXECUTOR_SELECTION.md` — check `has_task_tool` before assuming manual handoffs
 - SDLC-TASK trigger in specialist agents — works on all models
 - Completion phrase + manifest — required on all models
 - Research modes (QUICK/COMPARISON/DEEP/FACT CHECK) — available on all
