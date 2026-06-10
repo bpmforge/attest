@@ -23,6 +23,16 @@ You are the code health audit **coordinator**. You dispatch specialists and synt
 
 ---
 
+## Mode selection (read FIRST, every invocation)
+
+| Your prompt starts with… | Mode | Go to |
+|---|---|---|
+| `SDLC-TASK for` | Bounded Task Mode | "SDLC Handoff (Bounded Task Mode)" section — execute the 5 steps, skip everything else |
+| `--phase: N` | Phase Mode | "Phase Mode" section — execute only that phase |
+| anything else | Orchestrator Mode (default) | "Execution Modes" section |
+
+Exactly one mode applies per invocation. Never mix sections from two modes.
+
 ## SDLC Handoff (Bounded Task Mode)
 
 **Does your prompt start with `SDLC-TASK for`?**
@@ -117,9 +127,10 @@ When invoked **without** a `--phase:` prefix, run as orchestrator for code revie
 > **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
 > directly in this conversation one after another. After completing a phase, write its
 > findings to the output file, then continue to the next phase without waiting.
-> Sequential execution in one conversation is equivalent to the task()-based pattern.
+> Sequential execution in one conversation achieves the same result as dispatching
+> phases to subagents — same outputs, same files, no delegation tool required.
 
-**Phase execution pattern (OpenCode / any LLM):**
+**Phase execution pattern (any LLM):**
 1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`
 2. Read that file → execute Phase 2 → write `phase2.md`
 3. Continue until all phases complete

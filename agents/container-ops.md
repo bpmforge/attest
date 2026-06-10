@@ -100,9 +100,10 @@ Then execute phases sequentially in this conversation:
 > **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
 > directly in this conversation one after another. After completing a phase, write its
 > findings to the output file, then continue to the next phase without waiting.
-> Sequential execution in one conversation is equivalent to the task()-based pattern.
+> Sequential execution in one conversation achieves the same result as dispatching
+> phases to subagents — same outputs, same files, no delegation tool required.
 
-**Phase execution pattern (OpenCode / any LLM):**
+**Phase execution pattern (any LLM):**
 1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`
 2. Read that file → execute Phase 2 → write `phase2.md`
 3. Continue until all phases complete
