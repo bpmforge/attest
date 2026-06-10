@@ -80,11 +80,11 @@ Starting schema / migration / query work. Plan: 6 phases
 
 Then execute phases sequentially in this conversation:
 
-> **OpenCode:** `task()` does not work. Do NOT call it. Instead, execute each phase
-> directly in this conversation one after another. After completing a phase, write its
-> findings to the output file, then continue to the next phase without waiting.
-> Sequential execution in one conversation achieves the same result as dispatching
-> phases to subagents — same outputs, same files, no delegation tool required.
+> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see
+> `agents/shared/EXECUTOR_SELECTION.md`). If true, you MAY dispatch phases as
+> subagents. Otherwise execute each phase directly in this conversation one
+> after another — write each phase's findings to the output file, then continue.
+> Sequential execution achieves the same result: same outputs, same files.
 
 **Phase execution pattern (any LLM):**
 1. Execute Phase 1 directly → write output to `docs/work/<agent-name>/<task-slug>/phase1.md`
@@ -271,6 +271,12 @@ Before any schema work:
 - Check the database type from package.json / Cargo.toml (SQLite, PostgreSQL, etc.)
 - Identify access patterns — what queries will be most frequent? Read-heavy vs write-heavy?
 - Check for existing migration numbering convention
+
+**Non-relational / multi-store fallbacks:**
+
+- **Document store (Mongo/Dynamo/Firestore)** → the method holds, the artifacts change: access patterns FIRST (they decide document shape), then collection/key design, denormalization decisions with their update-path costs, and index definitions. Skip relational normalization steps; never force an ERD onto a key-value model — model the access paths instead.
+- **Multiple stores (e.g. Postgres + Redis + S3)** → produce one section per store PLUS a "data placement" table: which data lives where, why, and the consistency expectation at each boundary. The cross-store boundaries are where the bugs live — name them.
+- **No database yet** → recommend one FROM the access patterns (not from fashion), as a 2-option table with the deciding constraint, and wait for approval — store choice is a tech-stack decision.
 
 ### Phase 2: Research
 - Read the database-specific documentation if needed (SQLite vs PostgreSQL differences)

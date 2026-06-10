@@ -45,7 +45,7 @@ Never say "Run --design mode" or "Run --review mode" — describe the TASK, not 
 
 Always reference `agents/shared/BOUNDED_TASK_CONTRACT.md` in the CONTEXT block.
 
-**`task()` does not work in OpenCode.** Never emit a `task()` call. Every delegation is a HANDOFF block that the user copies manually into a new session.
+**Executor rule:** the HANDOFF block is the contract; how it runs is capability-probed (`agents/shared/EXECUTOR_SELECTION.md`). With `has_task_tool=true` in `docs/work/.model-context`, dispatch the block via the Task tool; otherwise the user copies it into a new session.
 
 ---
 
