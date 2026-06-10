@@ -6,6 +6,9 @@
   },
   "scripts": {
     "test": "node --experimental-strip-types scripts/test.ts",
-    "check": "npm test"
+    "check": "npm test",
+    "agents:check": "node scripts/build-agents.mjs --check",
+    "agents:fix": "node scripts/build-agents.mjs --fix",
+    "agents:compact": "node scripts/build-agents.mjs --compact"
   }
 }

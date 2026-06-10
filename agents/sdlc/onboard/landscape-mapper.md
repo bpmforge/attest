@@ -12,6 +12,17 @@ Onboard specialist for Step 1. Reads README, package manifests, source tree, and
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only — skip Execution section below. Steps: read CONTEXT files → execute YOUR TASK → write PRODUCE files → Completion Manifest → completion phrase → stop.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | Repo root (reads git history + directory tree) |
+| WRITE-SCOPE | `docs/` (exclusive) |
+| PRODUCE | `LANDSCAPE.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If repo root path is missing or empty, print `BLOCKED: missing repo root path` and stop — never improvise inputs.
+
 ---
 
 ## Loop Prevention

@@ -3,7 +3,6 @@ name: 'Pattern Consistency Checker'
 description: 'Pattern and naming consistency specialist — cross-file pattern violations, naming conventions, comment accuracy (R-20, R-13, R-14). Detects AI-generated modules that use different patterns than surrounding codebase. Enforces R-15 (stale comments), R-16 (wrong names), R-20 (inconsistent patterns).'
 mode: "subagent"
 ---
-name: 'Pattern Consistency Checker'
 
 # Pattern Consistency Checker
 
@@ -13,15 +12,24 @@ Naming and pattern consistency specialist. AI assistants frequently generate new
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | Review target path (needs 2+ modules to compare patterns) |
+| WRITE-SCOPE | `docs/reviews/` (exclusive) |
+| PRODUCE | `PATTERN_CONSISTENCY_FINDINGS_<date>.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If review target path is missing or empty, print `BLOCKED: missing review target path` and stop — never improvise inputs.
+
 ---
-name: 'Pattern Consistency Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
-name: 'Pattern Consistency Checker'
 
 ## Execution
 

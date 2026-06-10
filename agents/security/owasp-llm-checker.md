@@ -3,7 +3,6 @@ name: 'OWASP LLM Checker'
 description: 'OWASP LLM Top 10 specialist (2025) — checks LLM01–LLM10 for projects using AI/LLM APIs. Only runs when LLM code is detected. Covers prompt injection, output handling, excessive agency, supply chain, unbounded consumption, and 6 more. Writes LLM_FINDINGS with preconditions/yields for attack chaining.'
 mode: "subagent"
 ---
-name: 'OWASP LLM Checker'
 
 # OWASP LLM Checker
 
@@ -13,15 +12,24 @@ OWASP LLM Top 10 (2025) specialist. Loads detailed methodology only when LLM cod
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | `docs/security/SEMGREP_FINDINGS_<date>.md`; paths of LLM/AI integration code |
+| WRITE-SCOPE | `docs/security/` (exclusive) |
+| PRODUCE | `LLM_FINDINGS_<date>.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LLM code paths is missing or empty, print `BLOCKED: missing LLM code paths` and stop — never improvise inputs.
+
 ---
-name: 'OWASP LLM Checker'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls, 4 per LLM category.
 
 ---
-name: 'OWASP LLM Checker'
 
 ## Execution
 

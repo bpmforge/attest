@@ -3,7 +3,6 @@ name: 'Static Perf Analyzer'
 description: 'Static performance analysis specialist — O(n²) nested loops, N+1 query patterns, blocking I/O in async paths, try/catch in hot loops (5-20x slowdown), unnecessary allocations. No profiler needed — finds structural performance problems in source. Uses METHODOLOGY.md Phase 1b (5 scans).'
 mode: "subagent"
 ---
-name: 'Static Perf Analyzer'
 
 # Static Performance Analyzer
 
@@ -13,15 +12,24 @@ Finds structural performance problems without running the code. The 5 scan patte
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only. Skip below.
 
+
+## Input Contract
+
+| HANDOFF field | Expected |
+|---|---|
+| CONTEXT (≤3 files) | Analysis target path |
+| WRITE-SCOPE | `docs/performance/` (exclusive) |
+| PRODUCE | `STATIC_PERF_FINDINGS_<date>.md` |
+
+If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If analysis target path is missing or empty, print `BLOCKED: missing analysis target path` and stop — never improvise inputs.
+
 ---
-name: 'Static Perf Analyzer'
 
 ## Loop Prevention
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 ---
-name: 'Static Perf Analyzer'
 
 ## Execution
 
