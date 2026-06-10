@@ -25,6 +25,8 @@ Run only after all performance specialists complete.
 
 If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If STATIC_PERF_FINDINGS file is missing or empty, print `BLOCKED: missing STATIC_PERF_FINDINGS file` and stop — never improvise inputs.
 
+**Input format:** specialist files conform to `agents/performance/FINDINGS_SCHEMA.md`. Apply its Compounding Rules exactly: 2+ findings on one `hot_path` multiply into a single compound entry at max(severity)+1; `shared:` findings join every importing hot path; measured findings outrank estimates at equal severity.
+
 ---
 
 ## Loop Prevention

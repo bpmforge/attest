@@ -23,6 +23,8 @@ Comprehensive AI slop detection across all 28 rules. Includes 2025-2026 new cate
 
 If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If review target path is missing or empty, print `BLOCKED: missing review target path` and stop — never improvise inputs.
 
+**Findings format (MANDATORY):** every finding conforms to `agents/code-review/FINDINGS_SCHEMA.md` — IDs, severity calibration, `module` key (the synthesizer compounds by exact module match; a wrong key silently drops your finding from compound-risk detection), confidence, fix, effort. Use its Markdown Report Format for the output file.
+
 ---
 
 ## Loop Prevention
