@@ -262,7 +262,90 @@ tune themselves.)
 
 ---
 
-## Part 5 — Priority order
+## Part 5 — Memory as the token-economy layer
+
+**Premise:** memory's job in this system is *substitution* — a recalled fact replaces a
+re-derivation. Re-deriving "which DB does this project use and why" means reading 3–5
+files (~10k tokens) plus reasoning; the recalled fact is ~50 tokens. That's a ~200:1
+compression — **but only at high recall precision.** A recall that injects 20
+irrelevant memories at ~100 tokens each wastes 2k tokens *and* pollutes attention,
+which degrades small models far more than large ones. So the design goal is not
+"remember more" — it's **maximize substitution rate, minimize injection noise.**
+
+In LLM terms: the memory DB is the system's pretraining (compressed experience),
+recall is retrieval-augmentation, and consolidation is the training run that
+compresses experience into a smaller representation. Treat each accordingly.
+
+### 5.1 What exists vs what's used
+`bpm-memory-mcp` ships 18 tools — including `memory_context_assemble` (relevance-ranked,
+**takes a `tokenBudget` param**), `checkpoint_task`, `fact_store`/`fact_query`,
+`goal_anchor`, and `memory_consolidate`. But `MEMORY_PRIMER.md` wires agents to only
+the 3 bluntest calls: `session_restore()` (recency-based — on a project with hundreds
+of memories it returns the *recent* things, not the *relevant* things),
+`memory_store()`, `session_save()`. The token-saving tools are installed and idle.
+(Backlog A3 — "researcher findings lost between sessions" — is a symptom of the same gap.)
+
+### 5.2 The five token-saving mechanisms
+
+**M1. Budgeted, relevance-ranked session start.** Replace `session_restore()` in the
+3-call workflow with `memory_context_assemble({task, files, tokenBudget})`, where
+`tokenBudget` comes from the model tier: ~600 tokens on tier=small, ~1,500 on medium,
+~3,000 on large. The memory packet is sized like everything else in CONTEXT_BUDGET —
+today it's the one unbudgeted input.
+
+**M2. Disk for artifacts, DB for pointers + hot facts.** Never store content that
+lives in `docs/` — store the pointer plus the one-line conclusion:
+`fact: "Auth is JWT RS256 w/ refresh rotation — full design docs/3-design/SECURITY_CONTROLS.md:§4"`.
+The artifact stays re-readable at full fidelity when needed; the fact answers 80% of
+future questions for ~40 tokens. Onboard artifacts (LANDSCAPE, entry-points, ERD)
+**are** the codebase memory — after onboard completes, a single pass stores one
+pointer-fact per artifact plus the 5–10 hottest facts (stack, DB, auth flow, test
+command, deploy path). Next session, "how do I run the tests" costs 40 tokens, not a
+re-exploration.
+
+**M3. Error memory is the highest-ROI store.** Debugging loops are the most expensive
+token sink in the system (a failed-fix loop on a local model can burn an entire
+session). `type:"error"` memories with root cause + fix citation prevent *re-debugging
+the same bug* — and feed the bug-fix discipline rule (rank candidate root causes:
+recall first, hypothesize second). Store every confirmed root cause, always with
+citation. Same logic applies to **failed approaches**: "tried X for Y, failed because
+Z" saves the next session from walking the same dead end.
+
+**M4. Recall once, distribute via HANDOFF packets.** N specialists each calling
+recall = N × (call + injected packet) and N chances of inconsistent context. Instead:
+the **orchestrator** assembles the memory packet once per phase and embeds the
+relevant slice into each HANDOFF's context packet (within the existing 400-word cap).
+Specialists get ≤1 `fact_query` of their own for domain-specific lookups
+(e.g. db-architect queries `type:fact` about schema). This composes with 4.1: the
+DAG runner can call a small assemble-step per node deterministically.
+
+**M5. Consolidation = the distillation loop's storage half.** `memory_consolidate`
+(dedup/merge/decay) should run on the same cadence as the 4.9 steward review — and
+add a **promotion rule**: a fact recalled in nearly every session graduates *out* of
+the DB *into* the protocol/CLAUDE.md/agent prompt, where it costs zero recall calls
+forever. That is literally distillation: frequently-retrieved knowledge gets
+compiled into the weights (the prompt corpus). Conversely, memories not recalled in
+N sessions decay; stale memories cost tokens *and* cause wrong actions.
+
+### 5.3 Hygiene rules (anti-patterns that cost tokens forever)
+- **No transcripts, no process** — store conclusions, 1–2 sentences, with citation. A 500-token memory is a bug.
+- **No auto-extract by default** — `memory_auto_extract` on every session stores noise, and noise is re-injected on every future recall. Extract deliberately at phase boundaries.
+- **Verify on recall** — a memory citing `file.ts:88` should be spot-checked before acting (file may have changed). Confidence decays; the citation makes re-verification a 1-file read instead of a re-derivation.
+- **Cap the flat-file fallback** — `SESSION_NOTES.md` is append-only; reading it costs linearly more every session. Rule: keep last 5 entries verbatim, consolidate older into a 10-line summary block.
+- **checkpoint_task is the STATE.md carrier** — the ≤500-token state summary from 4.5 should be written via `checkpoint_task` (structured) with `STATE.md` as the no-MCP fallback, not two competing mechanisms.
+
+### 5.4 The ROI math
+Onboarding a Jarvis/Sibling-scale repo ≈ 50–150k tokens of exploration. Without
+memory, every continuing session re-pays 10–40k of that re-establishing context.
+With M1+M2: session start = one assemble call (~600–1,500 tokens injected) + targeted
+reads only. Conservative steady-state saving: **10–30k tokens per continuing
+session**, compounding across every project. Measure it via 4.12 telemetry: log
+memory hits vs re-derivations; the metric that matters is *tokens of files NOT
+re-read because a fact answered the question*.
+
+---
+
+## Part 6 — Priority order
 
 | # | Item | Why first | Effort |
 |---|---|---|---|
@@ -272,6 +355,7 @@ tune themselves.)
 | 4 | 4.10 + E: schema-constrained output + text fallback | kills the JSON failure mode | S |
 | 5 | 4.1: DAG runner | biggest reliability jump for multi-phase work on local models | M–L |
 | 6 | 4.5: STATE.md compaction + 4.3 exemplar library | cheap, immediate small-model gains | S |
+| 6b | 5.2 M1–M4: budgeted assemble, pointer-facts, error memory, packet distribution | 10–30k tokens saved per continuing session; MEMORY_PRIMER rewrite is the only change needed for M1/M3 | S |
 | 7 | 4.7: triage + escalation ladder + draft-then-repair default | cost/quality optimum for hybrid cloud/local | M |
 | 8 | D + D4 fixes: protocol precedence, tier gates | resolves contradictions | S |
 | 9 | 4.4 / 4.6 / 4.8: bidirectional verify, decision voting, citation validator | quality hardening | M |
