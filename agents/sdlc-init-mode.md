@@ -121,3 +121,33 @@ Present ALL questions at once, wait for answers, then confirm:
 After user answers: summarize in 3-5 bullets, ask "Does this capture it correctly?", then write confirmed answers to `docs/DISCOVERY.md`.
 
 After DISCOVERY.md is confirmed → load `agents/sdlc-init-phases-0-2.md` → begin Phase 0.
+
+## --game flavor (`/sdlc init <name> "<desc>" --game`)
+
+Game projects keep the same phase gates with substituted artifacts. Apply
+these substitutions everywhere the phase files name the standard artifact:
+
+| Standard | --game replacement | Owner |
+|---|---|---|
+| SRS.md | `docs/design/game/GDD.md` (Game Design Document) | game/game-designer |
+| USER_STORIES.md | Player stories ("As a [player type], I want [verb] so that [feeling/goal]") | game/game-designer |
+| USER_PERSONAS.md | Player personas (skill, session length, motivation per Bartle/engagement type) | sdlc-lead interview |
+| Phase 3 design docs | ARCHITECTURE.md as usual PLUS `docs/design/game/TECH_NOTES.md` (engine choice, timestep, determinism) | game/gameplay-engineer |
+| Phase 3 numbers | `docs/design/game/balance/` models with simulation scripts | game/game-balance-designer |
+| test-engineer reviews | PLUS `docs/testing/playtest/PLAYTEST_<date>.md` per slice build | game/playtest-evaluator |
+
+**Vertical-slice gate (replaces nothing — INSERTED between Phase 3 and full Phase 4):**
+The first Phase 4 wave builds ONLY the vertical slice defined in GDD.md § 7.
+The gate to continue into content production:
+
+1. playtest-evaluator verdict on the slice is SHIP-SLICE (not FIX-FIRST / NOT-FUN-YET)
+2. Time-to-first-success meets the GDD's slice acceptance test
+3. game-balance-designer simulation targets PASS for every SLICE system
+
+A game that fails the slice gate iterates on the slice — it never proceeds to
+content production on the theory that more levels will fix the core loop.
+
+**Discovery interview (--game additions):** ask also — target platform(s) and
+input model? session length (3-min mobile / 30-min desktop)? singleplayer or
+multiplayer (determinism stakes)? art capability available (affects slice
+scope)? reference games ("like X but Y")?
