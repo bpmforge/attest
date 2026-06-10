@@ -187,7 +187,7 @@ done
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   echo ""
-  echo "bpm-opencode-experts v1.5.0 — Installation"
+  echo "bpm-opencode-experts v1.6.0 — Installation"
   echo "==========================================="
   echo ""
   echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"
