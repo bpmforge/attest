@@ -56,6 +56,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 - **8-dimension code health** including a dead-code/stub/unused-export detector.
 - **Deterministic scaffolding** — `run-plan.mjs` (DAG runner for decomposed tasks), `fix-verify.mjs` (re-verify gate), `mermaid-fix.mjs` + render-validated diagrams. Scripts own control flow and verification; models do the judgment work — which keeps heavy jobs reliable on small local models.
 - **Any LLM** — tier detection, compact agent variants (`dist/compact-agents/`, install with `--compact`), and capability-probed delegation (`agents/shared/EXECUTOR_SELECTION.md`).
+- **Eval suite** — `npm run evals` runs the pipeline against fixture repos with planted defects (`evals/`); protocol changes and model choices are measured, not vibed.
 
 ## Docs
 

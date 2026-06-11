@@ -33,6 +33,9 @@ id_ed25519*
 # Local model context (per-user)
 docs/work/.model-context
 
+# Eval results (per-run, tier-stamped)
+docs/work/EVAL_RESULTS.json
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/

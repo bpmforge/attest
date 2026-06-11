@@ -1,0 +1,47 @@
+{
+  "fixture": "flask-sqli",
+  "description": "Flask API with a known SQLi and a hardcoded live API key",
+  "checks": [
+    {
+      "id": "sqli-found",
+      "defect": "SQL injection via f-string in /pickups",
+      "requires": "semgrep",
+      "cmd": [
+        "semgrep",
+        "--config",
+        "auto",
+        "--json",
+        "--quiet",
+        "."
+      ],
+      "match": "sql-injection|formatted-sql-query|tainted-sql-string",
+      "min": 1
+    },
+    {
+      "id": "secret-found",
+      "defect": "hardcoded private key (planted fake)",
+      "requires": "semgrep",
+      "cmd": [
+        "semgrep",
+        "--config",
+        "auto",
+        "--json",
+        "--quiet",
+        "."
+      ],
+      "match": "detected-private-key|secrets",
+      "min": 1
+    }
+  ],
+  "agent_checks": [
+    {
+      "id": "security-quick-finds-sqli",
+      "agent": "security-auditor",
+      "prompt": "Run a quick security audit of this repository. Write findings to docs/reviews/SECURITY_FINDINGS.md using the standard finding schema. Then stop.",
+      "match_all": [
+        "sql injection|sqli|tainted",
+        "private key|secret|BEGIN RSA"
+      ]
+    }
+  ]
+}

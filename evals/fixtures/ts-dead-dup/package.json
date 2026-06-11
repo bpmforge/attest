@@ -1,0 +1,9 @@
+{
+  "name": "seedling-nursery-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "tsx src/index.ts"
+  }
+}

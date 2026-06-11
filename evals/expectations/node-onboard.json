@@ -1,0 +1,17 @@
+{
+  "fixture": "node-onboard",
+  "description": "Node service with a known architecture: exactly 3 entry points (2 HTTP + 1 CLI)",
+  "checks": [],
+  "agent_checks": [
+    {
+      "id": "onboard-finds-all-entry-points",
+      "agent": "entry-point-tracer",
+      "prompt": "Trace every entry point in this repository (HTTP routes, CLI commands). Write docs/onboard/entry-points.md with one section per entry point. Then stop.",
+      "match_all": [
+        "GET /birdhouses",
+        "POST /sightings",
+        "audit"
+      ]
+    }
+  ]
+}
