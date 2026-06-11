@@ -190,4 +190,15 @@ printf '{"ok":%s,"errors":%d,"warnings":%d,"chapters":%d,"chapter_dirs":%d,"erro
   "$errors_json" \
   "$warnings_json"
 
+
+# Telemetry (plan 4.12) — same row shape as _lib.sh validator_exit.
+if [[ "${EXPERTS_TELEMETRY:-1}" != "0" ]]; then
+  {
+    mkdir -p docs/work &&
+    printf '{"ts":"%s","source":"validator","validator":"validate-book-structure","gaps":%d,"exit":%d}\n' \
+      "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$error_count" "$([ $error_count -eq 0 ] && echo 0 || echo 1)" \
+      >> docs/work/telemetry.jsonl
+  } 2>/dev/null || true
+fi
+
 [[ $error_count -eq 0 ]]
