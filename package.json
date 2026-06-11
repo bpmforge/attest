@@ -11,7 +11,9 @@
     "agents:fix": "node scripts/build-agents.mjs --fix",
     "agents:compact": "node scripts/build-agents.mjs --compact",
     "build:claude": "node scripts/build-target-claude.mjs --write",
-    "build:claude:check": "node scripts/build-target-claude.mjs --check"
+    "build:claude:check": "node scripts/build-target-claude.mjs --check",
+    "evals": "node scripts/run-evals.mjs",
+    "evals:agent": "node scripts/run-evals.mjs --agent"
   },
-  "version": "1.7.0"
+  "version": "1.8.0"
 }

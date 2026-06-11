@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.8.0] — 2026-06-11
+
+### Added — eval suite (plan 4.11: golden tasks for the system itself)
+- `evals/fixtures/` — 3 tiny fixture repos with planted defects and known architecture: `flask-sqli` (SQLi via f-string + hardcoded private key), `ts-dead-dup` (copy-paste duplicate pair + dead module with stub + N+1 loop), `node-onboard` (3 known entry points). Off-domain themes (parcel lockers, seedling nursery, birdhouse registry) per the G7 anti-leak rule.
+- `evals/expectations/*.json` — expected-finding assertions per fixture: deterministic checks (semgrep, jscpd, validate-dead-code.sh — regex over output, min counts, `{REPO}` expansion, missing tool → SKIP) and agent checks (`opencode run --agent <agent>`, assertions over produced artifacts + final text).
+- `scripts/run-evals.mjs` (`npm run evals` / `npm run evals:agent`) — runs fixtures from temp copies, stamps results with the model tier from `.model-context`, writes `docs/work/EVAL_RESULTS.json` (gitignored), exits nonzero on any failure. Deterministic mode verified green (5 pass) AND verified able to fail (impossible threshold → exit 1); agent mode live-verified on opencode.
+- Release checklist step 2b in `release-manager`: deterministic evals gate the tag when `evals/` exists; agent-mode per tier is recommended, not gating.
+- A protocol edit's effect on output quality is now measurable per release, per tier — including "is model X good enough for phase N?" with data instead of opinion.
+
 ## [1.7.0] — 2026-06-11
 
 ### Added — exemplar library (plan 4.3 + G7/G8)

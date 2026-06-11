@@ -1,0 +1,55 @@
+{
+  "fixture": "ts-dead-dup",
+  "description": "TS service with a copy-paste duplicate pair, a dead module with a stub, and an N+1 query loop",
+  "checks": [
+    {
+      "id": "stub-found",
+      "defect": "syncToGreenhouse unimplemented stub in legacy.ts",
+      "requires": "bash",
+      "cmd": [
+        "bash",
+        "{REPO}/scripts/validators/validate-dead-code.sh",
+        "."
+      ],
+      "match": "\"category\":\"stub\"",
+      "min": 1
+    },
+    {
+      "id": "dead-module-found",
+      "defect": "legacy.ts never imported",
+      "requires": "bash",
+      "cmd": [
+        "bash",
+        "{REPO}/scripts/validators/validate-dead-code.sh",
+        "."
+      ],
+      "match": "unused-export|unused-symbol|Unused file",
+      "min": 1
+    },
+    {
+      "id": "duplication-found",
+      "defect": "seedlingSummary / traySummary copy-paste pair in report.ts",
+      "requires": "jscpd",
+      "cmd": [
+        "jscpd",
+        "--min-tokens",
+        "50",
+        "--reporters",
+        "consoleFull",
+        "src"
+      ],
+      "match": "Clone found",
+      "min": 1
+    }
+  ],
+  "agent_checks": [
+    {
+      "id": "perf-review-finds-n-plus-1",
+      "agent": "code-reviewer",
+      "prompt": "Review this repository for code-health and performance problems. Write findings to docs/reviews/CODE_REVIEW.md. Then stop.",
+      "match_all": [
+        "n\\+1|n \\+ 1|query (inside|in) (a )?loop|per-row quer"
+      ]
+    }
+  ]
+}
