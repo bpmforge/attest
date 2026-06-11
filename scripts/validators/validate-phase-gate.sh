@@ -118,6 +118,7 @@ case "$PHASE" in
       "validate-migrations.sh"
       "validate-iac.sh"
       "validate-module-boundaries.sh"
+      "validate-api-consistency.sh"
       "validate-code-health.sh"
       "validate-dead-code.sh"
     )
@@ -141,6 +142,7 @@ case "$PHASE" in
       "validate-code-health.sh"
       "validate-dead-code.sh"
       "validate-module-boundaries.sh"
+      "validate-api-consistency.sh"
       "validate-release-readiness.sh"
     )
     ;;

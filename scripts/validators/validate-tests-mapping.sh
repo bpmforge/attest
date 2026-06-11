@@ -8,6 +8,9 @@
 #
 # Reverse check (warning): test files that reference no UC-ID.
 #
+# Phantom check: test files that reference UC-IDs not present in USE_CASES.md
+# (stale or hallucinated traceability) -- hard gap.
+#
 # Results check (when test results JSON exists): for each UC-ID that appears in
 # test names, report whether those specific tests are passing or failing.
 # Supported formats: jest --json, vitest --reporter=json, pytest-json-report.
@@ -92,6 +95,23 @@ done
 if [[ "$ORPHAN_COUNT" -gt 0 ]]; then
   warn "$ORPHAN_COUNT test file(s) reference no UC-ID — add 'UC-NNN' to describe/it names for traceability"
 fi
+
+# -- Phantom check: tests referencing UC-IDs that do not exist -------------
+# A test for UC-99 when USE_CASES.md stops at UC-60 is a stale or hallucinated
+# reference — the traceability matrix silently lies until it is fixed.
+ALL_CASES=$(grep -oE 'UC-[0-9]+' "$UC" | sort -u)
+TEST_REFS=""
+for d in "${TEST_DIRS[@]}"; do
+  TEST_REFS+=$(grep -rhoE 'UC-[0-9]+' "$d" 2>/dev/null || true)
+  TEST_REFS+=$'\n'
+done
+while IFS= read -r ref; do
+  [[ -z "$ref" ]] && continue
+  if ! grep -qxF "$ref" <<< "$ALL_CASES"; then
+    files=$(grep -rlE "\b${ref}\b" "${TEST_DIRS[@]}" 2>/dev/null | head -2 | tr '\n' ' ')
+    gap "phantom-uc" "tests reference $ref but USE_CASES.md has no such use case — stale or hallucinated reference in: $files"
+  fi
+done < <(printf '%s\n' "$TEST_REFS" | grep -E '^UC-[0-9]+$' | sort -u)
 
 # -- Locate test results JSON ---------------------------------------------
 RESULTS_FILE=""

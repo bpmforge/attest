@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.11.0] — 2026-06-11
+
+### Added — backlog wave 2 (C1 + C2 closed; backlog now 7 open of 28)
+- **`validate-api-consistency.sh` (C2, HIGH):** openapi.yaml paths×methods vs routes detected in source (Express/Fastify/Koa, Flask/FastAPI, Go net-http/chi/gin, NestJS) with path-param normalization ({id}==:id==<id>). Spec-only endpoints and undocumented routes are hard gaps; dynamically-composed routes get a manual-review warning instead of silent omission; response-schema conformance explicitly deferred to contract tests. Wired into phase-4 + phase-5 gates. Found-by-test: macOS bash 3.2 cannot parse backticks inside $(heredoc) — use \x60 in embedded regexes.
+- **Phantom-UC check (C1)** in `validate-tests-mapping.sh`: tests referencing UC-IDs that do not exist in USE_CASES.md are now a hard gap (stale/hallucinated traceability); forward coverage and orphan-test warnings already existed.
+
 ## [1.10.0] — 2026-06-11
 
 ### Added — backlog wave 1 (16 items closed; backlog now 9 open of 28)
