@@ -1,9 +1,11 @@
 import type { Plugin } from "@opencode-ai/plugin";
+import { appendFileSync, mkdirSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
 //
 // Ports the high-value subset of claude-experts' hooks to opencode's
-// plugin surface. Two phases:
+// plugin surface. Three phases:
 //
 //   tool.execute.before   block dangerous bash commands; block writes to
 //                         .env / credential / key files.
@@ -12,6 +14,14 @@ import type { Plugin } from "@opencode-ai/plugin";
 //                         → secret-scan against the file. All formatters
 //                         are best-effort: failures inform the LLM via
 //                         console.warn but never block the workflow.
+//
+//   event                 telemetry (plan 4.12): on every completed
+//                         assistant message, append one JSONL row of
+//                         ACTUALS (agent, model, tokens in/out/reasoning,
+//                         cache, cost, duration) to the project's
+//                         docs/work/telemetry.jsonl. Counts only — never
+//                         message content. Disable: EXPERTS_TELEMETRY=0.
+//                         Analyze: scripts/telemetry-report.mjs.
 //
 // Skipped hooks (different abstraction, not portable as plugins):
 //   - commit-validator.sh  → use a git pre-commit hook in the user's repo
@@ -175,8 +185,54 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
         secretScan(filePath, ext, $),
       ]);
     },
+
+    event: async ({ event }) => {
+      if (process.env.EXPERTS_TELEMETRY === "0") return;
+      if (event.type !== "message.updated") return;
+      const info: any = (event as any).properties?.info;
+      // Only completed assistant messages — message.updated streams many
+      // partial updates; time.completed marks the final one.
+      if (!info || info.role !== "assistant" || !info.time?.completed) return;
+      if (loggedMessages.has(info.id)) return;
+      loggedMessages.add(info.id);
+      if (loggedMessages.size > 5000) loggedMessages.clear();
+
+      logTelemetry(info.path?.root ?? process.cwd(), {
+        ts: new Date(info.time.completed).toISOString(),
+        source: "plugin",
+        session: info.sessionID,
+        message: info.id,
+        agent: info.mode ?? null,
+        model: `${info.providerID}/${info.modelID}`,
+        duration_ms: info.time.completed - info.time.created,
+        tokens_in: info.tokens?.input ?? 0,
+        tokens_out: info.tokens?.output ?? 0,
+        tokens_reasoning: info.tokens?.reasoning ?? 0,
+        cache_read: info.tokens?.cache?.read ?? 0,
+        cache_write: info.tokens?.cache?.write ?? 0,
+        cost: info.cost ?? 0,
+        finish: info.finish ?? null,
+        error: info.error?.name ?? null,
+      });
+    },
   };
 };
+
+// ─── Telemetry (plan 4.12) ───────────────────────────────────────────
+// Append-only JSONL of actuals. Counts and identifiers only — never
+// message content. Tune CONTEXT_BUDGET tier tables, plan max_tokens_est,
+// and escalation thresholds from observed distributions, not guesses.
+const loggedMessages = new Set<string>();
+
+function logTelemetry(projectRoot: string, row: Record<string, unknown>) {
+  try {
+    const file = join(projectRoot, "docs", "work", "telemetry.jsonl");
+    mkdirSync(dirname(file), { recursive: true });
+    appendFileSync(file, JSON.stringify(row) + "\n");
+  } catch {
+    // Telemetry must never break the session — silent.
+  }
+}
 
 async function formatFile(filePath: string, ext: string, $: any) {
   try {

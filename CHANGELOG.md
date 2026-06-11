@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.9.0] — 2026-06-11
+
+### Added — telemetry (plan 4.12: tune budgets with data, not guesses)
+- **Plugin `event` hook** in `plugins/expert-hooks.ts`: every completed assistant message appends one JSONL row of REAL actuals — agent, model, tokens in/out/reasoning, cache read/write, cost, duration, finish/error — to the project's `docs/work/telemetry.jsonl`. Counts and identifiers only, never message content. Deduped per message; `EXPERTS_TELEMETRY=0` disables. Live-verified end-to-end (first row immediately surfaced that a trivial run costs ~25k input tokens of agent-corpus overhead).
+- **Script instrumentation:** `run-plan.mjs` logs per-node status/attempts/duration/output-size (estimates marked `_est`); `run-evals.mjs` logs per-agent-check pass/fail/timeout + duration; `_lib.sh` `validator_exit` logs one verdict row per validator run (covers 42 of 45 validators), written to the audited project's `docs/work/`. All writes are fail-silent — telemetry can never break a gate or a run.
+- **`scripts/telemetry-report.mjs`** (`npm run telemetry:report`, `--json`, `--days N`): per-agent×model token/cost/duration distributions (p50/p95), run-plan retry and escalation rates, eval pass rates, validator gap rates — the observed numbers that replace hand-waved tier tables, `max_tokens_est`, and escalation thresholds. Ships to claude-experts via the build.
+- `docs/work/telemetry.jsonl` gitignored (per-machine, append-only).
+
 ## [1.8.0] — 2026-06-11
 
 ### Added — eval suite (plan 4.11: golden tasks for the system itself)
