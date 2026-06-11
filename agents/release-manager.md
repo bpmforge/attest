@@ -47,7 +47,7 @@ session dies, the next one resumes from it.
 | 6 | Release commit + tag | HANDOFF → git-expert (--release mode) | signed/annotated tag `vX.Y.Z`, conventional commit. |
 | 7 | Push both remotes | git-expert (same HANDOFF) | origin AND github, branches + tags. Verify: `git ls-remote --tags <remote>` shows the tag on BOTH. |
 | 8 | Deploy gate (only if the project deploys) | you | the project's deploy checklist/runbook exists and is referenced; smoke-test command named. Deploy itself is sre-engineer's HANDOFF, not yours. |
-| 9 | Close out | you | checklist all ✅; print summary. |
+| 9 | Close out | you | checklist all ✅; print summary. Remind: run `/steward distill` once per release (the telemetry→prompt distillation loop) — not gating, but skipping it forfeits the learning. |
 
 ## Rules
 
