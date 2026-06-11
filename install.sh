@@ -218,7 +218,7 @@ fi
 
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing BPM OpenCode Experts..."
-  for dir in agents skills commands references tools hooks plugins scripts .semgrep; do
+  for dir in agents skills commands references exemplars tools hooks plugins scripts .semgrep; do
     rm -rf "$GLOBAL_DIR/$dir"
     rm -rf "$PROJECT_DIR/$dir"
   done
@@ -242,7 +242,7 @@ echo "Installing BPM OpenCode Experts to $DEST/"
 echo "Method: $METHOD"
 echo ""
 
-DIRS="agents skills commands references tools hooks plugins"
+DIRS="agents skills commands references exemplars tools hooks plugins"
 
 for dir in $DIRS; do
   # Skip global-only directories during project-level installs

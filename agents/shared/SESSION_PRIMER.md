@@ -43,11 +43,12 @@ After printing a completion phrase, your response ends. No summary, no follow-up
 You have approximately [USER: fill in your model's context size] tokens total. Agent instructions use ~8-15k. Reserve the rest for your work. If you feel "full" (can't recall something from earlier), stop and write what you have to disk before continuing.
 
 **Rule 7 — Memory (when tools available).**
-On your first turn: call `session_restore()` to load prior project context (decisions, constraints, patterns).
+On your first turn: call `memory_context_assemble({ task: "<what you're about to do>", tokenBudget: <600 small / 1500 medium / 3000 large, per tier in docs/work/.model-context> })` — relevance-ranked and budgeted. Fallback: `session_restore()`.
+Exception: inside a HANDOFF (`SDLC-TASK for` prompt), do NOT assemble — the orchestrator already embedded a memory slice; you get at most one targeted `memory_recall`/`fact_query`.
 On your last turn: call `session_save({ summary: "..." })` before stopping.
-When you make a significant decision or discover a constraint: `memory_store({ content: "...", type: "decision"|"fact"|"pattern"|"error" })`.
+When you make a significant decision, discover a constraint, or confirm a bug root cause (or a failed approach): `memory_store({ content: "...", type: "decision"|"fact"|"pattern"|"error" })`.
 If memory tools fail, fall back to `docs/work/SESSION_NOTES.md` silently.
-Full protocol: `~/.claude/agents/shared/MEMORY_PRIMER.md`
+Full protocol: `~/.config/opencode/agents/shared/MEMORY_PRIMER.md`
 
 ---
 

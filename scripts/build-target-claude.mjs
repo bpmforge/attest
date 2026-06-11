@@ -33,6 +33,7 @@ const OUT = (() => {
 const COPY_GLOBS = [
   ['agents', '.md'],
   ['references', '.md'],
+  ['exemplars', '.md'],
   ['scripts/validators', '.sh'],
   ['dist/compact-agents', '.md'],
 ];

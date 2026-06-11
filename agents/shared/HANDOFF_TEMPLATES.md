@@ -51,6 +51,17 @@ Never say "Run --design mode" or "Run --review mode" — describe the TASK, not 
 
 Always reference `agents/shared/BOUNDED_TASK_CONTRACT.md` in the CONTEXT block.
 
+**Exemplar rule:** every Context Packet points at exactly ONE matching exemplar
+from `exemplars/` ("produce output shaped like this"). By pointer, not inline —
+the specialist reads it. The exemplar carries the format, so VERIFY/PRODUCE
+prose can stay short. Cross-domain only: never attach an exemplar whose example
+domain matches the task's domain (small models copy content, not just shape) —
+see `exemplars/README.md`.
+
+**Packet layout budget (tier=small):** task packet ≤400 words + memory slice
+≤200 tokens + exemplar by pointer + ≤3 files to read = ≤1,200 tokens injected
+total. The parts share one budget — do not let them fight.
+
 **Executor rule:** the HANDOFF block is the contract; how it runs is capability-probed (`agents/shared/EXECUTOR_SELECTION.md`). With `has_task_tool=true` in `docs/work/.model-context`, dispatch the block via the Task tool; otherwise the user copies it into a new session.
 
 ---
@@ -601,6 +612,12 @@ Before every HANDOFF, write a `docs/work/context-for-<agent>.md` with:
 1. <file> -- <what's relevant for THIS task>
 2. <file> -- <what's relevant>
 3. <file> -- <what's relevant>
+
+## Exemplar (exactly one, by pointer)
+exemplars/<matching-artifact>.md -- produce output shaped like this; copy structure, not domain content
+
+## Memory slice (≤200 tokens, assembled by the orchestrator — see MEMORY_PRIMER M4)
+<relevant facts/decisions/errors for THIS task, with citations. Omit section if none.>
 
 ## Files to produce
 1. <file> -- <expected content, approximate scope>

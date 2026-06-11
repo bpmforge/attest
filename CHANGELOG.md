@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.7.0] — 2026-06-11
+
+### Added — exemplar library (plan 4.3 + G7/G8)
+- `exemplars/` — one gold-standard instance per artifact type: ERD + table specs, sequence diagram with error path, security finding (preconditions/yields), completion manifest, ADR, gap report. All authored in a deliberately off-domain example (community tool-lending library) so small models copy structure, not content (G7 cross-domain rule).
+- HANDOFF Context Packet template gains an `Exemplar` pointer line and a `Memory slice` section; explicit packet layout budget for tier=small: task ≤400 words + memory slice ≤200 tokens + exemplar by pointer + ≤3 files = ≤1,200 tokens injected (G8).
+- `install.sh` installs `exemplars/`; the claude build step ships it to claude-experts.
+
+### Changed — memory protocol rewrite (plan 5.2 M1–M5)
+- `MEMORY_PRIMER.md` rewritten around substitution rate vs injection noise. 3-call workflow → 4-call: session start is now `memory_context_assemble({task, files, tokenBudget})` with tier-scaled budgets (600 small / 1500 medium / 3000 large) instead of recency-based `session_restore()` (kept as fallback); `checkpoint_task` is the canonical long-task state carrier with STATE.md as no-MCP fallback.
+- M2 pointer-facts: never store what lives in `docs/` — store pointer + one-line conclusion; mandatory post-onboard pass stores one pointer-fact per artifact + the 5–10 hottest facts. Clarified `fact_store`/`fact_query` are the research Fact Bank (require source URL); codebase facts use `memory_store(type:"fact")`.
+- M3 error memory: store every confirmed root cause AND failed approaches, with citation; recall-first when ranking candidate root causes.
+- M4 recall-once: the orchestrator assembles memory once per phase and distributes ≤200-token slices via HANDOFF packets; specialists inside a HANDOFF do not re-assemble (≤1 targeted lookup). Wired into `sdlc-lead` Step 2b and SESSION_PRIMER Rule 7.
+- M5: `memory_consolidate` on the steward cadence + promotion rule (facts recalled every session graduate into prompts/CLAUDE.md).
+
+### Fixed
+- **G1 — tier detection probes the loaded context, not the model max.** `detect-model-context.sh` now queries LM Studio `/api/v0/models` and uses `loaded_context_length` (a model loaded at 8k on a 262k-max checkpoint correctly tiers small, verified live); name-pattern heuristics remain only as fallback for older servers. `.model-context` gains `context_source=probe|heuristic`.
+- Reverse path leakage: SESSION_PRIMER Rule 7 pointed at `~/.claude/...` in the opencode source; now uses the opencode path (build step rewrites it per target).
+
 ## [1.6.1] — 2026-06-10
 
 ### Fixed
