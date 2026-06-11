@@ -81,15 +81,29 @@ function runCheck(check, cwd) {
     : { id: check.id, status: 'FAIL', detail: `expected ≥${min} match(es) for /${check.match}/, got ${count}`, output: output.slice(-1500) };
 }
 
-function runAgentCheck(check, cwd) {
+// Telemetry (plan 4.12): one row per agent-mode check → docs/work/telemetry.jsonl.
+// Disable with EXPERTS_TELEMETRY=0.
+function telemetry(row) {
+  if (process.env.EXPERTS_TELEMETRY === '0') return;
+  try {
+    mkdirSync(join(REPO, 'docs', 'work'), { recursive: true });
+    writeFileSync(join(REPO, 'docs', 'work', 'telemetry.jsonl'),
+      JSON.stringify({ ts: new Date().toISOString(), source: 'evals', ...row }) + '\n', { flag: 'a' });
+  } catch { /* telemetry must never break an eval run */ }
+}
+
+function runAgentCheck(check, cwd, fixture) {
   if (!toolExists('opencode')) {
     return { id: check.id, status: 'SKIP', detail: 'opencode CLI not installed' };
   }
   mkdirSync(join(cwd, 'docs'), { recursive: true });
+  const startedAt = Date.now();
   const r = spawnSync('opencode', ['run', '--agent', check.agent, check.prompt], {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: AGENT_TIMEOUT_MS, encoding: 'utf8',
   });
+  const durationMs = Date.now() - startedAt;
   if (r.error?.code === 'ETIMEDOUT') {
+    telemetry({ fixture, check: check.id, agent: check.agent, status: 'TIMEOUT', duration_ms: durationMs });
     return { id: check.id, status: 'FAIL', detail: `agent timed out after ${AGENT_TIMEOUT_MS / 1000}s` };
   }
   // Assert on everything the agent produced (artifacts on disk + final text)
@@ -100,9 +114,11 @@ function runAgentCheck(check, cwd) {
     }
   }
   const missing = (check.match_all || []).filter((p) => !new RegExp(p, 'i').test(corpus));
-  return missing.length === 0
-    ? { id: check.id, status: 'PASS', detail: `all ${check.match_all.length} expected mention(s) present (agent: ${check.agent})` }
-    : { id: check.id, status: 'FAIL', detail: `missing mention(s): ${missing.join(' , ')}`, output: (r.stdout || '').slice(-1500) };
+  const status = missing.length === 0 ? 'PASS' : 'FAIL';
+  telemetry({ fixture, check: check.id, agent: check.agent, status, duration_ms: durationMs, output_chars: (r.stdout || '').length, tokens_out_est: Math.round((r.stdout || '').length / 4) });
+  return status === 'PASS'
+    ? { id: check.id, status, detail: `all ${check.match_all.length} expected mention(s) present (agent: ${check.agent})` }
+    : { id: check.id, status, detail: `missing mention(s): ${missing.join(' , ')}`, output: (r.stdout || '').slice(-1500) };
 }
 
 // ── main ─────────────────────────────────────────────────────────────────
@@ -141,7 +157,7 @@ if (!existsSync(EXPECT_DIR)) {
       if (AGENT_MODE) {
         for (const check of exp.agent_checks || []) {
           log(`  [....] ${check.id} — running agent ${check.agent} (≤${AGENT_TIMEOUT_MS / 1000}s)`);
-          const res = { fixture: exp.fixture, ...runAgentCheck(check, work) };
+          const res = { fixture: exp.fixture, ...runAgentCheck(check, work, exp.fixture) };
           results.push(res);
           log(`  [${res.status}] ${res.id} — ${res.detail}`);
         }

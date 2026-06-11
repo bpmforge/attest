@@ -147,6 +147,18 @@ function buildPrompt(n, attempt) {
 
 const outputOk = (n) => existsSync(n.output) && statSync(n.output).size > 0;
 
+// Telemetry (plan 4.12): per-node actuals → docs/work/telemetry.jsonl.
+// opencode run doesn't report token usage, so sizes are char/4 ESTIMATES
+// (the plugin hook logs real token counts for the same work; join on time).
+// Disable with EXPERTS_TELEMETRY=0. Never let telemetry break a run.
+function telemetry(row) {
+  if (process.env.EXPERTS_TELEMETRY === '0') return;
+  try {
+    mkdirSync('docs/work', { recursive: true });
+    writeFileSync('docs/work/telemetry.jsonl', JSON.stringify({ ts: new Date().toISOString(), source: 'run-plan', ...row }) + '\n', { flag: 'a' });
+  } catch { /* telemetry must never break the run */ }
+}
+
 async function runNode(n) {
   const entry = (journal[n.id] ??= { status: 'pending', attempts: 0 });
   const tier = n.tier_needed ?? plan.executor_tier ?? 'small';
@@ -177,6 +189,7 @@ async function runNode(n) {
       entry.finished = new Date().toISOString();
       entry.duration_s = Math.round((Date.parse(entry.finished) - Date.parse(entry.started)) / 1000);
       saveJournal();
+      telemetry({ node: n.id, agent: n.agent, tier, status: 'done', attempts: entry.attempts, duration_s: entry.duration_s, prompt_chars: prompt.length, output_chars: stdout.length, tokens_out_est: Math.round(stdout.length / 4) });
       console.log(`[run-plan] ${n.id} ✓ done (${entry.duration_s}s) → ${n.output}`);
       return true;
     }
@@ -185,6 +198,7 @@ async function runNode(n) {
   }
   entry.status = 'escalated';
   saveJournal();
+  telemetry({ node: n.id, agent: n.agent, tier, status: 'escalated', attempts: entry.attempts });
   console.error(`[run-plan] ${n.id} ESCALATED after ${MAX_RETRIES + 1} attempts — log: ${join(LOG_DIR, `${n.id}.log`)}`);
   console.error(`  Next: retry at a higher tier (edit tier_needed), run the node interactively, or fix inputs.`);
   return false;

@@ -37,7 +37,7 @@ const COPY_GLOBS = [
   ['scripts/validators', '.sh'],
   ['dist/compact-agents', '.md'],
 ];
-const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs'];
+const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs'];
 
 // Whole-file overrides: runtime-flavored docs maintained per-target in
 // build/overrides/claude/<relpath>. No transforms applied to these.

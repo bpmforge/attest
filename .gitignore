@@ -36,6 +36,9 @@ docs/work/.model-context
 # Eval results (per-run, tier-stamped)
 docs/work/EVAL_RESULTS.json
 
+# Telemetry actuals (per-machine, append-only)
+docs/work/telemetry.jsonl
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/
