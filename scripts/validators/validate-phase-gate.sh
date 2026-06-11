@@ -76,7 +76,10 @@ case "$PHASE" in
     GATE_FILES=("docs/MODULE_DESIGN.md" "docs/ARCHITECTURE.md" "docs/API_DESIGN.md" "docs/api/openapi.yaml" "docs/TECH_STACK.md" "docs/THREAT_MODEL.md" "docs/SECURITY_CONTROLS.md" "docs/INFRASTRUCTURE.md")
     GATE_VALIDATORS=(
       "validate-module-design.sh"
+      "validate-circular-deps.sh"
+      "validate-module-boundaries-transitive.sh"
       "validate-infrastructure.sh"
+      "validate-observability.sh"
       "validate-architecture.sh"
       "validate-api-coverage.sh"
       "validate-sequence-coverage.sh"
