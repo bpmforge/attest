@@ -91,14 +91,16 @@ Source: Expert system audit + gap analysis
 
 ## Group C — Missing Validators
 
-### C1. Add Reverse Test Coverage Validator [MEDIUM effort, MEDIUM priority] — OPEN
+### C1. Add Reverse Test Coverage Validator ✅ DONE 2026-06-11 (v1.11.0)
+- Already mostly covered by `validate-tests-mapping.sh` (forward P0/P1 coverage + orphan-test warning + results verdicts); added the missing phantom-UC check (tests referencing UC-IDs absent from USE_CASES.md = hard gap). Wired into phase-4 gate.
 - Create `scripts/validators/validate-tests-reverse-coverage.sh`
 - Logic: enumerate test files → extract UC-NNN from describe/suite names → cross-check USE_CASES.md
 - Fail if: test exists for non-existent UC, or test has no UC context
 - Report: orphaned tests (no UC), orphaned UCs (no test)
 - Wire into Phase 4 and Phase 5 gates
 
-### C2. Add API Contract ↔ Implementation Validator [MEDIUM effort, HIGH priority]
+### C2. Add API Contract ↔ Implementation Validator ✅ DONE 2026-06-11 (v1.11.0)
+- `validate-api-consistency.sh`: openapi.yaml paths×methods vs grep-detected routes (Express/Fastify/Flask/FastAPI/Go/NestJS), param normalization ({id}==:id==<id>), spec-only + code-only gaps, dynamic-route warnings. Schema conformance deferred to contract tests by design. Wired into phase-4 + phase-5 gates.
 - Create `scripts/validators/validate-api-consistency.sh`
 - Logic: parse OpenAPI.yaml → compare to actual routes → check response schema match
 - Report: spec-only endpoints (not implemented), code-only routes (undocumented), schema mismatches
@@ -245,7 +247,7 @@ Source: Expert system audit + gap analysis
 
 ## Summary
 
-- **Total tasks:** 28 — **20 closed as of 2026-06-11** (see per-item notes). Open: A1, A2, A3, B1, B2, B3, B4, C1, C2.
+- **Total tasks:** 28 — **20 closed as of 2026-06-11** (see per-item notes). Open: A1, A2, A3, B1, B2, B3, B4.
 - **Tiny:** 2 | **Small:** 11 | **Medium:** 9 | **Medium-Large:** 1 | **Large:** 2 | **Architecture:** 4
 - **High priority:** A1, B1, B2, C2
 - Groups B, C, E can run in parallel once foundations are done
