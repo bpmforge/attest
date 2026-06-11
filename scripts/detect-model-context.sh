@@ -79,20 +79,54 @@ fi
 # ── Local model detection via LM Studio API ──────────────────────────────────
 LMSTUDIO_URL="${LMSTUDIO_URL:-http://127.0.0.1:1234}"
 
-MODELS_JSON=$(curl -s --max-time 3 "$LMSTUDIO_URL/v1/models" 2>/dev/null || echo "")
+# Preferred probe: /api/v0/models reports loaded_context_length — the context
+# the model is actually loaded with, often far below max_context_length
+# (users configure small contexts to save RAM). Tiering on the max or on name
+# patterns over-tiers and causes the silent overflow the probe exists to
+# prevent (G1). Falls back to /v1/models + name heuristics on older servers.
+V0_JSON=$(curl -s --max-time 3 "$LMSTUDIO_URL/api/v0/models" 2>/dev/null || echo "")
 
-if [[ -z "$MODELS_JSON" ]]; then
-  echo "type=unknown"         > "$CONTEXT_FILE"
-  echo "context=32000"        >> "$CONTEXT_FILE"
-  echo "tier=small"           >> "$CONTEXT_FILE"
-  echo "WARNING: Could not reach LM Studio at $LMSTUDIO_URL — defaulting to 32k budget" >&2
-  write_capabilities
-cat "$CONTEXT_FILE"
-  exit 0
+PROBE_RESULT=""
+if [[ -n "$V0_JSON" ]]; then
+  PROBE_RESULT=$(echo "$V0_JSON" | MODEL_OVERRIDE="$MODEL_OVERRIDE" python3 -c "
+import sys, json, os
+try:
+  d = json.load(sys.stdin)
+except Exception:
+  sys.exit(0)
+models = [m for m in d.get('data', []) if m.get('state') == 'loaded' and m.get('type') in ('llm', 'vlm')]
+override = os.environ.get('MODEL_OVERRIDE', '')
+if override:
+  models = [m for m in models if m.get('id') == override] or models
+if not models:
+  sys.exit(0)
+m = models[0]
+ctx = m.get('loaded_context_length') or m.get('max_context_length')
+if not ctx:
+  sys.exit(0)
+print(m['id'], ctx)
+" 2>/dev/null || echo "")
 fi
 
-# Extract first loaded model ID
-MODEL_ID=$(echo "$MODELS_JSON" | python3 -c "
+if [[ -n "$PROBE_RESULT" ]]; then
+  MODEL_ID="${PROBE_RESULT% *}"
+  CONTEXT="${PROBE_RESULT##* }"
+  CONTEXT_SOURCE="probe"
+else
+  MODELS_JSON=$(curl -s --max-time 3 "$LMSTUDIO_URL/v1/models" 2>/dev/null || echo "")
+
+  if [[ -z "$MODELS_JSON" ]]; then
+    echo "type=unknown"         > "$CONTEXT_FILE"
+    echo "context=32000"        >> "$CONTEXT_FILE"
+    echo "tier=small"           >> "$CONTEXT_FILE"
+    echo "WARNING: Could not reach LM Studio at $LMSTUDIO_URL — defaulting to 32k budget" >&2
+    write_capabilities
+    cat "$CONTEXT_FILE"
+    exit 0
+  fi
+
+  # Extract first listed model ID (server may list unloaded models too)
+  MODEL_ID=$(echo "$MODELS_JSON" | python3 -c "
 import sys, json
 try:
   d = json.load(sys.stdin)
@@ -105,8 +139,9 @@ except:
   print('unknown')
 " 2>/dev/null || echo "unknown")
 
-if [[ -n "$MODEL_OVERRIDE" ]]; then
-  MODEL_ID="$MODEL_OVERRIDE"
+  if [[ -n "$MODEL_OVERRIDE" ]]; then
+    MODEL_ID="$MODEL_OVERRIDE"
+  fi
 fi
 
 # ── Context size by model name patterns ──────────────────────────────────────
@@ -132,7 +167,10 @@ determine_context() {
   echo "32768"
 }
 
-CONTEXT=$(determine_context "$MODEL_ID")
+if [[ -z "${CONTEXT:-}" ]]; then
+  CONTEXT=$(determine_context "$MODEL_ID")
+  CONTEXT_SOURCE="heuristic"
+fi
 
 # Determine tier
 if   [[ "$CONTEXT" -ge 100000 ]]; then TIER="large"
@@ -145,6 +183,7 @@ echo "provider=lmstudio"     >> "$CONTEXT_FILE"
 echo "model=$MODEL_ID"       >> "$CONTEXT_FILE"
 echo "context=$CONTEXT"      >> "$CONTEXT_FILE"
 echo "tier=$TIER"            >> "$CONTEXT_FILE"
+echo "context_source=$CONTEXT_SOURCE" >> "$CONTEXT_FILE"
 
 write_capabilities
 cat "$CONTEXT_FILE"
