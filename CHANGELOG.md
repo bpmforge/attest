@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.10.0] — 2026-06-11
+
+### Added — backlog wave 1 (16 items closed; backlog now 9 open of 28)
+- **3 new Phase-3 validators**, wired into the phase-3 gate: `validate-circular-deps.sh` (DFS cycles on the MODULE_DESIGN allowed-import table), `validate-module-boundaries-transitive.sh` (hard gaps for undeclared/contradictory rows; transitive-cone WARN report — plain layering is not failed), `validate-observability.sh` (logging/metrics-methodology/tracing/alerting-conditions/dashboards content, not just section presence). All tested both directions against planted defects.
+- **Failure & recovery (D2+D4):** BOUNDED_TASK_CONTRACT Rule 8 — 3-failures-escalate cap (aligned with Ralph Wiggum and run-plan G5), phase files preserved even on failure, `[PARTIAL]` completion phrase, RESUME packet semantics — plus `scripts/recover-phase-state.sh` (`--list`, git-commits phase state, prints the resume packet).
+- **4 reference guides:** `sre-cloud-patterns.md` (AWS/GCP/Azure/on-prem equivalence + invariant patterns), `design-system-tradeoffs.md` (3 architectures + decision matrix), `phase-completion-checklist.md` (automated gate + human-judgment items per phase), `validator-performance.md` (runtime classes, rerun-safety).
+- **F1/F2 closed:** the 2 standalone validators (mermaid, book-structure) now emit telemetry rows; all 45 validators share exit-code semantics and JSON output.
+
+### Changed
+- IMPROVEMENT_BACKLOG.md: 16 items marked DONE/CLOSED with evidence (A4, A5, D1, D3, E3, G3 were already satisfied by v1.0–v1.9 work). Open: A1–A3, B1–B4, C1, C2.
+
 ## [1.9.0] — 2026-06-11
 
 ### Added — telemetry (plan 4.12: tune budgets with data, not guesses)

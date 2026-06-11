@@ -265,4 +265,15 @@ done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
     echo "  (mmdc not installed — static checks only; install @mermaid-js/mermaid-cli for authoritative render validation)"
 } >&2
 
+
+# Telemetry (plan 4.12) — same row shape as _lib.sh validator_exit.
+if [[ "${EXPERTS_TELEMETRY:-1}" != "0" ]]; then
+  {
+    mkdir -p docs/work &&
+    printf '{"ts":"%s","source":"validator","validator":"validate-mermaid","gaps":%d,"exit":%d}\n' \
+      "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$total_errors" "$([[ $total_errors -eq 0 ]] && echo 0 || echo 1)" \
+      >> docs/work/telemetry.jsonl
+  } 2>/dev/null || true
+fi
+
 [[ $total_errors -eq 0 ]]

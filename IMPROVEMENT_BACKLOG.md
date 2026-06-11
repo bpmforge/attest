@@ -32,13 +32,15 @@ Source: Expert system audit + gap analysis
 - Wire `mcp__memory__fact_store` into researcher workflow
 - **Why:** Research findings lost between sessions; each query starts fresh
 
-### A4. Normalize Orchestrator Phase Names [MEDIUM effort, MEDIUM priority]
+### A4. Normalize Orchestrator Phase Names ✅ CLOSED 2026-06-11 — superseded
+- v1.0 micro-agent rearchitecture normalized specialists to the uniform phase1.md→phaseN.md disk-checkpoint pattern; security-auditor differs because it is now a wave coordinator (by design).
 - Files: `agents/test-engineer.md`, `agents/security-auditor.md`, `agents/performance-engineer.md`, `agents/sre-engineer.md`
 - Target: Phase 1 (understand) → Phase 2 (research/scan) → Phase 3 (analyze/design) → Phase 4 (execute/document) → Phase 5 (verify) → Phase 6 (report)
 - Currently inconsistent: understand→research→plan vs. understand→automated-scan→owasp
 - **Why:** Users can't predict what a specialist does
 
-### A5. Standardize Confidence Scoring [SMALL effort, MEDIUM priority]
+### A5. Standardize Confidence Scoring ✅ CLOSED 2026-06-11 — superseded
+- FINDING_SCHEMA.md + FINDINGS_SCHEMA.md standardize tool-anchored confidence across all finding-producing specialists; GATE_SCORING_PROTOCOL.md carries the 1-10 scale for gate decisions.
 - Create `references/confidence-scale.md` with unified 1-10 scale
 - 1-3: speculative | 4-6: verified, needs more | 7-8: high confidence | 9-10: automated verification
 - Update all agents that report findings
@@ -89,7 +91,7 @@ Source: Expert system audit + gap analysis
 
 ## Group C — Missing Validators
 
-### C1. Add Reverse Test Coverage Validator [MEDIUM effort, MEDIUM priority]
+### C1. Add Reverse Test Coverage Validator [MEDIUM effort, MEDIUM priority] — OPEN
 - Create `scripts/validators/validate-tests-reverse-coverage.sh`
 - Logic: enumerate test files → extract UC-NNN from describe/suite names → cross-check USE_CASES.md
 - Fail if: test exists for non-existent UC, or test has no UC context
@@ -103,17 +105,20 @@ Source: Expert system audit + gap analysis
 - Wire into Phase 4 (after implementation) and Phase 5 (release gate)
 - **Why:** OpenAPI drifts from code; users follow a spec that's wrong
 
-### C3. Add Module Boundary Transitivity Validator [MEDIUM effort, MEDIUM priority]
+### C3. Add Module Boundary Transitivity Validator ✅ DONE 2026-06-11 (v1.10.0)
+- `validate-module-boundaries-transitive.sh`: hard gaps for undeclared/contradictory table rows; transitive-cone WARN report for architect/challenger confirmation (plain layering is not an error). Wired into phase-3 gate.
 - Create `scripts/validators/validate-module-boundaries-transitive.sh`
 - Logic: build dependency graph from MODULE_DESIGN.md → compute transitive closure → flag violations
 - Current validator only catches direct violations, not A→B→C(forbidden)
 
-### C4. Add Circular Dependency Detector at Phase 3 [SMALL effort, MEDIUM priority]
+### C4. Add Circular Dependency Detector at Phase 3 ✅ DONE 2026-06-11 (v1.10.0)
+- `validate-circular-deps.sh`: DFS cycle detection on the MODULE_DESIGN.md allowed-import table. Wired into phase-3 gate; tested against planted cycle.
 - Create `scripts/validators/validate-circular-deps.sh`
 - Wire into Phase 3 gate so cycles are caught at design, not implementation
 - Simple graph cycle detection on MODULE_DESIGN.md dependency rules
 
-### C5. Add Observability Spec Validator [SMALL effort, SMALL priority]
+### C5. Add Observability Spec Validator ✅ DONE 2026-06-11 (v1.10.0)
+- `validate-observability.sh`: logging/metrics-methodology/tracing/alerting-conditions/dashboards content checks on OBSERVABILITY.md or INFRASTRUCTURE.md. Wired into phase-3 gate.
 - Create `scripts/validators/validate-observability.sh`
 - Required sections: logging strategy, metrics (RED/USE), distributed tracing, alerting, dashboards
 - Wire into Phase 3 gate
@@ -122,7 +127,8 @@ Source: Expert system audit + gap analysis
 
 ## Group D — Architecture & Structure
 
-### D1. Normalize HANDOFF Format [MEDIUM effort, MEDIUM priority]
+### D1. Normalize HANDOFF Format ✅ CLOSED 2026-06-11 — done by HANDOFF_TEMPLATES.md
+- `agents/shared/HANDOFF_TEMPLATES.md` is the canonical single-source template set; mode files reference it.
 - Create `agents/shared/HANDOFF_FORMAT.md` as canonical template
 - Target:
   ```
@@ -134,17 +140,20 @@ Source: Expert system audit + gap analysis
   ```
 - Update all mode files (init/onboard/feature/improve) to follow template
 
-### D2. Add Phase-File Recovery Mechanism [SMALL effort, SMALL priority]
+### D2. Add Phase-File Recovery Mechanism ✅ DONE 2026-06-11 (v1.10.0)
+- `scripts/recover-phase-state.sh <agent> <slug>` (+ `--list`): commits phase files to git, prints a resume packet. BOUNDED_TASK_CONTRACT Rule 8 documents recovery.
 - Create `scripts/recover-phase-state.sh <agent> <slug>`
 - Auto-commit phase files to git after each phase completes (before returning to orchestrator)
 - Update `agents/shared/BOUNDED_TASK_CONTRACT.md` with recovery section
 
-### D3. Add Lite Mode for Local LLMs [MEDIUM effort, MEDIUM priority]
+### D3. Add Lite Mode for Local LLMs ✅ CLOSED 2026-06-11 — done by different means
+- 24 compact agent variants (dist/compact-agents, install --compact) + tier detection + CONTEXT_BUDGET cover the 32k case.
 - security-auditor (2K lines) and sdlc-init-mode (2.2K lines) exceed 32-64K token limits
 - Add `--lite` flag to: test-engineer, security-auditor, performance-engineer, code-reviewer
 - Lite mode: Phase 1→3→6 only (skip research and detailed report phases), ~40% context reduction
 
-### D4. Add Agent Failure Recovery Protocol [SMALL effort, SMALL priority]
+### D4. Add Agent Failure Recovery Protocol ✅ DONE 2026-06-11 (v1.10.0)
+- BOUNDED_TASK_CONTRACT Rule 8: 3-failures-escalate cap (matches Ralph Wiggum + run-plan G5), phase files committed even on failure, [PARTIAL] completion phrase, RESUME packet semantics.
 - Update `agents/shared/BOUNDED_TASK_CONTRACT.md`
 - Define: 3 failures → escalate to user (no auto-retry)
 - Define: intermediate phase files committed to git even on failure
@@ -154,22 +163,26 @@ Source: Expert system audit + gap analysis
 
 ## Group E — Documentation & Guidance
 
-### E1. Create Multi-Cloud SRE Patterns Guide [SMALL effort, MEDIUM priority]
+### E1. Create Multi-Cloud SRE Patterns Guide ✅ DONE 2026-06-11 (v1.10.0)
+- `references/sre-cloud-patterns.md`: AWS/GCP/Azure/on-prem equivalence table + cloud-invariant patterns + on-prem divergences.
 - Create `references/sre-cloud-patterns.md` (~300 lines)
 - Current SRE agent is AWS-centric; add GCP/Azure/on-prem equivalents
 - Per cloud: CI/CD, secrets management, logging centralization, monitoring, alerting, runbook structure
 
-### E2. Add Design-System Architecture Decision Guide [SMALL effort, SMALL priority]
+### E2. Add Design-System Architecture Decision Guide ✅ DONE 2026-06-11 (v1.10.0)
+- `references/design-system-tradeoffs.md`: 3 architectures, decision matrix, invariant rules.
 - Create `references/design-system-tradeoffs.md` (~150 lines)
 - Decision matrix: team size, time budget, customization needs
 - Compare Tailwind vs Storybook+Figma vs custom component library with trade-offs
 
-### E3. Add Research Tool Usage Guide [SMALL effort, SMALL priority]
+### E3. Add Research Tool Usage Guide ✅ CLOSED 2026-06-11 — done by RESEARCH_TOOLS.md
+- `agents/shared/RESEARCH_TOOLS.md` covers tier selection and per-tool usage.
 - Create `references/research-tool-guide.md` (~150 lines)
 - Flowchart for tier selection: web_search_pullmd → web_research_pullmd → web_research
 - Performance/cost expectations per tier; example workflows per question type
 
-### E4. Add Phase Completion Checklists [SMALL effort, SMALL priority]
+### E4. Add Phase Completion Checklists ✅ DONE 2026-06-11 (v1.10.0)
+- `references/phase-completion-checklist.md`: per-phase automated gate + human-judgment items.
 - Create `references/phase-completion-checklist.md` (~200 lines)
 - Per phase: 5-10 narrative human-judgment items + validator items
 - Helps teams know when to advance to the next phase
@@ -178,16 +191,19 @@ Source: Expert system audit + gap analysis
 
 ## Group F — Validator Hygiene
 
-### F1. Standardize Validator Exit Codes [SMALL effort, SMALL priority]
+### F1. Standardize Validator Exit Codes ✅ DONE 2026-06-11 (v1.10.0)
+- `_lib.sh` standardizes 0/1/2 + JSON envelope (42/45 adopted); the 2 standalone validators (mermaid, book-structure) use the same exit semantics + JSON and now emit telemetry rows.
 - Audit all 40+ validators in `scripts/validators/`
 - Enforce: 0=pass, 1=failures found (fix required), 2=escalate (manual review needed)
 - Update `_lib.sh` with documented exit code semantics
 
-### F2. Enforce JSON Output from All Validators [SMALL effort, SMALL priority]
+### F2. Enforce JSON Output from All Validators ✅ DONE 2026-06-11 (v1.10.0)
+- All validators emit a JSON envelope (via _lib.sh or natively).
 - Audit all validators for consistent JSON envelope
 - Enforce: `{passed: bool, findings: [...], summary: string, exit_code: int}`
 
-### F3. Add Validator Performance Guide [SMALL effort, SMALL priority]
+### F3. Add Validator Performance Guide ✅ DONE 2026-06-11 (v1.10.0)
+- `references/validator-performance.md`: runtime classes, rerun-safety, scoping guidance; telemetry-report for observed numbers.
 - Create `references/validator-performance.md`
 - Per validator: runtime estimate, I/O cost, safe to rerun repeatedly
 
@@ -203,7 +219,8 @@ Source: Expert system audit + gap analysis
 - File: `agents/shared/RALPH_WIGGUM_LOOP.md`
 - Added "Hard cap: 3 iterations" section with escalation block, WHY explanation, agent behavior at cap (2026-05-19)
 
-### G3. Add --dry-run Flag to All Validators [SMALL]
+### G3. Add --dry-run Flag to All Validators ✅ CLOSED 2026-06-11 — obsolete
+- Validators are read-only reporters (only side effect is an optional telemetry row, EXPERTS_TELEMETRY=0 to disable); there is nothing to dry-run.
 - Report findings without writing files
 - ~5-10 lines per validator
 
@@ -228,7 +245,7 @@ Source: Expert system audit + gap analysis
 
 ## Summary
 
-- **Total tasks:** 28
+- **Total tasks:** 28 — **20 closed as of 2026-06-11** (see per-item notes). Open: A1, A2, A3, B1, B2, B3, B4, C1, C2.
 - **Tiny:** 2 | **Small:** 11 | **Medium:** 9 | **Medium-Large:** 1 | **Large:** 2 | **Architecture:** 4
 - **High priority:** A1, B1, B2, C2
 - Groups B, C, E can run in parallel once foundations are done

@@ -106,3 +106,29 @@ Agents producing deliverables under 300 lines (micro-agents, scanners, verifiers
 3. **Confidence score** — overall confidence 1-10 with a one-line reason
 
 A 3-line output that says "no issues found" with no confidence score, no scope statement, and no findings table is not a valid deliverable — a coordinator cannot tell if the agent ran correctly or just gave up.
+
+---
+
+## Rule 8 — Failure and recovery
+
+**Commit phase files even on failure.** Multi-phase specialists write each
+phase's output to `docs/work/<agent>/<task-slug>/phaseN.md` as they go. Those
+files are the recovery state: if the session dies at phase 4, the next session
+reads phase 1–3 from disk instead of redoing them. Run
+`scripts/recover-phase-state.sh <agent> <task-slug>` to commit them to git and
+print a resume packet.
+
+**Three failures → escalate, never loop.** If the same step fails 3 times
+(tool error, validator gap you cannot close, missing input), STOP. Do not
+retry a 4th time and do not silently work around it. Write what you have to
+the Completion Manifest under "Known issues / deferred" with the failure
+detail, print your completion phrase with a `[PARTIAL]` prefix, and stop.
+The orchestrator (or the user) decides: resume from your phase files, fix the
+input, or hand the task to a different agent. This mirrors the Ralph Wiggum
+3-iteration cap and run-plan's checkpoint-then-escalate (G5) — the cap is the
+same everywhere on purpose.
+
+**Resuming a failed HANDOFF.** A resume prompt includes the original HANDOFF
+plus the line `RESUME from: docs/work/<agent>/<task-slug>/` — read the phase
+files there first and continue from the last completed phase. Do not restart
+phase 1.
