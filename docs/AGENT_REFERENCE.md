@@ -163,6 +163,26 @@ One-page summary per agent. For full docs, read the agent file directly.
 **What:** Release coordinator — version, changelog, tag, deploy-gate checklist, doc-count audit.  
 **When to use:** Cutting a release; prevents version-metadata drift.
 
+### cost-engineer
+**What:** Cloud + LLM spend analysis — right-sizing from observed p95, commitments, unit economics. Every recommendation in $/month.
+**When to use:** Before scaling decisions, after bill shock, or when cost-per-user is unknown. `/cost`
+
+### analytics-architect
+**What:** Telemetry design — RED/USE/golden signals, event taxonomy, OBSERVABILITY.md, dashboards from SLOs.
+**When to use:** Phase 3 design, or when nobody can answer "is it working in prod?" `/analytics`
+
+### a11y-compliance
+**What:** WCAG 2.2 AA/AAA audit — axe/Lighthouse plus the manual checklist; every finding cites criterion + file:line. EAA/508 applicability.
+**When to use:** After UX design (audit the spec) and after implementation (audit the DOM). `/a11y`
+
+### data-steward
+**What:** PII classification, GDPR/CCPA/PIPEDA obligations, retention schedules, erasure paths, processor inventory.
+**When to use:** Phase 3 (classify the schema before it ships) and any feature touching personal data. `/data-governance`
+
+### reliability-engineer
+**What:** Load testing + resilience — failure-mode matrix, k6/Locust plans from NFR numbers, retry budgets, circuit breakers, chaos scenarios.
+**When to use:** Phase 3 resilience design and before launch/scaling events. `/reliability`
+
 ### Game-dev cluster (`agents/game/`)
 Activated by `/sdlc init "<name>" "<desc>" --game`:
 - **game-designer** — GDD, core loop, pillars, vertical-slice scoping

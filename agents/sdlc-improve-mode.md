@@ -83,7 +83,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 | Step | What happens | Key HANDOFF | Output |
 |------|-------------|-------------|--------|
 | 1 | Discovery interview | (conversation) | docs/IMPROVE_CONTEXT.md |
-| 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer | Audit reports per specialist |
+| 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer (+ on-demand: a11y-compliance, data-steward, reliability-engineer, cost-engineer, analytics-architect) | Audit reports per specialist |
 | 3 | Synthesis | (direct write) | IMPROVEMENT_BACKLOG.md |
 | 4 | Prioritize with user | (conversation) | Approved backlog |
 | 5 | Fix execution waves | coding-agent (per priority tier) | Code fixes |
@@ -255,6 +255,17 @@ How would you like to run them?
 **If [P] Parallel:** Emit ALL audit HANDOFFs in one message. User opens N OpenCode sessions simultaneously. Wait for ALL completion phrases before proceeding to Step 3 synthesis. Do NOT emit partial sets.
 
 **If [S] Sequential:** Run audits one at a time in this order: Security → Code Quality → Performance → Database → UX. Wait for each completion phrase before the next HANDOFF.
+
+**On-demand specialists (add to the fan-out when the focus or codebase calls for them):**
+| Trigger | Specialist |
+|---|---|
+| UI-bearing project, or focus mentions accessibility/compliance | a11y-compliance (`--audit`) |
+| Schema holds personal data, or focus mentions privacy/GDPR | data-steward (`--audit`) |
+| Focus mentions stability/outages/scale, or launch is near | reliability-engineer (`--design` review) |
+| Focus mentions spend/bills, or cloud footprint is non-trivial | cost-engineer (`--audit`) |
+| Team cannot answer "is it working in prod?" | analytics-architect (`--spec`) |
+
+Each follows the same HANDOFF shape as the UX audit below (CONTEXT: BOUNDED_TASK_CONTRACT + their Input Contract files; PRODUCE: their audit doc in docs/improve/ or docs/reviews/; wait for their Print line).
 
 ### UX Audit (if in scope)
 

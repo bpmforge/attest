@@ -306,6 +306,59 @@ Component tokens (specific to a component):
 - 3 migrated components as examples
 - `docs/design/DESIGN_SYSTEM.md` — token inventory, naming convention, migration guide
 
+### Architecture choice (before building)
+
+Three viable design-system architectures exist — utility CSS + headless
+components, full component library, custom system. Do NOT default to one:
+read `references/design-system-tradeoffs.md` and pick via its decision matrix
+(team size, time budget, customization needs). Record the choice and the
+losing options as an ADR. If the project already has an architecture,
+changing it is out of scope — flag, don't migrate uninvited.
+
+### Design-System Governance (goes in DESIGN_SYSTEM.md)
+
+A token file without governance rots in a quarter. DESIGN_SYSTEM.md must
+include a Governance section:
+
+- **Token naming contract** — the `primitive → semantic → component` layers
+  above, plus the rule that components reference SEMANTIC tokens only
+  (primitives are private to the token file; component tokens are private to
+  their component).
+- **Breaking-change policy** — renaming or removing a token is a breaking
+  change: deprecate first (old name aliases new for one release), grep-count
+  consumers, migrate, then delete. Never silently change a semantic token's
+  meaning ("--color-primary is now red") — that's a rebrand, it gets a design
+  review.
+- **Change ownership** — who approves new tokens (default: one named owner,
+  not a committee), and the rule that a PR adding a hardcoded value where a
+  token exists is rejected (the design-system validator enforces this).
+- **Migration paths** — every deprecation lists its codemod or sed command in
+  DESIGN_SYSTEM.md; "update at your leisure" migrations never finish.
+
+### Component Library Patterns (when the project has a components/ dir)
+
+- **Composition over configuration** — prefer `<Card><CardHeader/></Card>`
+  slots to a 14-prop `<Card>`; props explode combinatorially, slots don't.
+- **Variants via a variant utility** (cva or equivalent pattern): named
+  variants (`intent: primary|danger`, `size: sm|md|lg`) over boolean soup
+  (`isLarge isPrimary isOutline`).
+- **One story/demo per component** — if Storybook exists, every ui/ component
+  gets a CSF story showing all variants; if not, DESIGN_SYSTEM.md usage
+  examples serve the same role. A component with no rendered example is
+  unreviewable.
+- **Index-only exports** — consumers import from `components/ui`, never from
+  a component's internals (mirrors the module-boundary rule).
+
+### Token Generation & Sync (when Figma/design tooling exists)
+
+- If the team designs in Figma with Tokens Studio (or variables), the token
+  source of truth is the EXPORT (tokens.json) — the CSS/Tailwind layer is
+  GENERATED from it (Style Dictionary or equivalent). Never hand-edit both.
+- No design tooling → the token file IS the source of truth; say so in
+  DESIGN_SYSTEM.md so a future Figma adoption knows which direction syncs.
+- Either way: one direction, stated explicitly. Two-way "sync" is how tokens
+  fork.
+
 ---
 
 ## Framework Detection

@@ -379,7 +379,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**26 skills total** (includes `/guide` — the concierge front door).
+**31 skills total** (includes `/guide` — the concierge front door).
 
 ---
 

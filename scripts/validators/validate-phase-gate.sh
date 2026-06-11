@@ -80,6 +80,8 @@ case "$PHASE" in
       "validate-module-boundaries-transitive.sh"
       "validate-infrastructure.sh"
       "validate-observability.sh"
+      "validate-data-governance.sh"
+      "validate-resilience-patterns.sh"
       "validate-architecture.sh"
       "validate-api-coverage.sh"
       "validate-sequence-coverage.sh"
@@ -124,8 +126,8 @@ case "$PHASE" in
     )
     # UI-bearing: validate design system was implemented
     if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
-      note "UI-bearing project detected — adding validate-design-system.sh to phase-4 gate"
-      GATE_VALIDATORS+=("validate-design-system.sh")
+      note "UI-bearing project detected — adding validate-design-system.sh + validate-wcag-coverage.sh to phase-4 gate"
+      GATE_VALIDATORS+=("validate-design-system.sh" "validate-wcag-coverage.sh")
     fi
     ;;
   phase-5)
