@@ -13,6 +13,7 @@ but never written down. This skill fixes that.
 - `/steward` — Full audit: check docs vs code, surface drift, update
 - `/steward capture` — Capture learnings from this session into project docs
 - `/steward audit` — Audit-only: report drift without fixing
+- `/steward distill` — Per-release distillation loop: review telemetry + eval data, update rubrics/exemplars/prompts
 
 ## How It Works
 
@@ -80,6 +81,58 @@ Run audit, then apply fixes:
 3. Remove stale references
 4. Add session learnings
 5. Commit the updates
+
+### `/steward distill` — The Distillation Loop (per release)
+
+Compress operational experience into the prompt corpus — what training does
+for weights, done for protocol files. Frequently-needed knowledge graduates
+into prompts/exemplars where it costs zero recall calls forever; chronic
+failure patterns become rubric rules. Run once per release (release-manager
+step 9 reminds you), on a cloud-tier model.
+
+```
+▶ Phase 1: Gather the evidence
+```
+1. `npm run telemetry:report` (or `node scripts/telemetry-report.mjs --days 30`) —
+   token/duration distributions per agent×model, retry + escalation rates,
+   validator gap rates. No data → say so and stop; the loop needs evidence.
+2. Read `docs/work/EVAL_RESULTS.json` (latest eval run) and, if present,
+   recent `docs/reviews/VERIFY_*.md` / challenger verdicts — where did
+   verifiers reject specialist output, and why?
+
+```
+▶ Phase 2: Diagnose (per agent, worst offenders first)
+```
+3. For each agent with a bad signal (high retry rate, escalations, eval FAILs,
+   repeated verifier rejections), classify the failure:
+   - **Format failures** → the exemplar is missing or weak → update/replace
+     the matching `exemplars/` file (keep the cross-domain rule)
+   - **Judgment failures** (wrong severity, missed category) → tighten the
+     rubric: FINDING_SCHEMA / FINDINGS_SCHEMA calibration tables, or the
+     agent's Hard rules
+   - **Budget failures** (truncation, timeout, escalation to bigger tier) →
+     adjust CONTEXT_BUDGET tier rows / run-plan TIMEOUTS / `tier_needed`
+     guidance — from the observed p95s, not guesses
+   - **Recurring identical verifier feedback** → that sentence belongs IN the
+     agent prompt; add it and note "distilled from <evidence> on <date>"
+
+```
+▶ Phase 3: Apply + verify
+```
+4. Make the edits in the CANONICAL repo (bpm-opencode-experts), one commit per
+   agent touched, each commit message citing the evidence row.
+5. Re-run `npm run evals` (deterministic) — protocol edits must not regress
+   the golden tasks. If agent-mode eval data motivated a change, re-run that
+   fixture with `--agent` to confirm the fix.
+6. `npm run build:claude` + standard release flow.
+
+**Distill rules:**
+- Evidence in, opinion out — every change cites a telemetry row, eval result,
+  or verifier verdict. No evidence, no edit.
+- Small batches — ≤5 distilled changes per release; measure before more.
+- Exemplars stay cross-domain (`exemplars/README.md` rule 2) when updated.
+- The loop also PRUNES: a prompt rule that telemetry shows never fires (zero
+  related failures across releases) is a token tax — flag it for removal.
 
 **Rules:**
 - Never delete information — mark stale content as `(archived)` or move to a `## Historical` section

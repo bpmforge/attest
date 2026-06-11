@@ -116,8 +116,31 @@ web_fetch("https://chosen-url", relevance_query="X Y")      → single known URL
 
 **`relevance_query` — important.** All extraction is paragraph-ranked: instead of returning the first N chars, the pipeline scores each paragraph by BM25 and packs the highest-scoring into `max_chars_per_source`. Pass a narrower `relevance_query` for broad search but tight extraction, e.g. `web_research_pullmd(query="rust async runtimes 2026", relevance_query="tokio scheduler model")`.
 
-**Persistence (close the research → memory loop):**
-After completing a research task, store key findings via the memory MCP registered in this project (`mempalace` or `bpm-memory-mcp`). Always include the source URL so future sessions can cite back.
+**Fact Bank integration (close the research → memory loop):**
+When the memory MCP is available, durable findings go into the Fact Bank —
+not the generic memory store. One `fact_store` call per load-bearing claim:
+
+```
+fact_store({
+  claim: "One specific, falsifiable statement",
+  directQuote: "the exact supporting text from the source",
+  sourceUrl: "https://...", sourceTitle: "page title",
+  sourceType: "official_docs",   // official_docs | engineering_blog | academic | news | forum | unknown
+  confidence: 0.8,               // by source type — see ladder below
+  domainTags: ["rust", "async"], // so future queries can filter
+  staleAfterDays: 90             // omit only for evergreen facts
+})
+```
+
+Rules:
+- **Store claims, not summaries.** One fact = one falsifiable statement with its quote. A paragraph is not a fact.
+- **Source-type credibility ladder** sets initial confidence: official docs/RFC/spec 0.9 · academic 0.8 · engineering blog 0.7 · news 0.5 · forum (HN/Reddit/SO) 0.4 · unknown 0.3. Corroboration raises it; never start a forum claim above 0.5.
+- **Perishable facts get `staleAfterDays`** (versions, prices, benchmarks, model IDs: 30-90d). Evergreen concepts omit it.
+- **Query before you search:** at task start, `fact_query({ query: "<topic>", includeContradictions: true })` — prior sessions' verified facts are free; re-deriving them is the waste this exists to prevent.
+- **Contradiction handling:** if a new finding contradicts a stored fact or another source, do NOT silently pick one. Store both with their quotes, list the conflict under "Conflicts / unverified claims" in the report, and surface it to the user with both citations — the user (or a higher-credibility source) breaks the tie.
+- Store facts as you complete each question's checkpoint, not in a batch at the end (a dead session loses nothing).
+
+If the memory MCP is unavailable, the checkpoint files are the fallback — skip silently.
 
 **Tool notes:**
 - All five tools work with any model — local or cloud, no provider-specific APIs
