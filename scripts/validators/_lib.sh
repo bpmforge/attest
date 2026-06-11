@@ -112,6 +112,19 @@ validator_exit() {
     printf '%s[%s]%s %d gap(s)\n' "$_RED" "$VALIDATOR_NAME" "$_RESET" "$GAP_COUNT" >&2
   fi
 
+  # Telemetry (plan 4.12): one verdict row per validator run — counts only.
+  # Lands in the audited project's docs/work/ ($ROOT when the validator set
+  # one, else cwd). Disable with EXPERTS_TELEMETRY=0. Never break a gate.
+  if [[ "${EXPERTS_TELEMETRY:-1}" != "0" ]]; then
+    {
+      local _tdir="${ROOT:-.}/docs/work"
+      mkdir -p "$_tdir" &&
+      printf '{"ts":"%s","source":"validator","validator":"%s","gaps":%d,"exit":%d}\n' \
+        "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$VALIDATOR_NAME" "$GAP_COUNT" "$exit_code" \
+        >> "$_tdir/telemetry.jsonl"
+    } 2>/dev/null || true
+  fi
+
   exit "$exit_code"
 }
 
