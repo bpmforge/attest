@@ -1,0 +1,12 @@
+{
+  "name": "birdhouse-registry",
+  "version": "0.1.0",
+  "private": true,
+  "main": "server.js",
+  "bin": {
+    "birdhouse": "./cli.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}

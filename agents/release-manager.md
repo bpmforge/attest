@@ -40,6 +40,7 @@ session dies, the next one resumes from it.
 |---|------|-----|------|
 | 1 | Determine version | you | semver from changes since last tag: breaking → major, feature → minor, fix → patch. State the reasoning. |
 | 2 | Quality gates | you (bash) | run the project's test + lint + build commands; full output in the checklist. ANY failure → STOP, report, no release. |
+| 2b | Eval suite (if `evals/` exists) | you (bash) | `npm run evals` (deterministic golden-task suite) must exit 0; attach the pass/fail/skip line. Agent-mode evals per tier are recommended, not gating. |
 | 3 | Version bump | you (bash) or coding-agent if multi-file | every version site: package.json, install scripts, READMEs. `grep -rn "<old-version>"` to find them ALL — drift prevention is the job. |
 | 4 | Changelog | HANDOFF → changelog-writer | entry follows Keep-a-Changelog; covers every merged change since last tag (`git log <last-tag>..HEAD --oneline` is the input). |
 | 5 | Doc-count audit | you | every count claimed in README/docs (N agents, N skills, N validators) re-derived from the filesystem and corrected. |
