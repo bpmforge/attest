@@ -7,7 +7,8 @@ Source: Expert system audit + gap analysis
 
 ## Group A — Agent Content Quality
 
-### A1. Add Cost Optimization Agent [MEDIUM effort, HIGH priority]
+### A1. Add Cost Optimization Agent ✅ DONE 2026-06-11 (v1.12.0)
+- `agents/cost-engineer.md` + `skills/cost` + `references/cloud-cost-checklist.md`; wired into guide routing + improve-mode on-demand roster.
 - Create `agents/cost-engineer.md` (~400 lines)
 - Create `skills/cost/SKILL.md`
 - Create `references/cloud-cost-checklist.md`
@@ -16,7 +17,8 @@ Source: Expert system audit + gap analysis
 - Add to Mode 4 (improve) specialist roster
 - **Why:** Cloud costs invisible in current system; teams lose 20-40% on compute
 
-### A2. Deepen frontend-design Agent [MEDIUM effort, MEDIUM priority]
+### A2. Deepen frontend-design Agent ✅ DONE 2026-06-11 (v1.12.0)
+- Mode 3 extended: architecture choice via references/design-system-tradeoffs.md decision matrix (ADR-recorded), Design-System Governance (naming contract, breaking-change policy, ownership, migration paths), Component Library Patterns (composition>configuration, cva variants, story-per-component, index-only exports), Token Generation & Sync (one-direction rule).
 - File: `agents/frontend-design.md` (expand from 372 → ~600 lines)
 - Add: "Design-System Governance" section (token naming, breaking-change policy, migration paths)
 - Add: "Component Library Patterns" section (Storybook, CSF format, composition rules)
@@ -24,7 +26,8 @@ Source: Expert system audit + gap analysis
 - Add: Decision matrix — Tailwind vs Storybook vs custom component library
 - **Why:** Teams reinvent design-system architecture per project
 
-### A3. Wire researcher to fact persistence [MEDIUM effort, MEDIUM priority]
+### A3. Wire researcher to fact persistence ✅ DONE 2026-06-11 (v1.12.0)
+- Fact Bank integration in researcher.md: fact_store per claim (verified MCP signature), source-type credibility ladder (0.9 docs → 0.4 forum), staleAfterDays for perishables, fact_query-before-search, contradiction handling (store both + surface, never silently pick).
 - File: `agents/researcher.md`
 - Add: "Fact Bank Integration" — source type tags (official_docs / engineering_blog / academic / news / forum), confidence decay
 - Add: "Source Evaluation Rules" — per-domain credibility (RFC > blog > HN > Reddit)
@@ -50,7 +53,8 @@ Source: Expert system audit + gap analysis
 
 ## Group B — Missing Specialist Agents
 
-### B1. Add Accessibility & Compliance Agent [LARGE effort, HIGH priority]
+### B1. Add Accessibility & Compliance Agent ✅ DONE 2026-06-11 (v1.12.0)
+- `agents/a11y-compliance.md` + `skills/a11y` + `references/wcag-audit-checklist.md` (incl. WCAG 2.2 new criteria) + `validate-wcag-coverage.sh` (wired into UI-bearing phase-4 gate; tested 3 directions).
 - Create `agents/a11y-compliance.md` (~600 lines)
 - Create `skills/a11y/SKILL.md`
 - Create `references/wcag-audit-checklist.md`
@@ -59,7 +63,8 @@ Source: Expert system audit + gap analysis
 - Wire into Mode 4 roster; call after UX design, before frontend-design
 - **Why:** WCAG non-compliance is legal liability; no systematic approach currently
 
-### B2. Add Data Governance Agent [LARGE effort, HIGH priority]
+### B2. Add Data Governance Agent ✅ DONE 2026-06-11 (v1.12.0)
+- `agents/data-steward.md` + `skills/data-governance` + `references/data-classification-checklist.md` + `validate-data-governance.sh` (wired into phase-3 gate; tested 5 cases incl. likely-PII-without-governance-doc and indefinite-retention).
 - Create `agents/data-steward.md` (~600 lines)
 - Create `skills/data-governance/SKILL.md`
 - Create `references/data-classification-checklist.md`
@@ -68,7 +73,8 @@ Source: Expert system audit + gap analysis
 - Wire into Mode 1 Phase 3 + Phase 4; Mode 4 roster
 - **Why:** PII/GDPR handling entirely absent from current system
 
-### B3. Add Load Testing & Reliability Agent [MEDIUM-LARGE effort, MEDIUM priority]
+### B3. Add Load Testing & Reliability Agent ✅ DONE 2026-06-11 (v1.12.0)
+- `agents/reliability-engineer.md` + `skills/reliability` + `references/load-test-checklist.md` + `validate-resilience-patterns.sh` (wired into phase-3 gate; tested 4 cases incl. retry-without-budget).
 - Create `agents/reliability-engineer.md` (~500 lines)
 - Create `skills/reliability/SKILL.md`
 - Create `references/load-test-checklist.md`
@@ -78,7 +84,8 @@ Source: Expert system audit + gap analysis
 - Wire into Mode 1 Phase 3 (design NFR mapping); Mode 4 roster
 - **Why:** perf-engineer focuses on optimization not degradation
 
-### B4. Add Analytics & Instrumentation Agent [MEDIUM effort, MEDIUM priority]
+### B4. Add Analytics & Instrumentation Agent ✅ DONE 2026-06-11 (v1.12.0)
+- `agents/analytics-architect.md` + `skills/analytics` + `references/observability-checklist.md`; output contract keyed to validate-observability.sh checks.
 - Create `agents/analytics-architect.md` (~450 lines)
 - Create `skills/analytics/SKILL.md`
 - Create `references/observability-checklist.md`
@@ -247,7 +254,7 @@ Source: Expert system audit + gap analysis
 
 ## Summary
 
-- **Total tasks:** 28 — **20 closed as of 2026-06-11** (see per-item notes). Open: A1, A2, A3, B1, B2, B3, B4.
+- **Total tasks:** 28 — **ALL 28 CLOSED as of 2026-06-11** (v1.10.0–v1.12.0; see per-item notes). Backlog: ZERO.
 - **Tiny:** 2 | **Small:** 11 | **Medium:** 9 | **Medium-Large:** 1 | **Large:** 2 | **Architecture:** 4
 - **High priority:** A1, B1, B2, C2
 - Groups B, C, E can run in parallel once foundations are done

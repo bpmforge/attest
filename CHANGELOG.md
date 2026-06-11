@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.12.0] — 2026-06-11
+
+### Added — backlog waves 3+4: IMPROVEMENT BACKLOG AT ZERO (28/28 closed) + evolution plan complete
+- **5 new specialist experts** (each: primary agent + skill + reference, shared blocks byte-identical to the canonical template):
+  - `cost-engineer` (`/cost`) — cloud + LLM spend: audit/right-size/unit-economics; every recommendation in $/month; commitments only after 3-month baselines. + `references/cloud-cost-checklist.md`.
+  - `analytics-architect` (`/analytics`) — RED/USE/golden-signals telemetry design, event taxonomy, dashboards from SLOs; output contract keyed to validate-observability.sh. + `references/observability-checklist.md`.
+  - `a11y-compliance` (`/a11y`) — WCAG 2.2 AA/AAA audits (incl. 2.2's new criteria), EAA/508 applicability, criterion+file:line on every finding. + `references/wcag-audit-checklist.md` + `validate-wcag-coverage.sh` (UI-bearing phase-4 gate).
+  - `data-steward` (`/data-governance`) — full-schema PII classification, GDPR/CCPA/PIPEDA, retention with triggers (never "indefinite"), erasure as designed features. + `references/data-classification-checklist.md` + `validate-data-governance.sh` (phase-3 gate).
+  - `reliability-engineer` (`/reliability`) — NFR-derived load tests (to breaking point, not target), per-dependency failure behavior, retry budgets, runnable chaos scenarios. + `references/load-test-checklist.md` + `validate-resilience-patterns.sh` (phase-3 gate).
+- **`/steward distill` (evolution plan 4.9)** — the per-release distillation loop: telemetry-report + eval results + verifier verdicts → classified failures (format→exemplar, judgment→rubric, budget→tier tables, recurring feedback→prompt) → evidence-cited edits, ≤5 per release, evals re-run as the regression gate. Release-manager step 9 reminds. The evolution plan is now FULLY executed.
+- **frontend-design deepened (A2):** design-system governance (breaking-change policy, ownership, migration paths), component-library patterns (composition>configuration, variant utilities, story-per-component), token generation/sync (one-direction rule), architecture choice via the trade-offs decision matrix.
+- **researcher Fact Bank wiring (A3):** fact_store per claim with source-type credibility ladder (0.9 official docs → 0.4 forum), staleAfterDays on perishables, fact_query-before-search, contradiction handling (store both, surface, never silently pick).
+- Routing wired everywhere: guide table (5 new rows), improve-mode on-demand specialist roster, AGENT_REFERENCE.md. Counts: 39 primary + 31 cluster agents, 31 skills, 48 validators.
+
 ## [1.11.0] — 2026-06-11
 
 ### Added — backlog wave 2 (C1 + C2 closed; backlog now 7 open of 28)

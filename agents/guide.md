@@ -55,6 +55,11 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Cut a release (version, changelog, tag, push) | release-manager | dispatch `release-manager` |
 | Research a decision / compare options | researcher | `/research` |
 | Design an LLM feature (prompts, evals, routing) | llm-integration-engineer | dispatch `llm-integration-engineer` |
+| Cut cloud/LLM spend, right-size, unit economics | cost-engineer | `/cost` |
+| Decide what to measure (metrics, events, dashboards) | analytics-architect | `/analytics` |
+| WCAG / accessibility / EAA-508 compliance audit | a11y-compliance | `/a11y` |
+| Classify PII, GDPR/CCPA, retention, erasure paths | data-steward | `/data-governance` |
+| Load tests, chaos scenarios, "what breaks under stress" | reliability-engineer | `/reliability` |
 | Build a game | game cluster | `/sdlc init <name> "<desc>" --game` |
 | Break a big/vague task into runnable steps | task-decomposer | dispatch `task-decomposer` → run with `scripts/run-plan.mjs` |
 | Just explore "what's wrong with this?" broadly | start with `/sdlc improve` | it fans out to all audit specialists |
