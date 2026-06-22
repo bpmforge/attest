@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.13.0] — 2026-06-22
+
+### Added — loop engineering: micro-agents with macro + micro loops
+- **`docs/LOOP_ENGINEERING_PLAYBOOK.md`** — synthesizes the loop-engineering canon (Addy Osmani, Sabrina Ramonov) + Boris Cherny/Cat Wu's Claude Code design against our HANDOFF + Ralph-Wiggum machinery, with a capability matrix (opencode vs Claude Code), an honest gap analysis, and the Foreman reconciliation. Primary sources fetched and adversarially verified (an independent Challenger caught two over-reports, both fixed before merge).
+- **`agents/shared/MICRO_LOOP.md`** + a load-bearing micro-loop instruction injected into all **27 micro-agents** (security ×9, code-review ×8, performance ×6, onboard ×4): each specialist now runs a bounded `criterion → produce → self-verify → revise (≤2) → return` loop before its completion phrase, inside the macro coverage/fix loops. Same five guarantees at both levels.
+- **G1 independent verifier (Cherny: makers over-report):** `detect-model-context.sh` now emits `maker_model` / `verifier_model` / `verifier_independent` (anthropic→haiku, google→flash-lite, openai→4o-mini, local→classification tier; `VERIFIER_MODEL` override). `MODEL_ADAPTER.md` § Maker/Verifier split; referenced by GATE_SCORING Step 3 + FIX_VERIFY Step 4.
+- **G2 no-progress kill:** `run-coverage-loop.sh` gap-checksum stall detection → **exit 3** when the gap set is byte-identical to the prior iteration (halts instead of burning the cap).
+- **G3 auto-correction:** new `scripts/loop-learn.mjs` records `{symptom, cause, rule}` to `docs/work/LESSONS.md` (+ optional CLAUDE.md) and emits a `memory_store` payload; wired into Ralph-Wiggum + Fix-Verify escalation blocks.
+- **G7 refuse-to-loop, now script-enforced:** new `scripts/validators/validate-loop-readiness.sh` fails any inventory row whose Artifact names no checkable success criterion ("improve the UX"), passing validator/test/measurable-target rows. Wired into the Ralph-Wiggum refuse-to-loop gate.
+
+### Notes
+- `EXECUTOR_SELECTION.md` records opencode #20059 (custom subagents) CLOSED; #16491 (MCP in subagents) remains the live blocker for native dispatch.
+- Counts: 39 primary agents, 31 skills, **53 validators** (+ loop-readiness), 7 exemplars. 88 tests pass; `build:claude` in sync.
+
 ## [1.12.0] — 2026-06-11
 
 ### Added — backlog waves 3+4: IMPROVEMENT BACKLOG AT ZERO (28/28 closed) + evolution plan complete
