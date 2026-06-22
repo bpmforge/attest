@@ -13,10 +13,10 @@ Named for the fictional character who repeats himself until he gets it right. Re
 As of v0.20.0, this loop is **universal** — it runs in every mode whenever validators report gaps, not just `--deep`. The orchestrator wrapper is `./scripts/validators/run-coverage-loop.sh <phase>`, which:
 
 1. Runs `validate-phase-gate.sh <phase>`
-2. Records iteration result to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
-3. Exits 0 (clean), 1 (gaps remain — iterate), or 2 (3 iterations exhausted — escalate)
+2. Records iteration result + a gap checksum to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
+3. Exits **0** (clean), **1** (gaps remain — iterate), **2** (cap exhausted — escalate), or **3** (no-progress halt — the gap set is byte-identical to the previous iteration, so iterating again is futile — escalate immediately)
 
-The orchestrator iterates manually: read the gap list, emit one gap-fill HANDOFF per uncovered row, then re-run the script. After 3 iterations, the wrapper exits 2 and the orchestrator must emit the escalation block (waiver / lower-bar / specialist / manual).
+The orchestrator iterates manually: read the gap list, emit one gap-fill HANDOFF per uncovered row, then re-run the script. On exit 2 **or** exit 3 the orchestrator must emit the escalation block (waiver / lower-bar / specialist / manual) — exit 3 just means stop early instead of burning the remaining iterations on the same stuck rows.
 
 Modes that USE the loop:
 - `/sdlc init` Phase 3 (design coverage) and Phase 4 (implementation coverage)
@@ -84,6 +84,17 @@ Produce an inventory file that enumerates every unit requiring coverage. Format:
 | `validate-build.sh` / `validate-tests.sh` / `validate-lint.sh` / `validate-smoke.sh` / `validate-deps.sh` | Operational checks — actually execute build/test/lint/smoke/audit |
 
 The inventory is produced by one focused HANDOFF. The agent discovers the units from the actual codebase (or spec, or rule set) -- NOT from memory or guessing.
+
+### Refuse-to-loop gate (every row needs a checkable "done")
+
+**Loop-engineering rule (Osmani's "loopmaxxing" failure mode):** a loop with no binary pass/fail has no stopping condition — it just converts budget into burn. So **every inventory row's `Artifact` must name a checkable success criterion** — a validator script, a test, a file-existence check, a runtime smoke. Before DISCOVER:
+
+- If a row has a validator/scriptable check → it enters the loop normally.
+- If a row's "done" is **subjective** (e.g. "improve the UX", "make the copy punchier") with no script and no measurable target → **do not loop on it.** Flag it `BLOCKED: no checkable success` and route it to a human or an interactive session. Looping cannot converge on a goal it cannot evaluate.
+
+The validator catalog below is the menu of checkable criteria; a row that maps to none of them, and to no project test, is a refuse-to-loop row.
+
+**Enforced, not advisory:** run `scripts/validators/validate-loop-readiness.sh [project-root]` on the inventory **before DISCOVER**. It parses the Artifact column and exits 1 with a gap list for every row whose artifact is not objectively checkable ("improve the UX", "make it nicer"). Fix those rows (give them a validator/test/measurable target) or mark them `BLOCKED: no checkable success` and route to a human — do not enter the loop with them.
 
 ---
 
@@ -219,7 +230,16 @@ Emit the chosen option as your next HANDOFF. Do not loop again.
 enough to detect systemic gaps. If gaps persist after three passes, the problem is structural —
 fix the inventory, the validator, or the gap-fill strategy, not iterate again.
 
-**Agent behaviour at cap:**
+**Agent behaviour at cap (or on exit-3 no-progress halt):**
 - Record the gap list to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
+- **Capture the lesson** so the same stall is not repeated next week (Cherny's "write it down, don't re-prompt"):
+  ```
+  node scripts/loop-learn.mjs \
+    --symptom "<phase> stuck: <which rows, what gap>" \
+    --cause   "<why the gap-fill HANDOFFs didn't close it>" \
+    --rule    "<what to do differently — fix inventory / validator / strategy>" \
+    --source  "ralph-wiggum:<phase>" --claude
+  ```
+  Pass the printed `memory_store` payload to the memory MCP. `/steward` later distills `docs/work/LESSONS.md` into the canonical docs.
 - Emit the escalation block above as the assistant's next message
 - Await human input or proceed with option A/B/C/D as appropriate to the project's autonomy level

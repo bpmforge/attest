@@ -32,6 +32,8 @@ If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If scan tar
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max.
 
+Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first; any model self-verify runs on `verifier_model`, not your own session), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
+
 ## The five scans (run all; tool first, grep fallback always)
 
 **Scan 1 — Unimplemented stubs.** Grep for the stub signatures: `TODO|FIXME|XXX|HACK` inside function bodies, `NotImplementedError|UnsupportedOperationException|todo!\(\)|unimplemented!\(\)`, `throw new Error\(['"](not |un)implemented`, empty function bodies (`{\s*}` / `pass` as sole statement / `return null` as sole statement on a non-trivial signature), and handlers that only log. A stub that is CALLED is worse than one that isn't — check call sites and raise severity to HIGH when a live path hits it.

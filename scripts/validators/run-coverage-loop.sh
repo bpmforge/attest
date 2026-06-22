@@ -113,6 +113,17 @@ if [[ -n "$JSON_LINE" ]]; then
   GAPS="${GAPS:-0}"
 fi
 
+# Gap-checksum stall detection (no-progress kill) — loop-engineering guardrail.
+# Iteration count alone can't tell "making progress" from "spinning". We checksum
+# the exact gap set; if it is byte-identical to the previous iteration, the loop
+# is not converging — halt early (exit 3) rather than burning the rest of the cap.
+# Read the PREVIOUS iteration's checksum BEFORE we append this one.
+PREV_CKSUM=$(grep -E '^<!-- gap-cksum: ' "$LOOP_FILE" 2>/dev/null | tail -1 | sed -nE 's/^<!-- gap-cksum: ([a-f0-9]+).*/\1/p' || true)
+CKSUM=""
+if [[ "$GAPS" -gt 0 && -n "$JSON_LINE" ]]; then
+  CKSUM=$(printf '%s' "$JSON_LINE" | { md5 2>/dev/null || md5sum; } | awk '{print $NF}')
+fi
+
 # Append iteration to loop file
 {
   echo ""
@@ -141,10 +152,23 @@ fi
   fi
 } >> "$LOOP_FILE"
 
+# Record this iteration's gap checksum so the NEXT run can detect no-progress.
+[[ -n "$CKSUM" ]] && echo "<!-- gap-cksum: ${CKSUM} iter=${ITER} -->" >> "$LOOP_FILE"
+
 # Decide exit code
 if [[ "$GAPS" -eq 0 ]]; then
   echo "[run-coverage-loop] ${PHASE} CLEAN at iteration ${ITER} -- see ${LOOP_FILE#"$ROOT/"}"
   exit 0
+fi
+
+# No-progress kill: identical gap set two iterations running (and not the first
+# pass) means the gap-fill HANDOFFs are not moving the needle. Halt now.
+if [[ "$ITER" -gt 1 && -n "$CKSUM" && "$CKSUM" == "$PREV_CKSUM" ]]; then
+  echo "[run-coverage-loop] ${PHASE} NO-PROGRESS HALT (gap set unchanged since iteration $((ITER-1)), ${GAPS} gap(s) remain)"
+  echo "  loop file: ${LOOP_FILE#"$ROOT/"}"
+  echo "  the same rows keep failing — the inventory, validator, or gap-fill strategy is wrong."
+  echo "  emit the escalation block from agents/shared/RALPH_WIGGUM_LOOP.md (do NOT iterate again)."
+  exit 3
 fi
 
 if [[ "$ITER" -ge "$CAP" ]]; then

@@ -29,6 +29,8 @@ If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If scan tar
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max.
 
+Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first; any model self-verify runs on `verifier_model`, not your own session), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
+
 **CRITICAL semgrep rules (from OWASP_METHODOLOGY.md):**
 - NEVER invoke `semgrep` directly — always use `scripts/semgrep-full-audit.sh`
 - NEVER append `|| true` to scan commands — a silent error is a false clean
