@@ -80,6 +80,36 @@ Context is not a constraint. Focus on quality.
 
 ---
 
+## Maker / Verifier split — independent verification
+
+**Loop-engineering principle (Boris Cherny):** *"a model that wrote the code and is asked whether the code is correct consistently over-reports success."* The model that **verifies** an artifact must be a **different instance** from the model that **made** it — ideally a faster/cheaper tier so verification is cheap enough to always run. (Claude Code's `/goal` uses a separate small evaluator for exactly this reason.)
+
+How the verifier is selected depends on runtime: **opencode** writes the flags below into `docs/work/.model-context` via `scripts/detect-model-context.sh`; **Claude Code** has no `.model-context` probe — instead dispatch the verify step as a Task subagent with a different (faster) `model`. Either way the rule is the same: the verifier is a different instance from the maker.
+
+```
+maker_model=<id>          # the model that produces artifacts
+verifier_model=<id>       # a different, faster instance for scoring/re-verify
+verifier_independent=true|false   # false ⇒ only one model available; use the fallback below
+```
+
+The detect script picks a verifier per provider (anthropic→haiku, google→flash-lite, openai→4o-mini, local→the classification tier e.g. nemotron-nano); override with `VERIFIER_MODEL` / `VERIFIER_MODEL_LOCAL`. When `verifier_independent=false`, apply Rule 4.
+
+| Role | Who runs it | Model |
+|------|-------------|-------|
+| **MAKER** | the specialist / coding-agent that produces the artifact | task tier (per agent hint) |
+| **VERIFIER** | the scorer / re-verifier that judges "is it actually done?" | a **different** instance — prefer the fast classification tier |
+
+**Rules:**
+
+1. **Deterministic first.** Bash validators and `fix-verify.mjs` are model-agnostic and always preferred. The verifier model only judges rows no script can check (see `FIX_VERIFY_LOOP.md` Step 4).
+2. **Confidence scoring** (`GATE_SCORING_PROTOCOL.md` Step 3) runs on `verifier_model`, **never the maker session**.
+3. **Model re-verify** (`FIX_VERIFY_LOOP.md` Step 4) runs on `verifier_model` in a **fresh session** — never the coding-agent that wrote the fix.
+4. **Single-model fallback.** If no second model is available locally, run verification in a **separate session with cleared context** (the maker's chain-of-thought must not be in scope) and record `maker==verifier` in `DELEGATION_LOG.md` so the weaker guarantee is auditable.
+
+The maker → verifier handoff mirrors Cherny's "one Claude drafts, a second Claude reviews it as a staff engineer."
+
+---
+
 ## Applying the adapter in sdlc-lead
 
 After reading `.model-context`, announce the tier to the user and adjust:

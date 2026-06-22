@@ -49,6 +49,7 @@ micro-agents — they read files, run bash, write findings.
 
 ## Known upstream issues (recheck when updating defaults)
 
+- anomalyco/opencode#20059 — custom user-defined subagent types in the Task tool — **CLOSED** (v1.17.9, 2026-06-22). Executor A now works for our custom agents, not just the built-in `explore`/`general` types. Manual paste (C) is no longer required just because an agent is custom — only MCP need (#16491) or `has_task_tool=false` forces B/C.
 - anomalyco/opencode#16491 — MCP tools unavailable in Task-tool subagents (open; the reason `mcp_in_subagents` defaults false)
 - anomalyco/opencode#6573 — native Task awaits have no timeout (the reason B is preferred for long specialists)
 - anomalyco/opencode#15069 — async dispatch (feature request; would let the runner parallelize natively)

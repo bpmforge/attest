@@ -54,6 +54,8 @@ Any non-zero exit → HANDOFF does not pass. Read the JSON gap list, return the 
 
 ## Step 3 — Score Confidence (1-10)
 
+> **Independent verifier (MODEL_ADAPTER.md § Maker/Verifier split).** Confidence scoring runs on `verifier_model` — a different instance from the one that produced the artifact. The maker over-reports its own success. If only one model is available, score in a fresh session with cleared context and record `maker==verifier` in DELEGATION_LOG.
+
 Score the HANDOFF output on a 1-10 scale **only if all gates passed**:
 
 | Score | Meaning |

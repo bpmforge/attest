@@ -114,6 +114,12 @@ design issues, UX) have no script — emit ONE re-verification HANDOFF per
 reviewer using Template 3 from `HANDOFF_TEMPLATES.md`. The reviewer verifies
 ONLY the backlog rows — does not scan for new issues.
 
+> **Independent verifier (MODEL_ADAPTER.md § Maker/Verifier split).** The model
+> re-verify runs on `verifier_model` in a **fresh session** — never the
+> coding-agent that wrote the fix. A maker asked "did your own fix work?"
+> over-reports. Different instance, cleared context; record `maker==verifier`
+> in DELEGATION_LOG if only one model is available.
+
 Output:
 - `docs/reviews/VERIFY_<feature>_<iteration>_<date>.md` — per-row PASS / FAIL / INCONCLUSIVE + evidence
 - The fix-verify JSON reports under `docs/security/fix-verify-*.json` are the evidence for scriptable rows.
@@ -150,6 +156,19 @@ Choose one:
 No 4th iteration without explicit user direction.
 ---
 ```
+
+On escalation, capture the lesson so the same fix doesn't fail the same way next time
+(Cherny's "write it down, don't re-prompt"):
+
+```
+node scripts/loop-learn.mjs \
+  --symptom "fix-verify stuck: <row, finding>" \
+  --cause   "<why the fix keeps failing re-verify>" \
+  --rule    "<the durable correction>" \
+  --source  "fix-verify:<feature>" --claude
+```
+
+Pass the printed `memory_store` payload to the memory MCP.
 
 ---
 
