@@ -26,9 +26,42 @@ detect_capabilities() {
 }
 detect_capabilities
 
+# Maker/Verifier split (MODEL_ADAPTER.md § Maker/Verifier split). The verifier
+# MUST be a different, ideally faster instance than the maker, so confidence
+# scoring and re-verify never ask a model to grade its own work. Reads the
+# provider/model/tier lines already written to CONTEXT_FILE, so it works in
+# every exit path. Env override: VERIFIER_MODEL.
+emit_model_roles() {
+  local provider model maker verifier
+  provider=$(grep -E '^provider=' "$CONTEXT_FILE" 2>/dev/null | head -1 | cut -d= -f2)
+  model=$(grep -E '^model=' "$CONTEXT_FILE" 2>/dev/null | head -1 | cut -d= -f2)
+  maker="${model:-unknown}"
+  if [[ -n "${VERIFIER_MODEL:-}" ]]; then
+    verifier="$VERIFIER_MODEL"
+  else
+    case "$provider" in
+      anthropic) verifier="claude-haiku-4-5" ;;
+      google)    verifier="gemini-2.0-flash-lite" ;;
+      openai)    verifier="gpt-4o-mini" ;;
+      lmstudio)  verifier="${VERIFIER_MODEL_LOCAL:-nemotron-3-nano-4b}" ;;
+      *)         verifier="$maker" ;;
+    esac
+  fi
+  echo "maker_model=$maker"               >> "$CONTEXT_FILE"
+  echo "verifier_model=$verifier"         >> "$CONTEXT_FILE"
+  # If they collide, the protocol's single-model fallback (fresh session,
+  # cleared context) applies — flag it so the weaker guarantee is auditable.
+  if [[ "$verifier" == "$maker" ]]; then
+    echo "verifier_independent=false"     >> "$CONTEXT_FILE"
+  else
+    echo "verifier_independent=true"      >> "$CONTEXT_FILE"
+  fi
+}
+
 write_capabilities() {
   echo "has_task_tool=$HAS_TASK_TOOL"       >> "$CONTEXT_FILE"
   echo "mcp_in_subagents=$MCP_IN_SUBAGENTS" >> "$CONTEXT_FILE"
+  emit_model_roles
 }
 mkdir -p docs/work
 
