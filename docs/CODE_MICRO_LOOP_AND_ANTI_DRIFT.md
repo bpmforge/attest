@@ -18,6 +18,7 @@
 | 6 | **Tracking/doc** — work happens, tracker/docs don't update → state lost between steps | "things get lost as we work through steps" | all; compounds across sessions |
 | 7 | **Context** — goal/constraints fade across micro-steps (context rot) | — | severe for local models |
 | 8 | **Verification** — maker==verifier; self-report over-confidence | the false audit went unchecked before acting | all |
+| 9 | **Release-state** — code changes but version/tag/CHANGELOG don't → consumers & deployments can't tell what they have; SHA-divergence across remotes | tags/versions left stale after a change | all; compounds across machines/consumers |
 
 ---
 
@@ -46,6 +47,7 @@ Grounded in a read of canonical (cited). This is ~80% of the solution and is its
 - **G-B — No canonical-overwrite / locate-before-create gate.** "Read if it exists" is trusted prose, not enforced. Nothing blocks overwriting a tracked file with an inferior version, or detects an audit's false "missing" claim before acting. *The exact Mode-4 drift.*
 - **G-D — Tracker update is not a per-step gate for the coder.** The orchestrator owns SDLC_TRACKER; a coding step can complete without touching it → cross-step state lost (the user's main pain).
 - **G-E — "API unverifiable → proceed with a warning."** Acceptable for a frontier model, drift for a small one. Should become a **BLOCKED row** (refuse to write that call), not "proceed."
+- **G-F — Release-state drift (vector 9).** A change can land without a version bump, CHANGELOG entry, or tag, and remotes can diverge by SHA. **Fix:** make versioning a gate — `validate-release-readiness.sh` should require a matching version + CHANGELOG entry + tag before a release is "done"; the release protocol reconciles both remotes to the same SHA (merge, not force-push). Versioning is part of "track everything," not a manual afterthought.
 
 ---
 
@@ -127,6 +129,20 @@ The pattern: frontier models already "have" most of this internally; the gates e
 | 4 | Build + `build:claude` + tests; verify each new gate trips on a planted defect (both directions) | — |
 
 Each new validator must be tested **both directions** (passes clean code, fails a planted defect) per the canonical validator convention. After landing, `npm run build:claude` propagates to claude-experts; Foreman picks it up via `build:foreman`.
+
+---
+
+## 7a. Implementation status
+
+| Gap | Status | Shipped in |
+|---|---|---|
+| **G-A** book-style code sizing | ✅ DONE | v1.14.0 — `validate-file-size.sh`, `CODE_BOOK_PROTOCOL.md`, PLAN-SHAPE, H-02 consolidated |
+| **G-B** no-reinvent / canonical-overwrite guard | ✅ DONE | v1.14.0 — `validate-no-reinvent.sh`, BOUNDED_TASK_CONTRACT Rule 9 (LOCATE) |
+| **G-D** tracking-as-gate | ⏳ next | — |
+| **G-E** verify-or-block API | ⏳ next | — |
+| **G-F** release-state / versioning-as-gate | ⏳ next | — |
+
+Follow-up for G-B: wire `validate-no-reinvent.sh` into the git-expert merge gate so it runs automatically (currently standalone + referenced by Rule 9).
 
 ---
 
