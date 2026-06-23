@@ -51,5 +51,6 @@
         "n\\+1|n \\+ 1|query (inside|in) (a )?loop|per-row quer"
       ]
     }
-  ]
+  ],
+  "horizon": "medium"
 }

@@ -14,7 +14,9 @@
     "build:claude:check": "node scripts/build-target-claude.mjs --check",
     "evals": "node scripts/run-evals.mjs",
     "evals:agent": "node scripts/run-evals.mjs --agent",
+    "evals:compare": "node scripts/eval-compare.mjs",
+    "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
   },
-  "version": "1.18.0"
+  "version": "1.19.0"
 }
