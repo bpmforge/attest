@@ -10,6 +10,8 @@ This is a **book** (per `BOOK_PROTOCOL.md`, >300 lines → chapter directory).
 | [01 — Thesis & verified evidence](01-thesis-and-evidence.md) | internalized vs externalizable; the 8 levers; the honest claim boundary |
 | [02 — System map & implementation backlog](02-system-map-and-backlog.md) | every lever → what we have / upgrade / build, prioritized |
 | [03 — Local-model & runtime playbook](03-local-model-and-runtime-playbook.md) | which models + runtime config for the actual fleet |
+| [05 — Memory architecture](05-memory-architecture.md) | what `bpm-memory-mcp` actually is (mature!) → the real B1: *activate* bi-temporal + sleep-time consolidation, not "build a graph" |
+| [06 — Economics, evaluation & distillation](06-economics-evaluation-distillation.md) | does the scaffold pay off, how to measure on our workload, and the distillation alternative |
 | [04 — Sources & confidence](04-sources.md) | every citation with a verified/snippet/vendor flag |
 
 ---
@@ -31,14 +33,14 @@ Evidence (verbatim, primary): Anthropic's harness blog (Mar 2026) found scaffold
 | Externalizable lever (evidence-backed) | Our system today | Verdict |
 |---|---|---|
 | External **isolated/cross-family** verifier | G1 maker/verifier split | ✅ have — top lever |
-| **Tool-offloaded** verification (facts/numerics/APIs) | validators, G-E | ⚠️ generalize — this is *the* small-model win |
+| **Tool-offloaded** verification (facts/numerics/APIs) | validators, G-E | ✅ **done** — MICRO_LOOP B3 |
 | No-progress / loop kill | G2 gap-checksum | ✅ have |
 | Micro-steps + checkable exit + refuse-to-loop | micro-loops | ✅ have |
-| **Prune the model's own error turns from context** | — | ❌ NEW (self-conditioning) |
-| **Goal-state re-grounding each step** (ReflAct) | static criterion only | ⚠️ upgrade |
-| **Externally-supplied plan → weak model executes bounded steps** | maker/verifier, tier routing | ⚠️ formalize |
-| **Reason in NL, format only the final tool-call** (−27pt format tax) | — | ❌ NEW |
-| **Graph + bi-temporal memory + sleep-time consolidation** | bpm-memory-mcp (vec+SQLite) | ❌ NEW — biggest infra win |
+| **Prune the model's own error turns from context** | MODEL_ADAPTER small tier | ✅ **done** — B2 |
+| **Goal-state re-grounding each step** (ReflAct) | MICRO_LOOP REVISE | ✅ **done** — B4 |
+| **Externally-supplied plan → weak model executes bounded steps** | maker/verifier, tier routing | ⚠️ formalize (B5) |
+| **Reason in NL, format only the final tool-call** (−27pt format tax) | MODEL_ADAPTER small tier | ✅ **done** — B6 |
+| **Bi-temporal memory + sleep-time consolidation** | bpm-memory-mcp (graph + hybrid retrieval **already exist**; bi-temporal/consolidation **dormant**) | ⚠️ **activate** — ch. 05 (B1) |
 | **Checkpoint / revert to known-good** | — | ❌ NEW (Foreman) |
 | **Deterministic orchestration in code, not the model** | HANDOFF + validators | ✅ have — reinforce |
 | **Local model + runtime playbook** | — | ❌ NEW (ch. 03) |

@@ -16,5 +16,5 @@
     "evals:agent": "node scripts/run-evals.mjs --agent",
     "telemetry:report": "node scripts/telemetry-report.mjs"
   },
-  "version": "1.17.0"
+  "version": "1.18.0"
 }

@@ -1,6 +1,6 @@
 # 03 — Local-Model & Runtime Playbook
 
-[🏠 Index](README.md) · [← system map](02-system-map-and-backlog.md) · [next: sources →](04-sources.md)
+[🏠 Index](README.md) · [← system map](02-system-map-and-backlog.md) · [next: memory →](05-memory-architecture.md)
 
 Which local/open models actually deliver agentic (tool-calling, multi-step coding) behavior, and the runtime config that makes or breaks them. **The runtime breaks tool-calling more often than the model does** — most "the model can't tool-call" reports are template/parser bugs.
 
