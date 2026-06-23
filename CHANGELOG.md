@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.20.0] — 2026-06-23
+
+### Eval harness rigor — the comparison is now a measurement
+Turned the frontier-vs-local eval from an anecdote into a measurement, after a first real run produced a misleading −12% gap (frontier appearing *worse* than local) that was purely an artifact of a coordinator agent timing out and being scored as a failure.
+
+- **Outcome classes (`run-evals.mjs`):** records `PASS/FAIL/TIMEOUT/ERROR/SKIP`. A `TIMEOUT` is a budget signal ("didn't finish"), no longer logged as `FAIL` ("got it wrong"), and doesn't fail the run.
+- **Agent-only gap (`eval-compare.mjs`):** results are tagged `kind: agent|deterministic`. The gap is computed over **decided agent checks only**; deterministic semgrep/validator checks become a **fixture-health gate**; `TIMEOUT`/`ERROR` show as `⧗` and never fold into the rate; an undecided scope renders `—`, not a false 0%. Self-test rewritten to assert these rules.
+- **Per-check budgets:** `agent_checks[].timeout_ms` in the expectation JSON, sized to the agent — coordinator `code-reviewer` 40m, single agents 15m.
+- **`eval-status.mjs` fan-out tracker** (carried from 1.19.x work): renders live coordinator→sub-agent fan-out from `telemetry.jsonl` + live `opencode run` procs, so a busy coordinator isn't mistaken for a stalled run. `npm run evals:status`.
+- **First measured run recorded** in the research book (`docs/bridging-the-frontier-gap/06`): `gpt-5.5` vs `qwen3-coder-next`, same scaffold — **0% gap across short/medium/long** bounded tasks, at ≈1.4× wall-time / ≈2.3× tokens (free on owned hardware). Honest boundary kept: bounded tasks only; `lift` (bare cell) and N× repeats still pending.
+
 ## [1.19.1] — 2026-06-23
 
 ### Added — `EVAL_MODEL` per-cell model pinning

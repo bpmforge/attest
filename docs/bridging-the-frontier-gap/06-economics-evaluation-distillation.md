@@ -40,6 +40,22 @@ We already own the harness — extend it, don't invent:
 
 Without this, we'd be trusting the techniques on faith — the exact perception drift we built the anti-drift system to prevent.
 
+### First measured run (2026-06-23)
+
+The harness is built and **run for real** (`EVAL_MODEL` pins the model per cell; `eval-compare.mjs` scores the gap). Frontier `openai/gpt-5.5` vs local `lmstudio/qwen/qwen3-coder-next`, on the same agent scaffold, across all three horizons:
+
+| Horizon | frontier | local | gap |
+|---|---|---|---|
+| short (`flask-sqli` → security-auditor) | 100% | 100% | **0%** |
+| medium (`ts-dead-dup` → code-reviewer) | 100% | 100% | **0%** |
+| long (`node-onboard` → entry-point-tracer) | 100% | 100% | **0%** |
+
+Cost: frontier 723s / ~726 tok, local 1021s / ~1681 tok (≈1.4× wall-time, ≈2.3× tokens — free on owned hardware). Fixture health 5/5 both (planted defects confirmed present).
+
+**The methodology lesson is as important as the result.** The *first* run reported a −12% gap (frontier "losing") — an artifact of a coordinator agent (`code-reviewer`, which fans out to sub-agents) exceeding a flat 900s budget and being logged as FAIL. Three validity fixes turned the anecdote into a measurement: (1) **agent-only scoring** — deterministic semgrep checks are a fixture-health gate, not part of the model gap; (2) **outcome classes** — `TIMEOUT`/`ERROR` are "incomplete", never `FAIL`, never folded into the rate; (3) **per-check budgets** sized to the agent (coordinator 40m, single 15m). Only then did the true 0% gap appear.
+
+**The honest boundary holds.** These are *bounded* tasks (find the planted defect, trace the entry points) — exactly where the book predicts scaffolding closes the gap. This is **not** evidence that a local 30B equals frontier on open-ended long-horizon reliability. Still missing for a complete picture: the **bare cell** (no scaffold) to populate `lift`, and **N× repeats** for statistical confidence (both flagged in the harness).
+
 ---
 
 ## 3. Distillation — the *complementary* lever (not just scaffolding)
