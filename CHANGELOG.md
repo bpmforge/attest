@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.21.0] — 2026-06-23
+
+### Eval `--bare` cell + the ceiling-effect finding
+- **`--bare` cell (`run-evals.mjs`):** runs the same agent_checks with the same model + prompt but drops the specialist `--agent` scaffold (model under opencode's default agent). Pairing a bare cell with a scaffolded cell of the same model populates `lift = scaffolded − bare` in `eval-compare` — the no-scaffold baseline.
+- **First lift measurement recorded** (book ch.06): frontier / local-scaffolded / local-bare all scored 100% → `lift` and `gap` both **0%** — a **ceiling effect**, not proof the scaffold is worthless. The fixtures verify "pipeline finds planted defects", so even bare local-30B passes (no headroom), and bare *leaked* the scaffold (opencode's default agent delegated to specialist sub-agents on its own). The one signal that moved was **cost**: bare local 1964s vs scaffolded 1021s — the scaffold bought ≈48% efficiency at equal correctness.
+- **Conclusion:** the harness is now methodologically sound; the bottleneck moved to the **fixtures** (too easy to discriminate capability). Next: harder fixtures where bare-local fails, plus a truly-isolated bare (`opencode --pure`). N× repeats still pending.
+
 ## [1.20.0] — 2026-06-23
 
 ### Eval harness rigor — the comparison is now a measurement

@@ -54,7 +54,21 @@ Cost: frontier 723s / ~726 tok, local 1021s / ~1681 tok (≈1.4× wall-time, ≈
 
 **The methodology lesson is as important as the result.** The *first* run reported a −12% gap (frontier "losing") — an artifact of a coordinator agent (`code-reviewer`, which fans out to sub-agents) exceeding a flat 900s budget and being logged as FAIL. Three validity fixes turned the anecdote into a measurement: (1) **agent-only scoring** — deterministic semgrep checks are a fixture-health gate, not part of the model gap; (2) **outcome classes** — `TIMEOUT`/`ERROR` are "incomplete", never `FAIL`, never folded into the rate; (3) **per-check budgets** sized to the agent (coordinator 40m, single 15m). Only then did the true 0% gap appear.
 
-**The honest boundary holds.** These are *bounded* tasks (find the planted defect, trace the entry points) — exactly where the book predicts scaffolding closes the gap. This is **not** evidence that a local 30B equals frontier on open-ended long-horizon reliability. Still missing for a complete picture: the **bare cell** (no scaffold) to populate `lift`, and **N× repeats** for statistical confidence (both flagged in the harness).
+**The honest boundary holds.** These are *bounded* tasks (find the planted defect, trace the entry points) — exactly where the book predicts scaffolding closes the gap. This is **not** evidence that a local 30B equals frontier on open-ended long-horizon reliability.
+
+### The bare cell + the ceiling effect (the real bottleneck)
+
+A `--bare` cell (same model + prompt, no specialist `--agent` scaffold) was then run to populate `lift = scaffolded − bare`. Result, all three cells (frontier / local-scaffolded / local-bare):
+
+| horizon | lift | gap |
+|---|---|---|
+| short / medium / long | **0%** | **0%** |
+
+`lift` and `gap` are both 0% **because every cell scores 100%** — a **ceiling effect**, not proof the scaffold is worthless. Two causes: (1) the fixtures verify "pipeline finds planted defects", not capability — so even bare local-30B passes, leaving no headroom; (2) **bare leaked the scaffold** — opencode's default agent delegated to specialist sub-agents (`entry-point-tracer`, `code-reviewer`) on its own, so the baseline wasn't truly scaffold-free.
+
+The **one signal that moved was cost**: bare local **1964s vs scaffolded local 1021s** — the scaffold made the local model ≈48% faster to the same answer (structure over flailing). On saturated tasks the scaffold's value is **efficiency, not correctness**.
+
+**Conclusion: the harness is sound; the fixtures are the bottleneck.** To measure real lift/gap we need (a) **harder fixtures where bare-local fails** and frontier/scaffold succeed, and (b) a **truly-isolated bare** (`opencode --pure` or disabling sub-agent delegation) so the baseline can't borrow the scaffold. N× repeats for statistical confidence remain pending.
 
 ---
 
