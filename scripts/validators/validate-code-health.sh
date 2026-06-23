@@ -155,15 +155,13 @@ while IFS= read -r src_file; do
   done
 done < <(find_source_files)
 
-# -- H-02: Files exceeding 250 lines -----------------------------------------
-printf '\n[H-02] files >250 lines\n' >&2
-while IFS= read -r src_file; do
-  [[ -z "$src_file" ]] && continue
-  lc=$(wc -l < "$src_file" 2>/dev/null | tr -d ' ')
-  if [[ "${lc:-0}" -gt 250 ]]; then
-    gap "H-02-file-too-long" "${src_file#"$ROOT/"}: $lc lines (limit: 250) — consider splitting by responsibility"
-  fi
-done < <(find_source_files)
+# -- H-02: file size -- CONSOLIDATED into validate-file-size.sh ---------------
+# File-size gating now has a single source of truth: validate-file-size.sh
+# (configurable cap, book-style decomposition guidance, proper exclusions for
+# generated/test/migration files, .filesizeignore). It is wired into the phase-4
+# gate alongside this validator, so size is still gated — just not duplicated
+# here at a second, conflicting threshold. See CODE_BOOK_PROTOCOL.md.
+note "[H-02] file-size gating delegated to validate-file-size.sh"
 
 # -- H-03: TODO/FIXME/HACK left in source ------------------------------------
 printf '\n[H-03] TODO/FIXME/HACK in source\n' >&2

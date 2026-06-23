@@ -123,6 +123,7 @@ case "$PHASE" in
       "validate-api-consistency.sh"
       "validate-code-health.sh"
       "validate-dead-code.sh"
+      "validate-file-size.sh"
     )
     # UI-bearing: validate design system was implemented
     if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
