@@ -143,6 +143,22 @@ function runAgentCheck(check, cwd, fixture) {
     telemetry({ fixture, check: check.id, agent: check.agent, status: 'ERROR', duration_ms: durationMs });
     return { id: check.id, status: 'ERROR', detail: `agent process error: ${r.error.code || r.error.message}` };
   }
+  // Outcome-based check: run a verifier in the work dir (e.g. the test suite)
+  // AFTER the agent. Stronger than matching the agent's chatter — it scores
+  // whether the agent actually made the criterion true (suite green), not
+  // whether it merely claimed to. PASS iff the verifier exits 0.
+  if (check.verify_cmd) {
+    const vr = spawnSync(check.verify_cmd[0], check.verify_cmd.slice(1), {
+      cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120_000, encoding: 'utf8',
+    });
+    const vout = (vr.stdout || '') + (vr.stderr || '');
+    const matchOk = check.verify_match ? new RegExp(check.verify_match, 'i').test(vout) : true;
+    const status = vr.status === 0 && matchOk ? 'PASS' : 'FAIL';
+    telemetry({ fixture, check: check.id, agent: check.agent, status, duration_ms: durationMs, verify_exit: vr.status });
+    return status === 'PASS'
+      ? { id: check.id, status, detail: `verifier passed: \`${check.verify_cmd.join(' ')}\` exit 0 (${BARE ? 'bare' : check.agent})` }
+      : { id: check.id, status, detail: `verifier failed: \`${check.verify_cmd.join(' ')}\` exit ${vr.status}`, output: vout.slice(-1200) };
+  }
   // Assert on everything the agent produced (artifacts on disk + final text)
   let corpus = (r.stdout || '');
   for (const f of walkFiles(cwd)) {

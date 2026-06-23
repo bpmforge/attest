@@ -1,0 +1,24 @@
+{
+  "fixture": "lemonade-cashbox",
+  "description": "Lemonade-stand cashbox: six deliberately-broken money helpers whose failing node:test suite must be made green — an outcome-based, multi-step task that rewards the verify-and-iterate scaffold.",
+  "horizon": "long",
+  "checks": [
+    {
+      "id": "suite-starts-red",
+      "defect": "the shipped implementations fail their own test suite",
+      "requires": "node",
+      "cmd": ["node", "--test", "cashbox.test.mjs"],
+      "match": "fail|not ok|✖",
+      "min": 1
+    }
+  ],
+  "agent_checks": [
+    {
+      "id": "fix-suite-goes-green",
+      "agent": "coding-agent",
+      "timeout_ms": 1800000,
+      "prompt": "The module cashbox.mjs in this directory has bugs: its test suite cashbox.test.mjs currently fails. Fix the implementations in cashbox.mjs so that ALL tests pass. Run `node --test cashbox.test.mjs` to check your work, and keep fixing until every test passes. Do not edit cashbox.test.mjs.",
+      "verify_cmd": ["node", "--test", "cashbox.test.mjs"]
+    }
+  ]
+}
