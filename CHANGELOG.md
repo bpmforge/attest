@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.23.0] — 2026-06-23
+
+### Scaffold levers B5 / B7 / B8 (from the bridging-the-frontier-gap backlog)
+Additive, evidence-cited externalized scaffolds that carry weak/local models closer to frontier on bounded tasks. LOCATE-mapped first to extend, not reinvent.
+- **B5 — planner/executor tier split:** `MODEL_ADAPTER.md` gains a **PLANNER** role + Rule 5 ("plan strong, execute cheap; cap granularity — small models over-decompose"); `task-decomposer.md` gains an over-decomposition cap that routes re-planning up to the strong tier instead of recursing the cheap tier.
+- **B7 — checkpoint/revert to known-good:** new `agents/shared/CHECKPOINT_REVERT.md` (git checkpoint per gated PASS; revert-to-last-known-good on unrecoverable failure instead of unwinding error context) + `BOUNDED_TASK_CONTRACT.md` Rule 10 + `git-workflow-checklist.md` `--checkpoint` rows. Canonical protocol lives here; Foreman implements the mechanics.
+- **B8 — local-model runtime playbook:** new `references/local-agentic-models.md` (model picks per tier + the runtime gotchas that silently break tool-calls — llama.cpp `--jinja`, Qwen3-Coder XML, PR #16932, strip `<think>`, vLLM>llama.cpp>Ollama), wired into `MODEL_ADAPTER.md` (small tier), `task-decomposer.md`, and `LOCAL_LLM_PRIMER.md`.
+- All under the file-size cap; 88 tests pass; claude target regenerated (231 files). Backlog B5/B7/B8 marked shipped in book ch.02.
+
 ## [1.22.0] — 2026-06-23
 
 ### Eval agent isolation (critical) + outcome-based fixture

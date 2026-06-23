@@ -55,3 +55,4 @@ You have approximately [USER: fill in your model's context size] tokens total. A
 | Not sure what the next step is | Read `docs/work/sdlc-state.md` first |
 | Session getting long / feeling confused | Write current state to disk, user restarts with state file |
 | Completed a SDLC-TASK | Completion Manifest → exact phrase → nothing else |
+| Tool calls failing / empty `{}` args / "does not support tools" | It's almost always the runtime, not the model — see `references/local-agentic-models.md` (`--jinja`, Qwen3-Coder XML, strip `<think>`, late-2025 llama.cpp build) |

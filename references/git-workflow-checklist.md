@@ -723,6 +723,8 @@ The `git-expert` agent should be proactively called by `sdlc-lead` at these mome
 | Mode 3 `feature` — Step 0 | `--feature` (branch creation) | Create feature branch from spec |
 | Phase 4 Implementation — per feature | `--feature` (commit + PR) | Atomic commits + draft PR |
 | Phase 5 Review complete | `--release` (if user says "ship") | Tag + changelog + release notes |
+| Any phase — gate returns PASS | `--checkpoint` | Commit + `phase/<name>-pass-*` tag as a known-good anchor (`CHECKPOINT_REVERT.md`, B7) |
+| Next phase fails unrecoverably | `--checkpoint` (revert) | `git reset --hard` to the last `phase/*` tag + `ROLLBACK_*.md`, instead of unwinding error context |
 | Any phase — error recovery | `--recover` | Rescue lost work |
 | Any phase — forensics ("what changed?") | `--inspect` | Blame, pickaxe, bisect |
 

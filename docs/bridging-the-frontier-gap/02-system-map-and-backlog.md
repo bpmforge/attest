@@ -46,7 +46,7 @@ Priority = (evidence strength) × (gap size) × (how much it helps the *weak/loc
 - **B4. Goal-state re-grounding sub-step in MICRO_LOOP** (Lever 3) — **experts**.
   Add to the micro-loop: before each produce/verify cycle, restate *current state vs the goal* (ReflAct). Cheap, and the single biggest measured weak-model lift (+31.4 pts on 8B). For Foreman: re-inject the goal + current phase state each step (counters drift — 7B/8B drift ~20–25× more).
 
-- **B5. Planner-tier / executor-tier split** (Lever 5) — **experts + MODEL_ADAPTER**.
+- **B5. Planner-tier / executor-tier split** (Lever 5) — **experts + MODEL_ADAPTER**. **✅ Shipped:** PLANNER role + Rule 5 ("plan strong, execute cheap; cap granularity") in `MODEL_ADAPTER.md`; over-decomposition cap in `task-decomposer.md`.
   Formalize: route **planning/decomposition to the strong tier**, **bounded execution to the cheap tier**; cap granularity (don't over-decompose). Extends maker/verifier with a maker/**planner** role. Pairs with the local-model playbook (ch. 03).
 
 - **B6. Reason-in-NL-then-format rule** (Lever 6) — **coding-agent + a local-runtime note**.
@@ -54,10 +54,10 @@ Priority = (evidence strength) × (gap size) × (how much it helps the *weak/loc
 
 ### P2 — valuable, more build effort or Foreman-scoped
 
-- **B7. Checkpoint/revert to known-good** (Lever 8) — **Foreman**.
+- **B7. Checkpoint/revert to known-good** (Lever 8) — **Foreman**. **✅ Shipped (protocol):** `agents/shared/CHECKPOINT_REVERT.md` + `BOUNDED_TASK_CONTRACT` Rule 10 + `git-workflow-checklist` rows (`--checkpoint`). The canonical protocol now lives in the experts repo; Foreman implements the mechanics in its phase logic.
   Git checkpoint per passed phase + revert-on-failure to the last known-good (recover instead of spiral). Ties to W0 reliability work already underway.
 
-- **B8. Local-model + runtime playbook as an installable reference** (ch. 03) — **experts (`references/`)**.
+- **B8. Local-model + runtime playbook as an installable reference** (ch. 03) — **experts (`references/`)**. **✅ Shipped:** `references/local-agentic-models.md`, wired into `MODEL_ADAPTER.md` (small tier), `task-decomposer.md`, and `LOCAL_LLM_PRIMER.md`.
   Ship ch. 03 as a `references/local-agentic-models.md` the agents can read: model picks per tier + runtime config (vLLM/SGLang vs llama.cpp `--jinja`, strip-thinking-across-turns, the Qwen3-Coder XML caveat).
 
 ---

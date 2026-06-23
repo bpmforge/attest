@@ -144,3 +144,7 @@ Before creating OR overwriting any file:
 3. **Never hand-edit generated files** — anything in `GENERATED_FILES.txt` is a build output; regenerate it via the build, never edit it directly.
 
 Enforced by `scripts/validators/validate-no-reinvent.sh` (hard-fails edits to `GENERATED_FILES.txt` paths; warns on wholesale rewrites of tracked files). This rule exists because a Mode-4 audit once falsely reported canonical loop-engineering files as "missing" and overwrote 6 of them with inferior stubs — a regression a single `diff` would have prevented.
+
+## Rule 10 — Phase-gated checkpoint/revert (B7)
+
+For multi-phase work (> 3 sequential gated phases), Rule 8's 3-strike escalation is backed by a git checkpoint. After a phase gate returns **PASS**, the orchestrator checkpoints it (commit + `phase/<name>-pass-*` tag). When a later phase fails unrecoverably, it **reverts to the last known-good checkpoint and restarts that phase from clean state** — it does not unwind from the error context (a weak model cannot reliably edit its way out of a broken state). See `agents/shared/CHECKPOINT_REVERT.md`. Reverts are for unrecoverable failure only; exploration uses a branch.
