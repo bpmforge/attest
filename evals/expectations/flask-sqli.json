@@ -41,7 +41,8 @@
       "match_all": [
         "sql injection|sqli|tainted",
         "private key|secret|BEGIN RSA"
-      ]
+      ],
+      "timeout_ms": 900000
     }
   ],
   "horizon": "short"

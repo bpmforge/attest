@@ -49,7 +49,8 @@
       "prompt": "Review this repository for code-health and performance problems. Write findings to docs/reviews/CODE_REVIEW.md. Then stop.",
       "match_all": [
         "n\\+1|n \\+ 1|query (inside|in) (a )?loop|per-row quer"
-      ]
+      ],
+      "timeout_ms": 2400000
     }
   ],
   "horizon": "medium"

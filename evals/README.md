@@ -103,11 +103,31 @@ node scripts/eval-status.mjs            # one-shot snapshot
 while sleep 5; do clear; node scripts/eval-status.mjs; done   # live view
 ```
 
-> Note: coordinator agent-checks can exceed the per-check `EVAL_AGENT_TIMEOUT_MS`
-> (900s default) — on a first real run, the `code-reviewer` medium check timed
-> out on **both** frontier and local, so that FAIL is a harness-budget artifact,
-> not a capability gap. Raise the budget for coordinator-heavy fixtures, or read
-> a timeout as *inconclusive* rather than *wrong*.
+> Coordinator agent-checks (e.g. `code-reviewer`, which fans out to sub-agents)
+> can far exceed a single-agent check. The harness handles this on two fronts:
+> a per-check `timeout_ms` budget (set in the expectation JSON, sized to the
+> agent), and a distinct **`TIMEOUT`** outcome that is **never counted as
+> `FAIL`** — see "Validity rules" below.
+
+## Validity rules (what makes the comparison a measurement)
+
+The comparison is only trustworthy if it isolates the model-dependent signal and
+never confuses "ran out of budget" with "got it wrong". `eval-compare` enforces:
+
+1. **Gap over agent checks only.** Each result is tagged `kind:"agent"` or
+   `kind:"deterministic"`. Deterministic checks (semgrep/validators) pass
+   regardless of model — they are a **fixture-health gate** (did the planted
+   defects exist?), never part of the frontier-vs-local gap.
+2. **Only decided outcomes count.** Statuses are `PASS / FAIL / TIMEOUT / ERROR
+   / SKIP`. The gap is computed over `PASS+FAIL` only; `TIMEOUT`/`ERROR` show as
+   `⧗` beside the cell and never fold into the rate. A clock-out can't flip the
+   gap negative.
+3. **No false zeros.** If either side has no decided agent check for a scope, the
+   gap is `—` (unknown), not 0.
+
+Per-check budgets live in the expectation JSON (`agent_checks[].timeout_ms`);
+`EVAL_AGENT_TIMEOUT_MS` is the fallback for checks without one. Statistical
+repeats (run each agent check N× → pass-rate) are the planned next step.
 
 ## Adding a fixture
 
@@ -118,8 +138,11 @@ while sleep 5; do clear; node scripts/eval-status.mjs; done   # live view
    - `checks[]` — deterministic: `{id, defect, requires: <tool>, cmd: [...],
      match: <regex over stdout+stderr>, min}`. `{REPO}` in `cmd` expands to the
      repo root. Calibrate by running the tool manually first.
-   - `agent_checks[]` — `{id, agent, prompt, match_all: [regex...]}` asserted
-     case-insensitively against everything the agent produced (artifacts +
-     final text). JS regex syntax — no inline `(?i)` flags.
+   - `agent_checks[]` — `{id, agent, prompt, match_all: [regex...], timeout_ms?}`
+     asserted case-insensitively against everything the agent produced (artifacts
+     + final text). JS regex syntax — no inline `(?i)` flags. Set `timeout_ms`
+     to the work: a single agent ~`900000` (15m); a coordinator that fans out to
+     sub-agents (e.g. `code-reviewer`) ~`2400000` (40m). Omit to use
+     `EVAL_AGENT_TIMEOUT_MS`.
 3. Run `node scripts/run-evals.mjs --fixture <name>` until green, then prove it
    can fail (temporarily set `min: 999`, expect exit 1, revert).
