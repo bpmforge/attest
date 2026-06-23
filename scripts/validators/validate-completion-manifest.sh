@@ -54,6 +54,14 @@ require_section "Decisions"       '(decisions(\s+made)?|design[[:space:]]+decisi
 require_section "Known issues"    '(known[[:space:]]+issues|deferred|caveats)'
 require_section "Verify result"   '(verify[[:space:]]+result|verification|test[[:space:]]+result|tests?)'
 
+# -- Tracker updated (G-D: tracking-as-gate) --------------------------------
+# A step must state where it was tracked so work isn't lost between steps.
+# The git-based validate-tracker-fresh.sh proves the tracker actually changed;
+# this proves the manifest declares it.
+if ! grep -qiE '^[[:space:]]*[*-]?[[:space:]]*tracker[[:space:]]+updated[[:space:]]*:' "$MANIFEST"; then
+  gap "no-tracker-line" "manifest lacks a 'Tracker updated: <file>' line — record where this step was tracked (SDLC_TRACKER / PROGRESS / DELEGATION_LOG / CHANGELOG)"
+fi
+
 # -- Recommended sections (warn, not fail) ----------------------------------
 if ! grep -qiE '^#+[[:space:]]+(tech[[:space:]]+stack|stack[[:space:]]+compliance)' "$MANIFEST"; then
   warn "no 'Tech stack compliance' section (recommended for coding-agent HANDOFFs)"
