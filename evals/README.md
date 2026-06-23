@@ -88,6 +88,27 @@ side-by-side matrix of every labeled run. `node scripts/eval-compare.mjs
 --self-test` verifies the lift/gap/cost math on synthetic data (no models needed,
 CI-able).
 
+## Watching an in-flight run (fan-out tracker)
+
+Coordinator agents (e.g. `code-reviewer`) spawn a cluster of sub-agents, so the
+parent's stdout goes quiet while they work — a long run can look stalled when
+it's actually busy. `scripts/eval-status.mjs` renders the fan-out from the
+breadcrumbs that *are* emitted (`telemetry.jsonl` + live `opencode run`
+processes): which cell/agent is active, the per-session sub-agent tree with
+message + token counts, and how long since the last sign of life (it warns when
+a coordinator has gone quiet).
+
+```bash
+node scripts/eval-status.mjs            # one-shot snapshot
+while sleep 5; do clear; node scripts/eval-status.mjs; done   # live view
+```
+
+> Note: coordinator agent-checks can exceed the per-check `EVAL_AGENT_TIMEOUT_MS`
+> (900s default) — on a first real run, the `code-reviewer` medium check timed
+> out on **both** frontier and local, so that FAIL is a harness-budget artifact,
+> not a capability gap. Raise the budget for coordinator-heavy fixtures, or read
+> a timeout as *inconclusive* rather than *wrong*.
+
 ## Adding a fixture
 
 1. `evals/fixtures/<name>/` — smallest possible repo that exhibits the defect.

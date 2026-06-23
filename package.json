@@ -15,6 +15,7 @@
     "evals": "node scripts/run-evals.mjs",
     "evals:agent": "node scripts/run-evals.mjs --agent",
     "evals:compare": "node scripts/eval-compare.mjs",
+    "evals:status": "node scripts/eval-status.mjs",
     "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
   },
