@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.22.0] — 2026-06-23
+
+### Eval agent isolation (critical) + outcome-based fixture
+- **Isolation fix (critical):** `opencode run` is now passed `--dir <workcopy>`. opencode resolves its project root to the **launch directory (this repo)**, not the runner's `cwd` — so agents were reading/editing the **main repo, not the fixture copies**. It surfaced when a bare agent fixed the canonical `lemonade-cashbox` fixture in place. With `--dir` the agent only sees the sandbox (verified). **All agent-eval numbers produced before this fix are invalid** (corrected in book ch.06).
+- **Stronger sandbox guard:** the runner now aborts if the repo HEAD moves **or any tracked file changes** during a run (the in-place edit vector the HEAD-only guard missed). `.opencode-loops/` gitignored.
+- **`verify_cmd` (outcome-based scoring):** an agent_check may run a verifier in the work dir after the agent and PASS iff it exits 0 — scoring whether the agent actually made the criterion true, not whether it claimed to.
+- **`lemonade-cashbox` fixture:** six money-helper bugs whose `node:test` suite must be made green (multi-step, fix-the-code). Verified well-formed (shipped 6/6 fail, correct fix 6/6 pass).
+- **First trustworthy result** (book ch.06): isolated triad on lemonade-cashbox — frontier / local-scaffolded / local-bare all PASS in ~60s → lift & gap both **0%**. The ceiling effect is real, not an artifact: even bare local-30B one-shot-fixes oracle-guided bounded tasks. Discriminating the scaffold/frontier gap needs tasks beyond bare-local's one-shot reach.
+
 ## [1.21.1] — 2026-06-23
 
 ### Fixed — eval-run sandbox guard

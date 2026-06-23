@@ -40,35 +40,25 @@ We already own the harness — extend it, don't invent:
 
 Without this, we'd be trusting the techniques on faith — the exact perception drift we built the anti-drift system to prevent.
 
-### First measured run (2026-06-23)
+### Measured runs (2026-06-23) — including a methodology failure worth recording
 
-The harness is built and **run for real** (`EVAL_MODEL` pins the model per cell; `eval-compare.mjs` scores the gap). Frontier `openai/gpt-5.5` vs local `lmstudio/qwen/qwen3-coder-next`, on the same agent scaffold, across all three horizons:
+The harness was run for real (`EVAL_MODEL` pins the model per cell; `eval-compare.mjs` scores the gap), and the path to a *trustworthy* number ran through three corrections — two methodological, one a real isolation bug. All three matter more than the headline.
 
-| Horizon | frontier | local | gap |
-|---|---|---|---|
-| short (`flask-sqli` → security-auditor) | 100% | 100% | **0%** |
-| medium (`ts-dead-dup` → code-reviewer) | 100% | 100% | **0%** |
-| long (`node-onboard` → entry-point-tracer) | 100% | 100% | **0%** |
+**Correction 1 — validity (outcome classes + agent-only scoring).** The first run reported a −12% gap (frontier "losing"), an artifact of a coordinator agent (`code-reviewer`) exceeding a flat 900s budget and being logged as `FAIL`. Fixed by: agent-only scoring (deterministic semgrep checks are a fixture-health gate, not the model gap); outcome classes (`TIMEOUT`/`ERROR` are "incomplete", never `FAIL`); per-check budgets sized to the agent.
 
-Cost: frontier 723s / ~726 tok, local 1021s / ~1681 tok (≈1.4× wall-time, ≈2.3× tokens — free on owned hardware). Fixture health 5/5 both (planted defects confirmed present).
+**Correction 2 — isolation (the big one). The earlier "0% gap" numbers were INVALID.** opencode resolves its project root to the **launch directory (this repo)**, not the `cwd` passed to the runner — so the agents were reading and editing the **main repo, not the fixture copies**. It surfaced when a `--bare` agent *fixed the canonical `lemonade-cashbox` fixture in place* (and committed audit docs into the repo on earlier runs). Fix: pass `opencode run --dir <workcopy>` (verified — the agent then only sees the sandbox), plus a runner guard that aborts if the repo HEAD moves **or any tracked file changes** during a run. Any agent result produced before this fix cannot be trusted.
 
-**The methodology lesson is as important as the result.** The *first* run reported a −12% gap (frontier "losing") — an artifact of a coordinator agent (`code-reviewer`, which fans out to sub-agents) exceeding a flat 900s budget and being logged as FAIL. Three validity fixes turned the anecdote into a measurement: (1) **agent-only scoring** — deterministic semgrep checks are a fixture-health gate, not part of the model gap; (2) **outcome classes** — `TIMEOUT`/`ERROR` are "incomplete", never `FAIL`, never folded into the rate; (3) **per-check budgets** sized to the agent (coordinator 40m, single 15m). Only then did the true 0% gap appear.
+**The first trustworthy result.** A new outcome-based fixture, `lemonade-cashbox` — six money-helper bugs whose `node:test` suite must be made green (scored by re-running the suite, `verify_cmd`, not by matching the agent's chatter). Isolated triad, frontier `gpt-5.5` / local-scaffolded / local-bare `qwen3-coder-next`:
 
-**The honest boundary holds.** These are *bounded* tasks (find the planted defect, trace the entry points) — exactly where the book predicts scaffolding closes the gap. This is **not** evidence that a local 30B equals frontier on open-ended long-horizon reliability.
+| task | frontier | local | local-bare | lift | gap |
+|---|---|---|---|---|---|
+| fix 6 bugs → suite green | ✅ ~67s | ✅ ~58s | ✅ ~62s | **0%** | **0%** |
 
-### The bare cell + the ceiling effect (the real bottleneck)
+Isolation confirmed: the canonical fixture stayed RED and git-clean, and each cell started from a properly-red copy.
 
-A `--bare` cell (same model + prompt, no specialist `--agent` scaffold) was then run to populate `lift = scaffolded − bare`. Result, all three cells (frontier / local-scaffolded / local-bare):
+**What it means — the ceiling effect is real, not an artifact.** Even bare local-30B one-shot-fixed all six bugs in ~60s; the scaffold and the frontier model added nothing measurable, and cost barely differed. The reason: a failing test points *directly* at each bug, so a competent coder model fixes it without needing a verify-iterate loop. The task is multi-step but still **bounded and oracle-guided** — exactly where the thesis predicts no gap. This is now a *trustworthy* statement of the bounded-task result.
 
-| horizon | lift | gap |
-|---|---|---|
-| short / medium / long | **0%** | **0%** |
-
-`lift` and `gap` are both 0% **because every cell scores 100%** — a **ceiling effect**, not proof the scaffold is worthless. Two causes: (1) the fixtures verify "pipeline finds planted defects", not capability — so even bare local-30B passes, leaving no headroom; (2) **bare leaked the scaffold** — opencode's default agent delegated to specialist sub-agents (`entry-point-tracer`, `code-reviewer`) on its own, so the baseline wasn't truly scaffold-free.
-
-The **one signal that moved was cost**: bare local **1964s vs scaffolded local 1021s** — the scaffold made the local model ≈48% faster to the same answer (structure over flailing). On saturated tasks the scaffold's value is **efficiency, not correctness**.
-
-**Conclusion: the harness is sound; the fixtures are the bottleneck.** To measure real lift/gap we need (a) **harder fixtures where bare-local fails** and frontier/scaffold succeed, and (b) a **truly-isolated bare** (`opencode --pure` or disabling sub-agent delegation) so the baseline can't borrow the scaffold. N× repeats for statistical confidence remain pending.
+**Conclusion: the harness is correct; bounded oracle-guided tasks simply don't discriminate** — not even a harder fix-the-tests one. To measure real lift/gap we need tasks genuinely **beyond bare-local's one-shot reach**: many more defects, multi-file/non-local diagnosis, *no* per-bug test oracle, or true long-horizon chains where one early error compounds. Those are expensive to author and run (and may hit local-hardware limits), so the honest next move is to build the *scaffold levers* (B5/B7/B8) and bring harder fixtures online only when there's a specific lever whose value needs proving. N× repeats remain pending.
 
 ---
 
