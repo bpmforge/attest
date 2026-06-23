@@ -18,5 +18,5 @@
     "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
   },
-  "version": "1.19.0"
+  "version": "1.19.1"
 }

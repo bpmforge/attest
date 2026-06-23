@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.19.1] — 2026-06-23
+
+### Added — `EVAL_MODEL` per-cell model pinning
+- `run-evals.mjs` now honors `EVAL_MODEL=<provider>/<model>`, passing it to
+  `opencode run -m` and stamping `summary.model`. Without it the agent runs used
+  whatever opencode defaulted to, making per-tier comparison uncontrollable —
+  this closes that gap so the tiered lift/gap/cost workflow can actually pin
+  frontier vs local. Documented in `evals/README.md`.
+- **First real-model run (validation):** `flask-sqli` (short), frontier
+  `openai/gpt-5.5` vs local `lmstudio/qwen/qwen3-coder-next` — both 3/3, the
+  security-auditor agent caught both planted defects on each, so **gap = 0% on
+  this bounded task**, with local ~3.7× the wall-time/tokens (free on owned
+  hardware). The book's bounded-task thesis, measured.
+
 ## [1.19.0] — 2026-06-23
 
 ### Added — tiered eval harness (lift / gap / cost), per ch. 06

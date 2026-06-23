@@ -40,6 +40,8 @@ const ONLY = argv.includes('--fixture') ? argv[argv.indexOf('--fixture') + 1] : 
 // can diff cells. Labeled runs are also saved to docs/work/eval-runs/<label>.json.
 const LABEL = argv.includes('--label') ? argv[argv.indexOf('--label') + 1] : null;
 const AGENT_TIMEOUT_MS = Number(process.env.EVAL_AGENT_TIMEOUT_MS || 900_000);
+// Pin the model for this run (provider/model). Passed to `opencode run -m`.
+const EVAL_MODEL = process.env.EVAL_MODEL || null;
 // Accumulated cost of agent runs (for the cost-vs-accuracy comparison).
 let agentDurationMs = 0;
 let agentTokensOut = 0;
@@ -104,7 +106,10 @@ function runAgentCheck(check, cwd, fixture) {
   }
   mkdirSync(join(cwd, 'docs'), { recursive: true });
   const startedAt = Date.now();
-  const r = spawnSync('opencode', ['run', '--agent', check.agent, check.prompt], {
+  // EVAL_MODEL pins the model for this cell (provider/model), so the same suite
+  // can be run once per model tier and compared by eval-compare.mjs.
+  const modelArgs = EVAL_MODEL ? ['-m', EVAL_MODEL] : [];
+  const r = spawnSync('opencode', ['run', ...modelArgs, '--agent', check.agent, check.prompt], {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: AGENT_TIMEOUT_MS, encoding: 'utf8',
   });
   const durationMs = Date.now() - startedAt;
@@ -179,7 +184,7 @@ if (!existsSync(EXPECT_DIR)) {
       label: LABEL || null,
       mode: AGENT_MODE ? 'deterministic+agent' : 'deterministic',
       tier: tier.tier || 'unknown',
-      model: tier.model || null,
+      model: EVAL_MODEL || tier.model || null,
       pass: results.filter((r) => r.status === 'PASS').length,
       fail: results.filter((r) => r.status === 'FAIL').length,
       skip: results.filter((r) => r.status === 'SKIP').length,

@@ -50,17 +50,22 @@ far is this model from frontier, and is the lift worth the inference cost?** Eac
 fixture carries a `horizon` (short / medium / long) so the gap can be read by
 task length — it widens as tasks get longer.
 
-Run the suite once per **cell**, labeled. Set `docs/work/.model-context` to the
-model under test before each run (`scripts/detect-model-context.sh`):
+Run the suite once per **cell**, labeled. Pin the model for the cell with
+`EVAL_MODEL=<provider>/<model>` (passed straight to `opencode run -m`), so each
+cell runs the model you intend rather than whatever opencode defaults to:
 
 ```bash
 # frontier cell
-node scripts/run-evals.mjs --agent --label frontier
+EVAL_MODEL=openai/gpt-5.5 node scripts/run-evals.mjs --agent --label frontier
 # local-model-with-scaffold cell
-node scripts/run-evals.mjs --agent --label local-qwen14b
+EVAL_MODEL=lmstudio/qwen/qwen3-coder-next node scripts/run-evals.mjs --agent --label local
 # (when a bare/no-scaffold harness exists) same model, no agent loop
-node scripts/run-evals.mjs --agent --label local-qwen14b-bare
+node scripts/run-evals.mjs --agent --label local-bare
 ```
+
+`EVAL_MODEL` also stamps `summary.model`, so the report names the real model.
+(`scripts/detect-model-context.sh` still sets the tier label in
+`docs/work/.model-context` for the deterministic-only path.)
 
 Each labeled run is archived to `docs/work/eval-runs/<label>.json` (with
 per-result `horizon` and a `costEst` of agent duration + estimated output
