@@ -40,6 +40,8 @@ tier=small|medium|large
 
 Context budget is tight. Every token counts.
 
+> **Local model + runtime:** read `references/local-agentic-models.md` before relying on this model for tool-calling — most "can't tool-call" failures are runtime/template bugs (llama.cpp `--jinja`, Qwen3-Coder XML, strip `<think>`), and the right local executor picks (Qwen3-14B / Devstral / Nemotron Nano) are listed there. Param count is a poor predictor of tool-calling skill.
+
 | Behavior | Rule |
 |----------|------|
 | Phase files | Load ONE phase file at a time. Never load sdlc-init-phase-3 AND sdlc-init-phase-4 simultaneously. |
@@ -98,6 +100,7 @@ The detect script picks a verifier per provider (anthropic→haiku, google→fla
 
 | Role | Who runs it | Model |
 |------|-------------|-------|
+| **PLANNER** | `task-decomposer` / the planning specialist that breaks the request into bounded nodes | **strong tier** (large; medium for well-scoped plans) |
 | **MAKER** | the specialist / coding-agent that produces the artifact | task tier (per agent hint) |
 | **VERIFIER** | the scorer / re-verifier that judges "is it actually done?" | a **different** instance — prefer the fast classification tier |
 
@@ -107,6 +110,7 @@ The detect script picks a verifier per provider (anthropic→haiku, google→fla
 2. **Confidence scoring** (`GATE_SCORING_PROTOCOL.md` Step 3) runs on `verifier_model`, **never the maker session**.
 3. **Model re-verify** (`FIX_VERIFY_LOOP.md` Step 4) runs on `verifier_model` in a **fresh session** — never the coding-agent that wrote the fix.
 4. **Single-model fallback.** If no second model is available locally, run verification in a **separate session with cleared context** (the maker's chain-of-thought must not be in scope) and record `maker==verifier` in `DELEGATION_LOG.md` so the weaker guarantee is auditable.
+5. **Plan strong, execute cheap (B5).** Route **planning/decomposition to the strong tier** and **bounded execution to the cheap tier** — planning is where a weak model's errors compound; bounded leaf jobs are where it is reliable. **Cap granularity:** small models over-decompose (deep trees → cascading errors), so a small-tier node is *one bounded job*, not a multi-phase sequence. When work needs re-planning, route it back to the **strong tier** (`task-decomposer` after_replan), not deeper local decomposition. See `task-decomposer.md` node-sizing + the local-model picks in `references/local-agentic-models.md`.
 
 The maker → verifier handoff mirrors Cherny's "one Claude drafts, a second Claude reviews it as a staff engineer."
 

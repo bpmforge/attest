@@ -84,6 +84,7 @@ DAG:
 - Nodes that merge 4+ artifacts get decomposed into pairwise merges when `executor_tier=small`.
 - Verification is a node, not a hope: every artifact-producing node gets a sibling verify node (validator script if one exists, challenger/reviewer otherwise) unless the orchestrator's gates already cover it.
 - No node depends on conversation memory — everything an executor needs is in `inputs` + the task sentence.
+- **Cap granularity — don't over-decompose (B5).** Self-decomposition *hurts* small models: given an open task they spawn trees far deeper than needed, and each extra hop compounds error. Stop splitting once a node is *one bounded job* that fits its tier — deeper is worse, not safer. If a node still won't fit after one split, it needs the **strong (planner) tier**, not more local sub-nodes: route re-planning up (`after_replan` → strong tier per `MODEL_ADAPTER.md` Rule 5), don't recurse the cheap tier. Planning is the strong tier's job; the cheap tier executes leaves.
 
 ## Execution
 
