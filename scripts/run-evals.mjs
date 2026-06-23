@@ -109,15 +109,23 @@ function runAgentCheck(check, cwd, fixture) {
   // EVAL_MODEL pins the model for this cell (provider/model), so the same suite
   // can be run once per model tier and compared by eval-compare.mjs.
   const modelArgs = EVAL_MODEL ? ['-m', EVAL_MODEL] : [];
+  // Per-check budget: coordinator agents (fan-out) need far more than a single
+  // agent. A TIMEOUT is "ran out of budget", reported distinctly from FAIL
+  // ("got it wrong") so a clock-out can never masquerade as a wrong answer.
+  const timeoutMs = check.timeout_ms || AGENT_TIMEOUT_MS;
   const r = spawnSync('opencode', ['run', ...modelArgs, '--agent', check.agent, check.prompt], {
-    cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: AGENT_TIMEOUT_MS, encoding: 'utf8',
+    cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8',
   });
   const durationMs = Date.now() - startedAt;
   agentDurationMs += durationMs;
   agentTokensOut += Math.round((r.stdout || '').length / 4);
   if (r.error?.code === 'ETIMEDOUT') {
     telemetry({ fixture, check: check.id, agent: check.agent, status: 'TIMEOUT', duration_ms: durationMs });
-    return { id: check.id, status: 'FAIL', detail: `agent timed out after ${AGENT_TIMEOUT_MS / 1000}s` };
+    return { id: check.id, status: 'TIMEOUT', detail: `agent did not finish within ${timeoutMs / 1000}s (budget, not a wrong answer)` };
+  }
+  if (r.error) {
+    telemetry({ fixture, check: check.id, agent: check.agent, status: 'ERROR', duration_ms: durationMs });
+    return { id: check.id, status: 'ERROR', detail: `agent process error: ${r.error.code || r.error.message}` };
   }
   // Assert on everything the agent produced (artifacts on disk + final text)
   let corpus = (r.stdout || '');
@@ -163,14 +171,18 @@ if (!existsSync(EXPECT_DIR)) {
       log(`\n── ${exp.fixture} — ${exp.description}`);
 
       for (const check of exp.checks || []) {
-        const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', ...runCheck(check, work) };
+        // Deterministic checks are a fixture-health gate (do the planted defects
+        // exist?) — model-independent, kept OUT of the frontier-vs-local gap.
+        const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', kind: 'deterministic', ...runCheck(check, work) };
         results.push(res);
         log(`  [${res.status}] ${res.id} — ${res.detail}`);
       }
       if (AGENT_MODE) {
         for (const check of exp.agent_checks || []) {
-          log(`  [....] ${check.id} — running agent ${check.agent} (≤${AGENT_TIMEOUT_MS / 1000}s)`);
-          const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', ...runAgentCheck(check, work, exp.fixture) };
+          const budgetS = (check.timeout_ms || AGENT_TIMEOUT_MS) / 1000;
+          log(`  [....] ${check.id} — running agent ${check.agent} (≤${budgetS}s)`);
+          // Agent checks are the model-dependent signal that the gap is computed on.
+          const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', kind: 'agent', ...runAgentCheck(check, work, exp.fixture) };
           results.push(res);
           log(`  [${res.status}] ${res.id} — ${res.detail}`);
         }
@@ -188,6 +200,8 @@ if (!existsSync(EXPECT_DIR)) {
       pass: results.filter((r) => r.status === 'PASS').length,
       fail: results.filter((r) => r.status === 'FAIL').length,
       skip: results.filter((r) => r.status === 'SKIP').length,
+      timeout: results.filter((r) => r.status === 'TIMEOUT').length,
+      error: results.filter((r) => r.status === 'ERROR').length,
       costEst: { durationMs: agentDurationMs, tokensOutEst: agentTokensOut },
       results,
     };
@@ -205,8 +219,10 @@ if (!existsSync(EXPECT_DIR)) {
     if (JSON_OUT) console.log(JSON.stringify(summary, null, 2));
     else {
       console.log(`\nrun-evals: ${summary.pass} pass, ${summary.fail} fail, ${summary.skip} skip` +
+        `, ${summary.timeout} timeout, ${summary.error} error` +
         ` (mode: ${summary.mode}, tier: ${summary.tier}) → ${outFile}`);
     }
+    // A TIMEOUT is a budget signal, not a wrong answer — it does not fail the run.
     process.exitCode = summary.fail > 0 ? 1 : 0;
   }
 }

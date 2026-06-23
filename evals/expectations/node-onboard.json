@@ -11,7 +11,8 @@
         "GET /birdhouses",
         "POST /sightings",
         "audit"
-      ]
+      ],
+      "timeout_ms": 900000
     }
   ],
   "horizon": "long"

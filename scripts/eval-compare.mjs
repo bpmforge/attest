@@ -4,20 +4,23 @@
 // Answers ch.06's evaluation question: "did the scaffold help, how big is the gap
 // to frontier, and is it worth the cost?" — measured, not vibes.
 //
+// VALIDITY RULES (what makes this a measurement and not an anecdote):
+//   1. The gap is computed over AGENT checks only (kind:"agent") — the
+//      model-dependent signal. Deterministic checks (semgrep/validators) pass
+//      regardless of model; they are a fixture-health gate, never in the gap.
+//   2. Only DECIDED outcomes (PASS / FAIL) count. TIMEOUT and ERROR are
+//      "incomplete" — reported beside the cell, never folded in. A clock-out is
+//      a budget signal, not a wrong answer, so it can't flip the gap.
+//   3. If either side has no decided agent checks for a scope, the gap is "—"
+//      (unknown), not 0.
+//
 // Workflow:
-//   1. Run the suite once per cell, labeled:
-//        node scripts/run-evals.mjs --agent --label frontier      # .model-context = a frontier model
-//        node scripts/run-evals.mjs --agent --label local         # .model-context = a local model (scaffolded)
-//        node scripts/run-evals.mjs --bare  --label local-bare    # (future) same model, no agent scaffold
-//      Each writes docs/work/eval-runs/<label>.json.
-//   2. Compare:
-//        node scripts/eval-compare.mjs --frontier frontier --local local [--bare local-bare] [--json]
+//   EVAL_MODEL=openai/gpt-5.5            node scripts/run-evals.mjs --agent --label frontier
+//   EVAL_MODEL=lmstudio/qwen/...coder    node scripts/run-evals.mjs --agent --label local
+//   node scripts/eval-compare.mjs --frontier frontier --local local
 //
 //   lift = pass-rate(local scaffolded) − pass-rate(bare)      → what the scaffold buys
 //   gap  = pass-rate(frontier) − pass-rate(local scaffolded)  → what's left to frontier
-//   cost = tokens/duration per cell                           → is the scaffold worth it
-//
-// Per-horizon (short/medium/long) too, because the gap widens with task length.
 //
 // Usage: eval-compare.mjs [--frontier L] [--local L] [--bare L] [--runs <dir>] [--json] [--self-test]
 // Exit 0 ok / 1 self-test fail or no runs / 2 invocation error.
@@ -34,56 +37,84 @@ const SELF_TEST = argv.includes('--self-test');
 const RUNS_DIR = flag('--runs') || join(REPO, 'docs', 'work', 'eval-runs');
 const ROLES = { bare: flag('--bare'), local: flag('--local'), frontier: flag('--frontier') };
 
-const nz = (x) => (x == null ? 0 : x);
+const DECIDED = new Set(['PASS', 'FAIL']);
+const INCOMPLETE = new Set(['TIMEOUT', 'ERROR']);
 const pct = (x) => (x == null ? '—' : `${Math.round(x * 100)}%`);
+const agentRows = (s) => (s.results || []).filter((r) => r.kind === 'agent');
+const detRows = (s) => (s.results || []).filter((r) => r.kind === 'deterministic');
 
-function passRate(summary, pred) {
-  const rows = (summary.results || []).filter((r) => pred(r) && r.status !== 'SKIP');
-  if (!rows.length) return null;
-  return rows.filter((r) => r.status === 'PASS').length / rows.length;
+// A cell = the agent outcomes for one (label, scope): decided pass-rate +
+// the incomplete (timeout/error) count that explains a thin denominator.
+function cellFor(summary, pred) {
+  const rows = agentRows(summary).filter(pred);
+  const decided = rows.filter((r) => DECIDED.has(r.status));
+  const pass = decided.filter((r) => r.status === 'PASS').length;
+  const incomplete = rows.filter((r) => INCOMPLETE.has(r.status)).length;
+  return { pr: decided.length ? pass / decided.length : null, pass, decided: decided.length, incomplete };
+}
+
+function detHealth(summary) {
+  const rows = detRows(summary).filter((r) => DECIDED.has(r.status));
+  return { pass: rows.filter((r) => r.status === 'PASS').length, total: rows.length };
 }
 
 function analyze(summaries, roles) {
   const byLabel = Object.fromEntries(summaries.map((s) => [s.label, s]));
-  const hz = [...new Set(summaries.flatMap((s) => (s.results || []).map((r) => r.horizon || 'unknown')))].sort();
+  const hz = [...new Set(summaries.flatMap((s) => agentRows(s).map((r) => r.horizon || 'unknown')))].sort();
   const overall = {};
   const perHorizon = {};
-  for (const s of summaries) overall[s.label] = passRate(s, () => true);
+  for (const s of summaries) overall[s.label] = cellFor(s, () => true);
   for (const h of hz) {
     perHorizon[h] = {};
-    for (const s of summaries) perHorizon[h][s.label] = passRate(s, (r) => (r.horizon || 'unknown') === h);
+    for (const s of summaries) perHorizon[h][s.label] = cellFor(s, (r) => (r.horizon || 'unknown') === h);
   }
-  const cost = Object.fromEntries(
-    summaries.map((s) => [s.label, s.costEst || { durationMs: 0, tokensOutEst: 0 }]),
-  );
-  const pr = (label, h) =>
-    label && byLabel[label] ? (h ? perHorizon[h][label] : overall[label]) : null;
-  const comp = (h) => {
-    const out = {};
-    if (roles.bare && roles.local && byLabel[roles.bare] && byLabel[roles.local])
-      out.lift = nz(pr(roles.local, h)) - nz(pr(roles.bare, h));
-    if (roles.frontier && roles.local && byLabel[roles.frontier] && byLabel[roles.local])
-      out.gap = nz(pr(roles.frontier, h)) - nz(pr(roles.local, h));
-    return out;
+  const cost = Object.fromEntries(summaries.map((s) => [s.label, s.costEst || { durationMs: 0, tokensOutEst: 0 }]));
+  const health = Object.fromEntries(summaries.map((s) => [s.label, detHealth(s)]));
+
+  // Gap/lift only when both sides have a decided pass-rate for the scope.
+  const prAt = (label, h) => {
+    const c = label && byLabel[label] ? (h ? perHorizon[h][label] : overall[label]) : null;
+    return c ? c.pr : null;
   };
+  const sub = (a, b) => (a == null || b == null ? null : a - b);
+  const comp = (h) => ({
+    lift: roles.bare && roles.local ? sub(prAt(roles.local, h), prAt(roles.bare, h)) : undefined,
+    gap: roles.frontier && roles.local ? sub(prAt(roles.frontier, h), prAt(roles.local, h)) : undefined,
+  });
   const deltas = { overall: comp(null), perHorizon: Object.fromEntries(hz.map((h) => [h, comp(h)])) };
-  return { labels: summaries.map((s) => s.label), horizons: hz, overall, perHorizon, cost, deltas, roles };
+
+  return { labels: summaries.map((s) => s.label), horizons: hz, overall, perHorizon, cost, health, deltas, roles };
+}
+
+function fmtCell(c) {
+  if (!c || (c.decided === 0 && c.incomplete === 0)) return '—';
+  const base = c.decided === 0 ? '—' : `${pct(c.pr)} (${c.pass}/${c.decided})`;
+  return c.incomplete ? `${base} +${c.incomplete}⧗` : base;
 }
 
 function render(a) {
   const L = a.labels;
-  const lines = ['# Eval comparison — lift / gap / cost', ''];
-  lines.push('| Scope | ' + L.join(' | ') + (a.roles.local ? ' | lift | gap' : '') + ' |');
-  lines.push('|' + '---|'.repeat(L.length + 1 + (a.roles.local ? 2 : 0)));
-  const row = (scope, prByLabel, d) =>
-    `| ${scope} | ` + L.map((l) => pct(prByLabel[l])).join(' | ') +
-    (a.roles.local ? ` | ${d?.lift != null ? pct(d.lift) : '—'} | ${d?.gap != null ? pct(d.gap) : '—'}` : '') + ' |';
+  const showDelta = !!a.roles.local;
+  const lines = ['# Eval comparison — gap / cost (agent checks only)', ''];
+  lines.push('Pass-rate is over **decided agent checks** (PASS/FAIL); `⧗` = incomplete (TIMEOUT/ERROR), excluded from the rate.');
+  lines.push('');
+  lines.push('| Scope | ' + L.join(' | ') + (showDelta ? ' | lift | gap' : '') + ' |');
+  lines.push('|' + '---|'.repeat(L.length + 1 + (showDelta ? 2 : 0)));
+  const row = (scope, cellByLabel, d) =>
+    `| ${scope} | ` + L.map((l) => fmtCell(cellByLabel[l])).join(' | ') +
+    (showDelta ? ` | ${d?.lift != null ? pct(d.lift) : '—'} | ${d?.gap != null ? pct(d.gap) : '—'}` : '') + ' |';
   lines.push(row('overall', a.overall, a.deltas.overall));
   for (const h of a.horizons) lines.push(row(`horizon: ${h}`, a.perHorizon[h], a.deltas.perHorizon[h]));
-  lines.push('', '## Cost per cell', '', '| Label | agent duration | tokens out (est) |', '|---|---|---|');
+
+  lines.push('', '## Cost per cell (agent wall-time + est. output tokens)', '', '| Label | duration | tokens out |', '|---|---|---|');
   for (const l of L) lines.push(`| ${l} | ${Math.round((a.cost[l].durationMs || 0) / 1000)}s | ${a.cost[l].tokensOutEst || 0} |`);
-  if (a.roles.local) {
-    lines.push('', '> **lift** = local-scaffolded − bare (what the scaffold buys). **gap** = frontier − local-scaffolded (what is left). Read cost beside lift: a scaffold that costs more inference than the gap it closes is not worth it on paid APIs (free on owned hardware — see book ch. 06).');
+  lines.push('', '> Cost includes any time spent on TIMEOUT checks (the full budget). If a cell shows `⧗`, its cost is inflated by abandoned work — read it next to the incomplete count, not on its own.');
+
+  lines.push('', '## Fixture health (deterministic checks — model-independent)', '', '| Label | planted defects found |', '|---|---|');
+  for (const l of L) lines.push(`| ${l} | ${a.health[l].pass}/${a.health[l].total} |`);
+
+  if (showDelta) {
+    lines.push('', '> **gap** = frontier − local-scaffolded over decided agent checks (what is left to frontier). **lift** = local-scaffolded − bare (what the scaffold buys; needs a `--bare` cell). A `⧗` next to a cell means that scope is under-measured — get a clean result before trusting its gap. See book ch. 06.');
   }
   return lines.join('\n') + '\n';
 }
@@ -97,23 +128,31 @@ function loadRuns(dir) {
 }
 
 function selfTest() {
-  const mk = (label, rows, cost) => ({ label, costEst: cost, results: rows.map(([horizon, status]) => ({ horizon, status })) });
+  const r = (kind, horizon, status, id = kind + horizon + status) => ({ kind, horizon, status, id });
+  const mk = (label, results, cost) => ({ label, costEst: cost, results });
   const summaries = [
-    mk('bare', [['short', 'PASS'], ['medium', 'FAIL'], ['long', 'FAIL']], { durationMs: 1000, tokensOutEst: 100 }),
-    mk('local', [['short', 'PASS'], ['medium', 'PASS'], ['long', 'FAIL']], { durationMs: 4000, tokensOutEst: 400 }),
-    mk('frontier', [['short', 'PASS'], ['medium', 'PASS'], ['long', 'PASS']], { durationMs: 9000, tokensOutEst: 900 }),
+    // frontier: short agent PASS; medium agent TIMEOUT (incomplete, NOT a fail); long agent PASS; + det checks
+    mk('frontier', [
+      r('agent', 'short', 'PASS'), r('agent', 'medium', 'TIMEOUT'), r('agent', 'long', 'PASS'),
+      r('deterministic', 'short', 'PASS'), r('deterministic', 'medium', 'PASS'),
+    ], { durationMs: 1645000, tokensOutEst: 886 }),
+    // local: all three agent checks decided; medium FAIL (a real wrong answer)
+    mk('local', [
+      r('agent', 'short', 'PASS'), r('agent', 'medium', 'FAIL'), r('agent', 'long', 'PASS'),
+      r('deterministic', 'short', 'PASS'), r('deterministic', 'medium', 'FAIL'),
+    ], { durationMs: 834000, tokensOutEst: 1380 }),
   ];
-  const a = analyze(summaries, { bare: 'bare', local: 'local', frontier: 'frontier' });
-  const near = (x, y) => Math.abs(x - y) < 1e-9;
+  const a = analyze(summaries, { frontier: 'frontier', local: 'local' });
+  const near = (x, y) => x != null && Math.abs(x - y) < 1e-9;
   const checks = [
-    ['overall bare = 1/3', near(a.overall.bare, 1 / 3)],
-    ['overall local = 2/3', near(a.overall.local, 2 / 3)],
-    ['overall lift = 1/3', near(a.deltas.overall.lift, 1 / 3)],
-    ['overall gap = 1/3', near(a.deltas.overall.gap, 1 / 3)],
-    ['medium lift = 1 (bare FAIL→local PASS)', near(a.deltas.perHorizon.medium.lift, 1)],
-    ['long gap = 1 (local FAIL→frontier PASS)', near(a.deltas.perHorizon.long.gap, 1)],
-    ['cost carried', a.cost.local.tokensOutEst === 400],
-    ['render is non-empty', render(a).length > 50],
+    ['frontier overall pr = 2/2 (timeout excluded)', near(a.overall.frontier.pr, 1)],
+    ['frontier overall incomplete = 1', a.overall.frontier.incomplete === 1],
+    ['local overall pr = 2/3', near(a.overall.local.pr, 2 / 3)],
+    ['medium gap is "—" (frontier timed out → undecided)', a.deltas.perHorizon.medium.gap == null],
+    ['short gap = 0 (both PASS)', near(a.deltas.perHorizon.short.gap, 0)],
+    ['det health excluded from agent pr (frontier det 2/2)', a.health.frontier.pass === 2 && a.health.frontier.total === 2],
+    ['local det health 1/2 (one planted-defect check failed)', a.health.local.pass === 1],
+    ['render non-empty', render(a).length > 80],
   ];
   let ok = true;
   for (const [name, pass] of checks) { console.log(`  [${pass ? 'ok' : 'FAIL'}] ${name}`); if (!pass) ok = false; }
