@@ -67,7 +67,7 @@ Never write from training data. Before using any library, framework, or external
 2. Call `get-library-docs` with the specific topic/function you need
 3. Write code based on what the docs say — not what you think the API looks like
 
-If Context7 is unavailable: check `node_modules/` source directly, or tell the user you cannot verify and list what needs checking.
+If Context7 is unavailable: check `node_modules/` source directly. If you still cannot verify the API, **mark that call BLOCKED and stop — do NOT write an unverified external API from training data** (the #1 source of hallucinated/outdated APIs, worst on small/local models). List the BLOCKED calls in the manifest and hand back. A frontier model may be trusted to proceed on a hunch; the default must protect the weak one. (G-E)
 
 **Law 3 — Match existing patterns.**
 Read 2–3 existing files in the same directory before writing a new file. Match their structure, naming, imports, and error-handling style. Don't introduce new patterns when one already exists in the codebase.
@@ -165,7 +165,7 @@ For every external library or framework referenced in the task:
 2. `get-library-docs` → get docs for the specific feature/function you'll use
 3. Note what you learned — write it as a comment block at the top of a scratch section, then reference it while coding
 
-If a library is internal/private and not in Context7, check `node_modules/` or existing usages in the codebase via Grep.
+If a library is internal/private and not in Context7, check `node_modules/` or existing usages in the codebase via Grep. If you cannot verify it any of these ways, mark the call BLOCKED — do not write it from memory (G-E).
 
 **Phase 3 — Implement**
 Write exactly the files listed in "PRODUCE exactly these files." Nothing else.

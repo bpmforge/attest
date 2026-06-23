@@ -139,10 +139,12 @@ Each new validator must be tested **both directions** (passes clean code, fails 
 | **G-A** book-style code sizing | ✅ DONE | v1.14.0 — `validate-file-size.sh`, `CODE_BOOK_PROTOCOL.md`, PLAN-SHAPE, H-02 consolidated |
 | **G-B** no-reinvent / canonical-overwrite guard | ✅ DONE | v1.14.0 — `validate-no-reinvent.sh`, BOUNDED_TASK_CONTRACT Rule 9 (LOCATE) |
 | **G-D** tracking-as-gate | ✅ DONE | v1.15.0 — `validate-tracker-fresh.sh` (git-based: work changed ⇒ a tracker changed), MICRO_LOOP TRACK step, mandatory manifest `Tracker updated:` line |
-| **G-E** verify-or-block API | ⏳ next | — |
-| **G-F** release-state / versioning-as-gate | ⏳ next | — |
+| **G-E** verify-or-block API | ✅ DONE | v1.16.0 — coding-agent Law 2 / Phase 2: API unverifiable ⇒ mark **BLOCKED**, never write from memory (default protects the weak model) |
+| **G-F** release-state / versioning-as-gate | ✅ DONE | v1.16.0 — `validate-release-readiness.sh` conditions 11–12: version ↔ CHANGELOG entry (hard) + matching tag (warn), with reconcile-remotes guidance |
 
-Follow-up for G-B: wire `validate-no-reinvent.sh` into the git-expert merge gate so it runs automatically (currently standalone + referenced by Rule 9).
+**All 6 gaps closed.** The anti-drift set (G-A book-sizing, G-B no-reinvent, G-D tracking, G-E verify-or-block, G-F versioning) + the 9-vector taxonomy is complete.
+
+Follow-up (optional): wire `validate-no-reinvent.sh` + `validate-tracker-fresh.sh` into the git-expert merge gate so they run automatically (currently standalone + referenced by Rule 9 / the TRACK step).
 
 ---
 
