@@ -33,6 +33,11 @@ const FIXTURE_DIR = join(REPO, 'evals', 'fixtures');
 
 const argv = process.argv.slice(2);
 const AGENT_MODE = argv.includes('--agent');
+// --bare runs the same agent_checks with the SAME prompt but WITHOUT the
+// specialist `--agent` scaffold (model under opencode's default agent). Pairing
+// a --bare cell with a scaffolded cell of the same model measures lift =
+// scaffolded − bare (what our scaffold buys). Implies running the agent checks.
+const BARE = argv.includes('--bare');
 const JSON_OUT = argv.includes('--json');
 const KEEP = argv.includes('--keep');
 const ONLY = argv.includes('--fixture') ? argv[argv.indexOf('--fixture') + 1] : null;
@@ -113,7 +118,10 @@ function runAgentCheck(check, cwd, fixture) {
   // agent. A TIMEOUT is "ran out of budget", reported distinctly from FAIL
   // ("got it wrong") so a clock-out can never masquerade as a wrong answer.
   const timeoutMs = check.timeout_ms || AGENT_TIMEOUT_MS;
-  const r = spawnSync('opencode', ['run', ...modelArgs, '--agent', check.agent, check.prompt], {
+  // Bare cell: omit the specialist agent so it's the model under opencode's
+  // default agent — the no-scaffold baseline for the lift measurement.
+  const agentArgs = BARE ? [] : ['--agent', check.agent];
+  const r = spawnSync('opencode', ['run', ...modelArgs, ...agentArgs, check.prompt], {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8',
   });
   const durationMs = Date.now() - startedAt;
@@ -177,10 +185,10 @@ if (!existsSync(EXPECT_DIR)) {
         results.push(res);
         log(`  [${res.status}] ${res.id} — ${res.detail}`);
       }
-      if (AGENT_MODE) {
+      if (AGENT_MODE || BARE) {
         for (const check of exp.agent_checks || []) {
           const budgetS = (check.timeout_ms || AGENT_TIMEOUT_MS) / 1000;
-          log(`  [....] ${check.id} — running agent ${check.agent} (≤${budgetS}s)`);
+          log(`  [....] ${check.id} — running ${BARE ? `BARE (no scaffold, default agent)` : `agent ${check.agent}`} (≤${budgetS}s)`);
           // Agent checks are the model-dependent signal that the gap is computed on.
           const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', kind: 'agent', ...runAgentCheck(check, work, exp.fixture) };
           results.push(res);
@@ -194,7 +202,7 @@ if (!existsSync(EXPECT_DIR)) {
     const summary = {
       ranAt: new Date().toISOString(),
       label: LABEL || null,
-      mode: AGENT_MODE ? 'deterministic+agent' : 'deterministic',
+      mode: BARE ? 'deterministic+bare' : AGENT_MODE ? 'deterministic+agent' : 'deterministic',
       tier: tier.tier || 'unknown',
       model: EVAL_MODEL || tier.model || null,
       pass: results.filter((r) => r.status === 'PASS').length,

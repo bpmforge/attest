@@ -59,8 +59,10 @@ cell runs the model you intend rather than whatever opencode defaults to:
 EVAL_MODEL=openai/gpt-5.5 node scripts/run-evals.mjs --agent --label frontier
 # local-model-with-scaffold cell
 EVAL_MODEL=lmstudio/qwen/qwen3-coder-next node scripts/run-evals.mjs --agent --label local
-# (when a bare/no-scaffold harness exists) same model, no agent loop
-node scripts/run-evals.mjs --agent --label local-bare
+# bare cell — SAME model + prompt, but --bare drops the specialist --agent
+# scaffold (model under opencode's default agent). Pair with the scaffolded
+# local cell to get lift = scaffolded − bare.
+EVAL_MODEL=lmstudio/qwen/qwen3-coder-next node scripts/run-evals.mjs --bare --label local-bare
 ```
 
 `EVAL_MODEL` also stamps `summary.model`, so the report names the real model.
