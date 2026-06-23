@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.14.0] — 2026-06-22
+
+### Added — anti-drift hardening (carry non-frontier / local models)
+- **`docs/CODE_MICRO_LOOP_AND_ANTI_DRIFT.md`** — the drift taxonomy (9 vectors incl. release-state drift), the current-coverage map (~80% already exists — anti-reinvention grounding), the hardened code micro-loop, and a vector→gate→model-tier table. Thesis: the process externalizes, as checkable micro-steps, the corrections a frontier model does silently — so a weak model converges instead of drifting.
+- **G-A book-style code sizing:** `validate-file-size.sh` (configurable cap 400 / warn 300, language-aware, excludes generated/test/migration + `.filesizeignore`) + `agents/shared/CODE_BOOK_PROTOCOL.md` (a file over cap becomes a directory: index/barrel + chapter modules, one concern each) + a **PLAN-SHAPE** step in `MICRO_LOOP.md` (decompose up front, never refactor a monolith later) + coding-agent checklist. **Consolidation:** the old hardcoded `validate-code-health` H-02 (blocking at 250) is folded into the single configurable gate at 400; fixed a greedy `*migrations/*` glob.
+- **G-B no-reinvent / canonical-overwrite guard:** `validate-no-reinvent.sh` (HARD-FAIL edits to `GENERATED_FILES.txt` paths; WARN on wholesale rewrites) + `BOUNDED_TASK_CONTRACT.md` Rule 9 (LOCATE before create — confirm an audit's "missing/wrong" claim with `ls`/`diff` before acting). Targets the Mode-4 class directly.
+
+### Process
+- Both fixes were driven by the **independent Challenger** (G1): it caught that file-size was already gated (H-02) and that the threshold was being silently loosened — preventing a redundant/conflicting gate. Lesson recorded via loop-learn (G3). Released with both remotes reconciled to the same SHA (no squash divergence — release-state drift).
+
 ## [1.13.0] — 2026-06-22
 
 ### Added — loop engineering: micro-agents with macro + micro loops
