@@ -334,6 +334,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] No hardcoded credentials, API keys, or secrets in source files
 - [ ] No unlisted dependencies introduced (check against TECH_STACK.md)
 - [ ] All functions ≤50 lines (flag exceptions in manifest deferred section)
+- [ ] **Every source file ≤ size cap (default 400 lines).** A file that would exceed it is decomposed UP FRONT (PLAN-SHAPE) into a directory — an index/barrel + chapter modules, one concern each — per `agents/shared/CODE_BOOK_PROTOCOL.md`; never write a monolith to refactor later. Gate: `bash scripts/validators/validate-file-size.sh .` exits 0.
 - [ ] Completion Manifest `Test result:` line shows actual command output with pass count
 
 **Run build + tests + code health now (do not skip):**

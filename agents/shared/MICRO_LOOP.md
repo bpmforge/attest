@@ -27,6 +27,14 @@ A specialist does NOT return its first draft. It runs this internal loop before 
 ```
 1. CRITERION  — restate the ONE checkable success criterion for this artifact.
                 If none exists, STOP — refuse to loop (see § Refuse-to-loop).
+                For CODE, the criterion also includes: every file ≤ size cap,
+                every external API verified, anti-slop clean (validate-code-health
+                exit 0).
+1b. PLAN-SHAPE — (code only) if the unit would exceed the file-size cap, design the
+                book-style split UP FRONT — an index/barrel + chapter modules, one
+                concern each — BEFORE producing. Never write a monolith you intend to
+                refactor later (small models botch the extraction). See
+                CODE_BOOK_PROTOCOL.md.
 2. PRODUCE    — make the artifact (maker step).
 3. SELF-VERIFY— run the criterion:
                  - deterministic first: a validator script / test / grep / build

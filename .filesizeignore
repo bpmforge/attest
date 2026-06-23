@@ -1,0 +1,8 @@
+# validate-file-size.sh exceptions — one relative path per line (# comments ok).
+# These are acknowledged, justified exceptions to the book-style code-size cap.
+
+# Skeleton/template generator: most of its length is embedded report templates
+# (long heredoc strings), not branching logic, so a model can still hold its
+# shape. Splitting the templates into data files is tracked tech-debt, not a
+# coherence risk.
+scripts/semgrep-to-report-skeleton.py
