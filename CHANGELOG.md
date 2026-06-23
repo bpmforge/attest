@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.17.0] — 2026-06-23
+
+### Added — anti-drift gates auto-wired into the merge gate
+- `validate-no-reinvent.sh` and `validate-tracker-fresh.sh` gained a **`--base <ref>` merge-gate mode** (compare the branch against its base, not just the working tree).
+- **git-expert merge gate condition 5:** before any merge to `main` (or a parent feature branch), both must exit 0 — no hand-edited generated outputs / unjustified canonical rewrites (G-B), and the branch updated a tracker so work isn't lost (G-D). The anti-drift guards now run automatically at the merge point, not just on demand.
+
 ## [1.16.0] — 2026-06-23
 
 ### Added — anti-drift Wave 4: G-E verify-or-block + G-F versioning-as-gate (set complete)
