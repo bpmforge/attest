@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.21.1] — 2026-06-23
+
+### Fixed — eval-run sandbox guard
+The `--bare` eval cell runs opencode's default agent, which autonomously git-committed its output into this repo during a background run (rewriting `docs/onboard/entry-points.md` + `docs/reviews/SECURITY_FINDINGS.md`). Restored both docs and hardened the harness:
+- The work copy is now `git init`'d so an agent that commits lands in the throwaway sandbox, not the canonical repo.
+- After each fixture the harness checks this repo's HEAD; if it moved during the run it aborts (exit 2) with the SHA range + reset hint. An eval can never again silently contaminate the repo or reach a release. Deterministic mode unaffected.
+
 ## [1.21.0] — 2026-06-23
 
 ### Eval `--bare` cell + the ceiling-effect finding
