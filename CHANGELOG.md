@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Research / planning (no functional change, no version bump)
+- **`docs/research/bridging-the-frontier-gap/`** — verified research book (4 chapters, adversarially Challenger-checked + Ralph coverage) on making cheaper/local models operate closer to frontier. Establishes the internalized-vs-externalizable thesis (cited: scaffolds "load-bearing for Sonnet 4.5, redundant by Opus 4.6"), 8 externalizable levers, a prioritized backlog (B1 graph memory, B2 error-turn pruning, B3 tool-offloaded verification, B4 goal-state re-grounding, B5 planner/executor split, B6 reason-in-NL-then-format, B7 checkpoint/revert, B8 local-model playbook), and a local-model + runtime playbook. Confirms "Mythos" = Anthropic model class above Opus (Fable 5 = first GA Mythos-class); "ZLM" = GLM (Z.ai/Zhipu). **Honest boundary the Challenger enforced:** scaffolding narrows the gap on *bounded* tasks — it does NOT make a local 7–14B model match frontier *long-horizon* reliability.
+
 ## [1.17.0] — 2026-06-23
 
 ### Added — anti-drift gates auto-wired into the merge gate
