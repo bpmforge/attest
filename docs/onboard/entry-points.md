@@ -1,405 +1,209 @@
 # Entry Points
 
-This document traces every entry point in the bpm-opencode-experts repository — HTTP routes, CLI commands, tools, and agents.
+This document traces every entry point in the bpm-opencode-experts repository.
 
----
+## CLI Commands
 
-## CLI Commands (package.json scripts)
-
-These are the primary entry points exposed via `npm run <command>`:
-
-### `npm test`
-- **Script**: `scripts/test.ts`
+### npm test / npm check
+- **File**: package.json:8
+- **Handler**: scripts/test.ts (via `node --experimental-strip-types`)
 - **Description**: Comprehensive validation for bpm-opencode-experts
-- **Passes**:
-  - Tools: Dynamically import each .ts tool, verify runtime shape
-  - Skills: Parse YAML frontmatter, check required fields + cross-refs
-  - Agents: Verify content length + required structural sections
+  - Pass 1: Tools — dynamically import each .ts tool, verify runtime shape
+  - Pass 2: Skills — parse YAML frontmatter, check required fields + cross-refs
+  - Pass 3: Agents — verify content length + required structural sections
 
-### `npm run check`
-- **Script**: `npm test`
-- **Description**: Alias for test command
+### npm run agents:check
+- **File**: package.json:10
+- **Handler**: scripts/build-agents.mjs --check
+- **Description**: Check if agent block sections have drifted from canonical text
+  - Scans agents/*.md files
+  - Compares against agents/shared/blocks/
+  - Exits 1 if drift detected
 
-### `npm run agents:check`
-- **Script**: `scripts/build-agents.mjs --check`
-- **Description**: Validate agent block sections are in sync with canonical templates
+### npm run agents:fix
+- **File**: package.json:11
+- **Handler**: scripts/build-agents.mjs --fix
+- **Description**: Rewrite drifted agent block sections to canonical text
 
-### `npm run agents:fix`
-- **Script**: `scripts/build-agents.mjs --fix`
-- **Description**: Rewrite drifted agent sections to canonical text
+### npm run agents:compact
+- **File**: package.json:12
+- **Handler**: scripts/build-agents.mjs --compact
+- **Description**: Generate dist/compact-agents/ with boilerplate sections replaced by .compact.md variants
 
-### `npm run agents:compact`
-- **Script**: `scripts/build-agents.mjs --compact`
-- **Description**: Generate compact agent variants for small models
+### npm run build:claude
+- **File**: package.json:13
+- **Handler**: scripts/build-target-claude.mjs --write
+- **Description**: Generate claude-experts copies with path/text transformations
 
-### `npm run build:claude`
-- **Script**: `scripts/build-target-claude.mjs --write`
-- **Description**: Generate claude-experts copies from canonical bpm-opencode-experts source
+### npm run build:claude:check
+- **File**: package.json:14
+- **Handler**: scripts/build-target-claude.mjs --check
+- **Description**: Compare generated output against target repo, exit 1 on drift
 
-### `npm run build:claude:check`
-- **Script**: `scripts/build-target-claude.mjs --check`
-- **Description**: Verify generated claude-experts files match canonical source
+### npm run evals
+- **File**: package.json:15
+- **Handler**: scripts/run-evals.mjs (default deterministic mode)
+- **Description**: Run golden-task eval suite against fixture repos with planted defects
+  - Modes: deterministic (default), --agent, --bare
 
-### `npm run evals`
-- **Script**: `scripts/run-evals.mjs`
-- **Description**: Golden-task eval suite for the expert system itself
+### npm run evals:agent
+- **File**: package.json:16
+- **Handler**: scripts/run-evals.mjs --agent
+- **Description**: Run evals with agent mode (spawns opencode run against fixtures)
 
-### `npm run evals:agent`
-- **Script**: `scripts/run-evals.mjs --agent`
-- **Description**: Run evals with agent execution mode
+### npm run evals:compare
+- **File**: package.json:17
+- **Handler**: scripts/eval-compare.mjs
+- **Description**: Compare eval results across labeled runs (gap/lift/cost analysis)
+  - Flags: --frontier L, --local L, --bare L, --self-test
 
-### `npm run evals:compare`
-- **Script**: `scripts/eval-compare.mjs`
-- **Description**: Tiered lift/gap/cost analysis over labeled eval runs
-
-### `npm run evals:status`
-- **Script**: `scripts/eval-status.mjs`
+### npm run evals:status
+- **File**: package.json:18
+- **Handler**: scripts/eval-status.mjs [--since-min N]
 - **Description**: Live fan-out tracker for in-flight eval runs
+  - Shows live opencode processes, telemetry fan-out, completed cells
 
-### `npm run telemetry:report`
-- **Script**: `scripts/telemetry-report.mjs`
-- **Description**: Analyze docs/work/telemetry.jsonl
+### npm run evals:compare:selftest
+- **File**: package.json:19
+- **Handler**: scripts/eval-compare.mjs --self-test
+- **Description**: Run eval-compare self-test to validate logic
 
----
+### npm run telemetry:report
+- **File**: package.json:20
+- **Handler**: scripts/telemetry-report.mjs [path] [--json] [--days N]
+- **Description**: Analyze docs/work/telemetry.jsonl for per-agent/per-model stats
 
-## Tools (tools/*.ts)
+## Direct Node Scripts (not via npm)
 
-These are the opencode plugin tools available during agent execution:
+### scripts/test.ts
+- **File**: scripts/test.ts:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Description**: Comprehensive validation for bpm-opencode-experts
 
-### `bash`
-- **File**: `tools/bash.ts`
-- **Description**: Execute a shell command
-- **Args**:
-  - `command`: Shell command to execute (required)
-  - `workdir`: Working directory (optional, defaults to project root)
-  - `timeout`: Timeout in seconds (optional, defaults to 60)
+### scripts/build-agents.mjs
+- **File**: scripts/build-agents.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: --check | --fix | --compact
 
-### `run`
-- **File**: `tools/run.ts`
-- **Description**: Run a command and capture its output
-- **Args**:
-  - `command`: Shell command to execute (required)
-  - `workdir`: Working directory (optional)
-  - `timeout`: Timeout in seconds (optional)
+### scripts/build-target-claude.mjs
+- **File**: scripts/build-target-claude.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: --check [--out PATH] | --write [--out PATH]
 
-### `write`
-- **File**: `tools/write.ts`
-- **Description**: Write content to a file
-- **Args**:
-  - `filePath`: Absolute path to file (required)
-  - `content`: Content to write (required)
+### scripts/run-evals.mjs
+- **File**: scripts/run-evals.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: [--fixture NAME] [--agent] [--bare] [--json] [--keep] [--label NAME] [--eval-model MODEL]
 
-### `edit`
-- **Description**: Edit a file with exact string replacement
-- **Args**: (inherited from opencode plugin)
+### scripts/eval-compare.mjs
+- **File**: scripts/eval-compare.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: [--frontier LABEL] [--local LABEL] [--bare LABEL] [--runs DIR] [--json] [--self-test]
 
-### `read`
-- **Description**: Read a file or directory
-- **Args**: (inherited from opencode plugin)
+### scripts/eval-status.mjs
+- **File**: scripts/eval-status.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: [--since-min N=20]
 
-### `append`
-- **File**: `tools/append.ts`
-- **Description**: Append content to a file
+### scripts/telemetry-report.mjs
+- **File**: scripts/telemetry-report.mjs:1
+- **Entry Point**: #!/usr/bin/env node (line 1)
+- **Flags**: [path] [--json] [--days N]
 
-### `update`
-- **File**: `tools/update.ts`
-- **Description**: Update content to a file
+## Tools (Opencode Plugin Tools)
 
-### `file-info`
-- **File**: `tools/file-info.ts`
-- **Description**: Get file metadata (size, lines, extension)
+### tools/bash.ts
+- **File**: tools/bash.ts:1
+- **Export**: default tool
+- **Description**: Execute shell command via spawn
 
-### `grep-mcp`
-- **File**: `tools/grep-mcp.ts`
-- **Description**: Enhanced grep with options for context, line numbers, and file filtering
+### tools/run.ts
+- **File**: tools/run.ts:1
+- **Export**: default tool
+- **Description**: Run command and capture output via spawn
 
-### `loop-detector`
-- **File**: `tools/loop-detector.ts`
-- **Description**: Detect and prevent infinite loops in LLM operations
+### tools/test-runner.ts
+- **File**: tools/test-runner.ts:1
+- **Export**: default tool
+- **Description**: Run vitest/jest tests
 
-### `semgrep-rule`
-- **File**: `tools/semgrep-rule.ts`
-- **Description**: Write and test a single Semgrep pattern
+### tools/playwright-test.ts
+- **File**: tools/playwright-test.ts:1
+- **Export**: default tool
+- **Description**: Run Playwright e2e tests
 
-### `semgrep-scan`
-- **File**: `tools/semgrep-scan.ts`
-- **Description**: Run Semgrep security scan on codebase
+### tools/semgrep-scan.ts
+- **File**: tools/semgrep-scan.ts:1
+- **Export**: default tool
+- **Description**: Run Semgrep security scan
 
-### `deploy`
-- **File**: `tools/deploy.ts`
-- **Description**: Build and deploy containerized app using Docker or Podman
+### tools/semgrep-rule.ts
+- **File**: tools/semgrep-rule.ts:1
+- **Export**: default tool
+- **Description**: Write and test single Semgrep pattern
 
-### `test-runner`
-- **File**: `tools/test-runner.ts`
-- **Description**: Run tests with better error handling and summary
+### tools/deploy.ts
+- **File**: tools/deploy.ts:1
+- **Export**: default tool
+- **Description**: Build and deploy containerized app
 
-### `log-parser`
-- **File**: `tools/log-parser.ts`
+### tools/log-parser.ts
+- **File**: tools/log-parser.ts:1
+- **Export**: default tool
 - **Description**: Parse and analyze logs
 
-### `pomodoro`
-- **File**: `tools/pomodoro.ts`
-- **Description**: Timer tool to prevent burnout using Pomodoro technique
+### tools/file-info.ts
+- **File**: tools/file-info.ts:1
+- **Export**: default tool
+- **Description**: Get file metadata (size, lines, extension)
 
-### `simplify-file`
-- **File**: `tools/simplify-file.ts`
-- **Description**: Simplify code with rewrite detection
+### tools/grep-mcp.ts
+- **File**: tools/grep-mcp.ts:1
+- **Export**: default tool
+- **Description**: Enhanced grep with options
 
-### `playwright-test`
-- **File**: `tools/playwright-test.ts`
-- **Description**: Run Playwright end-to-end browser tests
-
-### `playwright-web`
-- **File**: `tools/playwright-web.ts`
+### tools/playwright-web.ts
+- **File**: tools/playwright-web.ts:1
+- **Export**: default tool
 - **Description**: Browser for web research via playwright-cli
 
----
+### tools/playwright-test.ts
+- **File**: tools/playwright-test.ts:1
+- **Export**: default tool
+- **Description**: Run Playwright e2e tests
 
-## Agent Entry Points (agents/*.md)
+### tools/loop-detector.ts
+- **File**: tools/loop-detector.ts:1
+- **Export**: default tool
+- **Description**: Detect and prevent infinite loops
 
-Each agent file serves as an entry point when invoked:
+### tools/pomodoro.ts
+- **File**: tools/pomodoro.ts:1
+- **Export**: default tool
+- **Description**: Timer for Pomodoro technique
 
-### sdcl-lead
-- **File**: `agents/sdlc-lead.md`
-- **Description**: SDLC orchestrator — new projects, codebase onboarding, feature addition, audit and improvement
-- **Commands**:
-  - `/sdlc init <project-name> "<description>"` — Initialize SDLC in current project
-  - `/sdlc run [--phase N]` — Generate phase documents
-  - `/sdlc status` — Show current progress
-  - `/sdlc validate` — Validate documents
-  - `/sdlc feature "<description>"` — Add a feature to existing system
-  - `/sdlc improve ["<focus>"]` — Audit and improve an existing system
+### tools/simplify-file.ts
+- **File**: tools/simplify-file.ts:1
+- **Export**: default tool
+- **Description**: Simplify code with rewrite detection
 
-### code-reviewer
-- **File**: `agents/code-reviewer.md`
-- **Description**: Code-health audit — complexity, duplication, error handling
-- **Commands**:
-  - `/review-code --review` — Full code pass
-  - `/review-code --debt` — Tech-debt catalog
-  - `/review-code --consolidate` — DRY + error-handling consolidation
-  - `/review-code --patterns` — Cross-codebase consistency
+### tools/update.ts
+- **File**: tools/update.ts:1
+- **Export**: default tool
+- **Description**: Update content to a file
 
-### security-auditor
-- **File**: `agents/security-auditor.md`
-- **Description**: OWASP audit, threat modeling, CVE/dependency scanning
-- **Commands**:
-  - `/security --quick` — Default quick scan (~10 min)
-  - `/security --deep` — Exhaustive Ralph Wiggum scan (~45-90 min)
+### tools/write.ts
+- **File**: tools/write.ts:1
+- **Export**: default tool
+- **Description**: Write content to a file
 
-### test-engineer
-- **File**: `agents/test-engineer.md`
-- **Description**: Write or review Playwright e2e, vitest/jest unit/integration tests
+### tools/append.ts
+- **File**: tools/append.ts:1
+- **Export**: default tool
+- **Description**: Append content to a file
 
-### db-architect
-- **File**: `agents/db-architect.md`
-- **Description**: Schema design, migrations, query optimization
-- **Commands**:
-  - `/dba` — Schema design and query optimization
+### tools/read.ts (not found in directory listing)
 
-### sre-engineer
-- **File**: `agents/sre-engineer.md`
-- **Description**: CI/CD pipelines, runbooks, monitoring, incident response
-- **Commands**:
-  - `/devops` — DevOps/SRE support
+## Event Listeners
 
-### container-ops
-- **File**: `agents/container-ops.md`
-- **Description**: Podman/Docker builds, Dockerfiles, compose, networking
-- **Commands**:
-  - `/containers` — Container build/run failures and tuning
-
-### performance-engineer
-- **File**: `agents/performance-engineer.md`
-- **Description**: Profile and optimize bottlenecks
-- **Commands**:
-  - `/perf` — Performance profiling and optimization
-
-### ux-engineer
-- **File**: `agents/ux-engineer.md`
-- **Description**: Design direction, UX workflows, component architecture
-- **Commands**:
-  - `/ux` — UX design and accessibility auditing
-
-### api-designer
-- **File**: `agents/api-designer.md`
-- **Description**: REST/GraphQL endpoints, contracts, versioning
-- **Commands**:
-  - `/api-design` — API design support
-
-### researcher
-- **File**: `agents/researcher.md`
-- **Description**: Deep research before decisions — tech comparisons, competitive landscape
-- **Commands**:
-  - `/research` — Research analyst support
-
-### cost-engineer
-- **File**: `agents/cost-engineer.md`
-- **Description**: Cloud and LLM spend analysis — audit, right-size, unit economics
-- **Commands**:
-  - `/cost` — Cost engineering support
-
-### analytics-architect
-- **File**: `agents/analytics-architect.md`
-- **Description**: Telemetry and instrumentation design — RED/USE/golden signals
-- **Commands**:
-  - `/analytics` — Analytics architecture support
-
-### a11y-compliance
-- **File**: `agents/a11y-compliance.md`
-- **Description**: Accessibility & compliance audit — WCAG 2.2 AA/AAA
-- **Commands**:
-  - `/a11y` — Accessibility audit
-
-### reliability-engineer
-- **File**: `agents/reliability-engineer.md`
-- **Description**: Load testing & resilience — failure-mode matrices, k6/Locust
-- **Commands**:
-  - `/reliability` — Reliability engineering support
-
-### architecture-designer
-- **File**: `agents/architecture-designer.md`
-- **Description**: Module design and infrastructure topology
-
-### ui-verifier
-- **File**: `agents/ui-verifier.md`
-- **Description**: Live browser verification using playwright-mcp
-- **Commands**:
-  - `/ui-verifier` — UI verification support
-
-### end-user-simulator
-- **File**: `agents/end-user-simulatormd`
-- **Description**: Play vertical slice via browser/input automation
-- **Commands**:
-  - `/end-user-simulator` — Playtest evaluation
-
-### challenger
-- **File**: `agents/challenger.md`
-- **Description**: Gate enforcement for challenging cases
-
-### data-steward
-- **File**: `agents/data-steward.md`
-- **Description**: PII classification, GDPR/CCPA/PIPEDA, retention schedules
-- **Commands**:
-  - `/data-governance` — Data governance support
-
-### git-expert
-- **File**: `agents/git-expert.md`
-- **Description**: Senior git & forge expert — repo bootstrap, feature branches
-- **Commands**:
-  - `/git-expert --init` — Bootstrap repo + remotes + hooks
-  - `/git-expert --feature` — Branch + atomic commits + draft PR
-  - `/git-expert --release` — Semver + changelog + signed tag
-
-### release-manager
-- **File**: `agents/release-manager.md`
-- **Description**:Release management and changelog generation
-
-### changelog-writer
-- **File**: `agents/changelog-writer.md`
-- **Description**: Automated changelog generation
-
-### migration-planner
-- **File**: `agents/migration-planner.md`
-- **Description**: Migration planning and execution
-
-### documentation-gap-finder
-- **File**: `agents/documentation-gap-finder.md`
-- **Description**: Find and fix documentation gaps
-
-### llm-integration-engineer
-- **File**: `agents/llm-integration-engineer.md`
-- **Description**: LLM integration patterns and security
-
-### frontend-design
-- **File**: `agents/frontend-design.md`
-- **Description**: Frontend design — visual polish, typography, color systems
-
-### onbord-inventory
-- **File**: `agents/onboard-inventory.md`
-- **Description**: Ralph Wiggum deep-onboard Step D1 — enumerate every unit
-
-### onboard-gap-fill
-- **File**: `agents/onboard-gap-fill.md`
-- **Description**: Ralph Wiggum deep-onboard Step D4 — re-run focused HANDOFFs
-
-### onboard-verify
-- **File**: `agents/onboard-verify.md`
-- **Description**: Ralph Wiggum deep-onboard Step D3 — run all onboard validators
-
-### guide
-- **File**: `agents/guide.md`
-- **Description**: Expert-system concierge / front door
-- **Commands**:
-  - `/guide` — Route to correct expert based on user intent
-
----
-
-## Tool-based Entry Points (scripts/*.mjs/ts)
-
-These scripts expose command-line interfaces:
-
-### `scripts/test.ts`
-- CLI entry point for validation
-- Usage: `node --experimental-strip-types scripts/test.ts`
-
-### `scripts/build-agents.mjs`
-- CLI entry point for agent building
-- Usage: `node scripts/build-agents.mjs --check | --fix | --compact`
-
-### `scripts/build-target-claude.mjs`
-- CLI entry point for claude-experts sync
-- Usage: `node scripts/build-target-claude.mjs --check [--out <path>] | --write [--out <path>]`
-
-### `scripts/run-evals.mjs`
-- CLI entry point for eval suite
-- Usage: `node scripts/run-evals.mjs [--fixture <name>] [--agent] [--json] [--keep]`
-
-### `scripts/eval-compare.mjs`
-- CLI entry point for eval comparison
-- Usage: `node scripts/eval-compare.mjs [--frontier L] [--local L] [--bare L] [--json] [--self-test]`
-
-### `scripts/eval-status.mjs`
-- CLI entry point for eval status
-- Usage: `node scripts/eval-status.mjs [--since-min <n>]`
-
-### `scripts/telemetry-report.mjs`
-- CLI entry point for telemetry analysis
-- Usage: `node scripts/telemetry-report.mjs [path/to/telemetry.jsonl] [--json] [--days N]`
-
-### `scripts/run-plan.mjs`
-- CLI entry point for DAG runner
-- Usage: `node scripts/run-plan.mjs [plan.json] [--dry-run] [--node <id>] [--max-retries <n>] [--cmd <template>] [--auto-replan] [--parallel <n>]`
-
----
-
-## Plugin Hooks (plugins/expert-hooks.ts)
-
-These are event-based entry points registered with the opencode plugin:
-
-### `tool.execute.before`
-- Triggered before any tool execution
-- Blocks dangerous bash commands and credential file writes
-
-### `tool.execute.after`
-- Triggered after write/edit operations
-- Runs format → lint → type-check → secret-scan
-
-### `event`
-- Triggered on assistant message completion
-- Telemetry logging to docs/work/telemetry.jsonl
-
----
-
-## Summary Statistics
-
-| Category | Count |
-|----------|-------|
-| npm scripts | 10 |
-| Tools | 16 |
-| Agents | 37+ |
-| CLI scripts | 8 |
-| Plugin hooks | 3 |
-
----
-
-*This document was automatically generated from codebase exploration.*
+No event listeners (cron, queue consumers, message brokers) detected in codebase.
