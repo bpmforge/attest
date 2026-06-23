@@ -1,6 +1,6 @@
 # 04 — Sources & Confidence
 
-[🏠 Index](README.md) · [← local playbook](03-local-model-and-runtime-playbook.md) · [index](README.md)
+[🏠 Index](README.md) · [← economics & eval](06-economics-evaluation-distillation.md)
 
 Every load-bearing claim with its primary source and a confidence flag. Compiled from 4 parallel research sweeps + an independent Challenger pass (9 claims re-verified against primary sources) + a Ralph coverage check.
 

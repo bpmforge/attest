@@ -2,10 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.18.0] — 2026-06-23
 
-### Research / planning (no functional change, no version bump)
-- **`docs/bridging-the-frontier-gap/`** — verified research book (4 chapters, adversarially Challenger-checked + Ralph coverage) on making cheaper/local models operate closer to frontier. Establishes the internalized-vs-externalizable thesis (cited: scaffolds "load-bearing for Sonnet 4.5, redundant by Opus 4.6"), 8 externalizable levers, a prioritized backlog (B1 graph memory, B2 error-turn pruning, B3 tool-offloaded verification, B4 goal-state re-grounding, B5 planner/executor split, B6 reason-in-NL-then-format, B7 checkpoint/revert, B8 local-model playbook), and a local-model + runtime playbook. Confirms "Mythos" = Anthropic model class above Opus (Fable 5 = first GA Mythos-class); "ZLM" = GLM (Z.ai/Zhipu). **Honest boundary the Challenger enforced:** scaffolding narrows the gap on *bounded* tasks — it does NOT make a local 7–14B model match frontier *long-horizon* reliability.
+### Added — bridging-the-frontier-gap: experts fixes + research book expansion
+Implements the cheap, high-value backlog items from the research book (all evidence-cited; carry weak/local models closer to frontier on bounded tasks):
+- **B3 — tool-offloaded verification (`MICRO_LOOP.md`):** now a hard rule — if a tool/test/validator can decide the criterion, the model MUST NOT judge it (a weak model's self-judgment is its weakest link; a 1B+tools can beat an 8B).
+- **B4 — goal-state re-grounding (`MICRO_LOOP.md`):** RE-GROUND on every revision — restate goal vs current-state gap before retrying (ReflAct: +31 pts on an 8B; counters the ~20–25× higher drift of small models).
+- **B6 — reason-in-NL-then-format (`MODEL_ADAPTER.md` small tier):** reason in natural language, emit structured output only at the final boundary (the −27pt "format tax").
+- **B2 — prune error turns (`MODEL_ADAPTER.md` small tier):** drop a model's own failed turns from context before retrying (self-conditioning isn't fixed by scale).
+
+### Docs / research
+- **Research book expanded to 6 chapters** — added **05 (memory architecture)** and **06 (economics, evaluation & distillation)**. **B1 CORRECTED after reading `bpm-memory-mcp`:** the system is mature (graph `entities`/`relations` + Zettelkasten links + hybrid vector/BM25/graph-walk retrieval + supersession + typed taxonomy already exist and are tested) — so B1 is **activate the dormant bi-temporal model + add sleep-time consolidation + auto-resolve contradictions**, NOT "build a graph." (Rule 9 caught the stale assumption.) Ch. 06 adds the scaffold-economics decision, an evaluation plan tied to `run-evals.mjs`, and distillation as the complementary lever. Identities confirmed: Mythos = Anthropic class above Opus (Fable 5 = first GA); ZLM = GLM (Z.ai).
 
 ## [1.17.0] — 2026-06-23
 

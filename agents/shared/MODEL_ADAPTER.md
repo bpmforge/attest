@@ -47,6 +47,8 @@ Context budget is tight. Every token counts.
 | Specialist sessions | One HANDOFF per session. Restart after each specialist returns. |
 | HANDOFF_QUICK_REF | Read this instead of full HANDOFF_TEMPLATES (saves 3,900 tokens). |
 | Write immediately | Any output > 200 tokens → `write()` to disk before continuing. |
+| Reason in NL, format last (B6) | Reason in natural language; emit structured output (JSON / tool-call / schema) ONLY at the final boundary. Forcing schema onto the *reasoning* costs small/open models up to −27 pts ("format tax"). For local runtimes, constrain only the final call (grammar/JSON-schema), never the chain-of-thought. |
+| Prune error turns (B2) | After a failed attempt, drop the failed turn(s) from working context before retrying — a model's own errors in context raise its next-error rate, and this is NOT fixed by scale. Reconstruct from disk state, not the error-laden transcript. |
 | Session length | After 3 HANDOFFs returned, save state and suggest user restart session. |
 | OWASP --deep | Warn user: requires 60k+ context. Recommend medium or large tier model. |
 | Security --deep | Load OWASP_METHODOLOGY.md only if context budget shows > 15k tokens available. |

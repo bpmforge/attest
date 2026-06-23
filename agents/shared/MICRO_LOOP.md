@@ -37,10 +37,18 @@ A specialist does NOT return its first draft. It runs this internal loop before 
                 CODE_BOOK_PROTOCOL.md.
 2. PRODUCE    — make the artifact (maker step).
 3. SELF-VERIFY— run the criterion:
-                 - deterministic first: a validator script / test / grep / build
-                 - only if no script exists: judge it — but on verifier_model,
-                   in a cleared sub-context, never grading your own reasoning in place
-4. REVISE     — if the criterion fails, fix the cited gap and go to step 3.
+                 - **deterministic / tool-offloaded first (B3):** if a validator,
+                   test, grep, build, or tool CAN decide the criterion, the model
+                   MUST NOT judge it — route to the tool. A weak model's own
+                   judgment is its weakest link; offloading verification to tools is
+                   the single most reliable lift (a 1B + tools can beat an 8B).
+                 - only if NO tool can decide it: judge on `verifier_model`, in a
+                   cleared sub-context, never grading your own reasoning in place.
+4. REVISE     — if the criterion fails: first **RE-GROUND (B4)** — restate the goal
+                and the one specific current-state-vs-goal gap in a single line —
+                THEN fix that cited gap and go to step 3. Re-grounding each revision
+                counters drift (small models drift ~20–25× more than frontier) and is
+                the biggest measured weak-model lift; never just retry blindly.
 4b. TRACK     — (G-D) before EXIT, record this unit in the tracker / PROGRESS /
                 inventory / DELEGATION_LOG row. A step is NOT done until its work
                 is written down — this is what stops things getting lost between

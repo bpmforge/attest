@@ -16,7 +16,7 @@ How each evidence-backed lever maps to what we already have, what to upgrade, an
 | 4. Prune own error turns | — | **NEW:** an error-turn-pruning rule + a context-hygiene step (drop failed attempts before the next try). |
 | 5. Plan(strong) → execute(weak) bounded | maker/verifier; MODEL_ADAPTER tiers; task-decomposer | **Formalize** a planner-tier/executor-tier split with bounded granularity; route planning to the strong tier, execution to the cheap tier. |
 | 6. Reason-in-NL, format only the call | — | **NEW:** coding/agent rule + (for local) constrain only the final tool-call, not the reasoning. |
-| 7. Graph + bi-temporal memory + consolidation | bpm-memory-mcp (SQLite+vectors), CLAUDE.md taxonomy | **NEW infra:** graph layer + bi-temporal edges + mem0 write-loop + sleep-time consolidation. Biggest single project. |
+| 7. Bi-temporal memory + sleep-time consolidation | bpm-memory-mcp **already has** graph (entities/relations) + Zettelkasten links + hybrid retrieval + supersession + taxonomy | **Activate, don't rebuild** (ch. 05): turn on the dormant bi-temporal model + add a sleep-time consolidation scheduler + auto-resolve contradictions. Smaller than first assumed. |
 | 8. Checkpoint/revert + loop guards | **G2** no-progress kill; 3-iter caps | **NEW:** git checkpoint/revert to known-good (Foreman); error-pruning ties in. |
 | — Deterministic orchestration in code | HANDOFF + validators (orchestrator is code, not the weak model) | ✅ Reinforce — research says weak models can't self-orchestrate; keep orchestration external/deterministic. |
 | — Local model + runtime playbook | — | **NEW:** ch. 03 — which models + runtime config. |
@@ -31,9 +31,9 @@ Priority = (evidence strength) × (gap size) × (how much it helps the *weak/loc
 
 ### P0 — highest leverage, well-evidenced, we don't have it
 
-- **B1. Graph + bi-temporal memory upgrade for `bpm-memory-mcp`** (Lever 7).
-  Add a graph layer to the existing SQLite+vectors store: `nodes(type[episode|entity|decision|error|fact|pattern|preference], content, embedding)` + `edges(src,dst,relation, t_valid,t_invalid,t_created,t_expired)` (Zep's four-timestamp model → record supersession, e.g. "master → main 2026-06-02", never overwrite). Hybrid retrieval = vector + FTS5 + 1–2-hop graph walk → rerank. mem0 ADD/UPDATE/DELETE/NOOP write loop. **Sleep-time consolidation** as a background MCP job (episodic→semantic distillation). Mine `mcp-memory-libsql`, `memory-graph`, Graphiti's MCP — don't build from scratch. *Type nodes to our existing CLAUDE.md taxonomy.*
-  - *Honest scope:* token-efficiency + cross-session coherence win on bounded tasks; not a frontier-long-horizon claim.
+- **B1. Bi-temporal activation + sleep-time consolidation for `bpm-memory-mcp`** (Lever 7) — **see [chapter 05](05-memory-architecture.md) for the accurate current→target.**
+  *Corrected after reading the actual system:* the graph (`entities`/`relations`), Zettelkasten links, hybrid retrieval (vector+BM25+graph-walk+RRF), supersession versioning, and typed taxonomy **already exist and are tested.** The real work is narrower: **B1a** activate the dormant bi-temporal model (formal ADD/UPDATE/DELETE/NOOP + `as-of <date>` queries on the existing `valid_from`/`valid_to`); **B1b** add a **sleep-time consolidation** scheduler (episodic→semantic distillation with `derived_from` provenance, rollback-able); **B1c** auto-resolve contradictions on store (auto-link + confidence drop); **B1d** improve KG population beyond regex.
+  - *Honest scope:* token-efficiency + cross-session coherence on bounded tasks; not a frontier-long-horizon claim. Governance (provenance + write-time contradiction check) is mandatory before auto-writing at scale.
 
 - **B2. Error-turn pruning / context-hygiene step** (Levers 4 + 8) — **experts + Foreman**.
   A micro-loop rule + a runtime behavior: after a failed attempt, **prune the failed turn(s) from the working context** before retrying (self-conditioning isn't fixed by scale). For Foreman: on retry, reconstruct context from disk state + the last known-good, not from the error-laden transcript.
