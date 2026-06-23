@@ -41,6 +41,12 @@ A specialist does NOT return its first draft. It runs this internal loop before 
                  - only if no script exists: judge it — but on verifier_model,
                    in a cleared sub-context, never grading your own reasoning in place
 4. REVISE     — if the criterion fails, fix the cited gap and go to step 3.
+4b. TRACK     — (G-D) before EXIT, record this unit in the tracker / PROGRESS /
+                inventory / DELEGATION_LOG row. A step is NOT done until its work
+                is written down — this is what stops things getting lost between
+                steps and sessions. Gate: `validate-tracker-fresh.sh` must pass
+                (work files changed ⇒ a tracker changed) and the Completion
+                Manifest carries a `Tracker updated: <file>` line.
 5. EXIT       — criterion passes  → return with Completion Manifest + phrase
                 cap reached / stalled → return [PARTIAL] + escalation note + loop-learn
 ```

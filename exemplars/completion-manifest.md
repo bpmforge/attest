@@ -25,4 +25,6 @@
 - Ran `npx prisma validate` against the proposed schema — clean.
 - Checked every SRS data requirement (DR-1..DR-9) appears in a table spec — DR-7 (waitlists) intentionally out of scope per SCOPE.md, noted in Known issues of DATABASE.md.
 
+Tracker updated: docs/sdlc/SDLC_TRACKER.md — Phase 3 DATABASE row → ✅ DONE (9/10)
+
 db-architect done -- DATABASE.md with 5-entity ERD, loan invariants DB-enforced, 2 deferred items flagged

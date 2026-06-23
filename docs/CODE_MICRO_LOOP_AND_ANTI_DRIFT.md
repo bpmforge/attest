@@ -138,7 +138,7 @@ Each new validator must be tested **both directions** (passes clean code, fails 
 |---|---|---|
 | **G-A** book-style code sizing | ✅ DONE | v1.14.0 — `validate-file-size.sh`, `CODE_BOOK_PROTOCOL.md`, PLAN-SHAPE, H-02 consolidated |
 | **G-B** no-reinvent / canonical-overwrite guard | ✅ DONE | v1.14.0 — `validate-no-reinvent.sh`, BOUNDED_TASK_CONTRACT Rule 9 (LOCATE) |
-| **G-D** tracking-as-gate | ⏳ next | — |
+| **G-D** tracking-as-gate | ✅ DONE | v1.15.0 — `validate-tracker-fresh.sh` (git-based: work changed ⇒ a tracker changed), MICRO_LOOP TRACK step, mandatory manifest `Tracker updated:` line |
 | **G-E** verify-or-block API | ⏳ next | — |
 | **G-F** release-state / versioning-as-gate | ⏳ next | — |
 
