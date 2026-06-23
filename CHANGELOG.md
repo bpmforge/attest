@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.16.0] — 2026-06-23
+
+### Added — anti-drift Wave 4: G-E verify-or-block + G-F versioning-as-gate (set complete)
+- **G-E verify-or-block** (`coding-agent.md` Law 2 / Phase 2): if a library API can't be verified via Context7 / `node_modules` / existing usages, mark the call **BLOCKED** and hand back — never write an unverified external API from training data. The default protects non-frontier / local models (where hallucinated/outdated APIs are the #1 failure).
+- **G-F versioning-as-gate** (`validate-release-readiness.sh` conditions 11–12): the version (package.json or newest CHANGELOG heading) must have a matching `## [ver]` CHANGELOG entry (hard) and a `v<ver>` tag (warn), with reconcile-remotes-by-ff-merge guidance. Targets release-state drift (taxonomy vector 9).
+- **Anti-drift set complete:** G-A (book-style sizing), G-B (no-reinvent), G-D (tracking-as-gate), G-E, G-F + the 9-vector drift taxonomy. See `docs/CODE_MICRO_LOOP_AND_ANTI_DRIFT.md`.
+
 ## [1.15.0] — 2026-06-22
 
 ### Added — anti-drift Wave 3: G-D tracking-as-gate ("things get lost between steps")
