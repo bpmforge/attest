@@ -53,6 +53,14 @@ let agentTokensOut = 0;
 
 function log(msg) { if (!JSON_OUT) console.log(msg); }
 
+// Sandbox guard: an eval agent (esp. the bare default agent) can autonomously
+// git-commit its output. Capture this repo's HEAD so we can abort if an agent
+// escapes its work dir and commits to the canonical repo.
+function gitHead(dir) {
+  const r = spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.trim() : null;
+}
+
 function toolExists(name) {
   return spawnSync('sh', ['-c', `command -v ${name}`], { stdio: 'ignore' }).status === 0;
 }
@@ -166,6 +174,9 @@ if (!existsSync(EXPECT_DIR)) {
   } else {
     const tier = readTier();
     const results = [];
+    // Sandbox: remember the canonical repo's HEAD; abort if an agent commits to it.
+    const SANDBOXED = AGENT_MODE || BARE;
+    const repoHeadBefore = SANDBOXED ? gitHead(REPO) : null;
 
     for (const exp of expectations) {
       const src = join(FIXTURE_DIR, exp.fixture);
@@ -176,6 +187,9 @@ if (!existsSync(EXPECT_DIR)) {
       // Work on a copy: agent runs write artifacts; scanners may drop caches.
       const work = mkdtempSync(join(tmpdir(), `eval-${exp.fixture}-`));
       cpSync(src, work, { recursive: true });
+      // Make the work copy its own git repo so an agent that decides to commit
+      // lands in the throwaway sandbox, not the canonical repo.
+      if (SANDBOXED) spawnSync('git', ['-C', work, 'init', '-q'], { stdio: 'ignore' });
       log(`\n── ${exp.fixture} — ${exp.description}`);
 
       for (const check of exp.checks || []) {
@@ -197,6 +211,21 @@ if (!existsSync(EXPECT_DIR)) {
       }
       if (KEEP) log(`  (workdir kept: ${work})`);
       else rmSync(work, { recursive: true, force: true });
+
+      // Guard: if an agent escaped the sandbox and committed to THIS repo, stop
+      // now — never let an eval run silently contaminate the canonical repo.
+      if (SANDBOXED) {
+        const headNow = gitHead(REPO);
+        if (headNow && repoHeadBefore && headNow !== repoHeadBefore) {
+          console.error(
+            `\nFATAL: the canonical repo HEAD moved during an eval agent run ` +
+            `(${repoHeadBefore.slice(0, 8)} → ${headNow.slice(0, 8)}). An agent committed to ` +
+            `${REPO} instead of its sandbox. Aborting before this reaches a release; ` +
+            `inspect with \`git log\` and \`git reset --hard ${repoHeadBefore.slice(0, 8)}\` if the commits are agent-made.`
+          );
+          process.exit(2);
+        }
+      }
     }
 
     const summary = {
