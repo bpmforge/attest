@@ -144,7 +144,7 @@ Each new validator must be tested **both directions** (passes clean code, fails 
 
 **All 6 gaps closed.** The anti-drift set (G-A book-sizing, G-B no-reinvent, G-D tracking, G-E verify-or-block, G-F versioning) + the 9-vector taxonomy is complete.
 
-Follow-up (optional): wire `validate-no-reinvent.sh` + `validate-tracker-fresh.sh` into the git-expert merge gate so they run automatically (currently standalone + referenced by Rule 9 / the TRACK step).
+Follow-up: ✅ **DONE (v1.17.0)** — both validators gained a `--base <ref>` merge-gate mode (compare branch vs base, not just the working tree) and are wired into the git-expert merge gate as **condition 5** (`validate-no-reinvent --base <base>` + `validate-tracker-fresh --base <base>` must exit 0 before any merge to main / parent). They now run automatically at the merge point, not just on demand.
 
 ---
 

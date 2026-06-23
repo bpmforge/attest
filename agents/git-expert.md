@@ -430,6 +430,10 @@ EOF
   2. **CI pipeline green.** Every check on the PR (lint, test, build, E2E) must be passing in the forge UI. The manual runtime gate (RUNTIME_*.md) and CI gate are complementary — both required. Check with `gh pr checks <number>` or `tea pr view <number>`.
   3. **Fix-verify loop closed.** Either (a) `FIX_BACKLOG_*_<date>.md` has an empty "Merge-blocking" section, OR (b) the latest `VERIFY_*_<iteration>_<date>.md` reports every merge-blocking row as PASS, OR (c) every unresolved CRITICAL/HIGH row has a signed entry in `WAIVERS_*_<date>.md` with a compensating control.
   4. **No open CRITICAL/HIGH in review verdicts.** `CODE_REVIEW_*_<date>.md` verdict must be APPROVED or APPROVED WITH SUGGESTIONS (not NEEDS REVISION / REJECT). `SECURITY_*_<date>.md` verdict must be APPROVED / READY (not BLOCKED). `PERF_*_<date>.md` must have every NFR target as PASS (not FAIL). `UX_*_<date>.md` (if UI-bearing) must be APPROVED / RELEASE-READY (not BLOCKED). Waivers permitted via `WAIVERS_*_<date>.md` with explicit user sign-off.
+  5. **Anti-drift gates pass** (G-B + G-D). Run against the base branch:
+     - `bash scripts/validators/validate-no-reinvent.sh --base <base>` — exit 0 (no hand-edited `GENERATED_FILES.txt` outputs; any wholesale rewrite of a tracked/canonical file is justified in the manifest).
+     - `bash scripts/validators/validate-tracker-fresh.sh --base <base>` — exit 0 (the branch updated a tracker — CHANGELOG / PROGRESS / SDLC_TRACKER / DELEGATION_LOG — so this work isn't lost between steps/sessions).
+     `<base>` is `main` for feature/improve/hotfix merges, or the parent feature branch for sub-component merges.
   If any required file is missing, stale, or fails the verdict check — abort the merge and report exactly which condition blocks it. A merge that bypasses these checks is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
 - NEVER `git config --global` — always local to the repo

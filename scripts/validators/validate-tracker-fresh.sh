@@ -23,7 +23,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 validator_init "validate-tracker-fresh"
 
-ROOT="$(detect_project_root "${1:-}")"
+# --base <ref>  -> merge-gate mode: compare the branch against <ref> (e.g. main).
+# default       -> per-step mode: compare the working tree against HEAD.
+BASE=""
+ROOT_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --base) BASE="$2"; shift 2 ;;
+    *) [[ -z "$ROOT_ARG" ]] && ROOT_ARG="$1"; shift ;;
+  esac
+done
+ROOT="$(detect_project_root "$ROOT_ARG")"
 
 if ! git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   note "not a git work tree -- nothing to check"
@@ -44,9 +54,14 @@ is_trivial() {
   return 1
 }
 
-# Modified-tracked + new untracked files (the step's footprint).
-CHANGED=$( { git -C "$ROOT" diff --name-only HEAD 2>/dev/null; \
-             git -C "$ROOT" ls-files --others --exclude-standard 2>/dev/null; } | sort -u )
+# The step's (or branch's) footprint of changed files.
+if [[ -n "$BASE" ]]; then
+  note "merge-gate mode: comparing branch vs ${BASE}"
+  CHANGED=$(git -C "$ROOT" diff --name-only "${BASE}...HEAD" 2>/dev/null | sort -u)
+else
+  CHANGED=$( { git -C "$ROOT" diff --name-only HEAD 2>/dev/null; \
+               git -C "$ROOT" ls-files --others --exclude-standard 2>/dev/null; } | sort -u )
+fi
 
 WORK=0
 TRACKER=0
