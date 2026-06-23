@@ -209,4 +209,33 @@ else
   pass "RUNTIME reports: $runtime_files_found found, $runtime_fail_count failing"
 fi
 
+# -- 11. Version ↔ CHANGELOG ↔ tag in sync (G-F, release-state drift) ----------
+# A change that ships without a version bump + CHANGELOG entry + tag is release-
+# state drift: consumers and deployments can't tell what they have. Resolve the
+# version from package.json (npm) or the newest CHANGELOG heading (tag-only repos).
+rel_ver=""
+if [[ -f "$ROOT/package.json" ]]; then
+  rel_ver=$(grep -oE '"version"[[:space:]]*:[[:space:]]*"[^"]+"' "$ROOT/package.json" | head -1 | sed -E 's/.*"([^"]+)"[[:space:]]*$/\1/')
+fi
+if [[ -z "$rel_ver" && -f "$ROOT/CHANGELOG.md" ]]; then
+  rel_ver=$(grep -oE '^##[[:space:]]*\[[0-9][^]]*\]' "$ROOT/CHANGELOG.md" | head -1 | sed -E 's/.*\[([^]]+)\].*/\1/')
+fi
+
+if [[ -z "$rel_ver" ]]; then
+  warn "no version found (no package.json version, no CHANGELOG heading) — cannot check release-state sync"
+else
+  # CHANGELOG must have an entry for this version.
+  if [[ -f "$ROOT/CHANGELOG.md" ]] && grep -qE "^##[[:space:]]*\[${rel_ver}\]" "$ROOT/CHANGELOG.md"; then
+    pass "version ${rel_ver} has a CHANGELOG entry"
+  else
+    gap "version-changelog-drift" "version ${rel_ver} has no '## [${rel_ver}]' CHANGELOG.md entry — every release must update the CHANGELOG"
+  fi
+  # A matching tag should exist (warn — the tag is created as part of the release).
+  if git -C "$ROOT" rev-parse "v${rel_ver}" >/dev/null 2>&1; then
+    pass "tag v${rel_ver} exists"
+  else
+    warn "no git tag v${rel_ver} yet — create it as part of this release: git tag -a v${rel_ver}, push to ALL remotes, and reconcile remotes to the same SHA (ff-merge, not squash)"
+  fi
+fi
+
 validator_exit
