@@ -60,6 +60,13 @@ function gitHead(dir) {
   const r = spawnSync('git', ['-C', dir, 'rev-parse', 'HEAD'], { encoding: 'utf8' });
   return r.status === 0 ? r.stdout.trim() : null;
 }
+// Set of modified/added/deleted TRACKED files (ignores untracked + gitignored
+// like docs/work). An agent editing a fixture file shows up here even without
+// a commit — the vector the HEAD-only guard missed.
+function trackedDirty(dir) {
+  const r = spawnSync('git', ['-C', dir, 'status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' });
+  return r.status === 0 ? r.stdout.trim() : '';
+}
 
 function toolExists(name) {
   return spawnSync('sh', ['-c', `command -v ${name}`], { stdio: 'ignore' }).status === 0;
@@ -129,7 +136,11 @@ function runAgentCheck(check, cwd, fixture) {
   // Bare cell: omit the specialist agent so it's the model under opencode's
   // default agent — the no-scaffold baseline for the lift measurement.
   const agentArgs = BARE ? [] : ['--agent', check.agent];
-  const r = spawnSync('opencode', ['run', ...modelArgs, ...agentArgs, check.prompt], {
+  // --dir roots opencode in the work copy. WITHOUT it, opencode resolves its
+  // project to the launch dir (the canonical repo) and the agent edits real
+  // files — `cwd` alone does NOT isolate it. Verified: with --dir the agent
+  // only sees the sandbox.
+  const r = spawnSync('opencode', ['run', '--dir', cwd, ...modelArgs, ...agentArgs, check.prompt], {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, encoding: 'utf8',
   });
   const durationMs = Date.now() - startedAt;
@@ -193,6 +204,7 @@ if (!existsSync(EXPECT_DIR)) {
     // Sandbox: remember the canonical repo's HEAD; abort if an agent commits to it.
     const SANDBOXED = AGENT_MODE || BARE;
     const repoHeadBefore = SANDBOXED ? gitHead(REPO) : null;
+    const repoDirtyBefore = SANDBOXED ? trackedDirty(REPO) : null;
 
     for (const exp of expectations) {
       const src = join(FIXTURE_DIR, exp.fixture);
@@ -232,12 +244,16 @@ if (!existsSync(EXPECT_DIR)) {
       // now — never let an eval run silently contaminate the canonical repo.
       if (SANDBOXED) {
         const headNow = gitHead(REPO);
-        if (headNow && repoHeadBefore && headNow !== repoHeadBefore) {
+        const dirtyNow = trackedDirty(REPO);
+        const committed = headNow && repoHeadBefore && headNow !== repoHeadBefore;
+        const edited = dirtyNow !== repoDirtyBefore;
+        if (committed || edited) {
           console.error(
-            `\nFATAL: the canonical repo HEAD moved during an eval agent run ` +
-            `(${repoHeadBefore.slice(0, 8)} → ${headNow.slice(0, 8)}). An agent committed to ` +
-            `${REPO} instead of its sandbox. Aborting before this reaches a release; ` +
-            `inspect with \`git log\` and \`git reset --hard ${repoHeadBefore.slice(0, 8)}\` if the commits are agent-made.`
+            `\nFATAL: an eval agent escaped its sandbox and ${committed ? 'committed to' : 'modified tracked files in'} ` +
+            `the canonical repo (${REPO}) during the "${exp.fixture}" run. ` +
+            (committed ? `HEAD ${repoHeadBefore.slice(0, 8)} → ${headNow.slice(0, 8)}. ` : '') +
+            `Aborting before this reaches a release. Inspect with \`git status\` / \`git log\` and ` +
+            `\`git checkout -- <file>\` or \`git reset --hard ${(repoHeadBefore || '').slice(0, 8)}\`.`
           );
           process.exit(2);
         }
