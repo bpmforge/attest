@@ -1,137 +1,405 @@
 # Entry Points
 
-This inventory covers the user-facing entry points surfaced by this repo: OpenCode slash commands, npm scripts, direct install scripts, and the only in-repo HTTP fixture.
+This document traces every entry point in the bpm-opencode-experts repository — HTTP routes, CLI commands, tools, and agents.
 
-## HTTP `GET /birdhouses`
-- Source: `evals/fixtures/node-onboard/server.js`
-- Purpose: returns the birdhouse registry as JSON.
-- Flow: `http.createServer(...)` -> `listBirdhouses()` -> `200` JSON response.
+---
 
-## HTTP `POST /sightings`
-- Source: `evals/fixtures/node-onboard/server.js`
-- Purpose: records a sighting and marks the matching birdhouse occupied.
-- Flow: parse request body -> `registerSighting(...)` -> `201` JSON response.
+## CLI Commands (package.json scripts)
 
-## `/guide`
-- Source: `skills/guide/SKILL.md`
-- Purpose: front door concierge; routes plain-English goals to the right expert.
-- Flow: usually hands off to `/security`, `/review-code`, `/sdlc onboard`, `/sdlc improve`, or task decomposition.
+These are the primary entry points exposed via `npm run <command>`:
 
-## `/security`
-- Source: `skills/security/SKILL.md`
-- Purpose: security audit entry point.
-- Modes: `--quick`, `--deep`, `--fix`, `--threat-model`, `--owasp`, `--deps`.
-- Flow: audit -> report in `docs/security/` -> optional verified fix loop.
+### `npm test`
+- **Script**: `scripts/test.ts`
+- **Description**: Comprehensive validation for bpm-opencode-experts
+- **Passes**:
+  - Tools: Dynamically import each .ts tool, verify runtime shape
+  - Skills: Parse YAML frontmatter, check required fields + cross-refs
+  - Agents: Verify content length + required structural sections
 
-## `/review-code`
-- Source: `skills/review-code/SKILL.md`
-- Purpose: code-health audit entry point.
-- Modes: `--review`, `--debt`, `--consolidate`, `--patterns`.
-- Flow: analyze repo health -> write `docs/reviews/*` report.
+### `npm run check`
+- **Script**: `npm test`
+- **Description**: Alias for test command
 
-## `/gate`
-- Source: `skills/gate/SKILL.md`
-- Purpose: run the current phase gate and report gaps.
-- Flow: read `docs/work/sdlc-state.md` -> run `scripts/validators/validate-phase-gate.sh <phase>`.
+### `npm run agents:check`
+- **Script**: `scripts/build-agents.mjs --check`
+- **Description**: Validate agent block sections are in sync with canonical templates
 
-## `/sdlc`
-- Source: `skills/sdlc/SKILL.md`
-- Purpose: SDLC dispatcher for the four major workflows.
-- Modes: `init`, `onboard`, `feature`, `improve`.
-- Flow: routes to the appropriate subcommand and expected interview / gate sequence.
+### `npm run agents:fix`
+- **Script**: `scripts/build-agents.mjs --fix`
+- **Description**: Rewrite drifted agent sections to canonical text
 
-## `/sdlc init`
-- Source: `commands/sdlc-init.md`
-- Purpose: initialize a new project with discovery, planning, and early phase docs.
-- Flow: discovery interview -> phase 0/1 docs -> design clarification before phase 3.
+### `npm run agents:compact`
+- **Script**: `scripts/build-agents.mjs --compact`
+- **Description**: Generate compact agent variants for small models
 
-## `/sdlc onboard`
-- Source: `commands/sdlc-onboard.md`
-- Purpose: reverse engineer an existing codebase.
-- Modes: `--quick`, default, `--deep`.
-- Flow: landscape -> entry points -> data model -> components -> health -> docs -> inventory/gates.
+### `npm run build:claude`
+- **Script**: `scripts/build-target-claude.mjs --write`
+- **Description**: Generate claude-experts copies from canonical bpm-opencode-experts source
 
-## `/sdlc feature`
-- Source: `commands/sdlc-feature.md`
-- Purpose: add a feature to an existing system.
-- Flow: feature discovery interview -> impact analysis -> design -> implementation -> verification -> docs.
+### `npm run build:claude:check`
+- **Script**: `scripts/build-target-claude.mjs --check`
+- **Description**: Verify generated claude-experts files match canonical source
 
-## `/sdlc improve`
-- Source: `commands/sdlc-improve.md`
-- Purpose: audit and improve an existing system.
-- Flow: discovery interview -> audits -> backlog synthesis -> user approval -> routed fixes -> re-verification.
+### `npm run evals`
+- **Script**: `scripts/run-evals.mjs`
+- **Description**: Golden-task eval suite for the expert system itself
 
-## `/sdlc status`
-- Source: `commands/sdlc-status.md`
-- Purpose: report current SDLC status without running validators.
-- Flow: inspect docs structure -> infer phase -> summarize completed deliverables and next action.
+### `npm run evals:agent`
+- **Script**: `scripts/run-evals.mjs --agent`
+- **Description**: Run evals with agent execution mode
 
-## `/sdlc gate`
-- Source: `commands/sdlc-gate.md`
-- Purpose: SDLC-aware gate check wrapper.
-- Flow: read `docs/work/sdlc-state.md` -> choose phase arg -> run `scripts/validators/validate-phase-gate.sh`.
+### `npm run evals:compare`
+- **Script**: `scripts/eval-compare.mjs`
+- **Description**: Tiered lift/gap/cost analysis over labeled eval runs
 
-## `npm test`
-- Source: `package.json` -> `scripts/test.ts`
-- Purpose: full repository validation pass.
-- Flow: validate tools -> validate skills -> validate agents.
+### `npm run evals:status`
+- **Script**: `scripts/eval-status.mjs`
+- **Description**: Live fan-out tracker for in-flight eval runs
 
-## `npm run check`
-- Source: `package.json` -> `scripts/test.ts`
-- Purpose: alias for `npm test`.
-- Flow: same as `npm test`.
+### `npm run telemetry:report`
+- **Script**: `scripts/telemetry-report.mjs`
+- **Description**: Analyze docs/work/telemetry.jsonl
 
-## `npm run agents:check`
-- Source: `package.json` -> `scripts/build-agents.mjs --check`
-- Purpose: detect drift in shared agent boilerplate.
-- Flow: compare inline sections against canonical block files.
+---
 
-## `npm run agents:fix`
-- Source: `package.json` -> `scripts/build-agents.mjs --fix`
-- Purpose: rewrite drifted agent boilerplate sections.
-- Flow: canonicalize shared blocks in place.
+## Tools (tools/*.ts)
 
-## `npm run agents:compact`
-- Source: `package.json` -> `scripts/build-agents.mjs --compact`
-- Purpose: emit compact agent variants for small-model installs.
-- Flow: write `dist/compact-agents/*.md`.
+These are the opencode plugin tools available during agent execution:
 
-## `npm run build:claude`
-- Source: `package.json` -> `scripts/build-target-claude.mjs --write`
-- Purpose: generate the `claude-experts` mirror.
-- Flow: copy/transform canonical files into the target repo.
+### `bash`
+- **File**: `tools/bash.ts`
+- **Description**: Execute a shell command
+- **Args**:
+  - `command`: Shell command to execute (required)
+  - `workdir`: Working directory (optional, defaults to project root)
+  - `timeout`: Timeout in seconds (optional, defaults to 60)
 
-## `npm run build:claude:check`
-- Source: `package.json` -> `scripts/build-target-claude.mjs --check`
-- Purpose: verify the `claude-experts` mirror is in sync.
-- Flow: diff generated output against the target repo and fail on drift.
+### `run`
+- **File**: `tools/run.ts`
+- **Description**: Run a command and capture its output
+- **Args**:
+  - `command`: Shell command to execute (required)
+  - `workdir`: Working directory (optional)
+  - `timeout`: Timeout in seconds (optional)
 
-## `npm run evals`
-- Source: `package.json` -> `scripts/run-evals.mjs`
-- Purpose: deterministic eval suite for the expert system.
-- Flow: run fixture checks -> write `docs/work/EVAL_RESULTS.json`.
+### `write`
+- **File**: `tools/write.ts`
+- **Description**: Write content to a file
+- **Args**:
+  - `filePath`: Absolute path to file (required)
+  - `content`: Content to write (required)
 
-## `npm run evals:agent`
-- Source: `package.json` -> `scripts/run-evals.mjs --agent`
-- Purpose: eval suite with optional `opencode run --agent` coverage.
-- Flow: deterministic checks plus agent-driven checks when available.
+### `edit`
+- **Description**: Edit a file with exact string replacement
+- **Args**: (inherited from opencode plugin)
 
-## `./install.sh`
-- Source: `install.sh`
-- Purpose: install the repo into `~/.config/opencode/` or `.opencode/`.
-- Flow: preflight -> copy/link content -> optional MCP/tool installs.
+### `read`
+- **Description**: Read a file or directory
+- **Args**: (inherited from opencode plugin)
 
-## `./uninstall.sh`
-- Source: `uninstall.sh`
-- Purpose: remove installed repo content from global or project locations.
-- Flow: delete installed directories and leave caches in place.
+### `append`
+- **File**: `tools/append.ts`
+- **Description**: Append content to a file
 
-## `./scripts/doctor.sh`
-- Source: `scripts/doctor.sh`
-- Purpose: install health check / diagnostics entry point referenced by the README.
-- Flow: inspect environment, dependencies, and configuration health.
+### `update`
+- **File**: `tools/update.ts`
+- **Description**: Update content to a file
 
-## `./scripts/check-tools.sh`
-- Source: `scripts/check-tools.sh`
-- Purpose: report which optional analysis tools are installed.
-- Flow: detect optional tooling and show install guidance when missing.
+### `file-info`
+- **File**: `tools/file-info.ts`
+- **Description**: Get file metadata (size, lines, extension)
+
+### `grep-mcp`
+- **File**: `tools/grep-mcp.ts`
+- **Description**: Enhanced grep with options for context, line numbers, and file filtering
+
+### `loop-detector`
+- **File**: `tools/loop-detector.ts`
+- **Description**: Detect and prevent infinite loops in LLM operations
+
+### `semgrep-rule`
+- **File**: `tools/semgrep-rule.ts`
+- **Description**: Write and test a single Semgrep pattern
+
+### `semgrep-scan`
+- **File**: `tools/semgrep-scan.ts`
+- **Description**: Run Semgrep security scan on codebase
+
+### `deploy`
+- **File**: `tools/deploy.ts`
+- **Description**: Build and deploy containerized app using Docker or Podman
+
+### `test-runner`
+- **File**: `tools/test-runner.ts`
+- **Description**: Run tests with better error handling and summary
+
+### `log-parser`
+- **File**: `tools/log-parser.ts`
+- **Description**: Parse and analyze logs
+
+### `pomodoro`
+- **File**: `tools/pomodoro.ts`
+- **Description**: Timer tool to prevent burnout using Pomodoro technique
+
+### `simplify-file`
+- **File**: `tools/simplify-file.ts`
+- **Description**: Simplify code with rewrite detection
+
+### `playwright-test`
+- **File**: `tools/playwright-test.ts`
+- **Description**: Run Playwright end-to-end browser tests
+
+### `playwright-web`
+- **File**: `tools/playwright-web.ts`
+- **Description**: Browser for web research via playwright-cli
+
+---
+
+## Agent Entry Points (agents/*.md)
+
+Each agent file serves as an entry point when invoked:
+
+### sdcl-lead
+- **File**: `agents/sdlc-lead.md`
+- **Description**: SDLC orchestrator — new projects, codebase onboarding, feature addition, audit and improvement
+- **Commands**:
+  - `/sdlc init <project-name> "<description>"` — Initialize SDLC in current project
+  - `/sdlc run [--phase N]` — Generate phase documents
+  - `/sdlc status` — Show current progress
+  - `/sdlc validate` — Validate documents
+  - `/sdlc feature "<description>"` — Add a feature to existing system
+  - `/sdlc improve ["<focus>"]` — Audit and improve an existing system
+
+### code-reviewer
+- **File**: `agents/code-reviewer.md`
+- **Description**: Code-health audit — complexity, duplication, error handling
+- **Commands**:
+  - `/review-code --review` — Full code pass
+  - `/review-code --debt` — Tech-debt catalog
+  - `/review-code --consolidate` — DRY + error-handling consolidation
+  - `/review-code --patterns` — Cross-codebase consistency
+
+### security-auditor
+- **File**: `agents/security-auditor.md`
+- **Description**: OWASP audit, threat modeling, CVE/dependency scanning
+- **Commands**:
+  - `/security --quick` — Default quick scan (~10 min)
+  - `/security --deep` — Exhaustive Ralph Wiggum scan (~45-90 min)
+
+### test-engineer
+- **File**: `agents/test-engineer.md`
+- **Description**: Write or review Playwright e2e, vitest/jest unit/integration tests
+
+### db-architect
+- **File**: `agents/db-architect.md`
+- **Description**: Schema design, migrations, query optimization
+- **Commands**:
+  - `/dba` — Schema design and query optimization
+
+### sre-engineer
+- **File**: `agents/sre-engineer.md`
+- **Description**: CI/CD pipelines, runbooks, monitoring, incident response
+- **Commands**:
+  - `/devops` — DevOps/SRE support
+
+### container-ops
+- **File**: `agents/container-ops.md`
+- **Description**: Podman/Docker builds, Dockerfiles, compose, networking
+- **Commands**:
+  - `/containers` — Container build/run failures and tuning
+
+### performance-engineer
+- **File**: `agents/performance-engineer.md`
+- **Description**: Profile and optimize bottlenecks
+- **Commands**:
+  - `/perf` — Performance profiling and optimization
+
+### ux-engineer
+- **File**: `agents/ux-engineer.md`
+- **Description**: Design direction, UX workflows, component architecture
+- **Commands**:
+  - `/ux` — UX design and accessibility auditing
+
+### api-designer
+- **File**: `agents/api-designer.md`
+- **Description**: REST/GraphQL endpoints, contracts, versioning
+- **Commands**:
+  - `/api-design` — API design support
+
+### researcher
+- **File**: `agents/researcher.md`
+- **Description**: Deep research before decisions — tech comparisons, competitive landscape
+- **Commands**:
+  - `/research` — Research analyst support
+
+### cost-engineer
+- **File**: `agents/cost-engineer.md`
+- **Description**: Cloud and LLM spend analysis — audit, right-size, unit economics
+- **Commands**:
+  - `/cost` — Cost engineering support
+
+### analytics-architect
+- **File**: `agents/analytics-architect.md`
+- **Description**: Telemetry and instrumentation design — RED/USE/golden signals
+- **Commands**:
+  - `/analytics` — Analytics architecture support
+
+### a11y-compliance
+- **File**: `agents/a11y-compliance.md`
+- **Description**: Accessibility & compliance audit — WCAG 2.2 AA/AAA
+- **Commands**:
+  - `/a11y` — Accessibility audit
+
+### reliability-engineer
+- **File**: `agents/reliability-engineer.md`
+- **Description**: Load testing & resilience — failure-mode matrices, k6/Locust
+- **Commands**:
+  - `/reliability` — Reliability engineering support
+
+### architecture-designer
+- **File**: `agents/architecture-designer.md`
+- **Description**: Module design and infrastructure topology
+
+### ui-verifier
+- **File**: `agents/ui-verifier.md`
+- **Description**: Live browser verification using playwright-mcp
+- **Commands**:
+  - `/ui-verifier` — UI verification support
+
+### end-user-simulator
+- **File**: `agents/end-user-simulatormd`
+- **Description**: Play vertical slice via browser/input automation
+- **Commands**:
+  - `/end-user-simulator` — Playtest evaluation
+
+### challenger
+- **File**: `agents/challenger.md`
+- **Description**: Gate enforcement for challenging cases
+
+### data-steward
+- **File**: `agents/data-steward.md`
+- **Description**: PII classification, GDPR/CCPA/PIPEDA, retention schedules
+- **Commands**:
+  - `/data-governance` — Data governance support
+
+### git-expert
+- **File**: `agents/git-expert.md`
+- **Description**: Senior git & forge expert — repo bootstrap, feature branches
+- **Commands**:
+  - `/git-expert --init` — Bootstrap repo + remotes + hooks
+  - `/git-expert --feature` — Branch + atomic commits + draft PR
+  - `/git-expert --release` — Semver + changelog + signed tag
+
+### release-manager
+- **File**: `agents/release-manager.md`
+- **Description**:Release management and changelog generation
+
+### changelog-writer
+- **File**: `agents/changelog-writer.md`
+- **Description**: Automated changelog generation
+
+### migration-planner
+- **File**: `agents/migration-planner.md`
+- **Description**: Migration planning and execution
+
+### documentation-gap-finder
+- **File**: `agents/documentation-gap-finder.md`
+- **Description**: Find and fix documentation gaps
+
+### llm-integration-engineer
+- **File**: `agents/llm-integration-engineer.md`
+- **Description**: LLM integration patterns and security
+
+### frontend-design
+- **File**: `agents/frontend-design.md`
+- **Description**: Frontend design — visual polish, typography, color systems
+
+### onbord-inventory
+- **File**: `agents/onboard-inventory.md`
+- **Description**: Ralph Wiggum deep-onboard Step D1 — enumerate every unit
+
+### onboard-gap-fill
+- **File**: `agents/onboard-gap-fill.md`
+- **Description**: Ralph Wiggum deep-onboard Step D4 — re-run focused HANDOFFs
+
+### onboard-verify
+- **File**: `agents/onboard-verify.md`
+- **Description**: Ralph Wiggum deep-onboard Step D3 — run all onboard validators
+
+### guide
+- **File**: `agents/guide.md`
+- **Description**: Expert-system concierge / front door
+- **Commands**:
+  - `/guide` — Route to correct expert based on user intent
+
+---
+
+## Tool-based Entry Points (scripts/*.mjs/ts)
+
+These scripts expose command-line interfaces:
+
+### `scripts/test.ts`
+- CLI entry point for validation
+- Usage: `node --experimental-strip-types scripts/test.ts`
+
+### `scripts/build-agents.mjs`
+- CLI entry point for agent building
+- Usage: `node scripts/build-agents.mjs --check | --fix | --compact`
+
+### `scripts/build-target-claude.mjs`
+- CLI entry point for claude-experts sync
+- Usage: `node scripts/build-target-claude.mjs --check [--out <path>] | --write [--out <path>]`
+
+### `scripts/run-evals.mjs`
+- CLI entry point for eval suite
+- Usage: `node scripts/run-evals.mjs [--fixture <name>] [--agent] [--json] [--keep]`
+
+### `scripts/eval-compare.mjs`
+- CLI entry point for eval comparison
+- Usage: `node scripts/eval-compare.mjs [--frontier L] [--local L] [--bare L] [--json] [--self-test]`
+
+### `scripts/eval-status.mjs`
+- CLI entry point for eval status
+- Usage: `node scripts/eval-status.mjs [--since-min <n>]`
+
+### `scripts/telemetry-report.mjs`
+- CLI entry point for telemetry analysis
+- Usage: `node scripts/telemetry-report.mjs [path/to/telemetry.jsonl] [--json] [--days N]`
+
+### `scripts/run-plan.mjs`
+- CLI entry point for DAG runner
+- Usage: `node scripts/run-plan.mjs [plan.json] [--dry-run] [--node <id>] [--max-retries <n>] [--cmd <template>] [--auto-replan] [--parallel <n>]`
+
+---
+
+## Plugin Hooks (plugins/expert-hooks.ts)
+
+These are event-based entry points registered with the opencode plugin:
+
+### `tool.execute.before`
+- Triggered before any tool execution
+- Blocks dangerous bash commands and credential file writes
+
+### `tool.execute.after`
+- Triggered after write/edit operations
+- Runs format → lint → type-check → secret-scan
+
+### `event`
+- Triggered on assistant message completion
+- Telemetry logging to docs/work/telemetry.jsonl
+
+---
+
+## Summary Statistics
+
+| Category | Count |
+|----------|-------|
+| npm scripts | 10 |
+| Tools | 16 |
+| Agents | 37+ |
+| CLI scripts | 8 |
+| Plugin hooks | 3 |
+
+---
+
+*This document was automatically generated from codebase exploration.*
