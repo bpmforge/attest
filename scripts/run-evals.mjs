@@ -36,7 +36,13 @@ const AGENT_MODE = argv.includes('--agent');
 const JSON_OUT = argv.includes('--json');
 const KEEP = argv.includes('--keep');
 const ONLY = argv.includes('--fixture') ? argv[argv.indexOf('--fixture') + 1] : null;
+// --label <name> tags this run (e.g. "frontier", "local-qwen14b") so eval-compare.mjs
+// can diff cells. Labeled runs are also saved to docs/work/eval-runs/<label>.json.
+const LABEL = argv.includes('--label') ? argv[argv.indexOf('--label') + 1] : null;
 const AGENT_TIMEOUT_MS = Number(process.env.EVAL_AGENT_TIMEOUT_MS || 900_000);
+// Accumulated cost of agent runs (for the cost-vs-accuracy comparison).
+let agentDurationMs = 0;
+let agentTokensOut = 0;
 
 function log(msg) { if (!JSON_OUT) console.log(msg); }
 
@@ -102,6 +108,8 @@ function runAgentCheck(check, cwd, fixture) {
     cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: AGENT_TIMEOUT_MS, encoding: 'utf8',
   });
   const durationMs = Date.now() - startedAt;
+  agentDurationMs += durationMs;
+  agentTokensOut += Math.round((r.stdout || '').length / 4);
   if (r.error?.code === 'ETIMEDOUT') {
     telemetry({ fixture, check: check.id, agent: check.agent, status: 'TIMEOUT', duration_ms: durationMs });
     return { id: check.id, status: 'FAIL', detail: `agent timed out after ${AGENT_TIMEOUT_MS / 1000}s` };
@@ -150,14 +158,14 @@ if (!existsSync(EXPECT_DIR)) {
       log(`\n── ${exp.fixture} — ${exp.description}`);
 
       for (const check of exp.checks || []) {
-        const res = { fixture: exp.fixture, ...runCheck(check, work) };
+        const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', ...runCheck(check, work) };
         results.push(res);
         log(`  [${res.status}] ${res.id} — ${res.detail}`);
       }
       if (AGENT_MODE) {
         for (const check of exp.agent_checks || []) {
           log(`  [....] ${check.id} — running agent ${check.agent} (≤${AGENT_TIMEOUT_MS / 1000}s)`);
-          const res = { fixture: exp.fixture, ...runAgentCheck(check, work, exp.fixture) };
+          const res = { fixture: exp.fixture, horizon: exp.horizon || 'unknown', ...runAgentCheck(check, work, exp.fixture) };
           results.push(res);
           log(`  [${res.status}] ${res.id} — ${res.detail}`);
         }
@@ -168,18 +176,26 @@ if (!existsSync(EXPECT_DIR)) {
 
     const summary = {
       ranAt: new Date().toISOString(),
+      label: LABEL || null,
       mode: AGENT_MODE ? 'deterministic+agent' : 'deterministic',
       tier: tier.tier || 'unknown',
       model: tier.model || null,
       pass: results.filter((r) => r.status === 'PASS').length,
       fail: results.filter((r) => r.status === 'FAIL').length,
       skip: results.filter((r) => r.status === 'SKIP').length,
+      costEst: { durationMs: agentDurationMs, tokensOutEst: agentTokensOut },
       results,
     };
 
     mkdirSync(join(REPO, 'docs', 'work'), { recursive: true });
     const outFile = join(REPO, 'docs', 'work', 'EVAL_RESULTS.json');
     writeFileSync(outFile, JSON.stringify(summary, null, 2) + '\n');
+    // Labeled runs are also archived so eval-compare.mjs can diff cells.
+    if (LABEL) {
+      const runsDir = join(REPO, 'docs', 'work', 'eval-runs');
+      mkdirSync(runsDir, { recursive: true });
+      writeFileSync(join(runsDir, `${LABEL}.json`), JSON.stringify(summary, null, 2) + '\n');
+    }
 
     if (JSON_OUT) console.log(JSON.stringify(summary, null, 2));
     else {

@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.19.0] — 2026-06-23
+
+### Added — tiered eval harness (lift / gap / cost), per ch. 06
+Stands up the measurement layer before building B1, so scaffold changes can be judged on data, not vibes.
+- **`scripts/eval-compare.mjs` (new):** reads labeled run summaries and produces a per-horizon pass-rate matrix with **lift** = pass-rate(local-scaffolded) − pass-rate(bare) (what the scaffold buys), **gap** = pass-rate(frontier) − pass-rate(local-scaffolded) (what's left to frontier), and **cost** per cell (agent duration + estimated output tokens) — so a scaffold that costs more inference than the gap it closes is visible. Roles (`--frontier`/`--local`/`--bare`) are optional; with none it prints the side-by-side matrix. `--self-test` verifies the lift/gap/cost math on synthetic data (no models needed, CI-able). Writes `docs/work/EVAL_COMPARE.md`.
+- **`scripts/run-evals.mjs`:** added `--label <name>` (tags the run → `summary.label`, archived to `docs/work/eval-runs/<label>.json`), propagated the new `horizon` field into every result row, and added a `costEst` summary (accumulated agent duration + estimated output tokens).
+- **`evals/expectations/*.json`:** each fixture now carries a `horizon` — `flask-sqli`=short, `ts-dead-dup`=medium, `node-onboard`=long — because the frontier gap widens with task length and must be read per-horizon.
+- **`evals/README.md`:** documents the per-cell tiered-comparison workflow; **npm:** `evals:compare`, `evals:compare:selftest`.
+- Eval-harness scripts are canonical-only (not shipped to `claude-experts`); drift gate stays green at 229 generated files.
+
 ## [1.18.0] — 2026-06-23
 
 ### Added — bridging-the-frontier-gap: experts fixes + research book expansion

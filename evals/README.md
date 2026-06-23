@@ -42,6 +42,47 @@ real project domains (same G7 logic as `exemplars/`).
   `scripts/detect-model-context.sh`, then agent mode — the tier-stamped result
   answers "good enough for phase N?" with data.
 
+## Tiered comparison — lift / gap / cost
+
+Deterministic mode answers "is the pipeline still green?"; the tiered comparison
+answers ch. 06's economic question: **did the agent scaffold actually help, how
+far is this model from frontier, and is the lift worth the inference cost?** Each
+fixture carries a `horizon` (short / medium / long) so the gap can be read by
+task length — it widens as tasks get longer.
+
+Run the suite once per **cell**, labeled. Set `docs/work/.model-context` to the
+model under test before each run (`scripts/detect-model-context.sh`):
+
+```bash
+# frontier cell
+node scripts/run-evals.mjs --agent --label frontier
+# local-model-with-scaffold cell
+node scripts/run-evals.mjs --agent --label local-qwen14b
+# (when a bare/no-scaffold harness exists) same model, no agent loop
+node scripts/run-evals.mjs --agent --label local-qwen14b-bare
+```
+
+Each labeled run is archived to `docs/work/eval-runs/<label>.json` (with
+per-result `horizon` and a `costEst` of agent duration + estimated output
+tokens). Then diff the cells:
+
+```bash
+node scripts/eval-compare.mjs --frontier frontier --local local-qwen14b \
+                              --bare local-qwen14b-bare   # --bare optional
+```
+
+It writes `docs/work/EVAL_COMPARE.md` — a per-horizon pass-rate matrix with:
+
+- **lift** = pass-rate(local scaffolded) − pass-rate(bare) — what the scaffold buys
+- **gap** = pass-rate(frontier) − pass-rate(local scaffolded) — what's left to frontier
+- **cost** per cell, so a scaffold that costs more inference than the gap it
+  closes is visible (it's free on owned hardware — that's the whole local thesis).
+
+Roles are optional: with no `--frontier`/`--local`/`--bare` it just prints the
+side-by-side matrix of every labeled run. `node scripts/eval-compare.mjs
+--self-test` verifies the lift/gap/cost math on synthetic data (no models needed,
+CI-able).
+
 ## Adding a fixture
 
 1. `evals/fixtures/<name>/` — smallest possible repo that exhibits the defect.

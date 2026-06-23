@@ -43,5 +43,6 @@
         "private key|secret|BEGIN RSA"
       ]
     }
-  ]
+  ],
+  "horizon": "short"
 }
