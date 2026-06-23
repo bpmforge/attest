@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.15.0] — 2026-06-22
+
+### Added — anti-drift Wave 3: G-D tracking-as-gate ("things get lost between steps")
+- **`scripts/validators/validate-tracker-fresh.sh`** — git-based gate: if work files changed but no tracker did (SDLC_TRACKER / PROGRESS / DELEGATION_LOG / CHANGELOG / `*_TRACKER` / LESSONS), it FAILS. Unfakeable, unlike a manifest line. Tested three ways.
+- **`MICRO_LOOP.md` TRACK step (4b)** — a step is not done until its work is recorded.
+- **Mandatory manifest `Tracker updated:` line** — `validate-completion-manifest.sh` now hard-requires it; the manifest template + `exemplars/completion-manifest.md` updated to follow it (the exemplar would otherwise have failed its own new rule — caught via a fixture sweep).
+- Rule 9 (LOCATE) applied during the build: verified against source that `validate-inventory.sh` is coverage-only (does NOT check freshness) — so this is net-new, not a reinvention.
+
 ## [1.14.0] — 2026-06-22
 
 ### Added — anti-drift hardening (carry non-frontier / local models)
