@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.24.0] — 2026-06-23
+
+### Added — HANDOFF-discipline validator (delegation must not naively spawn)
+Audited every delegation point: all 9 `task()`-using agents correctly treat `task()` as shorthand for a HANDOFF block, gated by `has_task_tool` with a manual-paste fallback (Executor C) — so an agent never tries to spawn a child a runtime like opencode can't. The discipline was a convention; now it's enforced.
+- **`scripts/validators/validate-handoff-discipline.sh` (new):** fails any agent that uses `task()` shorthand without both a HANDOFF translation and a no-spawn fallback, and flags raw `Agent(...)`/`subagent_type` spawns that bypass the contract. Clean on the repo (9 files, 0 gaps); proven to catch a planted violation.
+- **Merge gate:** `git-expert` condition 5 now runs it when a branch changes any `agents/**.md`.
+- **Wording:** clarified `sdlc-improve-mode.md`'s "Spawn a Mode 3 sub-workflow" → "route to a `/sdlc feature` workflow (HANDOFF-driven), not a programmatic spawn."
+
 ## [1.23.0] — 2026-06-23
 
 ### Scaffold levers B5 / B7 / B8 (from the bridging-the-frontier-gap backlog)

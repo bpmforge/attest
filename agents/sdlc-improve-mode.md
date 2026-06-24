@@ -586,7 +586,7 @@ Read docs/improve/*_AUDIT.md (all that exist)
 **Sizing:** Assign each item a size:
 - **S (Small):** Cosmetic fix, single-file change, rename, config tweak. No design docs needed.
 - **M (Medium):** Cross-cutting refactor, component redesign, index addition, flow restructure. Needs a brief design step.
-- **L (Large):** Architectural change, major UX rework, auth overhaul. Spawn a Mode 3 sub-workflow.
+- **L (Large):** Architectural change, major UX rework, auth overhaul. Route to a full Mode 3 (feature) workflow — i.e. hand off to `/sdlc feature` (itself HANDOFF-driven), not a programmatic spawn.
 
 Produce:
 
