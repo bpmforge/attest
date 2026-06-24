@@ -434,6 +434,7 @@ EOF
      - `bash scripts/validators/validate-no-reinvent.sh --base <base>` — exit 0 (no hand-edited `GENERATED_FILES.txt` outputs; any wholesale rewrite of a tracked/canonical file is justified in the manifest).
      - `bash scripts/validators/validate-tracker-fresh.sh --base <base>` — exit 0 (the branch updated a tracker — CHANGELOG / PROGRESS / SDLC_TRACKER / DELEGATION_LOG — so this work isn't lost between steps/sessions).
      - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-handoff-discipline.sh` — exit 0 (every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)` spawn bypasses the contract — so an agent never tries to spawn a child a runtime like opencode can't).
+     - **If the branch changed `README.md` / `docs/**` or added/removed an agent, skill, validator, or reference:** `bash scripts/validators/validate-doc-counts.sh` — exit 0 (every "N validators / N skills / N references" count claimed in docs is re-derived from the filesystem — stale counts are version drift in disguise; this makes release-manager step 5 deterministic instead of agent-only).
      `<base>` is `main` for feature/improve/hotfix merges, or the parent feature branch for sub-component merges.
   If any required file is missing, stale, or fails the verdict check — abort the merge and report exactly which condition blocks it. A merge that bypasses these checks is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
