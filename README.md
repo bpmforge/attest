@@ -1,6 +1,6 @@
 # BPM OpenCode Experts
 
-Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 31 cluster specialists (security, code-review, performance, onboarding, game dev), 31 skills, a 4-mode SDLC workflow, full git lifecycle management, and 48 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
+Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 31 cluster specialists (security, code-review, performance, onboarding, game dev), 31 skills, a 4-mode SDLC workflow, full git lifecycle management, and 53 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
 **Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
 
@@ -55,8 +55,8 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 - **Security find-and-fix** — `/security` audits all source; `/security --fix` drives a verified remediation loop (fix → re-scan to confirm closed, never the model's say-so).
 - **8-dimension code health** including a dead-code/stub/unused-export detector.
 - **Deterministic scaffolding** — `run-plan.mjs` (DAG runner for decomposed tasks), `fix-verify.mjs` (re-verify gate), `mermaid-fix.mjs` + render-validated diagrams. Scripts own control flow and verification; models do the judgment work — which keeps heavy jobs reliable on small local models.
-- **Any LLM** — tier detection, compact agent variants (`dist/compact-agents/`, install with `--compact`), and capability-probed delegation (`agents/shared/EXECUTOR_SELECTION.md`).
-- **Eval suite** — `npm run evals` runs the pipeline against fixture repos with planted defects (`evals/`); protocol changes and model choices are measured, not vibed.
+- **Any LLM** — tier detection, compact agent variants (`dist/compact-agents/`, install with `--compact`), capability-probed delegation (`agents/shared/EXECUTOR_SELECTION.md` — HANDOFF, never a naive spawn), a **plan-strong/execute-cheap tier split** (`MODEL_ADAPTER.md` Rule 5), checkpoint/revert recovery (`CHECKPOINT_REVERT.md`), and a local-model picks + runtime-gotchas playbook (`references/local-agentic-models.md`).
+- **Eval suite** — `npm run evals` runs the pipeline against fixture repos with planted defects (`evals/`). `EVAL_MODEL=<provider/model>` pins a model per run and `npm run evals:compare` produces a **tiered frontier-vs-local lift / gap / cost** report (outcome-based scoring, sandboxed agent runs); `npm run evals:status` shows live sub-agent fan-out. Protocol changes and model choices are measured, not vibed.
 - **Telemetry** — every completed assistant message logs real token/cost actuals to `docs/work/telemetry.jsonl` (plugin hook; counts only, never content; `EXPERTS_TELEMETRY=0` to disable). `npm run telemetry:report` turns the data into tuned tier budgets, timeouts, and escalation thresholds.
 
 ## Docs
