@@ -481,7 +481,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Forty-one bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Fifty-three bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -498,6 +498,7 @@ Forty-one bash validators + gate runners in `scripts/validators/`. Each returns 
 | `validate-entry-points.sh` | Every entry point (main, index, bin) is documented |
 | `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
 | `validate-fix-backlog-closed.sh` | CRITICAL and HIGH rows in FIX_BACKLOG resolved before phase-5 gate |
+| `validate-handoff-discipline.sh` | Every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)`/`subagent_type` spawn bypasses the contract (runs in the git-expert merge gate when `agents/**.md` changes) |
 | `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs present, no hardcoded secrets |
 | `validate-infrastructure.sh` | INFRASTRUCTURE.md has env matrix, compute, data, networking + Mermaid diagram; rejects IaC code in the document |
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
