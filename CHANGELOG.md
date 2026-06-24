@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.0] — 2026-06-24
+
+### Added — catalog completeness validator (the doc-maintenance loop, closed)
+The count gate (1.25.0) checks doc *numbers*; this checks the catalog *body*. \`validate-doc-catalog.sh\` (new) verifies FEATURES.md lists every validator + shared protocol that actually ships — it immediately found **15 validators undocumented** (40/55), now backfilled from their own header descriptions. Only categories with a comprehensive table are checked (references appear incidentally in prose, not a catalog, so they are skipped — no false positives). Wired into the git-expert merge gate; validator count →55.
+
 ## [1.25.0] — 2026-06-24
 
 ### Added — doc-freshness becomes a deterministic gate (not just agent prose)

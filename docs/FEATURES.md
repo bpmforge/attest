@@ -487,7 +487,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Fifty-four bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -531,6 +531,21 @@ Fifty-four bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-ux-spec.sh` | UX_SPEC.md: component library chosen, ≥ 5 component inventory, P0 UCs covered, WCAG strategy, responsive strategy |
 | `run-coverage-loop.sh` | 3-iteration gate loop runner — re-runs validators until clean or iteration cap reached |
 | `run-handoff-gates.sh` | Scope + manifest + coverage gate runner with any-failure-aborts semantics |
+| `validate-api-consistency.sh` | The OpenAPI spec and the implemented routes agree (paths, methods, params) |
+| `validate-circular-deps.sh` | Detects dependency cycles in the MODULE_DESIGN.md graph |
+| `validate-data-governance.sh` | A schema with personal data ships with classification + retention/handling rules |
+| `validate-dead-code.sh` | Deterministic dead-code / stub / unused-export gate (knip / ts-prune / vulture + grep) |
+| `validate-doc-catalog.sh` | The FEATURES catalog lists every validator + shared protocol that actually ships (body-drift) |
+| `validate-feature-coverage.sh` | Scoped Ralph Wiggum inventory coverage for `/sdlc feature` |
+| `validate-improve-coverage.sh` | Scoped Ralph Wiggum inventory coverage for `/sdlc improve` |
+| `validate-loop-readiness.sh` | Refuse-to-loop gate (G7) — every loopable row must name a checkable success criterion |
+| `validate-mermaid.sh` | Scans markdown for Mermaid syntax problems (optionally renders via mmdc) |
+| `validate-module-boundaries-transitive.sh` | Design-level transitive dependency-graph boundary check |
+| `validate-no-reinvent.sh` | Anti-reinvention / canonical-overwrite drift guard (G-B), `--base` merge-gate mode |
+| `validate-observability.sh` | The observability spec is concrete (metrics, logs, traces, alerts) at design time |
+| `validate-resilience-patterns.sh` | Resilience patterns (retry, timeout, circuit-breaker, fallback) designed at Phase 3 |
+| `validate-tracker-fresh.sh` | Tracking-as-gate (G-D) — work changed but no tracker updated → fail; `--base` mode |
+| `validate-wcag-coverage.sh` | Accessibility (WCAG) evidence exists for UI-bearing components |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
 
