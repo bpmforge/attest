@@ -150,4 +150,14 @@ if (MODE === 'check') {
   console.log(`claude target in sync: ${outputs.size} generated files match (${leaks} leak warnings)`);
 } else {
   console.log(`wrote ${outputs.size} generated files to ${OUT} (${drift.length} changed, ${leaks} leak warnings)`);
+  if (drift.length > 0) {
+    // Dual-repo release hygiene: a canonical release that changes generated
+    // files needs a MATCHING tag + release in the generated repo — a step
+    // that has been silently skipped before (e.g. claude-experts v1.23.0).
+    console.log(
+      `\n⚠ ${drift.length} generated file(s) changed in the Claude target. After you tag this repo,` +
+      `\n  commit the regenerated files there AND create a matching tag + GitHub/Gitea release` +
+      `\n  (git tag vX.Y.Z, push to BOTH remotes). If 0 had changed, no generated-repo release is needed.`
+    );
+  }
 }

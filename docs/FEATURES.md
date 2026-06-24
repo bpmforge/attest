@@ -12,8 +12,8 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (4)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (26)](#skills)
-- [Shared protocols (17)](#shared-protocols)
+- [Skills (31)](#skills)
+- [Shared protocols (24)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
@@ -406,7 +406,13 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `SESSION_PRIMER.md` | ~600-token session primer with 7 core rules including HANDOFF format, disk discipline, and memory workflow |
 | `MEMORY_PRIMER.md` | Memory MCP protocol — 3-call workflow (session_restore → memory_store → session_save), trigger table, call format, flat-file fallback |
 | `EXECUTOR_SELECTION.md` | Capability-probed delegation — native Task tool / subprocess / manual paste, chosen by `has_task_tool`/`mcp_in_subagents` flags |
-| `MODEL_ADAPTER.md` | Per-tier behavior (small/medium/large) + compact-variant pointer |
+| `MODEL_ADAPTER.md` | Per-tier behavior (small/medium/large), maker/verifier/PLANNER roles + plan-strong/execute-cheap routing (B5), local-model pointer |
+| `MICRO_LOOP.md` | The per-agent micro-loop: plan-shape → produce → self-verify (tool-offloaded, B3) → re-ground (B4) → revise — the produce/verify discipline every agent runs |
+| `CHECKPOINT_REVERT.md` | Git checkpoint per gated PASS + revert-to-known-good on unrecoverable failure for multi-phase work (Lever 8 / B7) |
+| `LOCAL_LLM_PRIMER.md` | ~600-token session primer for local-model sessions — SDLC-TASK override, HANDOFF format, write-to-disk, stop-means-stop |
+| `BOOK_PROTOCOL.md` | Canonical rule for structuring long-form deliverables (> 300 lines) as multi-page books with index navigation (enforced by `validate-book-structure.sh`) |
+| `CODE_BOOK_PROTOCOL.md` | The book protocol applied to code: a source file over the size cap becomes a directory (index/barrel + one-concern chapter modules); enforced by `validate-file-size.sh` |
+| `BROWSER_TESTING.md` | Browser-automation / E2E primer — when and how to use `playwright-mcp` for screenshots and runtime UI verification |
 
 ---
 
@@ -481,7 +487,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Fifty-three bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Fifty-four bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -494,6 +500,7 @@ Fifty-three bash validators + gate runners in `scripts/validators/`. Each return
 | `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase |
 | `validate-deps.sh` | npm audit / pip-audit / cargo audit with configured waivers |
 | `validate-design-system.sh` | Token file present, component files match UX_SPEC inventory, no hardcoded hex colors |
+| `validate-doc-counts.sh` | Every "<N> validators/skills/references" count claimed in README/docs is re-derived from the filesystem and matched (release-manager step 5, made deterministic) |
 | `validate-e2e-setup.sh` | playwright.config.ts has JSON reporter, retries, screenshot, baseURL; auth fixture present; POM directory present; CI E2E step present |
 | `validate-entry-points.sh` | Every entry point (main, index, bin) is documented |
 | `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |

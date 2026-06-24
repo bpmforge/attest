@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.25.0] — 2026-06-24
+
+### Added — doc-freshness becomes a deterministic gate (not just agent prose)
+A self-audit ("does our scaffolding prevent docs from going stale?") found it didn't, deterministically: release-manager's step-5 doc-count audit was agent-only, so this session's *manual* releases bypassed it and "48 validators" silently drifted to a real 54; and the canonical→generated tag/release sync was guarded nowhere (claude-experts v1.23.0 went un-tagged).
+- **`scripts/validators/validate-doc-counts.sh` (new):** re-derives every "N validators / N skills / N references" claim in README/docs from the filesystem and fails on a mismatch — making release-manager step 5 enforceable. Scoped to **clean directory counts only**; curated catalog counts (shared protocols, agents, custom tools — which mix dirs and exclude items editorially) stay the agent's manual job, by design, to avoid false positives. Wired into the `git-expert` merge gate when README/docs or an agent/skill/validator/reference changes.
+- **`build:claude` dual-repo reminder:** when the build changes generated files, it now prints a reminder to tag + release the generated repo too (the step that was silently skipped for v1.23.0).
+- **Doc reconciliation:** FEATURES was stale — `Skills (26)→(31)`, `Shared protocols (17)→(24)` with the 6 undocumented protocols backfilled (incl. this session's `CHECKPOINT_REVERT`/`MICRO_LOOP`/`LOCAL_LLM_PRIMER`); validator count corrected to 54 across README/USERGUIDE/FEATURES.
+
 ## [1.24.0] — 2026-06-23
 
 ### Added — HANDOFF-discipline validator (delegation must not naively spawn)
