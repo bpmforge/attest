@@ -243,6 +243,34 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
+**If the schema change touches EXISTING tables (ALTER / DROP / RENAME / type change),** hand off to the migration-planner for a safe ordered rollout — db-architect designs the target schema, migration-planner sequences how to get there without breaking production:
+
+```
+---
+  HANDOFF → migration-planner
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /migration-planner:
+
+SDLC-TASK for migration-planner:
+
+CONTEXT (read these before starting):
+- docs/DATABASE.md — current schema (the "from" state)
+- db/migrations/[next-number]_[feature-slug].sql — the target change db-architect produced
+
+YOUR TASK:
+Produce an ordered, reversible migration plan for the existing-table changes in this
+feature. Every step has an explicit rollback; every destructive operation (DROP, RENAME,
+type change) gets a warning + estimated downtime + a backfill/expand-contract strategy.
+
+PRODUCE exactly:
+- docs/features/[feature-slug]/MIGRATION_PLAN.md — ordered steps, each with rollback + risk
+
+When written, print exactly:
+"migration plan done — [N steps, M destructive]"
+Then stop.
+---
+```
+
 If API changes needed:
 
 ```

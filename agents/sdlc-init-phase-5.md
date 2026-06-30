@@ -158,7 +158,7 @@ Emit all three in ONE message:
 
 ```
 ---
-  PHASE 5 — ROUND 3: AUDITS (3 parallel HANDOFFs — start after Round 2 iteration 1)
+  PHASE 5 — ROUND 3: AUDITS (4 parallel HANDOFFs — start after Round 2 iteration 1)
 ---
 
 ───── HANDOFF A → /review-code (code-reviewer — tech debt) ─────
@@ -188,13 +188,23 @@ YOUR TASK: Audit container config for production readiness. Check: layer sizes,
 PRODUCE: docs/reviews/CONTAINER_AUDIT_<date>.md — image sizes, layer breakdown,
   CVEs severity-rated, optimization recommendations, production readiness verdict.
 Print exactly: "containers done — [image size, CVE count, readiness verdict]"
+
+───── HANDOFF D → /documentation-gap-finder (doc-gap audit — release readiness) ─────
+SDLC-TASK for documentation-gap-finder:
+CONTEXT: source codebase (src/) + existing docs/ + README + public API surface.
+YOUR TASK: Before release, find what is public but undocumented, documented but stale,
+  or missing entirely. Cover the most-exposed public surface first (exported functions/
+  classes, HTTP routes, CLI commands). Report gaps — do not write the docs.
+PRODUCE: docs/reviews/DOC_GAPS_<date>.md — undocumented public symbols with file:line,
+  stale/contradicted doc references, coverage %, prioritized "document these first" list.
+Print exactly: "doc-gaps done — [coverage %, count undocumented public symbols]"
 ```
 
-Wait for all three completion phrases. Round 3 audits do NOT block Round 2 completion — they run concurrently.
+Wait for all four completion phrases. Round 3 audits do NOT block Round 2 completion — they run concurrently.
 
 **Git checkpoint — commit Round 3 audit documents:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 3 (TECH_DEBT_*_<date>.md, COVERAGE_*_<date>.md, CONTAINER_AUDIT_*_<date>.md) to the feature branch. Conventional commit: 'docs(reviews): add tech-debt, coverage, and container audit reports'. Push. Only stage docs/reviews/ files.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 3 (TECH_DEBT_*_<date>.md, COVERAGE_*_<date>.md, CONTAINER_AUDIT_*_<date>.md, DOC_GAPS_*_<date>.md) to the feature branch. Conventional commit: 'docs(reviews): add tech-debt, coverage, container, and doc-gap audit reports'. Push. Only stage docs/reviews/ files.", timeout=60)
 ```
 
 ---
