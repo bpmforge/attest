@@ -2,6 +2,35 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.27.0] — 2026-07-01
+
+### Added — module-contract tickets, /reflow, and checkpoint/resume
+Two capabilities so multiple contributors (or their own agents) can work an SDLC project in
+parallel, and so a large loop can be cleared and resumed without losing the thread. Design +
+dogfood plan: `docs/SDLC_TICKETS_REFLOW_RESUME_PLAN.md`.
+
+**Module-contract tickets (T1/T2/T6).** `plan.json` gains an optional `modules[]` layer above the
+task-decomposer node DAG — each module is a *contract* (interface, exclusive `write_scope`,
+`acceptance`, `depends_on`, `owner`, `status`) any agent can claim. Disjoint write-scopes are what
+make concurrent work collision-free; **interface-first** deps let a module build against a
+dependency's contract before that dependency's code exists.
+- `scripts/lib/tickets.mjs` — load/save/validate/recomputeStatus/claimable/writeScopeCollisions + CLI.
+- `docs/TICKET_SCHEMA.md` — canonical schema; `examples/tickets-plan.sample.json` — validating sample.
+- `scripts/gen-tickets-board.mjs` — derive `docs/work/TICKETS.md` (table + mermaid DAG + claimable set).
+- `scripts/validators/validate-tickets.sh` — graph integrity + write-scope disjointness (validators →56).
+
+**/reflow (T3).** Recomputes the claimable set (marks done via each ticket's verify gate, resolves
+blocked→ready), flags write-scope collisions, and emits a full HANDOFF for a claimed module. Skills →38.
+
+**Checkpoint + /sdlc resume (T4/T5).** `agents/shared/CHECKPOINT_STATE.md` defines a compact
+`docs/work/STATE.md` (done / in-flight / next / ordered catch-up list) written after every step, plus a
+context-budget nudge. `/sdlc resume` rehydrates from it instead of chat scrollback so you can `/clear`
+mid-loop and continue exactly where you left off.
+
+**Wiring (T7) + tests (T9).** Routed via `guide`, `sdlc-lead`, and feature-mode's sub-component
+decomposition; all delegation stays HANDOFF-based. Test Pass 4 covers validate/status/cycle/collision.
+99 tests green; all validators + doc gates clean.
+
 ## [1.26.5] — 2026-07-01
 
 ### Added — handoff-discipline validator now catches gate-less concurrent dispatchers
