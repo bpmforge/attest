@@ -14,6 +14,14 @@
 # It also flags hard spawn calls (Agent(...) / subagent_type) in agent prose,
 # which bypass the HANDOFF contract entirely.
 #
+# Third check: coordinator files that dispatch specialists CONCURRENTLY ("Dispatch
+# Wave", "emit N HANDOFFs simultaneously / in parallel / in one message") express
+# the same naive-spawn assumption in the `HANDOFF to:` prose format rather than
+# task() shorthand -- so the two checks above miss them. Any such file must gate on
+# has_task_tool / EXECUTOR_SELECTION so it degrades to sequential-inline (Executor
+# D) or manual paste (C) when the runtime cannot spawn. This is the exact class
+# that let security-auditor ship a gate-less parallel dispatch.
+#
 # Usage: validate-handoff-discipline.sh [project-root]
 # Exit 0 clean / 1 gaps / 2 error.
 
@@ -62,5 +70,29 @@ while IFS= read -r f; do
   fi
 done < <(find "$AGENTS_DIR" -name '*.md' -type f)
 
-note "checked $checked agent file(s) that use task() shorthand"
+# ── Coordinator concurrent-dispatch without an executor gate ───────────
+# Cues that a file assumes it can fan out specialists at once.
+DISPATCH_RE='Dispatch Wave|Parallel Wave|Emit (ALL|all|[Tt]hree|[Tt]wo|[Ff]our|[Ff]ive|[0-9]+|N) HANDOFF|HANDOFFs? (simultaneously|in parallel|in one message)|emit .*HANDOFFs simultaneously'
+# A file is gated if it STATES a no-spawn behavior: the has_task_tool branch, a
+# manual-paste path (emit as text / wait for user / open N sessions), sequential
+# or inline execution, the Delegation Rule, or a named Executor. A bare pointer to
+# EXECUTOR_SELECTION.md is NOT enough -- security-auditor mentioned it for an
+# unrelated dispatch while its wave fan-out stayed gate-less.
+GATE_RE='has_task_tool|Delegation Rule|emit .*(as )?text|wait for( the)? user|open [0-9A-Za-z ]*session|user opens|Sequential mode|execute each phase directly|run .*inline|Executor [ABCD]'
+dispatchers=0
+while IFS= read -r f; do
+  rel="${f#"$ROOT"/}"
+  # Skip reference/protocol docs (agents/shared/**, disable:true) and the
+  # parallel-wave protocol, which defines the manual-parallel fallback itself.
+  case "$rel" in agents/shared/*) continue ;; esac
+  head -8 "$f" | grep -qE 'disable:[[:space:]]*true' && continue
+  [[ "$rel" == *"PARALLEL_WAVE_PROTOCOL.md" ]] && continue
+  grep -qE "$DISPATCH_RE" "$f" || continue
+  dispatchers=$((dispatchers + 1))
+  if ! grep -qE "$GATE_RE" "$f"; then
+    gap "missing-executor-gate" "$rel dispatches specialists concurrently (Dispatch Wave / parallel or simultaneous HANDOFFs) but never gates on has_task_tool / EXECUTOR_SELECTION -- opencode cannot spawn, so it must degrade to sequential-inline (Executor D) or manual paste (C)."
+  fi
+done < <(find "$AGENTS_DIR" -name '*.md' -type f)
+
+note "checked $checked task()-shorthand file(s) and $dispatchers concurrent-dispatch coordinator(s)"
 validator_exit
