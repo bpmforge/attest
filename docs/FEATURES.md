@@ -12,7 +12,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (4)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (36)](#skills)
+- [Skills (37)](#skills)
 - [Shared protocols (24)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -377,14 +377,15 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/documentation-gap-finder` | `documentation-gap-finder` | Audit public surface for undocumented / stale / missing docs |
 | `/llm-integration` | `llm-integration-engineer` | Design LLM features — prompts, evals, routing/fallback, token budget, structured output |
 | `/end-user-simulator` | `end-user-simulator` | Persona-driven UAT — walk the live app as a first-time user, log friction |
-| `/release` | `release-manager` | Coordinate a release — version, changelog, tag, deploy-gate, push (on top of `/git --release`) |
+| `/release` | `release-manager` | Coordinate a release — version, changelog, tag, deploy-gate, push (on top of `/git-expert --release`) |
+| `/challenge` | `challenger` | Adversarially verify claims in an artifact — CONFIRMED/CONTRADICTED/UNVERIFIABLE with cited evidence |
 | `/steward` | `sdlc-lead` (inline) | Audit CLAUDE.md / AGENTS.md alignment, capture session learnings |
 | `/onboard-inventory` | `researcher` | Ralph Wiggum D1 — enumerate units into `docs/onboard/INVENTORY.md` |
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**36 skills total** (includes `/guide` — the concierge front door).
+**37 skills total** (includes `/guide` — the concierge front door).
 
 ---
 

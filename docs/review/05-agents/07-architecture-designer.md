@@ -4,7 +4,7 @@
 
 # 5.7 Architecture Designer
 
-**File:** `agents/architecture-designer.md` | **Skill:** `/arch`
+**File:** `agents/architecture-designer.md` | **Skill:** `/architect`
 
 Produces the structural blueprint — module design and infrastructure topology — from SDLC documents. Does not write application code, schemas, or API contracts; defines the structure that other specialists fill in.
 

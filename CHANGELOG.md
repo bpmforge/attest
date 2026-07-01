@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.3] — 2026-07-01
+
+### Fixed — exhaustive slash-command wiring audit (Ralph Wiggum + Challenger)
+A whole-repo sweep (all agents/skills/commands/docs) against the authoritative opencode rule — a skill's slash = its `name:` frontmatter (fallback: directory) — plus an independent adversarial Challenger pass, found four real breaks:
+- **`skills/ui-verify` had `name: UI Verifier`** (invalid slug: spaces/caps) → `/ui-verify` did not resolve. Fixed to `name: ui-verify`; this also repaired the `/ui-verify` cross-reference in `skills/end-user-simulator`.
+- **`/arch` → `/architect`** (the architect skill's name is `architect`): `sdlc-lead.md` routing table + two review docs.
+- **`/git` → `/git-expert`** (the git skill's name is `git-expert`): `guide.md` rows + the new `release` skill.
+- **`/challenge` was documented as user-invocable but no skill existed** — added `skills/challenge` wrapping the `challenger` agent. Skills →37.
+
+Confirmed clean: every skill→agent wrap, every `SDLC-TASK for <agent>`, and every HANDOFF template slash resolve; only `git` and `ui-verify` ever had `name != dir` (git-expert is a valid intentional slug). Remaining unresolved `/slash` tokens are built-ins (`/loop`, `/schedule`, `/clear`), prose placeholders, and REST-endpoint examples.
+
 ## [1.26.2] — 2026-07-01
 
 ### Fixed — every expert now has a working invocation path (opencode)

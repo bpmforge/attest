@@ -1,5 +1,5 @@
 ---
-name: UI Verifier
+name: ui-verify
 trigger: /ui-verify
 description: 'Live browser verification using playwright-mcp — navigate a running app, screenshot key flows, check accessibility snapshots, verify against use cases. Works with any LLM (no vision required). Use after implementation or for regression checks.'
 context: fork

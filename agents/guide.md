@@ -51,8 +51,8 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Design an API / endpoints / contracts | api-designer | `/api-design` |
 | Build/debug containers, Dockerfiles | container-ops | `/containers` |
 | CI/CD, deploys, runbooks, incidents | sre-engineer | `/devops` |
-| Git: branches, releases, recovery, multi-remote | git-expert | `/git` |
-| Cut a release (version, changelog, tag, push) | git-expert / release-manager | `/git --release` (mechanics) or `/release` (full coordinator) |
+| Git: branches, releases, recovery, multi-remote | git-expert | `/git-expert` |
+| Cut a release (version, changelog, tag, push) | git-expert / release-manager | `/git-expert --release` (mechanics) or `/release` (full coordinator) |
 | Research a decision / compare options | researcher | `/research` |
 | Design an LLM feature (prompts, evals, routing) | llm-integration-engineer | `/llm-integration` |
 | Cut cloud/LLM spend, right-size, unit economics | cost-engineer | `/cost` |
