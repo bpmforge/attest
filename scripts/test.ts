@@ -204,6 +204,61 @@ for (const file of agentFiles) {
 }
 
 // ---------------------------------------------------------------------------
+// Pass 4: Tickets — module-contract graph logic (T1/T9)
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 4] Tickets — module-contract graph logic");
+try {
+  const tickets = await import(
+    pathToFileURL(path.join(root, "scripts/lib/tickets.mjs")).href
+  );
+  const samplePath = path.join(root, "examples/tickets-plan.sample.json");
+  const plan = tickets.loadPlan(samplePath);
+
+  const v = tickets.validatePlan(plan);
+  if (v.ok) ok("tickets — sample plan validates");
+  else fail("tickets — sample plan validates", v.errors.join("; "));
+
+  tickets.recomputeStatus(plan);
+  const claim = tickets
+    .claimable(plan)
+    .map((m: { id: string }) => m.id)
+    .sort();
+  const expected = ["M-frontend-dashboard", "M-kanban-board"];
+  if (JSON.stringify(claim) === JSON.stringify(expected))
+    ok(`tickets — recomputeStatus yields claimable ${expected.join(", ")}`);
+  else
+    fail(
+      "tickets — claimable set",
+      `expected ${expected.join(",")} got ${claim.join(",")}`,
+    );
+
+  // negative: a cycle must be caught
+  const cyc = tickets.loadPlan(samplePath);
+  cyc.modules.find((m: { id: string }) => m.id === "M-db-backend").depends_on =
+    ["M-frontend-dashboard"];
+  if (!tickets.validatePlan(cyc).ok) ok("tickets — cycle detected");
+  else fail("tickets — cycle detected", "cyclic plan validated as ok");
+
+  // negative: overlapping write-scope on active modules must be flagged
+  const col = tickets.loadPlan(samplePath);
+  const dash = col.modules.find(
+    (m: { id: string }) => m.id === "M-frontend-dashboard",
+  );
+  const kan = col.modules.find(
+    (m: { id: string }) => m.id === "M-kanban-board",
+  );
+  dash.status = "in_progress";
+  kan.status = "in_progress";
+  kan.write_scope = ["src/dashboard/shared/**"];
+  if (tickets.writeScopeCollisions(col).length > 0)
+    ok("tickets — write-scope collision flagged");
+  else fail("tickets — write-scope collision", "overlap not flagged");
+} catch (err: unknown) {
+  const message = err instanceof Error ? err.message : String(err);
+  fail("tickets", `import/exec failed: ${message}`);
+}
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 console.log(`\n${passed} passed, ${failed} failed`);

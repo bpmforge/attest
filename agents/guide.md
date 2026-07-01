@@ -62,6 +62,8 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Load tests, chaos scenarios, "what breaks under stress" | reliability-engineer | `/reliability` |
 | Build a game | game cluster | `/sdlc init <name> "<desc>" --game` |
 | Break a big/vague task into runnable steps | task-decomposer | dispatch `task-decomposer` → run with `scripts/run-plan.mjs` |
+| Join a project / "what can I work on?" (parallel modules) | reflow | `/reflow` (recomputes claimable module tickets, collision-checked) |
+| Continue after clearing a large context | sdlc-lead | `/sdlc resume` (rehydrates from docs/work/STATE.md) |
 | Just explore "what's wrong with this?" broadly | start with `/sdlc improve` | it fans out to all audit specialists |
 
 When two routes overlap, prefer the most specific: code *quality* → `/review-code`; *security* → `/security`; *speed* → `/perf`. `/sdlc improve` is the catch-all that runs all of them.
