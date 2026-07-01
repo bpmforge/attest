@@ -415,6 +415,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `MODEL_ADAPTER.md` | Per-tier behavior (small/medium/large), maker/verifier/PLANNER roles + plan-strong/execute-cheap routing (B5), local-model pointer |
 | `MICRO_LOOP.md` | The per-agent micro-loop: plan-shape → produce → self-verify (tool-offloaded, B3) → re-ground (B4) → revise — the produce/verify discipline every agent runs |
 | `CHECKPOINT_REVERT.md` | Git checkpoint per gated PASS + revert-to-known-good on unrecoverable failure for multi-phase work (Lever 8 / B7) |
+| `CHECKPOINT_STATE.md` | Context checkpoint: write a compact `docs/work/STATE.md` after each step so the user can `/clear` and resume; the catch-up read-list `/sdlc resume` rehydrates from |
 | `LOCAL_LLM_PRIMER.md` | ~600-token session primer for local-model sessions — SDLC-TASK override, HANDOFF format, write-to-disk, stop-means-stop |
 | `BOOK_PROTOCOL.md` | Canonical rule for structuring long-form deliverables (> 300 lines) as multi-page books with index navigation (enforced by `validate-book-structure.sh`) |
 | `CODE_BOOK_PROTOCOL.md` | The book protocol applied to code: a source file over the size cap becomes a directory (index/barrel + one-concern chapter modules); enforced by `validate-file-size.sh` |
@@ -511,7 +512,8 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-entry-points.sh` | Every entry point (main, index, bin) is documented |
 | `validate-erd-coverage.sh` | Every table/model in source has an ERD entry |
 | `validate-fix-backlog-closed.sh` | CRITICAL and HIGH rows in FIX_BACKLOG resolved before phase-5 gate |
-| `validate-handoff-discipline.sh` | Every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)`/`subagent_type` spawn bypasses the contract (runs in the git-expert merge gate when `agents/**.md` changes) |
+| `validate-handoff-discipline.sh` | Every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)`/`subagent_type` spawn bypasses the contract, and concurrent `HANDOFF to:` dispatchers must gate on has_task_tool (runs in the git-expert merge gate when `agents/**.md` changes) |
+| `validate-tickets.sh` | Module-contract ticket graph integrity — malformed tickets, cyclic/dangling depends_on, orphan node refs, and overlapping write-scopes among active modules (wraps `scripts/lib/tickets.mjs`) |
 | `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs present, no hardcoded secrets |
 | `validate-infrastructure.sh` | INFRASTRUCTURE.md has env matrix, compute, data, networking + Mermaid diagram; rejects IaC code in the document |
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
