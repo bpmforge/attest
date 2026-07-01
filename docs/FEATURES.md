@@ -12,7 +12,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (4)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (31)](#skills)
+- [Skills (33)](#skills)
 - [Shared protocols (24)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -373,13 +373,15 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/explore` | `sdlc-lead` (inline) | Codebase archaeology — trace a feature end-to-end, map blast radius |
 | `/design-options` | `sdlc-lead` (inline) | Generate 2-3 architecture alternatives with trade-offs before committing |
 | `/frontend` | `frontend-design` | Visual polish, design tokens, typography, color, spacing, motion |
+| `/migration-planner` | `migration-planner` | Ordered, reversible DB migration plan between two schema states |
+| `/documentation-gap-finder` | `documentation-gap-finder` | Audit public surface for undocumented / stale / missing docs |
 | `/steward` | `sdlc-lead` (inline) | Audit CLAUDE.md / AGENTS.md alignment, capture session learnings |
 | `/onboard-inventory` | `researcher` | Ralph Wiggum D1 — enumerate units into `docs/onboard/INVENTORY.md` |
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**31 skills total** (includes `/guide` — the concierge front door).
+**33 skills total** (includes `/guide` — the concierge front door).
 
 ---
 

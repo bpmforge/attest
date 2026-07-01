@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.1] — 2026-07-01
+
+### Fixed — broken HANDOFF slash targets (opencode wiring)
+A wiring audit found four HANDOFF/skill references pointing at slash commands that do not resolve in opencode (the same failure class as an SDLC handoff naming a non-existent target):
+- **`/arch` → `/architect`** in `HANDOFF_TEMPLATES.md` (the skill is named `architect`).
+- **`/migration-planner`** and **`/documentation-gap-finder`** were HANDOFF targets with no wrapper skill — the agents existed but no slash opened them. Added `skills/migration-planner` and `skills/documentation-gap-finder` (thin wrappers, matching the one-skill-per-expert pattern); skills →33.
+- **`/frontend`** skill never loaded its `frontend-design` agent (every sibling skill does) — added the load line.
+
+Full sweep confirmed all `read()`/`write()` file paths, `task(agent=)` targets, and skill→agent links resolve, with no orphan agents. Counts reconciled (README/FEATURES →33 skills).
+
 ## [1.26.0] — 2026-06-24
 
 ### Added — catalog completeness validator (the doc-maintenance loop, closed)
