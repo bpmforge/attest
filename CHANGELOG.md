@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.4] — 2026-07-01
+
+### Fixed — HANDOFF blocks: complete, clearly stated, easy to pass off (opencode)
+Audited every delegation in the opencode target (where a HANDOFF must be a self-contained copy-paste, since there is no reliable spawn) — Ralph Wiggum sweep + adversarial Challenger:
+- **`security-auditor` lacked the `has_task_tool` executor gate** its siblings (`code-reviewer`, `performance-engineer`) carry — it said "dispatch Wave 1 in parallel" with no opencode fallback. Added the gate: run specialists inline/sequentially when there is no task tool (the security/code-review/perf specialists have no user-facing `/skill`, so manual paste is not an option for them). The discipline validator missed this because it only checks `task(agent=)` files, not the `HANDOFF to:` format.
+- **13 HANDOFF blocks did not tell the user which `/skill` to open** — `health-coordinator` ×8 (bare `SDLC-TASK for <agent>`), three `test-engineer` blocks ("paste this EXACT prompt:" with no `/test-expert`), and two `sdlc-onboard-mode` `════` headers (`/dba`, `/research`). All now name the exact skill to open.
+- **`sdlc-onboard-mode`** now states the no-skill-specialist rule: skilless onboard specialists (landscape-mapper, entry-point-tracer, component-mapper, health-coordinator) run inline when there is no task tool, instead of waiting on an impossible paste.
+- **`health-coordinator`** gained the `has_task_tool` executor gate its peer coordinators have (dispatch as subagents when available; otherwise paste each `/skill` session or run sequentially).
+- **`EXECUTOR_SELECTION.md`** now formally names **Executor D (inline)** — the coordinator reads a skill-less specialist's agent file and runs its methodology in-conversation. This was the de-facto opencode path for security/code-review/performance/onboard micro-agents but was absent from the three-executor table; Rule 1 now explains why a Executor-D dispatch may be terse (methodology lives in the agent file, not the block).
+- **`security-auditor`** Phase-1 prose no longer reads spawn-first — it cross-references the executor gate so a model reading the phase in isolation runs inline when there is no task tool.
+
+Verified (Ralph Wiggum + independent adversarial Challenger): all paste-able blocks complete (valid `/skill`, TASK-for-agent, CONTEXT, YOUR TASK, PRODUCE, completion phrase); every SDLC file carries the Delegation Rule; validators + 94 tests green.
+
 ## [1.26.3] — 2026-07-01
 
 ### Fixed — exhaustive slash-command wiring audit (Ralph Wiggum + Challenger)
