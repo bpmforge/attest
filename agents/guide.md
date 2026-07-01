@@ -47,14 +47,14 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Design a UI / UX / check accessibility | ux-engineer | `/ux` |
 | Make existing UI look intentional (visual polish) | frontend-design | `/frontend` |
 | Write or review tests | test-engineer | `/test-expert` |
-| Test the app as a real first-time user would | end-user-simulator | dispatch `end-user-simulator` |
+| Test the app as a real first-time user would | end-user-simulator | `/end-user-simulator` |
 | Design an API / endpoints / contracts | api-designer | `/api-design` |
 | Build/debug containers, Dockerfiles | container-ops | `/containers` |
 | CI/CD, deploys, runbooks, incidents | sre-engineer | `/devops` |
 | Git: branches, releases, recovery, multi-remote | git-expert | `/git` |
-| Cut a release (version, changelog, tag, push) | release-manager | dispatch `release-manager` |
+| Cut a release (version, changelog, tag, push) | git-expert / release-manager | `/git --release` (mechanics) or `/release` (full coordinator) |
 | Research a decision / compare options | researcher | `/research` |
-| Design an LLM feature (prompts, evals, routing) | llm-integration-engineer | dispatch `llm-integration-engineer` |
+| Design an LLM feature (prompts, evals, routing) | llm-integration-engineer | `/llm-integration` |
 | Cut cloud/LLM spend, right-size, unit economics | cost-engineer | `/cost` |
 | Decide what to measure (metrics, events, dashboards) | analytics-architect | `/analytics` |
 | WCAG / accessibility / EAA-508 compliance audit | a11y-compliance | `/a11y` |
