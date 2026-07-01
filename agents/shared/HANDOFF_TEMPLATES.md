@@ -332,9 +332,9 @@ Use after TECH_STACK.md is complete. architecture-designer produces MODULE_DESIG
 
 ```
 ---
-  HANDOFF -> /arch (architecture-designer) — MODULE DESIGN + INFRASTRUCTURE
+  HANDOFF -> /architect (architecture-designer) — MODULE DESIGN + INFRASTRUCTURE
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /arch:
+Open a new OpenCode conversation and paste this EXACT prompt to /architect:
 
 SDLC-TASK for architecture-designer:
 

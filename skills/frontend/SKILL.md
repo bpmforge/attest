@@ -5,6 +5,8 @@ description: 'Frontend design — visual polish, typography, color systems, spac
 
 # Frontend Design
 
+Load and follow the instructions in the `frontend-design` agent.
+
 Production-grade visual implementation. Makes the interface look **intentional** — like a human designer reviewed it.
 
 **Usage:**
