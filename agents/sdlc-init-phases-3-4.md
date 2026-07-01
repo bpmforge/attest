@@ -1279,7 +1279,7 @@ Next after resume: DB migrations, then expert reviews
 ---
   HANDOFF → test-engineer   [or /ux if UI-bearing]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
 

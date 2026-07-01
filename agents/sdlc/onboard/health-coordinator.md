@@ -53,7 +53,9 @@ Next after resume: synthesize HEALTH_ASSESSMENT.md
 
 ### Phase 1 — Dispatch Expert Reviews (Parallel Wave)
 
-Emit ALL HANDOFFs in one message. The user opens each session simultaneously. Wait for ALL to return before Phase 2.
+> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see `agents/shared/EXECUTOR_SELECTION.md`). If true, dispatch these reviews as subagents. Otherwise (opencode / no task tool) emit all HANDOFFs as text — every target below has a user-facing `/skill` (named in each block), so the user opens each session and pastes; the user MAY run them one at a time instead of in parallel. Either way: same outputs, same files.
+
+Emit ALL HANDOFFs in one message (write the manifest first). Each block names the `/skill` to open. Wait for ALL to return before Phase 2.
 
 Write `docs/work/HANDOFF_MANIFEST.md` before emitting:
 ```markdown
@@ -72,6 +74,8 @@ Write `docs/work/HANDOFF_MANIFEST.md` before emitting:
 
 **HANDOFF 1 — code-reviewer (full health):**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
 YOUR TASK: Run an 8-dimension code health review. Dimensions: complexity, duplication/DRY, error handling (silent failure hunter), type safety, pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene). Flag CRITICAL and HIGH findings with file:line and a specific fix.
@@ -81,6 +85,8 @@ Print exactly: "review done — [overall verdict and worst dimension]" then stop
 
 **HANDOFF 2 — code-reviewer (tech debt):**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
 YOUR TASK: Catalogue all tech debt. Look for: duplicated logic, missing abstractions, hardcoded values, workarounds, outdated patterns, missing tests. Sort by leverage — cheap-to-fix, high-payoff items first.
@@ -90,6 +96,8 @@ Print exactly: "debt done — [item count and top leverage item]" then stop.
 
 **HANDOFF 3 — code-reviewer (pattern drift):**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
 YOUR TASK: Audit for pattern drift — same problem solved differently in different parts of the code. Identify the established pattern for each concern (error handling, data access, logging, validation) and flag every deviation.
@@ -99,6 +107,8 @@ Print exactly: "patterns done — [patterns identified and worst drift area]" th
 
 **HANDOFF 4 — security-auditor:**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /security:
+
 SDLC-TASK for security-auditor:
 CONTEXT: The entire codebase (src/ directory). Focus: auth handlers, access control, input validation, secret storage.
 YOUR TASK: Scan for OWASP Top 10 vulnerabilities. Prioritise: broken access control (A01), injection (A03), auth failures (A07), hardcoded secrets / misconfigured security headers (A02, A05). Each finding: file:line and concrete fix.
@@ -108,6 +118,8 @@ Print exactly: "security done — [finding counts by severity]" then stop.
 
 **HANDOFF 5 — test-engineer (coverage analysis):**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
 SDLC-TASK for test-engineer:
 CONTEXT: test/ or __tests__/ directory; source codebase
 YOUR TASK: Analyse test coverage. Identify: modules with no tests, critical paths (auth, data writes, error handling) with coverage gaps, overall coverage %. Do not write tests — analysis only.
@@ -117,6 +129,8 @@ Print exactly: "test done — [overall coverage % and biggest gap]" then stop.
 
 **HANDOFF 6 — performance-engineer:**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /perf:
+
 SDLC-TASK for performance-engineer:
 CONTEXT: The entire codebase (src/ directory); DB query files and ORM usage.
 YOUR TASK: Static analysis pass for perf anti-patterns — no profiling needed. Look for: O(n²) nested loops, N+1 ORM patterns, missing DB indexes on frequently queried columns, synchronous blocking in async paths, large in-memory processing that should be paginated.
@@ -126,6 +140,8 @@ Print exactly: "perf done — [finding count and most impactful issue]" then sto
 
 **HANDOFF 7 — ux-engineer (only if UI-bearing: YES):**
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+
 SDLC-TASK for ux-engineer:
 CONTEXT: UI source files (components/, pages/, views/ directory)
 YOUR TASK: Audit on 4 dimensions: (1) WCAG 2.2 AA accessibility; (2) component consistency; (3) UX anti-patterns (confusing flows, dead ends, unclear labels); (4) responsive design. Each finding: file:line and severity.
@@ -157,6 +173,8 @@ One use case per major route/feature found. Cover all the entry points documente
 When "test done" returns and `docs/reviews/COVERAGE_<date>.md` exists, dispatch:
 
 ```
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+
 SDLC-TASK for test-engineer:
 CONTEXT:
 - docs/testing/USE_CASES.md — use cases derived from existing codebase

@@ -187,7 +187,7 @@ Next after resume: Step 2 — scoped specialist audits
 ---
   HANDOFF → test-engineer   [or /ux if UI-scoped]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt:
+Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
 
 SDLC-TASK for test-engineer:
 

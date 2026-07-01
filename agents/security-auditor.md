@@ -56,9 +56,20 @@ Starting security audit. Specialists:
 
 Read `docs/design/ARCHITECTURE.md`, `README.md`, and entry points to understand the system before dispatching.
 
-### Phase 1 — Dispatch Wave 1 (parallel)
+> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see
+> `agents/shared/EXECUTOR_SELECTION.md`). If true, you MAY dispatch the specialists
+> in each wave as subagents (parallel within a wave, waves in order). Otherwise
+> (opencode / no task tool) do NOT wait on parallel spawns that cannot run — read
+> each specialist's agent file and execute its methodology directly in this
+> conversation, one specialist after another, writing each specialist's
+> `*_FINDINGS_*` file before moving on. Sequential execution achieves the same
+> result: same outputs, same files, same wave ordering. The specialists have no
+> user-facing `/skill`, so manual paste (Executor C) is not an option for them —
+> in opencode the coordinator runs them inline.
 
-Emit three HANDOFFs simultaneously:
+### Phase 1 — Wave 1 (semgrep-runner, secrets-scanner, dependency-auditor)
+
+Per the Executor rule above: with a task tool, dispatch these three as parallel subagents; in opencode (no task tool), run each specialist's methodology inline in order (Executor D) — they have no `/skill` to paste into. The blocks below are the per-specialist tasks:
 
 ```
 HANDOFF to: security/semgrep-runner

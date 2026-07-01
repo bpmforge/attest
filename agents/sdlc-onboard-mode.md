@@ -45,6 +45,8 @@ ALL diagrams MUST use Mermaid syntax. NEVER ASCII art. Any deliverable over 300 
 
 Every `task(agent="X", ...)` in this file = build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`, then execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true` in `docs/work/.model-context`; otherwise emit as text and wait for the user). Save state → write context packet → execute HANDOFF → wait for manifest.
 
+> **No-skill specialists:** the onboard specialists (`landscape-mapper`, `entry-point-tracer`, `component-mapper`, `health-coordinator`) have no user-facing `/skill`, so manual paste (Executor C) cannot open them. When `has_task_tool=false` (opencode / no task tool), do NOT wait on a paste that can't happen — read the specialist's agent file and run its methodology inline in this conversation, writing its output files before continuing. User-facing experts reached from onboard (`/dba`, `/research`, `/review-code`, `/security`, `/perf`, `/ux`, `/test-expert`) can still be pasted normally.
+
 ---
 
 ## Specialist Dispatch Table
@@ -158,7 +160,7 @@ Save state. Emit HANDOFF to db-architect:
 
 ```
 ════════════════════════════════════════════════
-  HANDOFF → db-architect
+  HANDOFF → /dba (db-architect)
 ════════════════════════════════════════════════
 SDLC-TASK for db-architect:
 
@@ -365,7 +367,7 @@ Issue ONE HANDOFF to researcher (read-only) to produce `docs/onboard/INVENTORY.m
 
 ```
 ════════════════════════════════════════════════
-  HANDOFF → researcher — LIGHTWEIGHT INVENTORY
+  HANDOFF → /research (researcher) — LIGHTWEIGHT INVENTORY
 ════════════════════════════════════════════════
 SDLC-TASK for researcher:
 
