@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.5] — 2026-07-01
+
+### Added — handoff-discipline validator now catches gate-less concurrent dispatchers
+`validate-handoff-discipline.sh` previously only inspected `task(agent=)` shorthand files, so a coordinator that fanned out specialists via the `HANDOFF to:` prose format ("Dispatch Wave", "emit N HANDOFFs simultaneously / in parallel / in one message") could ship with no opencode fallback — exactly how security-auditor regressed. New third check: any agent file with a concurrent-dispatch cue must STATE a no-spawn behavior (has_task_tool branch, manual paste, sequential/inline execution, Delegation Rule, or a named Executor). A bare pointer to EXECUTOR_SELECTION.md is not sufficient. Reference/protocol docs (agents/shared/**, disable:true, PARALLEL_WAVE_PROTOCOL) are exempt. Verified: clean across the repo; a negative test (stripping security-auditor's gate) flags only that file.
+
 ## [1.26.4] — 2026-07-01
 
 ### Fixed — HANDOFF blocks: complete, clearly stated, easy to pass off (opencode)
