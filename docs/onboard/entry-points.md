@@ -264,7 +264,7 @@ Each agent file serves as an entry point when invoked:
 - **File**: `agents/ui-verifier.md`
 - **Description**: Live browser verification using playwright-mcp
 - **Commands**:
-  - `/ui-verifier` — UI verification support
+  - `/ui-verify` — UI verification support
 
 ### end-user-simulator
 - **File**: `agents/end-user-simulatormd`

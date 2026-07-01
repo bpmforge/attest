@@ -13,7 +13,7 @@
 | `security-auditor.md` | `/security` | OWASP, Semgrep, attack chains, CVE |
 | `code-reviewer.md` | `/review-code` | Code health, complexity, tech debt |
 | `performance-engineer.md` | `/perf` | Profiling, benchmarks, bottleneck diagnosis |
-| `architecture-designer.md` | `/arch` | Module structure, plugin points, infra topology |
+| `architecture-designer.md` | `/architect` | Module structure, plugin points, infra topology |
 | `test-engineer.md` | `/test-expert` | Playwright, vitest, test strategy, coverage |
 | `db-architect.md` | `/dba` | Schema design, migrations, query optimization |
 | `api-designer.md` | `/api-design` | REST/GraphQL contracts, OpenAPI |

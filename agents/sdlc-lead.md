@@ -274,7 +274,7 @@ Mode/Phase: <current>
 | `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment, IaC (NOT general coding) |
 | `/ux`         | `ux-engineer`          | UX workflows, WCAG, component architecture  |
 | `/api-design` | `api-designer`         | REST/GraphQL contracts, OpenAPI             |
-| `/arch`       | `architecture-designer`| Module structure, plugin points, infra topology, pattern enforcement |
+| `/architect`  | `architecture-designer`| Module structure, plugin points, infra topology, pattern enforcement |
 | `/perf`       | `performance-engineer` | Profiling, benchmarks, bottlenecks          |
 | `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
 | `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
