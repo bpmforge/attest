@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.26.2] — 2026-07-01
+
+### Fixed — every expert now has a working invocation path (opencode)
+A reachability audit of the full agent graph from `sdlc-lead`/`guide` found three primary experts that `guide.md` routed with "dispatch \`X\`" — not a real action in opencode (no spawn), so they had no working entry point:
+- **`llm-integration-engineer`** was a true orphan (only the guide mention; no skill, no HANDOFF, no script). Added `skills/llm-integration`.
+- **`end-user-simulator`** had no direct entry (game uses `playtest-evaluator`). Added `skills/end-user-simulator`.
+- **`release-manager`** had no slash. Added `skills/release`; guide "cut a release" row now points to `/git --release` (mechanics) or `/release` (coordinator).
+
+Updated the four `guide.md` routing rows to real slashes (`task-decomposer` keeps its `scripts/run-plan.mjs` mechanism). Verified: cluster subagents (security/code-review/performance) are dispatched by their coordinators, onboard specialists by `sdlc-onboard-mode`, and the chained agents (`release-manager`→`changelog-writer`) resolve. Skills →36; counts reconciled.
+
 ## [1.26.1] — 2026-07-01
 
 ### Fixed — broken HANDOFF slash targets (opencode wiring)
