@@ -1,6 +1,11 @@
 # Design — Module-Contract Tickets, Reflow, and Checkpoint/Resume
 
-Status: **DRAFT for review** · Branch: `feat/sdlc-tickets-reflow-resume` · Date: 2026-07-01
+Status: **IMPLEMENTED** (T1–T9 complete) · Branch: `feat/sdlc-tickets-reflow-resume` · Date: 2026-07-01
+
+> Shipped: T1 `scripts/lib/tickets.mjs` + `docs/TICKET_SCHEMA.md`; T2 `scripts/gen-tickets-board.mjs`;
+> T3 `skills/reflow/`; T4 `agents/shared/CHECKPOINT_STATE.md`; T5 `/sdlc resume` (sdlc-lead); T6
+> `scripts/validators/validate-tickets.sh`; T7 wired into sdlc-lead/guide/feature-mode; T8 docs/counts;
+> T9 tests (Pass 4). All validators + 99 tests green.
 
 ## Why
 

@@ -128,6 +128,8 @@ After drafting the impact analysis:
 
 Before designing, decide whether the feature is **atomic** (one component, linear flow) or **splits into independent sub-components** that can each run the full Mode-3 lifecycle in parallel. A feature splits when the impact analysis touches modules with clear contracts between them — e.g., "notifications" = schema + API + worker + UI.
 
+**When it splits, write module-contract tickets** (see `docs/TICKET_SCHEMA.md`): one `kind:module` entry per sub-component in `docs/work/plan.json` with `interface`, an **exclusive `write_scope`**, `depends_on`, and `acceptance`. Disjoint write-scopes are what let separate contributors/agents build them at once without colliding. From then on, `/reflow` recomputes the claimable set and emits each module's HANDOFF, and `docs/work/STATE.md` (per `agents/shared/CHECKPOINT_STATE.md`) is refreshed after each step so anyone can `/clear` and `/sdlc resume`.
+
 Ask the user:
 
 ```
