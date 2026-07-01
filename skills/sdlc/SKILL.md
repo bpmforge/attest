@@ -21,6 +21,7 @@ Load and follow the instructions in the `sdlc-lead` agent.
 
 **Other commands:**
 - `/sdlc status` — Current phase/milestone progress
+- `/sdlc resume` — Continue after clearing context: rehydrates from `docs/work/STATE.md` (the after-each-step checkpoint) instead of chat history, so you can `/clear` on a large loop and pick up exactly where you left off
 - `/sdlc gate` — Check exit criteria before advancing
 
 The lead delegates to expert agents via HANDOFF blocks (and the `task` tool for `git-expert` only) — it coordinates, it doesn't do technical work itself.
