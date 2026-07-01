@@ -1,0 +1,71 @@
+{
+  "goal": "Ship the app dashboard as independently-ownable modules",
+  "modules": [
+    {
+      "id": "M-db-backend",
+      "kind": "module",
+      "title": "DB backend",
+      "owner": "db-architect",
+      "status": "done",
+      "interface": "docs/design/api/db.md",
+      "write_scope": ["src/db/**"],
+      "depends_on": [],
+      "acceptance": ["schema migrations apply cleanly", "query layer covered by tests"],
+      "verify": "scripts/validators/validate-migrations.sh",
+      "nodes": []
+    },
+    {
+      "id": "M-design-system",
+      "kind": "module",
+      "title": "Design system tokens",
+      "owner": "frontend-design",
+      "status": "done",
+      "interface": "docs/design/STYLE_GUIDE.md",
+      "write_scope": ["src/ui/tokens/**"],
+      "depends_on": [],
+      "acceptance": ["token set documented", "consumed by at least one component"],
+      "verify": "scripts/validators/validate-design-system.sh",
+      "nodes": []
+    },
+    {
+      "id": "M-business-rules",
+      "kind": "module",
+      "title": "Business logic",
+      "owner": "coding-agent",
+      "status": "in_progress",
+      "interface": "docs/design/api/domain.md",
+      "write_scope": ["src/domain/**"],
+      "depends_on": ["M-db-backend"],
+      "acceptance": ["domain rules unit-tested", "no imports outside src/domain except db interface"],
+      "verify": "scripts/validators/validate-tests.sh",
+      "nodes": []
+    },
+    {
+      "id": "M-frontend-dashboard",
+      "kind": "module",
+      "title": "Dashboard main page",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/design/api/dashboard.md",
+      "write_scope": ["src/dashboard/**"],
+      "depends_on": ["M-db-backend", "M-design-system"],
+      "acceptance": ["renders live widgets from the dashboard API contract", "passes a11y + has an e2e smoke test"],
+      "verify": "scripts/validators/validate-wcag-coverage.sh",
+      "nodes": []
+    },
+    {
+      "id": "M-kanban-board",
+      "kind": "module",
+      "title": "Kanban board",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/design/api/kanban.md",
+      "write_scope": ["src/kanban/**"],
+      "depends_on": ["M-db-backend", "M-design-system"],
+      "acceptance": ["drag-drop moves cards + persists via the board API", "has an e2e smoke test"],
+      "verify": "scripts/validators/validate-e2e-setup.sh",
+      "nodes": []
+    }
+  ],
+  "nodes": []
+}

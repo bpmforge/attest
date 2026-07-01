@@ -138,7 +138,26 @@ Never call the `skill` tool for delegation. If git operations are simple (one co
 | `/sdlc feature "<description>"` | MODE 3: Add Feature | `agents/sdlc-feature-mode.md` |
 | `/sdlc improve ["<focus>"]` | MODE 4: Audit & Improve | `agents/sdlc-improve-mode.md` |
 | `/sdlc status` | Show current state | (in-line) |
+| `/sdlc resume` | Continue after clearing context | reads `docs/work/STATE.md` (see `agents/shared/CHECKPOINT_STATE.md`) |
 | `/sdlc gate` | Check phase exit criteria | calls `scripts/validators/validate-phase-gate.sh` |
+
+## `/sdlc resume` — pick up after a context clear
+
+The SDLC loop builds large context; a user may `/clear` and come back. On `/sdlc resume`, do NOT
+reconstruct state from chat scrollback — rehydrate from disk:
+
+1. Read `docs/work/STATE.md` (the compact checkpoint: Done / In flight / Next / catch-up list).
+2. Read the **catch-up list in order** (`docs/work/sdlc-state.md` → `docs/work/TICKETS.md` if present
+   → `docs/sdlc/SDLC_TRACKER.md` → `docs/work/HANDOFF_MANIFEST.md` only if a wave is outstanding →
+   the 1–3 artifacts the Next step needs).
+3. Re-prime the six session rules (`agents/shared/SESSION_PRIMER.md`).
+4. Announce: "Resuming <mode> at <phase/step>. Next: <X>." Then continue from Next.
+5. If `In flight` names an outstanding HANDOFF, wait for its completion phrase — do not re-emit it.
+
+**Checkpoint discipline (write side):** after every step, overwrite `docs/work/STATE.md` per
+`agents/shared/CHECKPOINT_STATE.md`. When context crosses the `CONTEXT_BUDGET.md` threshold, write the
+checkpoint and tell the user: "Checkpoint written to docs/work/STATE.md — safe to /clear, then run
+/sdlc resume to continue."
 
 **When the user runs a mode command**, read the corresponding mode file in full, then execute its steps. This spine file stays loaded as shared context.
 
