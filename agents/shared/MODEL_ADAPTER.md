@@ -51,6 +51,7 @@ Context budget is tight. Every token counts.
 | Write immediately | Any output > 200 tokens → `write()` to disk before continuing. |
 | Reason in NL, format last (B6) | Reason in natural language; emit structured output (JSON / tool-call / schema) ONLY at the final boundary. Forcing schema onto the *reasoning* costs small/open models up to −27 pts ("format tax"). For local runtimes, constrain only the final call (grammar/JSON-schema), never the chain-of-thought. |
 | Prune error turns (B2) | After a failed attempt, drop the failed turn(s) from working context before retrying — a model's own errors in context raise its next-error rate, and this is NOT fixed by scale. Reconstruct from disk state, not the error-laden transcript. |
+| Persistence (MANDATORY) | Read `agents/shared/PERSISTENCE.md`. Never end your turn after *announcing* an action — perform it. If you can't call a tool, print `BLOCKED: <reason>`; never emit a plan as your final message when execution was requested. Small models announce-then-stop most; this is the source fix for it. |
 | Session length | After 3 HANDOFFs returned, save state and suggest user restart session. |
 | OWASP --deep | Warn user: requires 60k+ context. Recommend medium or large tier model. |
 | Security --deep | Load OWASP_METHODOLOGY.md only if context budget shows > 15k tokens available. |

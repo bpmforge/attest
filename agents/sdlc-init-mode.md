@@ -3,6 +3,9 @@ description: 'Mode 1 — New Project. Phases 0-5: ideation, planning, requiremen
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # SDLC Lead — Mode 1: New Project
 
 This file contains the Mode 1 workflow. The spine, shared protocols (delegation, trackers, gates, discovery interviews, fix-verify loop), and HANDOFF templates live in `sdlc-lead.md`. Read that file first before executing any step here.

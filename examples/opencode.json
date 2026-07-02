@@ -1,5 +1,11 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "_output_clamp_comment": "TOKEN CLAMPS (plan budgets around these): opencode #20078 hardcodes max_tokens=32000 for LM Studio (config limit.output ignored); LM Studio #1829 silently caps generation ~10-16k tokens on qwen3.6 thinking models (finish_reason:stop, no error) so long thinking eats the cap and the turn ends mid-plan. Assume <=10k REAL output per turn on qwen3.6-thinking via LM Studio; for long unattended runs prefer bare llama-server (no cap observed). Min opencode: the finish_reason continuation fix (#14972/PR#14973) landed ~v1.2.11 - older builds stop after every tool call on OpenAI-compatible endpoints.",
+  "_plugin_comment": "Auto-continue plugins for the ACCIDENTAL-pause failure modes (stream stall, raw-text <function=...> tool calls per #24316, idle-with-pending-todos). Both have bounded-retry guards (maxRetries/maxAutoSubmitsPerTodo=3) so they cannot run away. PROVIDER SCOPE: enable for LOCAL providers only. On metered cloud (GitHub Copilot #8700, Vertex) each injected continue bills as a premium user turn - keep these OFF there and rely on the prompt-side PERSISTENCE.md rule instead. Remove entries here for a cloud-only config.",
+  "plugin": [
+    "opencode-auto-resume",
+    "opencode-todo-reminder"
+  ],
   "_research_strategy_comment": "Web research goes through OUR tools \u2014 never opencode built-ins. webfetch + websearch are disabled below so the LLM is forced to use playwright-search (multi-engine search + extraction) and pullmd (Cloudflare/Reddit-aware URL\u2192markdown fallback). This eliminates the most common research-flakiness root cause: LLMs reaching for opencode's built-in webfetch and getting raw HTML or rate-limited.",
   "tools": {
     "webfetch": false,
@@ -49,7 +55,10 @@
       "name": "LM Studio (local)",
       "options": {
         "baseURL": "http://127.0.0.1:1234/v1",
-        "apiKey": "lm-studio"
+        "apiKey": "lm-studio",
+        "_timeout_comment": "M2 Max thinking turns exceed opencode's 300000ms default request timeout; disable it (false) or set >=1200000, and give chunkTimeout headroom so a slow local generation between chunks is not killed mid-turn.",
+        "timeout": false,
+        "chunkTimeout": 120000
       },
       "models": {
         "qwen/qwen3-coder-next": {
@@ -69,7 +78,9 @@
       "name": "Ollama (local)",
       "options": {
         "baseURL": "http://localhost:11434/v1",
-        "apiKey": "ollama"
+        "apiKey": "ollama",
+        "timeout": false,
+        "chunkTimeout": 120000
       },
       "models": {
         "qwen2.5-coder:32b": {

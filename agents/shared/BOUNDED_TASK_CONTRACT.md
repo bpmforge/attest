@@ -54,6 +54,8 @@ After printing the completion phrase, end your response. Do not:
 
 The orchestrator resumes the workflow. Your job is done when the phrase is printed.
 
+**Pairs with `agents/shared/PERSISTENCE.md`:** persistence governs the moment *before* the phrase (never end your turn after merely announcing an action — perform it, then print the phrase); stop-means-stop governs *after* it. Emitting a plan as your final message when execution was requested violates persistence; adding chatter after the phrase violates stop-means-stop.
+
 ---
 
 ## Rule 6 — Completion Manifest is mandatory

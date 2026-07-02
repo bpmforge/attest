@@ -3,6 +3,9 @@ description: 'Mode 1 phase files — Phases 0-2: Ideation, Planning, Requirement
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # Mode 1 — Phases 0–2: Ideation, Planning, Requirements
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.

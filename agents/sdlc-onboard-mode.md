@@ -3,6 +3,9 @@ description: 'Mode 2 — Onboard to an existing codebase. Reverse-engineers a pr
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # SDLC Lead — Mode 2: Onboard
 
 This file is the Mode 2 coordinator. It dispatches specialist sub-agents and keeps Steps 0, 3, 5, 7 inline. Shared protocols and spine live in `sdlc-lead.md` — read that first.

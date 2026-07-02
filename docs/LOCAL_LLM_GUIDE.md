@@ -93,6 +93,27 @@ reduced to pointers. `scripts/detect-model-context.sh` writes your tier and the
 - Fix: always start sessions with: "Read docs/work/sdlc-state.md and tell me where we are"
 - The state file is the authoritative record of what's done and what's next
 
+### The run pauses / stops mid-task and needs a manual "continue"
+
+Two unrelated causes — fix the right one:
+
+**A. Accidental pauses (runtime/provider bugs).** The turn ends with no tool call even though work remains. Eight verified causes:
+
+| Cause | Fix |
+|---|---|
+| Announce-then-stop (model says "I'll edit X" then ends) | The `PERSISTENCE.md` rule (prompt-side) + `opencode-auto-resume` plugin. Reproduces on Copilot too, not just local. |
+| qwen3.6 emits `<function=…>` tool calls as **text** → parsed as final (opencode #24316) | `opencode-auto-resume` detects raw-text tool calls and resends |
+| LM Studio sends `tool_calls: []` every response (#4255) | upgrade LM Studio; auto-resume backstops |
+| `finish_reason:"stop"` even with tool calls present (#14972) | upgrade opencode ≥ ~v1.2.11 (PR #14973) |
+| max_tokens hardcoded 32000 for LM Studio (#20078) — our 45k rule is clamped | budget ≤10k real output/turn; prefer bare `llama-server` |
+| LM Studio silently caps ~10–16k tokens on qwen3.6 thinking (#1829) | same — short turns; long thinking eats the cap |
+| 5-min default request timeout + chunk stalls | `timeout: false` + `chunkTimeout: 120000` (see `examples/opencode.json`) |
+| `steps`/`maxSteps` agent option set | leave unset (default unlimited) — verified none in our configs |
+
+**Plugins** (`examples/opencode.json` `plugin` array, bounded-retry guards, `maxRetries: 3`): `opencode-auto-resume` (stream-stall / raw-text-tool-call / hallucination-loop → sends "continue"), `opencode-todo-reminder` (idle with pending todos → reminder). **Enable for LOCAL only** — on metered cloud (Copilot #8700, Vertex) each injected continue bills as a premium request; there, rely on `PERSISTENCE.md` instead.
+
+**B. By-design pauses (we wrote them):** human gates (Phase 2→3, 3.5→4), backlog approval, inter-phase check-ins, Executor-C paste-and-wait. These are intentional in `interactive` mode. To make them opt-out, set `autonomy: auto` (see `agents/shared/AUTONOMY_PROTOCOL.md`, wave O1) — destructive ops, merges/releases, and tech-stack additions still pause.
+
 ---
 
 ## Agent-by-agent context tips

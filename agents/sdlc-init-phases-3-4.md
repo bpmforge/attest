@@ -3,6 +3,9 @@ description: 'SUPERSEDED — do not load. Split into sdlc-init-phase-3.md (Phase
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 > **DEPRECATED — do not load this file.** Content has been split into:
 > - `agents/sdlc-init-phase-3.md` — Phase 3 (Design) + Phase 3.5 (Test Design)
 > - `agents/sdlc-init-phase-4.md` — Phase 4 (Implementation) + Phase 5 (Release)
