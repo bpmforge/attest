@@ -1,6 +1,6 @@
 # Autonomy & Loop Upgrade Plan — kill the pauses, upgrade the loops
 
-**Status:** design + build plan (2026-07-01).
+**Status:** Wave O0 SHIPPED (v1.28.0, 2026-07-02); O1–O3 pending. Original plan 2026-07-01.
 **Audience:** an implementation agent (can be a lower-tier model). Self-contained: every
 task names its files, edits, validators, and acceptance criteria. Execute waves in order.
 **Companions:** `agents/shared/MICRO_LOOP.md`, `MODEL_ADAPTER.md`, `RALPH_WIGGUM_LOOP.md`,
@@ -314,9 +314,9 @@ One-line addition; keeps the deliberate no-repo-map design.
 
 ## 7. Checklist
 
-- [ ] O0.1 timeout/clamp config + pause-troubleshooting docs
-- [ ] O0.2 auto-resume + todo-reminder plugins
-- [ ] O0.3 PERSISTENCE.md + validator
+- [x] O0.1 timeout/clamp config + pause-troubleshooting docs — *v1.28.0*
+- [x] O0.2 auto-resume + todo-reminder plugins — *v1.28.0*
+- [x] O0.3 PERSISTENCE.md + validator (+ 14 executor agents wired, merge gate) — *v1.28.0*
 - [ ] O1.1 AUTONOMY_PROTOCOL.md (+ NEVER-AUTO table)
 - [ ] O1.2 gate all pause sites + validate-autonomy-wiring.sh
 - [ ] O1.3 executor order A→B→C, auto-mode C→D

@@ -3,6 +3,9 @@ description: 'Mode 1 — Phase 4 & 5: Implementation and Release. Parallel codin
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # Mode 1 — Phase 4 & 5: Implementation + Release
 
 > Load only when sdlc-init-mode.md directs you here for Phase 4 or Phase 5.
