@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.29.0] — 2026-07-02
+
+### Added — Wave O1: autonomy levels (make the by-design pauses opt-out)
+Second wave of `docs/AUTONOMY_AND_LOOP_UPGRADE_PLAN.md`. Where O0 killed the *accidental*
+pauses, O1 makes the *intentional* human-in-the-loop pauses opt-out for unattended runs — with
+an audit trail and a hard NEVER-AUTO list.
+- **O1.1 `agents/shared/AUTONOMY_PROTOCOL.md`** — two levels via a `.model-context` `autonomy`
+  key (`interactive` default | `auto`), also set by an `AGENTS.md`/`CLAUDE.md` `autonomy: auto`
+  line or `OPENCODE_AUTONOMY=auto`. In `auto`, each gated pause takes its **documented default**
+  and appends a line to `docs/work/APPROVALS.md`. An enumerated **NEVER-AUTO** table always pauses
+  (destructive DB ops, merges/releases/deploys, tech-stack additions, behavior-changing security
+  fixes, scope-boundary blocks, interviews). `detect-model-context.sh` now writes `autonomy` and
+  `opencode_cli`.
+- **O1.2 gated 28 pause sites** across sdlc-lead / all phase & mode files / PHASE_ROUTING with an
+  inline autonomy line (auto-default or NEVER-AUTO). New `validate-autonomy-wiring.sh` (validators
+  →58) fails any pause directive lacking autonomy handling within ±5 lines; wired into the merge gate.
+- **O1.3 executor reorder** in `EXECUTOR_SELECTION.md`: **A → B → C** with B (subprocess
+  `opencode run --agent --dir`) preferred whenever `opencode_cli=true` — the manual paste is the
+  biggest structural pause. In `auto`, C is forbidden → degrade to D (inline) + log. Added the
+  `has_task_tool × opencode_cli × autonomy` selection matrix.
+- **O1.4 `scripts/run-until-done.sh`** — scripted outer loop: re-invokes `opencode run` with the
+  `/sdlc resume` preamble until `<promise>COMPLETE</promise>` (final output or STATE.md), with
+  `--max-sessions`/`--max-seconds` caps and a journal. Makes the small-tier "restart after 3" free.
+  `--self-test` passes; documented in LOOP_ENGINEERING_PLAYBOOK.
+
+Default is `interactive` — zero behavior change unless opted in. 99 tests + all validators green.
+O2 (loop upgrades) / O3 (prove-it) pending.
+
 ## [1.28.0] — 2026-07-02
 
 ### Added — Wave O0: kill the accidental pauses (autonomy & loop plan)
