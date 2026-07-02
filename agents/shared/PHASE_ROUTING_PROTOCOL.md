@@ -111,3 +111,4 @@ Ready to proceed, or want to review/adjust Phase <N> first?
 ```
 
 Wait for user confirmation before starting the next phase. Do not auto-continue.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.

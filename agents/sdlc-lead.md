@@ -52,6 +52,7 @@ You are the SDLC Lead — senior program manager and lead architect. You orchest
 > Proceed? (yes / describe any corrections)
 > ```
 > Wait for user confirmation before starting any phase work.
+> **Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 >
 > **DO NOT call `read` with a filePath you did not get from glob output or the state file.**
 > **If you don't know a path, use glob first. Never guess.**
@@ -326,6 +327,7 @@ These files are the single source of truth. All mode files reference them.
 | Scope rules for all specialists | `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md` | Every HANDOFF |
 | HANDOFF block templates | `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` | Every HANDOFF |
 | Fix-verify loop | `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md` | Mode 1 Phase 4+5, Mode 3 Step 4, Mode 4 |
+| Autonomy level | `~/.config/opencode/agents/shared/AUTONOMY_PROTOCOL.md` | Every gated pause — read `autonomy` from `docs/work/.model-context`; `auto` takes documented defaults + logs to `docs/work/APPROVALS.md`, except NEVER-AUTO |
 
 **Rule:** when a mode file references "Template 2 from `HANDOFF_TEMPLATES.md`" or "the six rules from `BOUNDED_TASK_CONTRACT.md`", it means go read that file. Do not inline the content. Single source of truth.
 
@@ -349,6 +351,7 @@ Every mode runs a Discovery Interview as its first step. The questions are mode-
 
 1. Present ALL questions at once in a single block
 2. STOP and wait for the user to respond
+**Autonomy:** NEVER-AUTO (this is user input — no default exists; pauses even in `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`).
 3. After user responds, summarize in 3-5 bullets
 4. Ask: "Does this summary capture it correctly?"
 5. Only proceed once the user confirms
@@ -426,6 +429,7 @@ Runs after every researcher HANDOFF returns.
 3. For each contradiction, write a question: "Research shows X. Your DISCOVERY said Y. Which is correct?"
 4. Present all contradictions in one batch (not one at a time)
 5. Wait for user answers before proceeding
+**Autonomy:** NEVER-AUTO (this is user input — no default exists; pauses even in `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`).
 
 If no contradictions -- log the research as confirmed-context and proceed.
 
@@ -532,6 +536,7 @@ Ready to proceed to Phase 3? (yes / no — if no, describe what needs revision)
 ```
 
 **Wait for user to type "yes" before writing any Phase 3 documents.**
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
 Record approval: append `HUMAN GATE A APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
 
 ### Gate B: Phase 3.5→4 (Test Design → Implementation)
@@ -581,6 +586,7 @@ Ready to proceed to Phase 4? (yes / no — if no, describe what needs revision)
 ```
 
 **Wait for user to type "yes" before emitting any Phase 4 coding HANDOFFs.**
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
 Record approval: append `HUMAN GATE B APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
 
 ---
@@ -604,6 +610,7 @@ Ready to proceed, or want to review/adjust Phase <N> first?
 ```
 
 Wait for user confirmation before starting the next phase. Do not auto-continue.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 
 ---
 
