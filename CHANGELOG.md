@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.28.0] — 2026-07-02
+
+### Added — Wave O0: kill the accidental pauses (autonomy & loop plan)
+First wave of `docs/AUTONOMY_AND_LOOP_UPGRADE_PLAN.md`. Attacks the runtime/provider bugs that
+make a run stop mid-task needing a manual "continue" — separate from the intentional human gates.
+- **O0.1 config hardening** — `examples/opencode.json`: LM Studio + ollama get `timeout: false` +
+  `chunkTimeout: 120000` (M2 Max thinking turns exceed the 300s default); an output-clamp comment
+  documents opencode #20078 (32k hardcode) and LM Studio #1829 (~10–16k silent cap) — budget ≤10k
+  real output/turn on qwen3.6-thinking, prefer bare llama-server for long runs. README notes
+  **opencode ≥ v1.2.11** (the `finish_reason:"stop"` fix, PR #14973). `LOCAL_LLM_GUIDE` gains a
+  pause-troubleshooting section (8 accidental causes + the by-design gates).
+- **O0.2 auto-continue plugins** — `opencode-auto-resume` (stream-stall / raw-text `<function=…>`
+  tool calls per #24316 / hallucination loops) and `opencode-todo-reminder`, with bounded-retry
+  guards. **Local-only**: on metered cloud each injected continue bills as a premium turn (#8700),
+  so cloud relies on the persistence rule instead.
+- **O0.3 PERSISTENCE.md** — new shared protocol: never end a turn after *announcing* an action;
+  perform it or print `BLOCKED:`. The prompt-side fix for the #1 pause (~+20% SWE-bench). Referenced
+  from `MODEL_ADAPTER` (small-tier MANDATORY) + `BOUNDED_TASK_CONTRACT` (pairs with stop-means-stop)
+  and wired into 14 executor agents. New `validate-persistence-block.sh` (validators →57) fails any
+  executor/coding agent missing the rule; wired into the git-expert merge gate.
+
+99 tests + all validators green. O1 (autonomy levels) / O2 (loop upgrades) / O3 (prove-it) pending.
+
 ## [1.27.1] — 2026-07-01
 
 ### Added — code-review Tech-Stack Compliance dimension (design adherence, review side)
