@@ -65,12 +65,14 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
 > 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: `has_task_tool=true` in `docs/work/.model-context` → dispatch via the Task tool and wait for the manifest; otherwise emit the block as text and wait for the user to return and say "<agent> done"
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
 > [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
@@ -544,6 +546,7 @@ Iterate up to 3 times:
 - If all PASS → reviews gate passes, proceed to block 7.
 - If any FAIL → update FIX_BACKLOG with remaining rows, iterate.
 - After 3 failed cycles → emit the escalation block (§ Step 5), STOP, wait for user decision [A/B/C/D].
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: apply the loop-exhaustion default (route to the named specialist, else waiver+continue), logged to `docs/work/APPROVALS.md`.
 
 **7. Git — two steps:**
 

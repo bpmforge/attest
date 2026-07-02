@@ -61,6 +61,22 @@ emit_model_roles() {
 write_capabilities() {
   echo "has_task_tool=$HAS_TASK_TOOL"       >> "$CONTEXT_FILE"
   echo "mcp_in_subagents=$MCP_IN_SUBAGENTS" >> "$CONTEXT_FILE"
+  # opencode_cli: is the `opencode` CLI on PATH? Enables Executor B (subprocess
+  # `opencode run --agent`), which removes the manual-paste pause (see EXECUTOR_SELECTION).
+  if command -v opencode >/dev/null 2>&1; then
+    echo "opencode_cli=true"  >> "$CONTEXT_FILE"
+  else
+    echo "opencode_cli=false" >> "$CONTEXT_FILE"
+  fi
+  # autonomy: interactive (default) | auto. Env override wins; else an AGENTS.md /
+  # CLAUDE.md `autonomy: auto` line opts in. See AUTONOMY_PROTOCOL.md.
+  local autonomy="interactive"
+  if [[ "${OPENCODE_AUTONOMY:-}" == "auto" ]]; then
+    autonomy="auto"
+  elif grep -qiE '^[[:space:]]*autonomy:[[:space:]]*auto' AGENTS.md CLAUDE.md 2>/dev/null; then
+    autonomy="auto"
+  fi
+  echo "autonomy=$autonomy" >> "$CONTEXT_FILE"
   emit_model_roles
 }
 mkdir -p docs/work
