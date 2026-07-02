@@ -417,6 +417,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `MICRO_LOOP.md` | The per-agent micro-loop: plan-shape → produce → self-verify (tool-offloaded, B3) → re-ground (B4) → revise — the produce/verify discipline every agent runs |
 | `CHECKPOINT_REVERT.md` | Git checkpoint per gated PASS + revert-to-known-good on unrecoverable failure for multi-phase work (Lever 8 / B7) |
 | `CHECKPOINT_STATE.md` | Context checkpoint: write a compact `docs/work/STATE.md` after each step so the user can `/clear` and resume; the catch-up read-list `/sdlc resume` rehydrates from |
+| `PERSISTENCE.md` | Anti-announce-then-stop rule — never end a turn after announcing an action; perform it or print `BLOCKED:`. The prompt-side fix for the #1 accidental pause (~+20% SWE-bench) |
 | `LOCAL_LLM_PRIMER.md` | ~600-token session primer for local-model sessions — SDLC-TASK override, HANDOFF format, write-to-disk, stop-means-stop |
 | `BOOK_PROTOCOL.md` | Canonical rule for structuring long-form deliverables (> 300 lines) as multi-page books with index navigation (enforced by `validate-book-structure.sh`) |
 | `CODE_BOOK_PROTOCOL.md` | The book protocol applied to code: a source file over the size cap becomes a directory (index/barrel + one-concern chapter modules); enforced by `validate-file-size.sh` |
@@ -515,6 +516,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-fix-backlog-closed.sh` | CRITICAL and HIGH rows in FIX_BACKLOG resolved before phase-5 gate |
 | `validate-handoff-discipline.sh` | Every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)`/`subagent_type` spawn bypasses the contract, and concurrent `HANDOFF to:` dispatchers must gate on has_task_tool (runs in the git-expert merge gate when `agents/**.md` changes) |
 | `validate-tickets.sh` | Module-contract ticket graph integrity — malformed tickets, cyclic/dangling depends_on, orphan node refs, and overlapping write-scopes among active modules (wraps `scripts/lib/tickets.mjs`) |
+| `validate-persistence-block.sh` | Every executor/coding agent carries the anti-announce-then-stop rule (`PERSISTENCE.md`), directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — kills the #1 accidental pause |
 | `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs present, no hardcoded secrets |
 | `validate-infrastructure.sh` | INFRASTRUCTURE.md has env matrix, compute, data, networking + Mermaid diagram; rejects IaC code in the document |
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
