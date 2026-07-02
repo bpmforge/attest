@@ -81,7 +81,17 @@ config. Long thinking → truncation → no tool call → pause. Wave O0 attacks
 Both have bounded-retry guards — document the guard values so runaway loops can't happen.
 Note the upstream gap: `session.idle` fires *after* the loop breaks (feature request
 #16626 `session.stopping` would make it silent) — injected continues appear as user turns;
-that's cosmetic, accept it.
+that's cosmetic on local, but **NOT free on metered cloud providers**: on GitHub Copilot
+every injected user turn bills as a premium request (#8700 — synthetic user messages burn
+premium requests). Rule: enable auto-continue plugins for LOCAL providers; on
+Copilot/Vertex/API providers keep them off or set minimal retry caps, and rely on the
+O0.3 persistence block instead (prompt-side, costs nothing per pause).
+Provider scope note for the docs: the pause classes are NOT all local-only —
+announce-then-stop reproduces on Copilot (opencode #2660, Claude Sonnet 4; GitHub
+community #184524), the finish_reason bug (#14972) hit Gemini/LiteLLM paths, and
+Vertex/Gemini has its own tool-call flavor (`MALFORMED_FUNCTION_CALL` returned
+frequently → silent turn end). Only the token clamps (#20078, LM Studio #1829) and
+chunk-stall timeouts are local-specific. O0.3 + O1 apply to every provider.
 **Files:** `examples/opencode.json`, `docs/LOCAL_LLM_GUIDE.md`.
 **Accept:** fresh install per README yields a session that auto-resumes a planted
 announce-then-stop (manual smoke: ask a small model to "plan then do" a 2-step task).
