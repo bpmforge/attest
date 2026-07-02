@@ -17,20 +17,40 @@ capability flags, not by assumptions baked into prose.
 ```
 has_task_tool=true|false       # runtime has a blocking Task/subagent tool
 mcp_in_subagents=true|false    # Task-tool subagents can execute MCP tools
+opencode_cli=true|false        # the `opencode` CLI is on PATH → Executor B is available
+autonomy=interactive|auto      # AUTONOMY_PROTOCOL — auto must never emit a paste-and-wait
 ```
 
-Env overrides: `OPENCODE_HAS_TASK_TOOL`, `OPENCODE_MCP_IN_SUBAGENTS`.
+Env overrides: `OPENCODE_HAS_TASK_TOOL`, `OPENCODE_MCP_IN_SUBAGENTS`, `OPENCODE_AUTONOMY`.
 If `.model-context` is missing, run the detect script; if you cannot, assume
-`has_task_tool=false` and use Executor C.
+`has_task_tool=false`, `opencode_cli=false`, `autonomy=interactive`.
 
 ## The three executors
 
 | | Executor | When |
 |---|---|---|
 | **A** | **Native Task tool** — dispatch the full HANDOFF block as the subagent prompt; block until the Completion Manifest returns | `has_task_tool=true` AND the specialist needs no MCP tools (or `mcp_in_subagents=true`) |
-| **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x>` with the HANDOFF as prompt | `has_task_tool=true` but the specialist needs MCP tools (memory, code-search, playwright-search, context7) and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access. Also the only programmatic path with timeout protection. |
-| **C** | **Manual HANDOFF paste** — print the HANDOFF block as text; the user opens a new session, types the skill, pastes | `has_task_tool=false`, or A/B failed twice, or the user asked to run specialists interactively |
+| **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x> --dir <workcopy>` with the HANDOFF as prompt | `opencode_cli=true` and not already inside a subprocess-spawned session — whenever the CLI exists B is preferred over C because it removes the manual-paste pause. Required (not just preferred) when the specialist needs MCP tools and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access; the only programmatic path with timeout protection. **Always pass an explicit `--dir <workcopy>`** (eval-harness isolation lesson) so parallel B dispatches don't collide. |
+| **C** | **Manual HANDOFF paste** — print the HANDOFF block as text; the user opens a new session, types the skill, pastes | `has_task_tool=false` AND `opencode_cli=false` (no programmatic path), or A/B failed twice, or the user asked to run specialists interactively. **In `autonomy=auto`, C is an error** — auto mode must never emit a paste-and-wait; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
 | **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** AND `has_task_tool=false` — so A is unavailable and C is impossible (there is no slash to paste into). The skill-less security / code-review / performance / onboard micro-agents take this path in opencode. |
+
+## Selection order & matrix
+
+Pick the **first** viable executor: **A → B → C**, and **→ D** for skill-less specialists that
+can't be pasted. B is now preferred over C whenever `opencode_cli=true` — the manual paste is
+the biggest structural pause, and a subprocess removes it.
+
+| has_task_tool | opencode_cli | autonomy | specialist | → executor |
+|---|---|---|---|---|
+| true | any | any | native-tools only | **A** |
+| true | true | any | needs MCP (`mcp_in_subagents=false`) | **B** |
+| false | true | any | any | **B** (subprocess) |
+| false | false | interactive | has a `/skill` | **C** (paste) |
+| false | false | interactive | skill-less | **D** (inline) |
+| false | false | **auto** | any | **D** (inline) — C is forbidden in auto; log to APPROVALS.md |
+| false | false | **auto** | needs the user (NEVER-AUTO) | pause anyway (per AUTONOMY_PROTOCOL) |
+
+Key cases: **auto + no task tool + CLI → B**; **auto + nothing → D** (never a paste-and-wait).
 
 ## Which specialists need MCP
 

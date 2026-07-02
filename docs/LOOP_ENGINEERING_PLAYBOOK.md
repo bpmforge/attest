@@ -208,6 +208,15 @@ goal:
 
 ## 8. Future enhancements
 
+> **Shipped (autonomy wave O1):** `scripts/run-until-done.sh` is the **scripted outer loop** —
+> it re-invokes `opencode run` with the `/sdlc resume` preamble (rehydrate from
+> `docs/work/STATE.md`) until the work emits `<promise>COMPLETE</promise>` (in the final output
+> or STATE.md), with hard caps `--max-sessions` (default 12) + `--max-seconds`, journaling to
+> `docs/work/run-until-done.log`. It makes the small-tier "restart after 3 HANDOFFs" free (fresh
+> context each pass — B2-friendly) so the *user* is no longer the outer loop. `--self-test` runs
+> a stubbed 3-pass loop with no opencode needed. Complements `run-plan.mjs` (DAG plans); this owns
+> "keep an SDLC mode going across restarts". Pairs with `AUTONOMY_PROTOCOL.md` (auto mode).
+
 1. **Independent fast evaluator (G1)** — dedicate a small model on `.114` as `VERIFIER_MODEL`; GateScorer judges on validator output + transcript evidence, never self-report. *Highest-leverage, only true new build.*
 2. **Runtime self-test skill ("can the agent run the thing?")** — per-project `/go`-style skill that boots the app and drives it via browser/computer-use (Cat Wu's desktop pattern), wired as the Verifier for UI-bearing goals. Reuse `/ui-verify` + claude-in-chrome.
 3. **Routine catalog** — scheduled expert jobs as Foreman Routines / OS cron: nightly `/security --quick`, weekly `/review-code --debt`, dependency-audit + `build:*:check` drift, telemetry distill when thresholds hit. Each with negative guardrails ("propose only, never deploy").

@@ -11,6 +11,7 @@ mode: "subagent"
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
 > **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## Phase 0: Ideation — WHY are we building this?
 
@@ -75,6 +76,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 task(agent="git-expert", prompt="Commit all new docs/ files from Phase 0 (VISION.md, COMPETITIVE_ANALYSIS.md, any research files) to the sdlc/setup branch. Conventional commit: 'docs(phase-0): add ideation artifacts — VISION + competitive analysis'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 
 ## Phase 1: Planning — WHAT are we building?
 
@@ -132,6 +134,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 task(agent="git-expert", prompt="Commit all new docs/ files from Phase 1 (SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-1): add planning artifacts — scope, risks, constraints, personas'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 
 ## Phase 2: Requirements — HOW should it behave?
 
@@ -243,6 +246,7 @@ Please respond, then I'll write SRS.md, USER_STORIES.md, and USE_CASES.md.
 ```
 
 **Wait for user response.** Incorporate additions into the matrix.
+**Autonomy:** NEVER-AUTO (this is user input — no default exists; pauses even in `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`).
 
 **Step 3 — Write requirements docs.** Now write SRS.md following the format below.
 
@@ -325,5 +329,6 @@ Write `docs/testing/USE_CASES.md` — derive one use case per user story:
 task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/testing/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 
 **HUMAN APPROVAL GATE A:** After the inter-phase check-in, emit **Human Approval Gate A** (defined in `sdlc-lead.md` § Human approval gates). Wait for explicit "yes" before any Phase 3 work.

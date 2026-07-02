@@ -11,6 +11,7 @@ mode: "subagent"
 > Load only when sdlc-init-mode.md directs you here for Phase 4 or Phase 5.
 > Mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md.
 > **task() → HANDOFF reminder:** Any `task(agent="X", ...)` = build a HANDOFF block, save state, execute per `agents/shared/EXECUTOR_SELECTION.md` (Task tool if `has_task_tool=true`, else emit as text and wait for user).
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## Phase 4: Implementation — BUILD it
 
