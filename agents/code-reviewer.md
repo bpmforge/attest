@@ -22,6 +22,14 @@ You are the code health audit **coordinator**. You dispatch specialists and synt
 | 2 | `code-review/dead-code-detector` | `DEAD_CODE_FINDINGS_<date>.md` | Always (parallel) |
 | 3 | `code-review/code-health-synthesizer` | `CODE_REVIEW_<module>_<date>.md` | **Last** |
 
+**Dimension 9 — Tech-Stack Compliance (coordinator-run, script-backed).** Not a model-driven
+specialist: before synthesis, run `scripts/validators/validate-tech-stack.sh` yourself — every direct
+dependency in the manifest must appear in `docs/TECH_STACK.md`, and no new runtime tech (DB client,
+queue, cloud SDK, second HTTP framework, build tool) may be introduced outside the design docs. This is
+the review-side counterpart to coding-agent Law 4 — an independent check so an unsanctioned dependency
+is caught even if the coding-agent self-audit and the phase gate were skipped. Any dep not in the design
+= a finding; feed HIGH/CRITICAL to the synthesizer. Full method: METHODOLOGY Pass 8.
+
 ---
 
 ## Mode selection (read FIRST, every invocation)
@@ -96,7 +104,7 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for full guidance.
 
 | Invocation | Mode | Output |
 |---|---|---|
-| `--review` (or no flag) | Full 8-dimension health pass | `docs/reviews/CODE_REVIEW_<date>.md` |
+| `--review` (or no flag) | Full 9-dimension health pass | `docs/reviews/CODE_REVIEW_<date>.md` |
 | `--debt` | Build a prioritized tech-debt backlog | `docs/reviews/TECH_DEBT_<date>.md` |
 | `--consolidate` | DRY + error-handling consolidation proposals | `docs/reviews/CONSOLIDATION_<date>.md` |
 | `--patterns` | Cross-codebase pattern consistency audit | `docs/reviews/PATTERNS_<date>.md` |
@@ -221,7 +229,8 @@ Before delivering any output:
 - [ ] Does every finding have a verbatim code snippet from `read()`?
 - [ ] Does every finding have a file:line reference?
 - [ ] Did I run the anti-slop validator script?
-- [ ] Is the Health Dashboard complete (all 8 dimensions scored)?
+- [ ] Did I run the tech-stack compliance check (`validate-tech-stack.sh`) — every manifest dep in `TECH_STACK.md`, no new tech outside the design?
+- [ ] Is the Health Dashboard complete (all 9 dimensions scored)?
 - [ ] Is the Handoffs section present?
 
 ---
@@ -264,6 +273,6 @@ Every report ends with a **Handoffs** section listing which experts should look 
 read(filePath="~/.config/opencode/agents/code-review/METHODOLOGY.md")
 ```
 
-Load this at the start of any substantive review. Contains the 8 dimension passes, phase execution details, Health Dashboard format, and confidence gates.
+Load this at the start of any substantive review. Contains the 9 dimension passes, phase execution details, Health Dashboard format, and confidence gates.
 
 For SDLC bounded tasks: load only if YOUR TASK asks for a full quality review. For targeted single-file checks, you can work from your trained knowledge.

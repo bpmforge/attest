@@ -648,7 +648,7 @@ CONTEXT (read these before starting):
 - docs/ARCHITECTURE.md — patterns and structure this code should follow
 
 YOUR TASK:
-Run an 8-dimension code health review on [feature/module]. The 8 dimensions are:
+Run a 9-dimension code health review on [feature/module]. The 9 dimensions are:
 complexity, duplication/DRY, error handling (silent failures), type safety,
 pattern consistency, naming quality, comment accuracy, and anti-slop (AI code hygiene). For each finding
 include the file:line and a specific fix.

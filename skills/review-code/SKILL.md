@@ -14,7 +14,7 @@ Load and follow the instructions in the `code-reviewer` agent.
 - `/review-code --patterns` — Cross-codebase pattern consistency audit (drift from established idioms)
 - `/review-code src/auth/` — Review a specific directory
 
-**The 8 dimensions scored on every `--review`:**
+**The 9 dimensions scored on every `--review`:**
 1. Complexity (function/file length, nesting, cyclomatic)
 2. Duplication / DRY (copy-paste ratio, missing abstractions)
 3. Error Handling (silent failures, broad catches, missing context)
@@ -23,6 +23,7 @@ Load and follow the instructions in the `code-reviewer` agent.
 6. Naming Quality (intent-revealing, booleans-as-questions)
 7. Comment Accuracy (comments match code behavior)
 8. Dead / Unutilized Code (stubs, never-called functions, unused exports, orphan files, disconnected pipelines)
+9. Tech-Stack Compliance (every dependency in TECH_STACK.md; no new tech introduced outside the design)
 
 **Outputs:**
 - `--review` → `docs/reviews/CODE_REVIEW_<date>.md` + Health Dashboard

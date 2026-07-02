@@ -86,7 +86,7 @@ Print exactly: "perf done — [N/M NFR targets passed]"
 ───── HANDOFF #3 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: entire codebase (src/) + docs/ARCHITECTURE.md + agents/shared/ANTI_SLOP_RULES.md.
-YOUR TASK: Full 8-dimension health review (7 standard + anti-slop as 8th dimension per
+YOUR TASK: Full 9-dimension health review (7 standard + anti-slop + tech-stack compliance per
   agents/shared/ANTI_SLOP_RULES.md). Flag every CRITICAL/HIGH with file:line + fix.
   Run validate-code-health.sh before printing done. Re-read the report cold — if you'd
   question a finding reading it fresh, add the evidence.
