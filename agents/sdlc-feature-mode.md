@@ -487,7 +487,7 @@ Emit ONE message containing every triggered HANDOFF as separate blocks. User ope
 ───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
-YOUR TASK: 8-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop). File:line + severity + fix per finding.
+YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design). File:line + severity + fix per finding.
 PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
 Print exactly: "review done — [verdict and top finding]"
 

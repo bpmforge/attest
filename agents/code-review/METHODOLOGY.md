@@ -7,7 +7,7 @@ mode: "all"
 # Code Reviewer — Deep Methodology
 
 > Load when starting a full code review (--review, --debt, --consolidate, --patterns).
-> Contains: 8 dimension passes, phase execution details, Health Dashboard format,
+> Contains: 9 dimension passes (Pass 8 = Tech-Stack Compliance, script-backed), phase execution details, Health Dashboard format,
 > Reader Simulation, confidence gates, scoring criteria.
 > Context cost: ~8k tokens.
 
@@ -27,13 +27,14 @@ mode: "all"
 [9] Phase 3: Pass 5 — Pattern Consistency — PENDING
 [10] Phase 3: Pass 6 — Naming Quality — PENDING
 [11] Phase 3: Pass 7 — Comment Accuracy — PENDING
-[12] Phase 4: Cross-cutting pattern analysis — PENDING
-[13] Phase 5: Write report with Health Dashboard — PENDING
-[14] Phase 6: Gate-loop (confidence per dimension) — PENDING
-[15] Phase 7: Reader simulation pass — PENDING
+[12] Phase 3: Pass 8 — Tech-Stack Compliance (script-backed) — PENDING
+[13] Phase 4: Cross-cutting pattern analysis — PENDING
+[14] Phase 5: Write report with Health Dashboard — PENDING
+[15] Phase 6: Gate-loop (confidence per dimension) — PENDING
+[16] Phase 7: Reader simulation pass — PENDING
 ```
 
-Each mode follows all 15 subtasks. In `--debt`, `--consolidate`, and `--patterns`, steps 5-11 still run but the report emphasizes a different dimension.
+Each mode follows all 16 subtasks. In `--debt`, `--consolidate`, and `--patterns`, steps 5-12 still run but the report emphasizes a different dimension.
 
 ---
 
@@ -77,6 +78,7 @@ write(filePath="docs/reviews/CODE_HEALTH_TRACKER.md", content="
 | 6 | Naming Quality       | ⏳ PENDING  | —     | —        | —         |
 | 7 | Comment Accuracy     | ⏳ PENDING  | —     | —        | —         |
 | 8 | Anti-Slop            | ⏳ PENDING  | —     | —        | —         |
+| 9 | Tech-Stack Compliance| ⏳ PENDING  | —     | —        | —         |
 
 **Overall score:** ⏳ pending all passes
 **Verdict:** ⏳ pending
@@ -169,6 +171,39 @@ Status: ⏳ PENDING
 Files examined: —
 Stale TODO/FIXME count: —
 Misleading comments: —
+Pass log: —
+Score: —  |  Confidence: —  |  Verdict: —
+
+---
+
+### Pass 8 — Tech-Stack Compliance (script-backed)
+Status: ⏳ PENDING
+
+**What it checks:** the code adheres to the *approved* tech stack and introduces no
+technology outside the design. This is the review-side counterpart to coding-agent Law 4 —
+an independent check so an unsanctioned dependency is caught even if the coding-agent's
+self-audit and the phase gate were skipped.
+
+**How to run (deterministic first, then judgment):**
+1. Run `scripts/validators/validate-tech-stack.sh` — every direct dependency in the manifest
+   (`package.json` / `pyproject.toml` / `requirements.txt` / `Cargo.toml` / `go.mod`) must
+   appear in `docs/TECH_STACK.md`. Each dep not listed = a finding (unsanctioned dependency).
+2. If `docs/TECH_STACK.md` is absent, note it as a coverage gap and fall back to the manifest
+   baseline; if a prior review or git history is available, flag dependencies **added since**
+   that weren't in the design.
+3. Beyond the manifest, grep for **new runtime tech introduced in code/config** not named in
+   the design docs (`docs/TECH_STACK.md`, `docs/design/ARCHITECTURE.md`): a new DB client, a
+   new message queue, a new cloud SDK, a second HTTP framework, a new build tool. Config-level
+   tech (a new service in compose, a new managed dependency) counts.
+
+**Severity:** HIGH if the addition pulls in a new external service/runtime/framework not in
+the design (architectural surface change); MEDIUM for a library swap that duplicates an
+approved one (two HTTP clients, two ORMs); LOW if it's a dev-only tool. Feed HIGH/CRITICAL to
+the synthesizer so it can trigger the Challenger gate.
+
+Files examined: —
+Unsanctioned dependencies: —
+New tech not in design: —
 Pass log: —
 Score: —  |  Confidence: —  |  Verdict: —
 
@@ -393,7 +428,7 @@ Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
 
 ## Phase 5: Write the Health Report
 
-Use the Health Dashboard template from the checklist. Score all 8 dimensions (include anti-slop), then compute the overall score. Apply the verdict rubric.
+Use the Health Dashboard template from the checklist. Score all 9 dimensions (include anti-slop + tech-stack compliance), then compute the overall score. Apply the verdict rubric.
 
 **After writing the report — mirror the Health Dashboard into the tracker:**
 ```
@@ -494,7 +529,7 @@ Script catches: R-01 (catch-all), R-02 (try in loops), R-13 (what-comments), R-1
 ## Mode Specifics
 
 ### `--review` (default)
-Full health pass across all 8 dimensions. Output: `docs/reviews/CODE_REVIEW_<YYYY-MM-DD>.md` with the full Health Dashboard, all findings, Pattern Analysis, and Verdict.
+Full health pass across all 9 dimensions. Output: `docs/reviews/CODE_REVIEW_<YYYY-MM-DD>.md` with the full Health Dashboard, all findings, Pattern Analysis, and Verdict.
 
 ### `--debt`
 Tech-debt catalog mode. Run the same 7 passes but prioritize findings by `(blocked_work × priority) / cost_to_fix`. Output: `docs/reviews/TECH_DEBT_<YYYY-MM-DD>.md` with one DEBT-NNN item per finding, sorted by leverage. Use the template in the checklist's "Tech Debt Register" section. Include a section at the top: "If you only fix 3 things this sprint, fix these."

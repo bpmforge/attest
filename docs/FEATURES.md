@@ -122,7 +122,7 @@ OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 5-phase
 
 Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
 
-Reviews across **8 dimensions**: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, and anti-slop (threshold ≥ 8). The anti-slop dimension checks for AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md.
+Reviews across **9 dimensions**: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, anti-slop, and tech-stack compliance (deps match TECH_STACK.md; no tech outside the design) (threshold ≥ 8). The anti-slop dimension checks for AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md.
 
 ### `ux-engineer` — UX design & accessibility (`mode: primary`)
 
@@ -358,7 +358,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/code` | `coding-agent` | Implement from SDLC design docs — API verification, anti-slop enforcement, tech stack compliance |
 | `/git-expert` | `git-expert` | Git lifecycle (init / feature / release / recover / inspect / sync) |
 | `/security` | `security-auditor` | OWASP audit, threat model, Semgrep scan; **`--fix`** drives a verified remediation loop |
-| `/review-code` | `code-reviewer` | 8-dimension code health review incl. dead/unused-code (review / debt / consolidate / patterns) |
+| `/review-code` | `code-reviewer` | 9-dimension code health review incl. dead/unused-code + tech-stack compliance (review / debt / consolidate / patterns) |
 | `/research` | `researcher` | Deep research with source evaluation |
 | `/test-expert` | `test-engineer` | Test strategy, unit/e2e tests, coverage |
 | `/perf` | `performance-engineer` | Profile, benchmark, optimize |

@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.27.1] — 2026-07-01
+
+### Added — code-review Tech-Stack Compliance dimension (design adherence, review side)
+The code-reviewer's health pass gains a 9th dimension: **Tech-Stack Compliance**. Until now,
+"did the code add tech outside the design?" was enforced by coding-agent Law 4 (prevention) and
+`validate-tech-stack.sh` (phase gate), but the *review* itself had no dimension for it — a
+registry-valid, actually-used library added outside `docs/TECH_STACK.md` would slip past review.
+- New METHODOLOGY **Pass 8** (script-backed): run `validate-tech-stack.sh` (every manifest dep must
+  be in `TECH_STACK.md`), then flag new runtime tech introduced in code/config not named in the design
+  (new DB client, queue, cloud SDK, second HTTP framework, build tool). HIGH if it adds an external
+  service/runtime; MEDIUM for a duplicate library; fed to the synthesizer's Challenger gate.
+- Coordinator-run (not a new specialist agent — it's deterministic), added to the Health Dashboard
+  (row 9) and the pre-completion self-check. Independent third check alongside prevention + the gate.
+- Propagated the dimension to the /review-code skill, guide routing, FEATURES, and the SDLC review
+  HANDOFF prompts (feature/phase-4/phase-5/onboard health-coordinator). 99 tests + all validators green.
+
 ## [1.27.0] — 2026-07-01
 
 ### Added — module-contract tickets, /reflow, and checkpoint/resume

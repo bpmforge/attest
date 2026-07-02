@@ -40,7 +40,7 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Audit & improve a whole system (multi-dimension) | sdlc-lead (improve) | `/sdlc improve` |
 | **Securely check all source for issues** | security-auditor | `/security` (quick) or `/security --deep` |
 | **Find AND fix security issues** | security-auditor fix loop | `/security --fix` (see Security flow below) |
-| Review code quality / health (8 dimensions) | code-reviewer | `/review-code` |
+| Review code quality / health (9 dimensions) | code-reviewer | `/review-code` |
 | Find dead code / stubs / unused / unwired code | dead-code-detector (in /review-code) | `/review-code` then ask for the dead-code finding |
 | Profile / fix slowness | performance-engineer | `/perf` |
 | Design or fix a database schema | db-architect | `/dba` |
