@@ -519,6 +519,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-tickets.sh` | Module-contract ticket graph integrity — malformed tickets, cyclic/dangling depends_on, orphan node refs, and overlapping write-scopes among active modules (wraps `scripts/lib/tickets.mjs`) |
 | `validate-persistence-block.sh` | Every executor/coding agent carries the anti-announce-then-stop rule (`PERSISTENCE.md`), directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — kills the #1 accidental pause |
 | `validate-autonomy-wiring.sh` | Every by-design pause directive is autonomy-aware — carries the `AUTONOMY_PROTOCOL` gate or is marked NEVER-AUTO within ±5 lines, so `autonomy: auto` takes documented defaults instead of silently waiting |
+| `validate-contract-conformance.sh` | Live app vs frozen `openapi` spec — every GET endpoint returns a declared 2xx with required JSON fields present; drift (spec route missing from the app) is a gap. SKIPs when no spec/base-url (wraps `scripts/contract-conformance.mjs`) |
 | `validate-iac.sh` | IaC scaffolding: entry/variables/outputs/per-env configs present, no hardcoded secrets |
 | `validate-infrastructure.sh` | INFRASTRUCTURE.md has env matrix, compute, data, networking + Mermaid diagram; rejects IaC code in the document |
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |

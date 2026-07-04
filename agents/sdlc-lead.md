@@ -255,6 +255,8 @@ Next after resume: [what you'll do when user comes back]
 
 Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT section. The specialist reads ONE focused file instead of re-exploring the whole codebase.
 
+**Relevance, not recency (≤200 tokens).** Build the packet by relevance to the specialist's ONE criterion: name the exact files + line ranges + WHY each is included. Never dump "everything from the last phase" or the most recent outputs by default — an unrelated-but-recent file is noise. This keeps the deliberate no-repo-map design: the specialist gets precisely what its task needs, nothing more.
+
 **HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
 
 ### HANDOFF Manifest for parallel waves
