@@ -1,6 +1,6 @@
 # Autonomy & Loop Upgrade Plan — kill the pauses, upgrade the loops
 
-**Status:** Waves O0 (v1.28.0) + O1 (v1.29.0) SHIPPED 2026-07-02; O2–O3 pending. Original plan 2026-07-01.
+**Status:** Waves O0 (v1.28.0) + O1 (v1.29.0) + O2 (v1.30.0) SHIPPED; O3 (prove-it) pending. Original plan 2026-07-01.
 **Audience:** an implementation agent (can be a lower-tier model). Self-contained: every
 task names its files, edits, validators, and acceptance criteria. Execute waves in order.
 **Companions:** `agents/shared/MICRO_LOOP.md`, `MODEL_ADAPTER.md`, `RALPH_WIGGUM_LOOP.md`,
@@ -321,13 +321,13 @@ One-line addition; keeps the deliberate no-repo-map design.
 - [x] O1.2 gate all pause sites (28) + validate-autonomy-wiring.sh — *v1.29.0*
 - [x] O1.3 executor order A→B→C, auto-mode C→D, opencode_cli + matrix — *v1.29.0*
 - [x] O1.4 run-until-done.sh outer loop (+ --self-test) — *v1.29.0*
-- [ ] O2.1 evidence sub-loop in MICRO_LOOP
-- [ ] O2.2 edit-format discipline
-- [ ] O2.3 lint-on-edit rule
-- [ ] O2.4 run-plan --auto-escalate
-- [ ] O2.5 contract-conformance validator
-- [ ] O2.6 stable-prefix + tool-result pruning
-- [ ] O2.7 context-packet relevance rule
+- [x] O2.1 evidence sub-loop in MICRO_LOOP (2a) — *v1.30.0*
+- [x] O2.2 edit-format discipline (MODEL_ADAPTER + coding-agent Law 5) — *v1.30.0*
+- [x] O2.3 lint-on-edit rule (MICRO_LOOP step 3 + coding-agent) — *v1.30.0*
+- [x] O2.4 run-plan --auto-escalate (+ --self-test) — *v1.30.0*
+- [x] O2.5 contract-conformance validator (+ helper, phase-5 gate) — *v1.30.0*
+- [x] O2.6 stable-prefix + tool-result pruning (MODEL_ADAPTER + guide) — *v1.30.0*
+- [x] O2.7 context-packet relevance rule (sdlc-lead) — *v1.30.0*
 - [ ] O3 pause census + soak + eval re-run
 
 Dependencies: O1.2 needs O1.1 · O1.3/O1.4 need O1.1 (autonomy flag) · O3 last.

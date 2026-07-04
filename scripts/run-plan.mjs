@@ -29,9 +29,12 @@
 //
 // Exit codes: 0 all done · 2 bad plan · 3 replan required · 4 nodes escalated
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, readFileSync as rf } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync, mkdtempSync, readFileSync as rf } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
 // ── args ────────────────────────────────────────────────────────────────
 const argv = process.argv.slice(2);
@@ -51,6 +54,51 @@ const MAX_RETRIES = parseInt(flag('--max-retries', '2'), 10);
 const CMD_TEMPLATE = flag('--cmd', 'opencode run --agent {agent}');
 const AUTO_REPLAN = has('--auto-replan');
 const PARALLEL = parseInt(flag('--parallel', '1'), 10);
+const AUTO_ESCALATE = has('--auto-escalate');
+const MAX_ESCALATIONS = parseInt(flag('--max-escalations', '5'), 10);
+const TIER_ORDER = ['small', 'medium', 'large'];
+let escalationsUsed = 0;
+
+// ── self-test (O2.4): exercise auto-escalate success / fail / cap with a stub ──
+if (has('--self-test')) {
+  const THIS = fileURLToPath(import.meta.url);
+  const runSub = (dir, extra) => new Promise((res) => {
+    const child = spawn(process.execPath, [THIS, join(dir, 'plan.json'), ...extra],
+      { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, EXPERTS_TELEMETRY: '0' } });
+    let out = ''; child.stdout.on('data', d => out += d); child.stderr.on('data', d => out += d);
+    child.on('close', code => res({ code, out }));
+  });
+  const mkCase = (succeedAboveSmall) => {
+    const dir = mkdtempSync(join(tmpdir(), 'runplan-'));
+    const out = join(dir, 'out.txt');
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({ request: 'self-test',
+      nodes: [{ id: 'n1', agent: 'stub', task: 'self-test node', inputs: [], output: out, depends_on: [], tier_needed: 'small' }] }));
+    const stub = join(dir, 'stub.mjs');
+    writeFileSync(stub, `import {writeFileSync} from 'node:fs';\n` +
+      `const tier=process.env.RUN_PLAN_TIER||'small';\n` +
+      `if (${succeedAboveSmall} && tier!=='small') { writeFileSync(${JSON.stringify(out)},'ok'); }\n` +
+      `else { process.exit(1); }\n`);
+    return { dir, stub };
+  };
+  const fail = (m) => { console.log(`run-plan self-test FAIL: ${m}`); process.exit(1); };
+  // 1. escalate-success — fails at small, succeeds after bump to medium
+  let c = mkCase(true);
+  let r = await runSub(c.dir, ['--auto-escalate', '--max-retries', '0', '--cmd', `node ${c.stub}`]);
+  let j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 0 && j.n1.status === 'done' && j.n1.escalation?.outcome === 'done')) fail(`escalate-success (code=${r.code}, status=${j.n1?.status})`);
+  // 2. escalate-fail — never writes, escalates even after the bump
+  c = mkCase(false);
+  r = await runSub(c.dir, ['--auto-escalate', '--max-retries', '0', '--cmd', `node ${c.stub}`]);
+  j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 4 && j.n1.status === 'escalated')) fail(`escalate-fail (code=${r.code}, status=${j.n1?.status})`);
+  // 3. cap — --max-escalations 0 blocks the bump
+  c = mkCase(true);
+  r = await runSub(c.dir, ['--auto-escalate', '--max-escalations', '0', '--max-retries', '0', '--cmd', `node ${c.stub}`]);
+  j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 4 && j.n1.status === 'escalated' && /cap 0 reached/.test(r.out))) fail(`cap (code=${r.code})`);
+  console.log('run-plan self-test PASS (escalate-success + escalate-fail + cap)');
+  process.exit(0);
+}
 
 // Tier-scaled timeouts (seconds). Local generation is legitimately slow —
 // a cloud-calibrated timeout kills healthy work (plan G6).
@@ -97,9 +145,9 @@ const state = (id) => journal[id]?.status ?? 'pending';
 // ── helpers ─────────────────────────────────────────────────────────────
 // spawn with stdin IGNORED — a piped-but-never-closed stdin makes CLIs that
 // accept stdin input (opencode run does) wait forever. Found by live testing.
-const sh = (cmd, args, timeoutMs) =>
+const sh = (cmd, args, timeoutMs, env) =>
   new Promise((res) => {
-    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: env ?? process.env });
     let stdout = '', stderr = '', killed = false;
     const timer = setTimeout(() => { killed = true; child.kill('SIGKILL'); }, timeoutMs);
     child.stdout.on('data', (d) => (stdout += d));
@@ -161,16 +209,16 @@ function telemetry(row) {
 
 async function runNode(n) {
   const entry = (journal[n.id] ??= { status: 'pending', attempts: 0 });
-  const tier = n.tier_needed ?? plan.executor_tier ?? 'small';
-  const timeoutMs = (TIMEOUTS[tier] ?? TIMEOUTS.small) * 1000;
+  let tier = n.tier_needed ?? plan.executor_tier ?? 'small';
   mkdirSync(LOG_DIR, { recursive: true });
   mkdirSync(dirname(n.output), { recursive: true });
 
-  while (entry.attempts <= MAX_RETRIES) {
-    const attempt = entry.attempts;
-    const prompt = buildPrompt(n, attempt);
+  // One dispatch attempt at the given tier. Returns true on valid output.
+  const attemptOnce = async (curTier, attemptLabel) => {
+    const timeoutMs = (TIMEOUTS[curTier] ?? TIMEOUTS.small) * 1000;
+    const prompt = buildPrompt(n, entry.attempts);
     if (DRY) {
-      console.log(`\n── [dry-run] ${n.id} (${n.agent}, tier=${tier}, attempt ${attempt}) ──\n${prompt}`);
+      console.log(`\n── [dry-run] ${n.id} (${n.agent}, tier=${curTier}, ${attemptLabel}) ──\n${prompt}`);
       entry.status = 'dry'; return true;
     }
     if (!(await healthCheck())) {
@@ -178,29 +226,63 @@ async function runNode(n) {
       entry.status = 'blocked-backend'; saveJournal(); process.exit(4);
     }
     const parts = CMD_TEMPLATE.replace('{agent}', n.agent).split(' ');
-    console.log(`[run-plan] ${n.id} → ${n.agent} (tier=${tier}, attempt ${attempt + 1}/${MAX_RETRIES + 1}, timeout ${timeoutMs / 1000}s)`);
+    console.log(`[run-plan] ${n.id} → ${n.agent} (tier=${curTier}, ${attemptLabel}, timeout ${timeoutMs / 1000}s)`);
     entry.started = new Date().toISOString();
-    const { err, stdout, stderr } = await sh(parts[0], [...parts.slice(1), prompt], timeoutMs);
+    const { err, stdout, stderr } = await sh(parts[0], [...parts.slice(1), prompt], timeoutMs,
+      { ...process.env, RUN_PLAN_TIER: curTier });
     entry.attempts += 1;
-    writeFileSync(join(LOG_DIR, `${n.id}.log`), `# attempt ${attempt + 1}\n## stdout\n${stdout}\n## stderr\n${stderr}\n## err\n${err ?? ''}\n`, { flag: 'a' });
-
+    writeFileSync(join(LOG_DIR, `${n.id}.log`), `# ${attemptLabel} (tier=${curTier})\n## stdout\n${stdout}\n## stderr\n${stderr}\n## err\n${err ?? ''}\n`, { flag: 'a' });
     if (outputOk(n)) {
       entry.status = 'done';
       entry.finished = new Date().toISOString();
       entry.duration_s = Math.round((Date.parse(entry.finished) - Date.parse(entry.started)) / 1000);
       saveJournal();
-      telemetry({ node: n.id, agent: n.agent, tier, status: 'done', attempts: entry.attempts, duration_s: entry.duration_s, prompt_chars: prompt.length, output_chars: stdout.length, tokens_out_est: Math.round(stdout.length / 4) });
-      console.log(`[run-plan] ${n.id} ✓ done (${entry.duration_s}s) → ${n.output}`);
+      telemetry({ node: n.id, agent: n.agent, tier: curTier, status: 'done', attempts: entry.attempts, duration_s: entry.duration_s, prompt_chars: prompt.length, output_chars: stdout.length, tokens_out_est: Math.round(stdout.length / 4) });
+      console.log(`[run-plan] ${n.id} ✓ done (${entry.duration_s}s, tier=${curTier}) → ${n.output}`);
       return true;
     }
-    console.log(`[run-plan] ${n.id} ✗ no valid output after attempt ${attempt + 1}` + (err ? ` (${err.killed ? 'TIMEOUT' : 'error'})` : ''));
+    console.log(`[run-plan] ${n.id} ✗ no valid output (${attemptLabel})` + (err ? ` (${err.killed ? 'TIMEOUT' : 'error'})` : ''));
     saveJournal();
+    return false;
+  };
+
+  while (entry.attempts <= MAX_RETRIES) {
+    if (await attemptOnce(tier, `attempt ${entry.attempts + 1}/${MAX_RETRIES + 1}`)) return true;
+    if (DRY) return true;
   }
+
+  // O2.4: auto-escalate — bump one tier and retry ONCE at the stronger tier.
+  if (AUTO_ESCALATE) {
+    const idx = TIER_ORDER.indexOf(tier);
+    if (idx === -1 || idx >= TIER_ORDER.length - 1) {
+      console.error(`[run-plan] ${n.id} auto-escalate: already at top tier (${tier}) — cannot bump`);
+    } else if (escalationsUsed >= MAX_ESCALATIONS) {
+      console.error(`[run-plan] ${n.id} auto-escalate: escalation cap ${MAX_ESCALATIONS} reached`);
+    } else {
+      const fromTier = tier, toTier = TIER_ORDER[idx + 1];
+      escalationsUsed += 1;
+      tier = toTier;
+      console.log(`[run-plan] ${n.id} auto-escalate ${fromTier} → ${toTier} (${escalationsUsed}/${MAX_ESCALATIONS})`);
+      const ok = await attemptOnce(toTier, `escalated attempt (${fromTier}→${toTier})`);
+      entry.escalation = { fromTier, toTier, outcome: ok ? 'done' : 'escalated' };
+      saveJournal();
+      // loop-learn: teach the playbook which node types need the strong tier up front.
+      const learn = join(SCRIPT_DIR, 'loop-learn.mjs');
+      if (existsSync(learn)) {
+        await sh(process.execPath, [learn,
+          '--symptom', `run-plan node ${n.id} (${n.agent}) failed at tier=${fromTier}, ${ok ? 'succeeded' : 'still failed'} at ${toTier}`,
+          '--root-cause', `node type '${n.agent}' under-tiered for this work`,
+          '--rule', `plan ${n.agent} nodes at tier >= ${toTier} from the start`], 60000).catch(() => {});
+      }
+      if (ok) return true;
+    }
+  }
+
   entry.status = 'escalated';
   saveJournal();
   telemetry({ node: n.id, agent: n.agent, tier, status: 'escalated', attempts: entry.attempts });
-  console.error(`[run-plan] ${n.id} ESCALATED after ${MAX_RETRIES + 1} attempts — log: ${join(LOG_DIR, `${n.id}.log`)}`);
-  console.error(`  Next: retry at a higher tier (edit tier_needed), run the node interactively, or fix inputs.`);
+  console.error(`[run-plan] ${n.id} ESCALATED after ${entry.attempts} attempt(s) — log: ${join(LOG_DIR, `${n.id}.log`)}`);
+  console.error(`  Next: retry at a higher tier (edit tier_needed / --auto-escalate), run the node interactively, or fix inputs.`);
   return false;
 }
 

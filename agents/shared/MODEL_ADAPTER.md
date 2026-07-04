@@ -52,6 +52,8 @@ Context budget is tight. Every token counts.
 | Reason in NL, format last (B6) | Reason in natural language; emit structured output (JSON / tool-call / schema) ONLY at the final boundary. Forcing schema onto the *reasoning* costs small/open models up to −27 pts ("format tax"). For local runtimes, constrain only the final call (grammar/JSON-schema), never the chain-of-thought. |
 | Prune error turns (B2) | After a failed attempt, drop the failed turn(s) from working context before retrying — a model's own errors in context raise its next-error rate, and this is NOT fixed by scale. Reconstruct from disk state, not the error-laden transcript. |
 | Persistence (MANDATORY) | Read `agents/shared/PERSISTENCE.md`. Never end your turn after *announcing* an action — perform it. If you can't call a tool, print `BLOCKED: <reason>`; never emit a plan as your final message when execution was requested. Small models announce-then-stop most; this is the source fix for it. |
+| Evidence before guess (MICRO_LOOP 2a) | If you can't verify a claim from what you've already seen, LOOK — up to 4 grep / read-specific-lines / run-the-named-validator actions per criterion. Cite what you found. Don't guess; evidence actions don't count as revise iterations. One-shot recall loses to agentic exploration on weak models. |
+| Edit format (MANDATORY) | Edit existing files >~100 lines via **SEARCH/REPLACE blocks or unified diff**, never a whole-file rewrite (weak models silently drop lines — Aider lazy-omission). Whole-file only for NEW files. Failed/imprecise match → ONE retry citing the exact mismatch, then whole-file fallback **recorded in the Completion Manifest**. Pairs with B2: the failed-edit turn is pruned. |
 | Session length | After 3 HANDOFFs returned, save state and suggest user restart session. |
 | OWASP --deep | Warn user: requires 60k+ context. Recommend medium or large tier model. |
 | Security --deep | Load OWASP_METHODOLOGY.md only if context budget shows > 15k tokens available. |
@@ -82,6 +84,23 @@ Context is not a constraint. Focus on quality.
 | Session length | Sessions can run indefinitely — no context pressure restart. |
 | LOCAL_LLM_PRIMER | Not needed. Skip it. |
 | Write-to-disk | Still good practice (disk is durable across sessions), but not mandatory for context. |
+
+---
+
+## KV-cache & context hygiene (all tiers; MANDATORY small)
+
+Near-free throughput wins that every 2026 harness applies:
+
+- **Stable prefix.** Build prompts and HANDOFFs with the **static protocol text first, per-task
+  content last** — byte-stable prefixes hit the local runtime's KV cache (a large local-throughput
+  win; a changed early byte invalidates the whole cache). Never interleave volatile task data into
+  the boilerplate.
+- **Prune stale tool results.** In long sessions keep only *recent* tool results verbatim; replace
+  older ones with a one-line conclusion — `[pruned: <what it showed>]`. This extends B2 (prune the
+  failed-attempt turns) from errors to *stale successes* — old file dumps and search output that no
+  longer inform the next step just burn context and cache.
+
+`LOCAL_LLM_GUIDE.md` cross-references these for the local-runtime setup.
 
 ---
 

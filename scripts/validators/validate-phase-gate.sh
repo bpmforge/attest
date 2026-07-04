@@ -146,6 +146,7 @@ case "$PHASE" in
       "validate-dead-code.sh"
       "validate-module-boundaries.sh"
       "validate-api-consistency.sh"
+      "validate-contract-conformance.sh"
       "validate-release-readiness.sh"
     )
     ;;
