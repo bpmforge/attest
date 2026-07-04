@@ -1,6 +1,6 @@
 # Autonomy & Loop Upgrade Plan — kill the pauses, upgrade the loops
 
-**Status:** Waves O0 (v1.28.0) + O1 (v1.29.0) + O2 (v1.30.0) SHIPPED; O3 (prove-it) pending. Original plan 2026-07-01.
+**Status:** O0 (v1.28.0) + O1 (v1.29.0) + O2 (v1.30.0) SHIPPED; **O3 harness SHIPPED (v1.31.0); live measurement runs pending on hardware** — see `docs/O3_PROVE_RUNBOOK.md`. Original plan 2026-07-01.
 **Audience:** an implementation agent (can be a lower-tier model). Self-contained: every
 task names its files, edits, validators, and acceptance criteria. Execute waves in order.
 **Companions:** `agents/shared/MICRO_LOOP.md`, `MODEL_ADAPTER.md`, `RALPH_WIGGUM_LOOP.md`,
@@ -328,7 +328,7 @@ One-line addition; keeps the deliberate no-repo-map design.
 - [x] O2.5 contract-conformance validator (+ helper, phase-5 gate) — *v1.30.0*
 - [x] O2.6 stable-prefix + tool-result pruning (MODEL_ADAPTER + guide) — *v1.30.0*
 - [x] O2.7 context-packet relevance rule (sdlc-lead) — *v1.30.0*
-- [ ] O3 pause census + soak + eval re-run
+- [~] O3 pause census + soak + eval re-run — **harness shipped v1.31.0** (pause-census.mjs, soak-monitor.mjs, O3_PROVE_RUNBOOK.md; self-tests pass). **Live numbers pending on hardware.**
 
 Dependencies: O1.2 needs O1.1 · O1.3/O1.4 need O1.1 (autonomy flag) · O3 last.
 O0 is independent and highest immediate relief — ship it first.
