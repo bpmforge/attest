@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.31.0] — 2026-07-03
+
+### Added — Wave O3: prove-it harness (autonomy plan complete)
+Final wave of `docs/AUTONOMY_AND_LOOP_UPGRADE_PLAN.md`. O3 is a *measurement* pass — the numbers
+need a live model backend, so this ships the deterministic harnesses (each with `--self-test`,
+no model required) plus the runbook; the live runs happen on the hardware and get recorded back.
+- **`scripts/pause-census.mjs`** — counts user-input pauses in a run transcript; compares
+  `interactive` vs `auto` and asserts `auto ≤ NEVER-AUTO` budget (reads the APPROVALS.md ledger).
+- **`scripts/soak-monitor.mjs`** — parses a long-session log for auto-resume fires vs manual
+  "continue"s (target: zero manual) plus run-until-done outer-loop session count.
+- **`docs/O3_PROVE_RUNBOOK.md`** — exact commands + acceptance targets for the three measurements
+  (pause census, accidental-pause soak, eval triad no-regression + wall-time delta) and the
+  lessons→`loop-learn.mjs` path, with a Results table to fill in.
+
+This completes the autonomy & loop upgrade plan (O0–O3). O3's live numbers are pending on the
+M-series/LM-Studio hardware. 99 tests + all validators green.
+
 ## [1.30.0] — 2026-07-03
 
 ### Added — Wave O2: loop upgrades
