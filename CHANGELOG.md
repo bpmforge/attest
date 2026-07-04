@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.30.0] — 2026-07-03
+
+### Added — Wave O2: loop upgrades
+Third wave of `docs/AUTONOMY_AND_LOOP_UPGRADE_PLAN.md` — protocol-side twins of the Jarvis M6/M7
+loop patterns plus two deterministic scripts.
+- **O2.1 evidence sub-loop** — `MICRO_LOOP.md` step **2a EVIDENCE**: if a claim can't be verified
+  from what's been seen, LOOK (≤4 grep/read/validator actions per criterion, cited); an evidence
+  action is not a revise. Positive "go look" rule to balance the negative guards.
+- **O2.2 edit-format discipline** — existing files >~100 lines are edited via SEARCH/REPLACE or a
+  unified diff, never whole-file rewrite (weak-model lazy-omission); one retry then whole-file
+  fallback recorded in the manifest. `MODEL_ADAPTER` (all tiers, MANDATORY small) + coding-agent Law 5.
+- **O2.3 lint-on-edit** — after each file edit, run the cheapest project check on the touched file
+  and fix once before proceeding. `MICRO_LOOP` step 3 + coding-agent.
+- **O2.4 `run-plan --auto-escalate`** — on a node failing after `--max-retries`, bump one tier and
+  retry once (cap `--max-escalations`, default 5), journal the escalation, and emit a loop-learn
+  lesson so the planner learns which node types need the strong tier. `--self-test` covers
+  success / fail / cap.
+- **O2.5 contract-conformance gate** — `validate-contract-conformance.sh` + `contract-conformance.mjs`:
+  probe the live app's GET endpoints against the frozen `openapi` spec (declared 2xx + required JSON
+  fields; drift = gap), SKIP-safe when no spec/base-url. Wired into the phase-5 gate. Validators →59.
+- **O2.6 KV-cache hygiene** — stable byte-prefix (static protocol first, task content last) + backward
+  tool-result pruning (`[pruned: …]`). `MODEL_ADAPTER` + `LOCAL_LLM_GUIDE`.
+- **O2.7 context-packet relevance** — packets built by relevance to the specialist's criterion (files
+  + line ranges + why), never by recency. `sdlc-lead`.
+
+3 script self-tests PASS; 99 tests + all validators green. O3 (prove-it: pause census + soak + eval
+re-run) is the only remaining wave.
+
 ## [1.29.0] — 2026-07-02
 
 ### Added — Wave O1: autonomy levels (make the by-design pauses opt-out)
