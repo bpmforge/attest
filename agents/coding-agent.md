@@ -91,6 +91,10 @@ Every library currently installed is approved. Every library NOT currently insta
 
 **If Law 3 and Law 4 conflict** (existing code uses a library or pattern that contradicts the approved stack): **Law 4 wins** — follow the approved stack for new code, do NOT propagate the deviation, and record the inconsistency in the Completion Manifest under "Tech Stack Deviations" so sdlc-lead can schedule a migration.
 
+**Law 5 — Edit format & lint-on-edit (MANDATORY on small tier).**
+- **Edit, don't rewrite.** Change existing files >~100 lines via **SEARCH/REPLACE blocks or a unified diff** — never a whole-file rewrite (weak models silently drop lines; Aider lazy-omission). Whole-file output is only for NEW files. On a failed/imprecise match: ONE retry citing the exact mismatch, then fall back to whole-file and record it in the Completion Manifest.
+- **Lint after each edit.** After editing a file, immediately run the cheapest project check on the touched file (`tsc --noEmit` / `py_compile` / the configured linter); fix once with the error, then proceed. Never batch edits across files before the first check on small tier — per-edit feedback is a model-sized lever (SWE-agent). See `agents/shared/MICRO_LOOP.md` step 3.
+
 ---
 
 ## Code Health — Enforced While Writing (not just reviewed after)

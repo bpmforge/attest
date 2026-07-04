@@ -58,6 +58,8 @@ reduced to pointers. `scripts/detect-model-context.sh` writes your tier and the
 
 **For Phase 3 and Phase 4:** these are the tightest. Load the phase file, do one or two HANDOFFs, then restart the session if context feels full. The `docs/work/sdlc-state.md` file lets you resume exactly where you left off.
 
+**KV-cache & context hygiene (throughput).** Two near-free wins from `agents/shared/MODEL_ADAPTER.md` § KV-cache: (1) keep a **byte-stable prefix** — static protocol text first, per-task content last, so the local runtime's KV cache is reused (a changed early byte invalidates all of it); (2) **prune stale tool results** — keep recent ones verbatim, replace older dumps with a one-line `[pruned: <what it showed>]`. Both cut re-processing on long local sessions.
+
 ---
 
 ## When things go wrong

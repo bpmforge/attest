@@ -36,12 +36,24 @@ A specialist does NOT return its first draft. It runs this internal loop before 
                 refactor later (small models botch the extraction). See
                 CODE_BOOK_PROTOCOL.md.
 2. PRODUCE    — make the artifact (maker step).
+2a. EVIDENCE  — before judging, if you cannot verify a claim about the code/artifact
+                from what you have ALREADY seen, do not guess — LOOK. Up to 4 evidence
+                actions per criterion (grep / read the specific lines / run the named
+                validator or test). Cite what you found. Evidence actions do NOT count
+                against the ≤2 revise cap — looking is not revising. One-shot recall
+                loses to agentic exploration on weak models; this is the positive
+                "go look" rule that balances the negative guards below.
 3. SELF-VERIFY— run the criterion:
                  - **deterministic / tool-offloaded first (B3):** if a validator,
                    test, grep, build, or tool CAN decide the criterion, the model
                    MUST NOT judge it — route to the tool. A weak model's own
                    judgment is its weakest link; offloading verification to tools is
                    the single most reliable lift (a 1B + tools can beat an 8B).
+                 - **(code) lint-on-edit:** after EACH file edit, immediately run the
+                   cheapest project check on the touched file (`tsc --noEmit` /
+                   `py_compile` / the configured linter); fix once with the error, then
+                   proceed. On small tier, never batch edits across files before the
+                   first check — per-edit feedback is a model-sized lever (SWE-agent).
                  - only if NO tool can decide it: judge on `verifier_model`, in a
                    cleared sub-context, never grading your own reasoning in place.
 4. REVISE     — if the criterion fails: first **RE-GROUND (B4)** — restate the goal
