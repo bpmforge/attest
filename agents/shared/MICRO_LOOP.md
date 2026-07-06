@@ -20,6 +20,22 @@ The macro loop owns **coverage** (is every inventory row covered?). The micro-lo
 
 ---
 
+## Shared includes (read once per session, not per loop iteration)
+
+Every agent that runs a micro-loop reads these seven short blocks from `agents/shared/includes/` — brief, field-tested prompt steering rather than exhaustive scaffolding. They're referenced here rather than duplicated so a single edit updates every loop agent that loads this file:
+
+| Include | Governs |
+|---|---|
+| `progress-grounding.md` | Never report a status word without pointing at this turn's tool-result evidence — the direct fix for the Manifest Honesty / gamed-selftest failure mode. |
+| `autonomy-end-turn-check.md` | Before ending a turn: is the last paragraph a plan/promise instead of finished work? If so, do it now. |
+| `anti-overengineering.md` | Don't add scope, abstraction, or defensive code beyond what the unit requires. |
+| `boundaries.md` | Assessment (free) vs. action (needs the precondition actually verified first) — the general principle behind AUTONOMY_PROTOCOL.md and SCOPE_BOUNDARY.md. |
+| `act-dont-overplan.md` | When you have enough information to act, act — don't re-derive, re-litigate, or narrate options you won't take. |
+| `freshness-epistemic.md` | Any volatile claim (API, version, price, model name) is checked against a live source this session, not recalled from training data. |
+| `cli-tools-present.md` | Check what's actually installed on this host before assuming a tool is or isn't available, and prefer the sharper tool once you know. |
+
+---
+
 ## The micro-loop contract (every specialist HANDOFF)
 
 A specialist does NOT return its first draft. It runs this internal loop before printing its completion phrase:
