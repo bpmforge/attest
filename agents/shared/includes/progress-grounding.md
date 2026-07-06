@@ -12,6 +12,6 @@ Before reporting any status word — done, passing, verified, fixed, clean — p
 
 If a claim can't be grounded in a tool result you actually have, either go get the evidence or report it as unverified — never as fact.
 
-**Relation to existing protocol:** this generalizes the Manifest Honesty section of `coding-agent.md` and the evidence-reporting rule in `MASTER_PROMPT.md` into a single reusable block — read those for the fuller per-role contracts.
+**Relation to existing protocol:** this generalizes the Manifest Honesty section of `coding-agent.md` and the evidence-reporting rule in `MASTER_PROMPT.md` (in bpm-agent-amplifier) into a single reusable block — read those for the fuller per-role contracts.
 
 **Why:** the audit-against-tool-results habit is the single instruction Anthropic found "nearly eliminated fabricated status reports even on tasks designed to elicit them" (Fable 5 prompting guide) — a direct fix for gamed self-tests.
