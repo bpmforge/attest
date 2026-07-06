@@ -268,7 +268,7 @@ Take an existing UI that works but looks generic, and elevate it.
 
 ## Mode 3: `--system` (Design System Build)
 
-Create or refactor the design token foundation.
+Create or refactor the design token foundation. **If `docs/design/tokens.json` exists (design-system-lead's Phase 3.5 output), implement from that spec — it already defines the primitive/semantic scale; don't re-derive the architecture from scratch.** Absent that file, derive tokens from existing usage per the subtask list below.
 
 ### Subtask List
 ```
