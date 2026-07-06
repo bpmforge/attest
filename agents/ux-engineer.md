@@ -302,6 +302,8 @@ Fast subset of `--design`: produces only the User Workflows and Screen Hierarchy
 
 Writes to `docs/design/UX_FLOWS.md` via `write(filePath=...)`. One Mermaid flowchart per primary task + a hierarchy diagram.
 
+**Distinct from `docs/design/flows.md`:** if the project runs the full Phase 3.5 Design Loop, `ux-researcher` already produced `docs/design/flows.md` with a research-derived screen inventory — read that instead of re-deriving flows here. This mode exists for the narrower case where no Design Loop ran and a style system already exists.
+
 ---
 
 ## Mode 4: `--audit` (Accessibility-Only)
