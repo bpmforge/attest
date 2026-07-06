@@ -11,8 +11,12 @@
 // DESIGN RULES (what keeps parallel work collision-free):
 //   1. modules[] is OPTIONAL and additive — a plain task-decomposer plan.json
 //      (nodes[] only) stays valid. Backward compatible.
-//   2. Write-scopes of modules that are simultaneously workable MUST be disjoint;
-//      writeScopeCollisions() surfaces violations (T6 will fail on them).
+//   2. Every module has a `lane` (T10.1). Different lanes are the parallel-safety
+//      partition: their write_scopes must NEVER overlap, checked unconditionally
+//      by validatePlan() via crossLaneCollisions() — a plan violating this is
+//      malformed, not just racy. Same-lane write_scope collisions are an ordinary
+//      runtime concern, caught only once a module goes active — see
+//      writeScopeCollisions() (T6 will fail on either).
 //   3. Status is auto-computed only for non-claimed, non-terminal modules:
 //      a module is `ready` when every depends_on module is `done`, else `blocked`.
 //      Human/agent-owned states (claimed/in_progress/in_review/done) are never
@@ -64,6 +68,7 @@ export function validatePlan(plan) {
     modIds.add(m.id);
     if (m.kind !== 'module') errors.push(`${where}: kind must be "module"`);
     if (!m.title) errors.push(`${where}: missing title`);
+    if (!m.lane || typeof m.lane !== 'string') errors.push(`${where}: missing string lane`);
     if (!Array.isArray(m.write_scope) || m.write_scope.length === 0) errors.push(`${where}: write_scope must be a non-empty array`);
     if (!Array.isArray(m.acceptance) || m.acceptance.length === 0) errors.push(`${where}: acceptance must be a non-empty array`);
     if (!Array.isArray(m.depends_on)) errors.push(`${where}: depends_on must be an array`);
@@ -89,6 +94,11 @@ export function validatePlan(plan) {
   for (const m of modules) if (color[m.id] !== BLACK) visit(m.id, []);
   for (const c of cyc) errors.push(`dependency cycle: ${c}`);
 
+  // cross-lane write_scope overlap is a schema-validity error, not just a runtime
+  // race — see crossLaneCollisions() for why this is unconditional on status.
+  for (const c of crossLaneCollisions(plan))
+    errors.push(`write-scope collision across lanes: '${c.a}' (${c.lane_a}) vs '${c.b}' (${c.lane_b}) — ${c.scope}`);
+
   return { ok: errors.length === 0, errors };
 }
 
@@ -110,17 +120,38 @@ export function claimable(plan) {
 
 // Collisions among modules "someone is in" (active) plus ready modules that
 // would collide with an active one — i.e. what /reflow must refuse to hand off.
+// SAME-LANE pairs only: a different-lane overlap is a schema error caught
+// unconditionally by crossLaneCollisions()/validatePlan(), not a runtime race —
+// checking it again here would just double-report the same defect.
 export function writeScopeCollisions(plan, { states = new Set([...ACTIVE, 'ready']) } = {}) {
   const modules = (plan.modules || []).filter(m => states.has(m.status));
   const out = [];
   for (let i = 0; i < modules.length; i++)
     for (let j = i + 1; j < modules.length; j++) {
       const a = modules[i], b = modules[j];
+      if (a.lane !== b.lane) continue;
       // two ready-but-unclaimed modules colliding is fine until one is claimed;
       // only flag when at least one side is already active.
       if (!ACTIVE.has(a.status) && !ACTIVE.has(b.status)) continue;
       for (const sa of a.write_scope) for (const sb of b.write_scope)
         if (scopesOverlap(sa, sb)) out.push({ a: a.id, b: b.id, scope: `${sa} ∩ ${sb}` });
+    }
+  return out;
+}
+
+// Any two modules in DIFFERENT lanes must never share write_scope — this is the
+// invariant that makes "different lane = safe to run in parallel" true. Checked
+// regardless of status: a plan with this defect is malformed, not just racy at
+// runtime, so it belongs in validatePlan() rather than gated on active/ready.
+export function crossLaneCollisions(plan) {
+  const modules = plan.modules || [];
+  const out = [];
+  for (let i = 0; i < modules.length; i++)
+    for (let j = i + 1; j < modules.length; j++) {
+      const a = modules[i], b = modules[j];
+      if (a.lane == null || b.lane == null || a.lane === b.lane) continue;
+      for (const sa of (a.write_scope || [])) for (const sb of (b.write_scope || []))
+        if (scopesOverlap(sa, sb)) out.push({ a: a.id, b: b.id, lane_a: a.lane, lane_b: b.lane, scope: `${sa} ∩ ${sb}` });
     }
   return out;
 }
