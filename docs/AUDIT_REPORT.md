@@ -98,7 +98,7 @@ These are copy-and-it-breaks risks with real operational consequences, found acr
 
 ## 2. Per-batch detailed findings
 
-The following sections are the seven parallel audit passes in full, each covering a distinct slice of the corpus. Findings are per-file: Constraints / Calibration / Scaffolding / Contradictions-or-bad-example-teaching, followed by that batch's own cross-file section.
+The following sections are the seven parallel audit passes in full, each covering a distinct slice of the corpus. This is a per-file analysis conducted through the Constraints/Calibration/Scaffolding/Contradictions-or-bad-example-teaching lens defined in §0 — not a literal tag stamped on every individual instruction line, but a structured pass over each file that surfaces what falls into each bucket, followed by that batch's own cross-file section.
 
 ### Batch A — SDLC init/improve/feature modes + researcher (6 files)
 `agents/sdlc-init-phases-3-4.md` (deprecated) · `agents/sdlc-init-phase-3.md` · `agents/sdlc-init-phase-4.md` · `agents/sdlc-improve-mode.md` · `agents/sdlc-feature-mode.md` · `agents/researcher.md`
