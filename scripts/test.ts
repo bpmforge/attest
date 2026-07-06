@@ -239,7 +239,7 @@ try {
   if (!tickets.validatePlan(cyc).ok) ok("tickets — cycle detected");
   else fail("tickets — cycle detected", "cyclic plan validated as ok");
 
-  // negative: overlapping write-scope on active modules must be flagged
+  // negative: overlapping write-scope on active modules IN THE SAME LANE must be flagged
   const col = tickets.loadPlan(samplePath);
   const dash = col.modules.find(
     (m: { id: string }) => m.id === "M-frontend-dashboard",
@@ -251,8 +251,63 @@ try {
   kan.status = "in_progress";
   kan.write_scope = ["src/dashboard/shared/**"];
   if (tickets.writeScopeCollisions(col).length > 0)
-    ok("tickets — write-scope collision flagged");
-  else fail("tickets — write-scope collision", "overlap not flagged");
+    ok("tickets — same-lane write-scope collision flagged");
+  else fail("tickets — same-lane write-scope collision", "overlap not flagged");
+
+  // negative (T10.1): missing lane must be a validation error
+  const noLane = tickets.loadPlan(samplePath);
+  delete noLane.modules.find((m: { id: string }) => m.id === "M-db-backend")
+    .lane;
+  const noLaneResult = tickets.validatePlan(noLane);
+  if (
+    !noLaneResult.ok &&
+    noLaneResult.errors.some((e: string) => e.includes("missing string lane"))
+  )
+    ok("tickets — missing lane flagged");
+  else
+    fail("tickets — missing lane flagged", "plan with no lane validated as ok");
+
+  // negative (T10.1): write-scope overlap ACROSS lanes must be a validation error,
+  // unconditional on status — construct two done/blocked modules in different
+  // lanes with overlapping scope; no module is active, so writeScopeCollisions()
+  // would miss this on purpose, but validatePlan() must still catch it.
+  const crossLane = tickets.loadPlan(samplePath);
+  const designSystem = crossLane.modules.find(
+    (m: { id: string }) => m.id === "M-design-system",
+  );
+  designSystem.write_scope = ["src/db/migrations/**"]; // overlaps db-backend's src/db/** — different lanes, both status "done"
+  const crossLaneResult = tickets.validatePlan(crossLane);
+  if (
+    !crossLaneResult.ok &&
+    crossLaneResult.errors.some((e: string) =>
+      e.includes("write-scope collision across lanes"),
+    )
+  )
+    ok(
+      "tickets — cross-lane write-scope collision flagged regardless of status",
+    );
+  else
+    fail(
+      "tickets — cross-lane write-scope collision",
+      "overlap between different-lane 'done' modules was not flagged",
+    );
+  // and writeScopeCollisions() must NOT also report it (same-lane only, no double-reporting)
+  if (tickets.writeScopeCollisions(crossLane).length === 0)
+    ok("tickets — writeScopeCollisions() correctly ignores cross-lane pairs");
+  else
+    fail(
+      "tickets — writeScopeCollisions() cross-lane isolation",
+      "writeScopeCollisions() reported a cross-lane pair it should leave to crossLaneCollisions()",
+    );
+
+  // positive (T10.1): crossLaneCollisions() is directly callable and empty on the clean sample
+  if (tickets.crossLaneCollisions(plan).length === 0)
+    ok("tickets — crossLaneCollisions() clean on the valid sample plan");
+  else
+    fail(
+      "tickets — crossLaneCollisions() clean on sample",
+      `unexpected collisions: ${JSON.stringify(tickets.crossLaneCollisions(plan))}`,
+    );
 } catch (err: unknown) {
   const message = err instanceof Error ? err.message : String(err);
   fail("tickets", `import/exec failed: ${message}`);
