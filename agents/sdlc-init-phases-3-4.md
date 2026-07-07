@@ -394,8 +394,16 @@ Write ARCHITECTURE.md LAST — after all specialist handoffs have returned and s
 After TECH_STACK.md is written, detect whether this system has a user interface:
 - Web app: package.json has `react`/`vue`/`svelte`/`next`/`nuxt`/`remix`/`astro`
 - Mobile: `react-native`/`expo`/`flutter`/`swift`/`kotlin` with UI frameworks
-- Desktop: `tauri`/`electron`/`wails`
+- Desktop (JS shell): `tauri`/`electron`/`wails`
+- Desktop (native GUI — these have NO package.json): Rust `egui`/`eframe`/`iced`/`slint`/`winit`(+`wgpu` app shell), Python `tkinter`/`pyqt`/`pyside`/`kivy`, C/C++ `qt`/`gtk`/`fltk`/`wxwidgets`, Go `fyne`, .NET `wpf`/`winforms`/`maui`/`avalonia`, JVM `swing`/`javafx` — any windowing/GUI toolkit named in TECH_STACK.md
+- TUI: `ratatui`/`bubbletea`/`textual`/curses-class terminal UIs (UX branch runs scope-reduced: workflows + screen hierarchy + keybinding map; STYLE_GUIDE color system optional)
+- Game: any engine/render-loop project with menus, HUD, or settings surfaces (visual system may route to the game experts; UX_SPEC is still required)
 - Has pages/components/views/screens directory planned in ARCHITECTURE.md
+- **Brief-driven catch-all (decisive):** the founding brief, SRS, or USER_STORIES mention any human-operated surface — frontend, UI, screen, panel, viewer, editor, dashboard, HUD, menu, settings, library view, input remapping. Grep them; any hit ⇒ UI-bearing.
+
+**Default when ambiguous: UI-bearing = YES.** A wrong "yes" costs one UX pass; a wrong "no" ships an undesigned UI. (Lesson — RetroForge, 2026-07-06: a Rust/egui desktop app had no package.json, the web-centric list above missed it, and the frontend design doc only appeared because the user asked where it was.)
+
+**Record the determination (MANDATORY, gate-checked):** ARCHITECTURE.md § Logical View must state either `UI-bearing: yes — <evidence>` or the exact sentence "No UI — UX branch not applicable". The phase-3 gate FAILS when neither UX docs nor this declaration exist — silent skip is impossible.
 
 **If UI-bearing, UX delegation is MANDATORY before Phase 3 gate.**
 
@@ -794,6 +802,31 @@ Architecture Diagram Inventory — Phase 3 Pre-Gate:
   ALL DONE? [YES → proceed to gate] / [NO → fix blocked items first]
 ```
 
+### Spec Traceability Audit — Mandatory Before The Phase 3 Gate
+
+Audit the finished document set against the **founding brief** (the user's
+original request + Discovery Interview answers) — NOT just the SRS, which may
+itself have dropped requirements:
+
+1. Re-read the founding brief and discovery answers. Enumerate EVERY concrete
+   requirement/feature/constraint as a row: goals, layers/subsystems,
+   per-domain requirement lists, UI surfaces, tooling, testing asks,
+   constraints, explicitly promised deliverables.
+2. Grade each row against docs/ + the ticket board: **COVERED** (traceable to
+   a doc §/requirement id/ticket) / **PARTIAL** ("mentioned in passing" —
+   be strict) / **MISSING**.
+3. Write `docs/TRACEABILITY.md`: dense tables per group + a Gap register
+   listing every non-COVERED row with a proposed fix (which doc to extend,
+   which ticket to add).
+4. Close the gaps (or record explicit user-approved deferrals), append a
+   Gap-resolution section stating the final count ("0 MISSING"), re-grade.
+5. `validate-spec-traceability.sh` enforces this at the gate.
+
+Origin — RetroForge (2026-07-06): a fully-gated doc set still shipped without
+a frontend design doc, because nothing compared the finished docs against the
+*original brief*. SRS-internal traceability (requirements ↔ stories) cannot
+catch what never made it into the SRS.
+
 **Gate Loop — Phase 3 Coverage (Ralph Wiggum style, 3-iteration max):**
 
 Run the Phase 3 coverage validator:
@@ -801,7 +834,7 @@ Run the Phase 3 coverage validator:
 ./scripts/validators/run-coverage-loop.sh phase-3
 ```
 
-This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validate-erd-coverage.sh` + `validate-api-coverage.sh` + `validate-security-controls.sh` + (if UI-bearing) `validate-ux-spec.sh` + `validate-no-ascii-art.sh`.
+This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validate-erd-coverage.sh` + `validate-api-coverage.sh` + `validate-security-controls.sh` + `validate-ux-spec.sh` (ALWAYS — passes only with UX docs present OR an explicit "No UI — UX branch not applicable" declaration in ARCHITECTURE.md) + `validate-spec-traceability.sh` + `validate-no-ascii-art.sh`.
 
 **Exit code → action:**
 - **Exit 0** (all clean) → proceed to git checkpoint below
@@ -829,6 +862,7 @@ This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validat
 - THREAT_MODEL.md has mitigations, not just threats listed
 - `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table AND a Waves section listing Wave 1..N
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md` all present, all gate-passed. If NOT UI-bearing, ARCHITECTURE.md § Logical View must say "No UI — UX branch not applicable".
+- **Spec Traceability Audit:** `docs/TRACEABILITY.md` present — every concrete requirement from the founding brief + Discovery Interview answers graded COVERED/PARTIAL/MISSING against the doc set and ticket board; zero MISSING remaining, every PARTIAL resolved or explicitly deferred with user approval. `validate-spec-traceability.sh` gate-passed.
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```

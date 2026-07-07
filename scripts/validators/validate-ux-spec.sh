@@ -27,9 +27,17 @@ UX_SPEC="$DESIGN_DIR/UX_SPEC.md"
 PRINCIPLES="$DESIGN_DIR/DESIGN_PRINCIPLES.md"
 STYLE="$DESIGN_DIR/STYLE_GUIDE.md"
 
-# -- 1. UX_SPEC.md exists ------------------------------------------------------
+# -- 1. UX_SPEC.md exists (or the project explicitly declares itself headless) --
+# A missing UX spec is only acceptable with an explicit "No UI" declaration —
+# UI-bearing projects must not silently skip the UX branch (RetroForge lesson,
+# 2026-07-06: Rust/egui app had no package.json, detection missed it).
+ARCH_MD="$ROOT/docs/ARCHITECTURE.md"
 if ! file_exists_nonempty "$UX_SPEC"; then
-  gap "missing-ux-spec" "docs/design/UX_SPEC.md not found or empty — run ux-engineer HANDOFF"
+  if grep -qiE 'No UI[[:space:]]*(—|--|-)[[:space:]]*UX branch not applicable' "$ARCH_MD" 2>/dev/null; then
+    pass "no UX docs, but ARCHITECTURE.md declares 'No UI — UX branch not applicable' — headless project, UX checks skipped"
+    validator_exit
+  fi
+  gap "missing-ux-spec" "docs/design/UX_SPEC.md not found and ARCHITECTURE.md has no 'No UI — UX branch not applicable' declaration — run the ux-engineer HANDOFF, or declare the project headless explicitly in ARCHITECTURE.md § Logical View"
   validator_exit
 fi
 pass "UX_SPEC.md present"
