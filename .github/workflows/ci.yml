@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run agents:check
+      - name: Checkout claude-experts (public, for build:claude:check sync diff)
+        uses: actions/checkout@v4
+        with:
+          repository: bpmforge/claude-experts
+          path: claude-experts-sibling
+      - run: npm run build:claude:check -- --out claude-experts-sibling
