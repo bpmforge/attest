@@ -172,3 +172,42 @@ find_files() {
   local root="$1" pattern="$2"
   find "$root" -type f -name "$pattern" 2>/dev/null || true
 }
+
+# -- gate receipts (T27.1) ---------------------------------------------------
+# A receipt records what actually ran (validator names, exit codes, gap
+# counts, an input-tree hash), not just that "something" ran — it raises the
+# bar from a bare timestamp file to content that's checked against reality
+# (stale docs, a validator set that's grown since). It is NOT cryptographic
+# tamper-evidence: the hash algorithm is public and unsalted, so anyone with
+# filesystem write access (exactly who this gate polices — an agent running
+# in this repo) can hand-craft a "real"-mode receipt that passes every check,
+# same as they could always `touch` the old lock file. Independent review
+# (2026-07-07) confirmed this by forging one. That's an accepted tradeoff for
+# a single-operator local-tooling context (M27's own stated non-goal: "not
+# preventing a hostile agent, the threat model is a sloppy/eager agent
+# skipping steps") — this closes the SLOPPY-SKIP failure mode (an agent that
+# forgets to run the gate, or the gate silently minting a pass from file
+# existence), not a DETERMINED-FORGERY one. Cryptographic signing is real
+# future scope if the threat model ever changes, not implied here.
+
+# sha256_of_paths <root> <relpath> [relpath...]  -- stable combined hash of
+# the given files' contents. A missing file hashes as its own literal
+# "MISSING:<path>" marker so appearance/disappearance still changes the
+# combined hash (not silently ignored). Sorted so argument order doesn't
+# matter. Uses shasum (macOS/Linux built-in) — no external dependency.
+sha256_of_paths() {
+  local root="$1"
+  shift
+  local f full
+  {
+    for f in "$@"; do
+      full="$root/$f"
+      if [[ -f "$full" ]]; then
+        printf '%s:' "$f"
+        shasum -a 256 "$full" | awk '{print $1}'
+      else
+        printf '%s:MISSING\n' "$f"
+      fi
+    done
+  } | sort | shasum -a 256 | awk '{print $1}'
+}
