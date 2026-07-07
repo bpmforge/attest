@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 #
 # detect-sdlc-state.sh -- scan an existing project to determine SDLC phase
-# completion status. Produces docs/work/SDLC_AUDIT.md and retroactively
-# creates phase gate lock files for fully-complete phases.
+# completion status. Produces docs/work/SDLC_AUDIT.md.
+#
+# T27.1: this script is READ-ONLY with respect to gate state -- it reports
+# which phases have a real receipt (docs/work/gates/<phase>-receipt.json,
+# written only by a genuine validate-phase-gate.sh run or an explicit
+# scripts/waive-gate.sh) and which phases merely have their files present but
+# no receipt. It never mints a receipt from file existence — that retroactive-
+# minting behavior was removed; it was the exact mechanism behind the
+# 2026-07-07 ticket-hygiene incident (a phase counted as "passed" because its
+# docs happened to exist, not because any validator ever ran against them).
 #
 # Usage:
 #   ./scripts/detect-sdlc-state.sh [project-root]
@@ -14,8 +22,8 @@
 #   3 -- all phases complete -- nothing to do
 #
 # Output:
-#   docs/work/SDLC_AUDIT.md  -- human-readable phase status report
-#   docs/work/gates/phase-N-passed.lock  -- created for each complete phase
+#   docs/work/SDLC_AUDIT.md  -- human-readable phase status report (files
+#     present vs. missing, AND receipted vs. needs-a-real-gate-run)
 #   stdout: JSON summary {"status":"partial","lowest_incomplete":"phase-2",...}
 #
 
@@ -119,14 +127,23 @@ HAS_ANY_SDLC=false
 [[ -d "$ROOT/src" || -d "$ROOT/app" || -d "$ROOT/lib" ]] && HAS_CODE=true
 [[ -f "$ROOT/docs/VISION.md" || -f "$ROOT/docs/SRS.md" || -f "$ROOT/docs/ARCHITECTURE.md" ]] && HAS_ANY_SDLC=true
 
-# -- Retroactively create lock files for complete phases ----------------------
-LOCKS_CREATED=""
+# -- Report which phases have a real gate receipt (T27.1) -------------------
+# This script SCANS and REPORTS only — it never mints a lock/receipt from
+# file existence. That retroactive-minting path was the exact mechanism
+# behind the 2026-07-07 ticket-hygiene incident (a phase "passing" because
+# its docs happened to exist, not because its validators ever ran). Existing-
+# project adoption goes through a real `validate-phase-gate.sh <phase>` run,
+# or an explicit, visible `scripts/waive-gate.sh <phase> "<reason>" --signed-by
+# <you>` — never silently, and never as a side effect of this scan.
+RECEIPTED=""
+FILES_COMPLETE_NO_RECEIPT=""
 for phase in "${PHASE_NAMES[@]}"; do
   status="${PHASE_STATUS[$phase]}"
-  lock_file="$GATES_DIR/${phase}-passed.lock"
-  if [[ "$status" == "COMPLETE" && ! -f "$lock_file" ]]; then
-    echo "$TIMESTAMP (retroactive)" > "$lock_file"
-    LOCKS_CREATED="$LOCKS_CREATED $phase"
+  receipt_file="$GATES_DIR/${phase}-receipt.json"
+  if [[ -f "$receipt_file" ]]; then
+    RECEIPTED="$RECEIPTED $phase"
+  elif [[ "$status" == "COMPLETE" ]]; then
+    FILES_COMPLETE_NO_RECEIPT="$FILES_COMPLETE_NO_RECEIPT $phase"
   fi
 done
 
@@ -191,11 +208,18 @@ fi
     idx=$((idx + 1))
   done
 
-  printf '\n## Lock Files\n\n'
-  if [[ -n "$LOCKS_CREATED" ]]; then
-    printf 'Retroactively created locks for complete phases:%s\n' "$LOCKS_CREATED"
-  else
-    printf 'No new locks created (all complete phases already had locks, or none are complete).\n'
+  printf '\n## Gate Receipts (T27.1)\n\n'
+  printf 'This scan never creates a receipt — a receipt only exists if a real gate\n'
+  printf 'run happened, or an explicit waiver was signed. It reports what it finds.\n\n'
+  if [[ -n "$RECEIPTED" ]]; then
+    printf '- Phases with a real receipt (real run or signed waiver):%s\n' "$RECEIPTED"
+  fi
+  if [[ -n "$FILES_COMPLETE_NO_RECEIPT" ]]; then
+    printf '- Phases whose files look complete but have NO receipt (run the real gate, or waive explicitly):%s\n' "$FILES_COMPLETE_NO_RECEIPT"
+    printf '  `validate-phase-gate.sh <phase>` or `scripts/waive-gate.sh <phase> "<reason>" --signed-by <you>`\n'
+  fi
+  if [[ -z "$RECEIPTED" && -z "$FILES_COMPLETE_NO_RECEIPT" ]]; then
+    printf 'No phases complete yet.\n'
   fi
 
   printf '\n## Recommendation\n\n'
@@ -224,13 +248,15 @@ fi
 
 # -- Emit JSON summary to stdout ----------------------------------------------
 lowest_json="${LOWEST_INCOMPLETE:-none}"
-locks_json=$(printf '%s' "$LOCKS_CREATED" | tr ' ' ',' | sed 's/^,//')
+receipted_json=$(printf '%s' "$RECEIPTED" | tr ' ' ',' | sed 's/^,//')
+needs_receipt_json=$(printf '%s' "$FILES_COMPLETE_NO_RECEIPT" | tr ' ' ',' | sed 's/^,//')
 
-printf '{"status":"%s","lowest_incomplete":"%s","brownfield":%s,"locks_created":"%s","audit_file":"docs/work/SDLC_AUDIT.md"}\n' \
+printf '{"status":"%s","lowest_incomplete":"%s","brownfield":%s,"receipted_phases":"%s","complete_no_receipt":"%s","audit_file":"docs/work/SDLC_AUDIT.md"}\n' \
   "$OVERALL_STATUS" \
   "$lowest_json" \
   "$([ "$HAS_CODE" == "true" ] && echo true || echo false)" \
-  "$locks_json"
+  "$receipted_json" \
+  "$needs_receipt_json"
 
 # -- Exit with appropriate code -----------------------------------------------
 case "$OVERALL_STATUS" in

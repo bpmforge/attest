@@ -13,6 +13,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
+import { testGateReceipts } from "./test-gate-receipts.ts";
 import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -321,6 +322,13 @@ try {
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 4b] Ticket lifecycle — claim/start/close/accept/release");
 await testTicketLifecycle(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 5: Gate receipts (T27.1) — red/green fixtures. Extracted to
+// test-gate-receipts.ts to keep this barrel file under the size cap.
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 5] Gate receipts — red/green fixtures");
+await testGateReceipts(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
