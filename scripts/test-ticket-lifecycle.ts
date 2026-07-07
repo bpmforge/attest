@@ -255,6 +255,63 @@ export async function testTicketLifecycle(
         );
     }
 
+    // -- RED (independent review, 2026-07-07): actor identity must be
+    // normalized (trim+casefold) before every comparison. Without this,
+    // accept() self-review protection and claim()'s WIP=1 are both
+    // trivially bypassed by casing/whitespace variance on the SAME actor.
+    {
+      const planPath = makeFixturePlan([oneModule()]);
+      const plan = tickets.loadPlan(planPath);
+      tickets.claim(plan, "M-a", "user");
+      tickets.start(plan, "M-a", "user");
+      tickets.close(plan, "M-a", "user", {
+        branch: "feat/m-a",
+        commits: ["abc123"],
+        cwd: path.dirname(planPath),
+      });
+      const capsBypass = tickets.accept(plan, "M-a", "USER");
+      const spaceBypass = tickets.accept(plan, "M-a", "user ");
+      if (
+        !capsBypass.ok &&
+        !spaceBypass.ok &&
+        plan.modules[0].status === "in_review"
+      )
+        ok(
+          "ticket lifecycle — RED: accept-own-work is not bypassable via actor casing/whitespace",
+        );
+      else
+        fail(
+          "ticket lifecycle — accept self-review bypass via actor identity variance",
+          JSON.stringify({
+            capsBypass,
+            spaceBypass,
+            status: plan.modules[0].status,
+          }),
+        );
+    }
+
+    // -- RED (independent review, 2026-07-07): WIP=1 must not be bypassable
+    // by claiming a second ticket under a differently-cased/spaced actor name.
+    {
+      const planPath = makeFixturePlan([
+        oneModule({ id: "M-a" }),
+        oneModule({ id: "M-b", write_scope: ["src/b/**"] }),
+      ]);
+      const plan = tickets.loadPlan(planPath);
+      tickets.claim(plan, "M-a", "user");
+      const capsBypass = tickets.claim(plan, "M-b", "USER");
+      const spaceBypass = tickets.claim(plan, "M-b", " user");
+      if (!capsBypass.ok && !spaceBypass.ok)
+        ok(
+          "ticket lifecycle — RED: WIP=1 is not bypassable via actor casing/whitespace",
+        );
+      else
+        fail(
+          "ticket lifecycle — WIP=1 bypass via actor identity variance",
+          JSON.stringify({ capsBypass, spaceBypass }),
+        );
+    }
+
     // -- comment appends history at any state without changing status
     {
       const planPath = makeFixturePlan([oneModule()]);
