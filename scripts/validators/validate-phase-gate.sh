@@ -94,11 +94,15 @@ case "$PHASE" in
       "validate-adrs.sh"
       "validate-security-controls.sh"
     )
-    # UI-bearing: if ux-engineer produced design docs, validate the UX spec too
-    if [[ -f "$ROOT/docs/design/DESIGN_PRINCIPLES.md" ]]; then
-      note "UI-bearing project detected — adding validate-ux-spec.sh to phase-3 gate"
-      GATE_VALIDATORS+=("validate-ux-spec.sh")
-    fi
+    # UX gate is UNCONDITIONAL: validate-ux-spec.sh passes only when UX docs
+    # exist OR ARCHITECTURE.md explicitly declares "No UI — UX branch not
+    # applicable". Previously this only ran when DESIGN_PRINCIPLES.md already
+    # existed — circular, so a missed UI-bearing detection silently skipped
+    # the UX branch (RetroForge lesson, 2026-07-06).
+    GATE_VALIDATORS+=("validate-ux-spec.sh")
+    # Founding-brief coverage: docs/TRACEABILITY.md must grade every original
+    # spec requirement against the doc set + tickets before implementation.
+    GATE_VALIDATORS+=("validate-spec-traceability.sh")
     ;;
   phase-3.5)
     check_phase_prereq "phase-3"

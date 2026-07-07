@@ -2,6 +2,31 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [1.32.0] — 2026-07-06
+
+### Added — UX gate hardening + founding-brief traceability (RetroForge lesson)
+Root cause fixed: a Rust/egui desktop app (RetroForge) sailed through SDLC
+with no frontend design doc — UI-bearing detection was web-centric
+(package.json-only) and the phase-3 gate only validated UX docs *if they
+already existed* (circular).
+
+- **UI-bearing detection expanded** (sdlc-init-phase-3.md + phases-3-4.md):
+  native desktop GUI toolkits (egui/iced/slint/qt/gtk/tkinter/wpf/avalonia/…),
+  TUI (scope-reduced UX branch), game frontends, and a decisive brief-driven
+  catch-all (any human-operated surface named in brief/SRS/stories ⇒
+  UI-bearing). Default when ambiguous: UI-bearing = YES. Determination must
+  be recorded in ARCHITECTURE.md § Logical View (gate-checked).
+- **validate-ux-spec.sh non-circular**: now in the phase-3 gate
+  UNCONDITIONALLY; passes only with UX docs present OR an explicit
+  "No UI — UX branch not applicable" declaration in ARCHITECTURE.md.
+  Verified: fails against the pre-fix RetroForge doc set.
+- **NEW validate-spec-traceability.sh** + mandatory "Spec Traceability
+  Audit" step before the phase-3 gate: docs/TRACEABILITY.md must grade EVERY
+  concrete requirement from the founding brief + Discovery answers
+  (COVERED/PARTIAL/MISSING, ≥20 rows) against the doc set + ticket board;
+  zero unresolved MISSING, PARTIALs need a gap register. SRS-internal
+  traceability cannot catch what never made it into the SRS — this can.
+
 ## [1.31.0] — 2026-07-03
 
 ### Added — Wave O3: prove-it harness (autonomy plan complete)
