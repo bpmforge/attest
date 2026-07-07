@@ -8,6 +8,8 @@ mode: "all"
 
 > Load this file when running `/security --llm` or when the project uses LLM/AI APIs.
 > Source: OWASP Top 10 for LLM Applications 2025 — https://genai.owasp.org/llm-top-10/
+> LLM08b/08c checks adapted (rewritten, not copied) from the Apache-2.0 `mukul975/Anthropic-Cybersecurity-Skills` `assessing-vector-and-embedding-weaknesses` skill.
+> **If the project also exposes or consumes MCP servers** (grep `@modelcontextprotocol`, `mcp.json`, `FastMCP`, `mcp.server`), also load `MCP_METHODOLOGY.md` — MCP tool poisoning is a distinct surface (OWASP MCP Top 10), not part of the LLM Top 10.
 > Context cost: ~8k tokens.
 
 ---
@@ -333,6 +335,40 @@ embed_and_store(medical_records)   # no row-level permissions on retrieval
 - Sensitive data embedded without retrieval-time access control
 - No rate limiting on embedding API (inference attack surface)
 - Embeddings stored alongside raw content (content reconstruction risk)
+
+**ATLAS mappings:** poisoning `AML.T0020`; model inversion `AML.T0024.001`; membership inference `AML.T0024.000`; indirect injection via retrieved chunk `AML.T0051.001`.
+
+#### LLM08b — Tenant Isolation Enforced Server-Side (not client-side)
+
+**Pattern:** The most common RAG multi-tenant bug: the tenant/user filter is applied *after* an unscoped similarity search returns, in application code — so a filter bug, or a direct call to the store, leaks another tenant's chunks. Isolation must be enforced by the vector store's own query filter, not by post-fetch code.
+
+**What to look for (static):**
+- A `search()` / `query()` call whose filter (tenant_id, user_id, namespace) is passed to the **vector store**, vs. results filtered in a list-comprehension / `.filter()` after an unscoped fetch
+- Per-tenant separation by namespace/collection vs. one shared collection relying on a metadata field
+- The retrieval call and the authorization check living in different layers (retrieval can be reached without the check)
+
+```
+# VULNERABLE: unscoped fetch, isolation only in app code (bypassable)
+hits = store.search(query_vec, top_k=20)
+mine = [h for h in hits if h.metadata["tenant"] == current_tenant]   # client-side
+
+# SAFER: filter pushed into the store's query (server-enforced)
+hits = store.search(query_vec, top_k=20,
+                    filter=FieldCondition(key="tenant", match=current_tenant))
+```
+
+**Severity:** HIGH (CRITICAL if the corpus holds regulated data — PHI/PII/financial).
+
+#### LLM08c — Embeddings Are Not One-Way
+
+**Pattern:** Raw embedding vectors returned to clients or stored next to plaintext are an exfiltration surface — inversion and membership-inference attacks reconstruct substantial source text from vectors alone.
+
+**What to look for (static):**
+- An API endpoint or tool that returns raw embedding vectors to the caller
+- Embeddings persisted alongside the plaintext they encode with the same access scope
+- No rate limit on the embed / similarity endpoint (enables inversion hill-climbing and membership probing)
+
+**Deep drill (`--deep` / memory-MCP leakage drill only, not an inline audit step):** stand up an owned instance and run (a) embedding-inversion hill-climb — encode a known secret, iteratively search candidate text by cosine similarity; (b) membership inference — compare retrieval scores for in-corpus quotes vs. control sentences; (c) knowledge-base poisoning — upsert a marker chunk crafted to match unrelated queries and measure retrieval dominance; (d) regex-scan retrieved chunks for `ignore (all|previous|the above) instructions` / `system prompt` before they reach the LLM. These are live tests — run them only against systems you own (this maps directly to bpm-memory-mcp fleet-scope leakage and quarantine drills).
 
 ---
 
