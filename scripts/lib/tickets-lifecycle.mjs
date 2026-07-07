@@ -37,6 +37,20 @@ function findModule(plan, id) {
   return (plan.modules || []).find((m) => m.id === id);
 }
 
+// Actor identity is a free-text CLI arg with no documented convention
+// anywhere in this repo — trim+casefold before EVERY identity comparison.
+// Found by independent review (2026-07-07): without this, WIP=1 and the
+// anti-self-accept check both had a trivial bypass via casing/whitespace
+// variance ("user" vs "USER" vs "user ") — the second one
+// directly defeats the don't-accept-your-own-work guarantee this whole
+// lifecycle exists to enforce, reachable purely through the public API,
+// no plan.json tampering required. Stored values (m.owner, history[].actor)
+// keep the caller's original casing for a readable audit trail — only
+// comparisons are normalized.
+function sameActor(a, b) {
+  return String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+}
+
 function pushHistory(m, actor, from, to, note) {
   if (!Array.isArray(m.history)) m.history = [];
   m.history.push({ ts: now(), actor, from, to, note: note ?? null });
@@ -51,7 +65,7 @@ export function claim(plan, id, actor) {
   if (m.status !== 'ready') return { ok: false, error: `'${id}' is '${m.status}', not 'ready'` };
   if (m.owner != null) return { ok: false, error: `'${id}' already owned by '${m.owner}'` };
   const openElsewhere = (plan.modules || []).find(
-    (o) => o.owner === actor && o.id !== id && (o.status === 'claimed' || o.status === 'in_progress'),
+    (o) => sameActor(o.owner, actor) && o.id !== id && (o.status === 'claimed' || o.status === 'in_progress'),
   );
   if (openElsewhere)
     return {
@@ -70,7 +84,7 @@ export function start(plan, id, actor) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'claimed') return { ok: false, error: `'${id}' is '${m.status}', not 'claimed'` };
-  if (m.owner !== actor) return { ok: false, error: `'${id}' is owned by '${m.owner}', not '${actor}'` };
+  if (!sameActor(m.owner, actor)) return { ok: false, error: `'${id}' is owned by '${m.owner}', not '${actor}'` };
   pushHistory(m, actor, 'claimed', 'in_progress');
   m.status = 'in_progress';
   return { ok: true };
@@ -95,7 +109,7 @@ export function close(plan, id, actor, { branch, commits, cwd = process.cwd() } 
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'in_progress') return { ok: false, error: `'${id}' is '${m.status}', not 'in_progress'` };
-  if (m.owner !== actor) return { ok: false, error: `'${id}' is owned by '${m.owner}', not '${actor}'` };
+  if (!sameActor(m.owner, actor)) return { ok: false, error: `'${id}' is owned by '${m.owner}', not '${actor}'` };
   if (!m.manifest)
     return { ok: false, error: `'${id}' has no manifest path configured — set module.manifest before closing` };
   const manifestPath = resolve(cwd, m.manifest);
@@ -140,7 +154,7 @@ export function accept(plan, id, actor) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'in_review') return { ok: false, error: `'${id}' is '${m.status}', not 'in_review'` };
-  if (actor === m.owner)
+  if (sameActor(actor, m.owner))
     return { ok: false, error: `'${actor}' cannot accept their own work on '${id}' — needs a different reviewer` };
   pushHistory(m, actor, 'in_review', 'done', 'accepted');
   m.status = 'done';
