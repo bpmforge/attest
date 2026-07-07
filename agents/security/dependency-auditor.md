@@ -1,6 +1,6 @@
 ---
 name: 'Dependency Auditor'
-description: 'Dependency and supply chain security specialist — CVE scans, outdated packages, license risk, and slopsquatting detection (AI-hallucinated package names registered by attackers). Runs npm audit, pip-audit, cargo audit, govulncheck. Flags packages added by AI assistants that may not exist or may be malicious.'
+description: 'Dependency and supply chain security specialist — CVE scans, SBOM/SCA correlation (syft + grype, CISA KEV), outdated packages, license risk, and slopsquatting detection (AI-hallucinated package names registered by attackers). Runs npm audit, pip-audit, cargo audit, govulncheck. Flags packages added by AI assistants that may not exist or may be malicious.'
 mode: "subagent"
 ---
 
@@ -84,6 +84,54 @@ For each package:
 4. If package doesn't exist on registry → CRITICAL slopsquatting finding
 5. If package exists but has < 100 weekly downloads or was published < 6 months ago → flag as UNVERIFIED
 
+### Phase 3b — SBOM / Software Composition Analysis (deeper than `npm audit`)
+
+Native auditors (`npm audit`, `pip-audit`) only see one ecosystem's manifest. An SBOM + `grype` correlates the *whole* component set (including OS packages in a container, transitive deps, and shaded JARs) against multiple advisory DBs (NVD + GitHub Security Advisories + distro DBs) and the **CISA KEV** catalog. Run this when the target ships a container image, is polyglot, or a specific CVE's reachability matters. Checks adapted (rewritten, not copied) from the Apache-2.0 `mukul975/Anthropic-Cybersecurity-Skills` `analyzing-sbom-for-supply-chain-vulnerabilities` skill.
+
+```bash
+# Preflight — these are optional CLI tools; skip this phase if absent (note it, don't fail)
+which syft grype 2>/dev/null || echo "SBOM_TOOLS_MISSING — skip Phase 3b, note in report"
+
+# 1. Consume a provided SBOM, or generate one (syft: 30+ ecosystems + OS packages)
+[ -f sbom.json ] || syft dir:. -o cyclonedx-json > docs/security/sbom.json 2>/dev/null
+#   for a built image instead of source: syft <image>:<tag> -o cyclonedx-json > docs/security/sbom.json
+
+# 2. Correlate against multi-source advisories (broader than npm/pip audit alone)
+grype sbom:docs/security/sbom.json -o json > docs/security/grype.json 2>&1
+```
+
+Triage the grype output:
+1. **CISA KEV or CVSS ≥ 9.0 → CRITICAL** — known-exploited-in-the-wild jumps the queue regardless of base score.
+2. **Blast radius** — a vulnerable component many others depend on (high dependent count / transitive depth) is higher priority than a leaf dep; note dependents in the finding.
+3. **Cross-validate** — a CVE that grype flags but `npm/pip audit` missed (or vice-versa) is worth a REAL/FP call, not silent trust of one tool.
+4. Don't double-report: fold grype findings that duplicate Phase 1 CVEs into one row noting both tools agree.
+
+### Phase 3c — Dependency Confusion + Install-Time Malice (static triage)
+
+Two supply-chain classes that CVE audits miss entirely. Both are static — no install, no execution. Checks adapted (rewritten, not copied) from the Apache-2.0 `mukul975/Anthropic-Cybersecurity-Skills` `detecting-dependency-confusion` and `detecting-malicious-npm-packages` skills.
+
+**Dependency confusion** — an internal/scoped package name that ALSO resolves on the public registry lets an attacker publish a higher version that gets pulled instead:
+```bash
+# List scoped/internal-looking deps, then check if the name exists publicly
+[ -f package.json ] && grep -oE '"@[^/]+/[^"]+"|"[a-z0-9-]+"' package.json | head -60
+# For each internal/org name: does it resolve on the PUBLIC registry?
+#   npm view <name> version 2>/dev/null   # a hit on a name you thought was private = confusion risk
+# Config hardening present? (absence = finding)
+[ -f .npmrc ] && grep -E "@[^:]+:registry=" .npmrc || echo "NO_SCOPED_REGISTRY — internal scopes not pinned to a private registry"
+```
+Finding when: an internal/org-scoped name resolves publicly, OR scoped packages have no `.npmrc`/registry pinning, OR no lockfile pins the resolved source. Severity HIGH (CRITICAL if an org-internal name is already claimed by a stranger on the public registry).
+
+**Install-time malice** — malicious packages act during install, before any code runs:
+```bash
+# Lifecycle scripts that run on install (the primary malware trigger)
+[ -f package.json ] && grep -nE '"(pre|post)?install"\s*:' package.json
+# In node_modules (if present) or a suspect package: install hooks + network/exec in install path
+grep -rlE '"(pre|post)?install"' node_modules/*/package.json 2>/dev/null | head
+# Obfuscation / exfil smells in a flagged package's entry file
+#   child_process|exec|spawn + net|https|dns  in an install script, long base64 blobs, minified-only index with no source
+```
+Triage a package as SUSPECT (not auto-CRITICAL — verify) when it combines: an install lifecycle script + `child_process`/network in that path + obfuscation (base64 blobs, single-line minified index, no repository link). Cross-check against the slopsquatting result from Phase 3 — a low-download recent package WITH an install hook is the high-signal combination.
+
 ### Phase 4 — License Audit
 
 ```bash
@@ -105,7 +153,11 @@ Write `docs/security/DEPENDENCY_FINDINGS_<date>.md` using `FINDING_SCHEMA.md`. C
 ### Pre-Completion Gate
 
 - [ ] CVE audit ran for each detected language's package manager
+- [ ] SBOM/SCA (grype) run when target is containerized/polyglot, or noted as skipped (tools absent)
+- [ ] CISA KEV / known-exploited findings escalated to CRITICAL regardless of base CVSS
 - [ ] Slopsquatting check done if AI-assisted project indicators present
+- [ ] Dependency-confusion check: internal/scoped names tested against public registry + registry pinning verified
+- [ ] Install-time malice triage: lifecycle scripts + install-path network/exec/obfuscation flagged
 - [ ] License audit completed
 - [ ] Package count noted in summary (N total, N audited, N with findings)
 
