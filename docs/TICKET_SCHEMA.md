@@ -34,14 +34,49 @@ task-decomposer `nodes[]`. A plan with only `nodes[]` stays valid (backward comp
 | `verify` | string (path) | recommended | The gate that closes the ticket (validator script / challenger) |
 | `nodes` | string[] (node ids) | optional | Fine-grained `plan.json` nodes implementing this module |
 | `after_replan` | boolean | optional | Recompute this ticket after a scout/replan node returns |
+| `manifest` | string (path) | required for `close` | Path (relative to `plan.json`'s directory) to this ticket's Completion Manifest. `close()` refuses unless this file exists on disk. |
+| `history` | `{ts,actor,from,to,note}[]` | machine-managed | Append-only transition log written by the lifecycle verbs (T26.1). Never hand-edited — the audit trail the 2026-07-07 incident showed doesn't exist otherwise. |
+| `evidence` | `{branch,commits[],verify_cmd}` \| absent | machine-managed | Set by `close()` on success — records what was actually verified, not just claimed. |
+| `claimed_at` | string (ISO timestamp) \| null | machine-managed | Set by `claim()`, cleared by `release()`. |
 
 ## Status semantics
 
 - **Auto-resolved** (`recomputeStatus`): only `blocked` ⇄ `ready`. A module is `ready` iff every
   `depends_on` module is `done`, else `blocked`.
-- **Owned/terminal** (`claimed`, `in_progress`, `in_review`, `done`): never auto-changed — set by
-  whoever is working it or by the closing gate.
+- **Owned/terminal** (`claimed`, `in_progress`, `in_review`, `done`): set ONLY by the lifecycle
+  verbs below (T26.1) — never hand-edited, never auto-changed by `recomputeStatus`.
 - **Claimable** = `ready` AND `owner == null`.
+
+## Lifecycle (T26.1) — enforced transition graph
+
+```
+ready ──claim──► claimed ──start──► in_progress ──close──► in_review ──accept──► done
+                                        │
+                                        └──────── release ────────► (back to ready, clears owner)
+```
+
+Agents never hand-edit `status`/`owner` again — these six CLI verbs (also exported as functions
+from `scripts/lib/tickets.mjs`, implemented in `scripts/lib/tickets-lifecycle.mjs`) are the only
+sanctioned path, and each appends an immutable `history[]` entry:
+
+- **`claim <plan> <id> <actor>`** — refused unless `ready` + unowned; refused if `actor` already
+  owns another `claimed`/`in_progress` ticket (**WIP=1**). Sets `claimed_at`.
+- **`start <plan> <id> <actor>`** — `claimed → in_progress`. Owner-only.
+- **`comment <plan> <id> <actor> <note>`** — appends free-text history at any time, any state.
+  Does not change status.
+- **`close <plan> <id> <actor> --branch <b> --commits <c1,c2,...>`** — `in_progress → in_review`.
+  The load-bearing gate: refused unless **all** of (a) `module.manifest` exists on disk, (b)
+  `module.verify` — and *only* `module.verify*, never a caller-supplied override* — exits 0 when
+  run by this code, (c) `branch` + at least one commit supplied. Sets `evidence`, prints a
+  paste-able receipt.
+- **`accept <plan> <id> <actor>`** — `in_review → done`. Reviewer-only: refused if `actor` is the
+  same as the ticket's `owner` (don't accept your own work — the 3-layer-check split).
+- **`release <plan> <id> <actor> <reason>`** — `claimed`/`in_progress` → `ready`, clears
+  `owner`/`claimed_at`. Requires a non-empty reason; staleness/abandonment is a human/reflow
+  decision, never silent.
+
+Every verb returns non-zero and a `[x] <reason>` message on refusal; `plan.json` is only
+persisted back to disk when a verb succeeds.
 
 ## Invariants (enforced by the lib; T6 turns these into a gate)
 
