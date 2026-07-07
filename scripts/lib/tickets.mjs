@@ -28,6 +28,11 @@
 // Exit 0 ok / 1 invalid or collisions / 2 usage.
 
 import { readFileSync, writeFileSync } from 'fs';
+import { resolve, dirname } from 'path';
+// Lifecycle verbs (T26.1) live in their own chapter module to keep this
+// barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md.
+import { claim, start, comment, close, accept, release } from './tickets-lifecycle.mjs';
+export { claim, start, comment, close, accept, release };
 
 export const STATUSES = ['blocked', 'ready', 'claimed', 'in_progress', 'in_review', 'done'];
 const AUTO = new Set(['blocked', 'ready']);           // states the resolver may set
@@ -156,12 +161,40 @@ export function crossLaneCollisions(plan) {
   return out;
 }
 
+
+// Ticket lifecycle verbs (claim/start/comment/close/accept/release) are
+// implemented in tickets-lifecycle.mjs and re-exported above (T26.1) — see
+// that file for the enforced transition graph and full rationale.
 // ── CLI ────────────────────────────────────────────────────────────────
+// Lifecycle verbs (claim/start/comment/close/accept/release) persist the
+// mutated plan back to disk on success — this CLI IS the single sanctioned
+// writer of module status; nothing hand-edits plan.json's modules[].status.
+const USAGE =
+  'usage: tickets.mjs <validate|status> <plan.json>\n' +
+  '   or: tickets.mjs claim   <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs start   <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs comment <plan.json> <id> <actor> <note...>\n' +
+  '   or: tickets.mjs close   <plan.json> <id> <actor> --branch <b> --commits <c1,c2,...>\n' +
+  '   or: tickets.mjs accept  <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs release <plan.json> <id> <actor> <reason...>';
+
+function parseFlags(argv) {
+  const flags = {};
+  const rest = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--branch') flags.branch = argv[++i];
+    else if (argv[i] === '--commits') flags.commits = (argv[++i] || '').split(',').filter(Boolean);
+    else rest.push(argv[i]);
+  }
+  return { flags, rest };
+}
+
 const isMain = import.meta.url === `file://${process.argv[1]}`;
 if (isMain) {
-  const [cmd, path] = process.argv.slice(2);
-  if (!cmd || !path) { console.error('usage: tickets.mjs <validate|status> <plan.json>'); process.exit(2); }
+  const [cmd, path, ...rest] = process.argv.slice(2);
+  if (!cmd || !path) { console.error(USAGE); process.exit(2); }
   const plan = loadPlan(path);
+
   if (cmd === 'validate') {
     const { ok, errors } = validatePlan(plan);
     const collisions = writeScopeCollisions(plan);
@@ -176,5 +209,48 @@ if (isMain) {
     console.log(`claimable (${ready.length}):`);
     for (const m of ready) console.log(`  ${m.id} — ${m.title}  [${m.write_scope.join(', ')}]`);
     process.exit(0);
-  } else { console.error(`unknown command: ${cmd}`); process.exit(2); }
+  } else if (cmd === 'claim' || cmd === 'start') {
+    const [id, actor] = rest;
+    if (!id || !actor) { console.error(USAGE); process.exit(2); }
+    const r = (cmd === 'claim' ? claim : start)(plan, id, actor);
+    if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
+    savePlan(path, plan);
+    console.log(`ok — ${id}: ${cmd === 'claim' ? 'ready -> claimed' : 'claimed -> in_progress'} (${actor})`);
+    process.exit(0);
+  } else if (cmd === 'comment') {
+    const [id, actor, ...noteParts] = rest;
+    const note = noteParts.join(' ');
+    if (!id || !actor || !note) { console.error(USAGE); process.exit(2); }
+    const r = comment(plan, id, actor, note);
+    if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
+    savePlan(path, plan);
+    console.log(`ok — comment appended to ${id}`);
+    process.exit(0);
+  } else if (cmd === 'close') {
+    const { flags, rest: positional } = parseFlags(rest);
+    const [id, actor] = positional;
+    if (!id || !actor) { console.error(USAGE); process.exit(2); }
+    const r = close(plan, id, actor, { branch: flags.branch, commits: flags.commits, cwd: dirname(resolve(path)) });
+    if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
+    savePlan(path, plan);
+    console.log(r.receipt);
+    process.exit(0);
+  } else if (cmd === 'accept') {
+    const [id, actor] = rest;
+    if (!id || !actor) { console.error(USAGE); process.exit(2); }
+    const r = accept(plan, id, actor);
+    if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
+    savePlan(path, plan);
+    console.log(`ok — ${id}: in_review -> done (accepted by ${actor})`);
+    process.exit(0);
+  } else if (cmd === 'release') {
+    const [id, actor, ...reasonParts] = rest;
+    const reason = reasonParts.join(' ');
+    if (!id || !actor || !reason) { console.error(USAGE); process.exit(2); }
+    const r = release(plan, id, actor, reason);
+    if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
+    savePlan(path, plan);
+    console.log(`ok — ${id}: ${r.ok ? 'released to ready' : ''}`);
+    process.exit(0);
+  } else { console.error(`unknown command: ${cmd}\n${USAGE}`); process.exit(2); }
 }
