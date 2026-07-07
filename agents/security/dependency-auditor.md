@@ -106,6 +106,32 @@ Triage the grype output:
 3. **Cross-validate** — a CVE that grype flags but `npm/pip audit` missed (or vice-versa) is worth a REAL/FP call, not silent trust of one tool.
 4. Don't double-report: fold grype findings that duplicate Phase 1 CVEs into one row noting both tools agree.
 
+### Phase 3c — Dependency Confusion + Install-Time Malice (static triage)
+
+Two supply-chain classes that CVE audits miss entirely. Both are static — no install, no execution. Checks adapted (rewritten, not copied) from the Apache-2.0 `mukul975/Anthropic-Cybersecurity-Skills` `detecting-dependency-confusion` and `detecting-malicious-npm-packages` skills.
+
+**Dependency confusion** — an internal/scoped package name that ALSO resolves on the public registry lets an attacker publish a higher version that gets pulled instead:
+```bash
+# List scoped/internal-looking deps, then check if the name exists publicly
+[ -f package.json ] && grep -oE '"@[^/]+/[^"]+"|"[a-z0-9-]+"' package.json | head -60
+# For each internal/org name: does it resolve on the PUBLIC registry?
+#   npm view <name> version 2>/dev/null   # a hit on a name you thought was private = confusion risk
+# Config hardening present? (absence = finding)
+[ -f .npmrc ] && grep -E "@[^:]+:registry=" .npmrc || echo "NO_SCOPED_REGISTRY — internal scopes not pinned to a private registry"
+```
+Finding when: an internal/org-scoped name resolves publicly, OR scoped packages have no `.npmrc`/registry pinning, OR no lockfile pins the resolved source. Severity HIGH (CRITICAL if an org-internal name is already claimed by a stranger on the public registry).
+
+**Install-time malice** — malicious packages act during install, before any code runs:
+```bash
+# Lifecycle scripts that run on install (the primary malware trigger)
+[ -f package.json ] && grep -nE '"(pre|post)?install"\s*:' package.json
+# In node_modules (if present) or a suspect package: install hooks + network/exec in install path
+grep -rlE '"(pre|post)?install"' node_modules/*/package.json 2>/dev/null | head
+# Obfuscation / exfil smells in a flagged package's entry file
+#   child_process|exec|spawn + net|https|dns  in an install script, long base64 blobs, minified-only index with no source
+```
+Triage a package as SUSPECT (not auto-CRITICAL — verify) when it combines: an install lifecycle script + `child_process`/network in that path + obfuscation (base64 blobs, single-line minified index, no repository link). Cross-check against the slopsquatting result from Phase 3 — a low-download recent package WITH an install hook is the high-signal combination.
+
 ### Phase 4 — License Audit
 
 ```bash
@@ -130,6 +156,8 @@ Write `docs/security/DEPENDENCY_FINDINGS_<date>.md` using `FINDING_SCHEMA.md`. C
 - [ ] SBOM/SCA (grype) run when target is containerized/polyglot, or noted as skipped (tools absent)
 - [ ] CISA KEV / known-exploited findings escalated to CRITICAL regardless of base CVSS
 - [ ] Slopsquatting check done if AI-assisted project indicators present
+- [ ] Dependency-confusion check: internal/scoped names tested against public registry + registry pinning verified
+- [ ] Install-time malice triage: lifecycle scripts + install-path network/exec/obfuscation flagged
 - [ ] License audit completed
 - [ ] Package count noted in summary (N total, N audited, N with findings)
 
