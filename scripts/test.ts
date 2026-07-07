@@ -13,6 +13,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import { pathToFileURL } from "url";
+import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -312,6 +313,14 @@ try {
   const message = err instanceof Error ? err.message : String(err);
   fail("tickets", `import/exec failed: ${message}`);
 }
+
+// ---------------------------------------------------------------------------
+// Pass 4b: Ticket lifecycle (T26.1) — claim/start/comment/close/accept/release
+// red/green fixtures. Extracted to test-ticket-lifecycle.ts to keep this
+// barrel file under the size cap.
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 4b] Ticket lifecycle — claim/start/close/accept/release");
+await testTicketLifecycle(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
