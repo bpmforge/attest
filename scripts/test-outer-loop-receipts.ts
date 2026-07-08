@@ -120,6 +120,37 @@ export async function testOuterLoopReceipts(
     }
 
     {
+      // REGRESSION (independent review, 2026-07-08): a capitalized "Phase-4"
+      // (vs lowercase "phase-4") used to extract zero phase tokens -- the
+      // Done-section body preserved original case (awk's tolower() only
+      // covered header matching, not the printed line), and grep -oE's
+      // phase-N pattern is case-sensitive, applied before the trailing
+      // tr-lowercase step ever ran. That silently routed into the vacuous
+      // "nothing to check" path, restoring the exact false-completion bug
+      // this validator exists to close. Fixed via grep -oiE.
+      const dir = mkTmp("drift-red-caps");
+      fs.writeFileSync(
+        path.join(dir, "docs/work/STATE.md"),
+        "# STATE\n\n## Done\n- Phase-4 done -- capitalized P, no receipt\n",
+      );
+      const r = run(driftValidator, [dir]);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("state-claims-phase-done-no-receipt")
+      )
+        ok(
+          "validate-state-drift — REGRESSION: a capitalized 'Phase-4' claim is still flagged (case-insensitive extraction)",
+        );
+      else
+        fail(
+          "validate-state-drift — capitalized phase token regression",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    {
       // GREEN: STATE.md claims phase-4 done, real receipt exists -> clean.
       const dir = mkTmp("drift-green");
       fs.writeFileSync(

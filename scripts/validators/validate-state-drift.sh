@@ -67,7 +67,13 @@ if [[ -z "$done_body" ]]; then
 fi
 
 # Unique phase-N tokens mentioned in Done -- these are the claims to verify.
-PHASES="$(printf '%s\n' "$done_body" | grep -oE 'phase-[0-9]+(\.[0-9]+)?' | tr '[:upper:]' '[:lower:]' | sort -u || true)"
+# grep -i (not -E alone): the Done body it's applied to has NOT been
+# lowercased (the awk above only lowercases its own matching side, so `done_body`
+# keeps original case) -- an un-lowered "Phase-4" would silently extract zero
+# tokens and fall into the vacuous "nothing to check" path otherwise. Found by
+# independent review, 2026-07-08: this exact one-character-capitalization case
+# restored the original false-completion bug T27.4 exists to close.
+PHASES="$(printf '%s\n' "$done_body" | grep -oiE 'phase-[0-9]+(\.[0-9]+)?' | tr '[:upper:]' '[:lower:]' | sort -u || true)"
 
 if [[ -z "$PHASES" ]]; then
   note "STATE.md's Done section claims nothing gated (no phase-N mention) -- nothing to check against receipts"
