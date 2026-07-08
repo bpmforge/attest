@@ -61,25 +61,67 @@ export async function testAutonomyLedger(
         );
     }
 
-    // -- red fixture: NA-3 signed by "Claude", unknown id NA-99, malformed
-    // row with an empty default_taken cell -> 3 gaps, all three categories
+    // -- red fixture: NA-3 signed by "Claude", unknown id NA-99, an empty
+    // default_taken cell, and a pipe-shifted row -> 4 gaps, all categories
     {
       const r = run(path.join(fixturesDir, "red"));
       const hasAll =
         r.exitCode === 1 &&
-        r.stdout.includes('"gaps":3') &&
+        r.stdout.includes('"gaps":4') &&
         r.stdout.includes("never-auto-not-signed") &&
         r.stdout.includes("unknown-pause-site") &&
         r.stdout.includes("malformed-row");
       if (hasAll)
         ok(
-          "autonomy-ledger — red fixture flags never-auto-not-signed + unknown-pause-site + malformed-row",
+          "autonomy-ledger — red fixture flags never-auto-not-signed + unknown-pause-site + malformed-row (x2)",
         );
       else
         fail(
           "autonomy-ledger — red fixture",
           `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
         );
+    }
+
+    // -- regression (independent review, 2026-07-08): a literal '|' inside
+    // an earlier free-text column used to shift every cell after it, so a
+    // NEVER-AUTO row genuinely self-signed by "agent" read as if signed_by
+    // was an unrelated earlier cell's text and slipped through clean. This
+    // is the exact tripwire-defeat scenario the validator exists to catch.
+    {
+      const dir = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-autonomy-ledger-"),
+      );
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.mkdirSync(path.join(dir, "docs/work"), { recursive: true });
+      fs.mkdirSync(path.join(dir, "agents/shared"), { recursive: true });
+      fs.copyFileSync(
+        path.join(root, "agents/shared/AUTONOMY_PROTOCOL.md"),
+        path.join(dir, "agents/shared/AUTONOMY_PROTOCOL.md"),
+      );
+      fs.writeFileSync(
+        path.join(dir, "docs/work/APPROVALS.md"),
+        [
+          "| timestamp | pause_site_id | default_taken | signed_by | what the user would have been asked |",
+          "|---|---|---|---|---|",
+          "| 2026-07-08T10:00:00Z | NA-3 | Ran migration A | B fallback | agent | Approve? |",
+          "",
+        ].join("\n"),
+      );
+      const r = run(dir);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("malformed-row")
+      )
+        ok(
+          "autonomy-ledger — a literal '|' in an earlier column is rejected as malformed, not silently mis-parsed",
+        );
+      else
+        fail(
+          "autonomy-ledger — pipe-shifted row",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
     }
 
     // -- missing APPROVALS.md entirely -> clean exit, not a gap (most

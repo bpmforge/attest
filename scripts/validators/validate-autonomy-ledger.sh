@@ -16,11 +16,15 @@
 #      all, "auto" or an agent's own name in signed_by means it was
 #      auto-defaulted or self-signed instead of genuinely reviewed.
 #
-# Non-goal (see AUTONOMY_PROTOCOL.md "Ledger verification"): this checks the
+# Non-goals (see AUTONOMY_PROTOCOL.md "Ledger verification"): this checks the
 # ledger a session wrote about itself. It cannot prove a NEVER-AUTO action
 # happened and was never logged at all -- there is no independent run-journal
 # in this repo today. That residual gap is M28 (Conductor) scope, not this
-# validator's.
+# validator's. It also, like waive-gate.sh's blocklist, is a deterrent
+# against a sloppy/eager agent self-signing or auto-defaulting a NEVER-AUTO
+# row -- not a security boundary against a determined adversary: a
+# fabricated human-sounding name in signed_by (anything not on the blocklist)
+# passes cleanly, same as waive-gate.sh's own stated non-goal.
 #
 # Usage: validate-autonomy-ledger.sh [project-root]
 # Exit 0 clean / 1 gaps / 2 error.
@@ -73,6 +77,17 @@ while IFS= read -r row; do
   esac
 
   IFS='|' read -ra cells <<< "$row"
+  # A well-formed row splits into 5 cells (leading blank + the 4 required
+  # columns) or 6 (+ the optional description column). Anything else means a
+  # literal '|' leaked into a free-text column and shifted every cell after
+  # it -- e.g. a NEVER-AUTO row's real signed_by could shift into the
+  # description column while an earlier cell's stray text lands in
+  # signed_by, silently defeating the tripwire below (found by independent
+  # review). Reject instead of guessing which shift happened.
+  if [[ "${#cells[@]}" -lt 5 || "${#cells[@]}" -gt 6 ]]; then
+    gap "malformed-row" "APPROVALS.md row has ${#cells[@]} cell(s) after splitting on '|' (expected 5 or 6) -- a literal '|' inside a free-text column shifts every column after it: ${row}"
+    continue
+  fi
   ts="$(trim "${cells[1]:-}")"
   site="$(trim "${cells[2]:-}")"
   default_taken="$(trim "${cells[3]:-}")"
