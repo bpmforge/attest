@@ -65,9 +65,14 @@ is to emit the nudge whenever you notice the threshold crossed.)
 
 ## Resume (read side — see T5 `/sdlc resume`)
 
-A resuming session: reads `STATE.md` → the catch-up list in order → re-primes the six rules
+A resuming session: reads `STATE.md` → **drift check** (T27.4:
+`scripts/validators/validate-state-drift.sh . docs/work/STATE.md` — cross-checks every phase Done
+claims against a real gate receipt at `docs/work/gates/<phase>-receipt.json`; gaps mean `STATE.md`
+is asserting a phase finished with nothing backing it, so surface that to the user before trusting
+`Next` rather than resuming into fiction) → the catch-up list in order → re-primes the six rules
 (`SESSION_PRIMER.md`) → announces "you are at <mode/phase>, next is <X>" → continues. It never
-reconstructs state from chat scrollback.
+reconstructs state from chat scrollback, and it never trusts a Done claim the drift check can't
+back up.
 
 ## Interaction with HANDOFF discipline
 
