@@ -24,6 +24,7 @@ import { testSkillAgentRefs } from "./test-skill-agent-refs.ts";
 import { testTicketsGraph } from "./test-tickets-graph.ts";
 import { testChallengerGate } from "./test-challenger-gate.ts";
 import { testTruthfulCompletion } from "./test-truthful-completion.ts";
+import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -314,6 +315,15 @@ console.log(
   "\n[Pass 10] Truthful completion — manifest v2 + tickets wiring + tracker gate",
 );
 await testTruthfulCompletion(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 11: Outer-loop receipts (T27.4) — run-until-done.sh's is_complete()
+// checks validate-state-drift.sh, not just the promise token.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 11] Outer-loop receipts — state-drift gate + is_complete() red/green",
+);
+await testOuterLoopReceipts(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
