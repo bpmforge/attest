@@ -42,8 +42,14 @@ for backlog in "${BACKLOGS[@]}"; do
     fi
   done < "$backlog"
 
-  # Check WAIVED rows have a justification (non-empty cell or paragraph after)
-  awk '
+  # Check WAIVED rows have a justification (non-empty cell or paragraph after).
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # (the parent shell still reports exit 0 even though a real gap was
+  # written to the gap file and shown in the JSON `items` array).
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && gap "waived-no-justification" "$line"
+  done < <(awk '
     /WAIVED/ && /\b(CRITICAL|HIGH)\b/ {
       # If cells are pipe-separated, find the column after status and check non-empty
       n = split($0, cells, "|")
@@ -66,9 +72,7 @@ for backlog in "${BACKLOGS[@]}"; do
         print FILENAME ":" $0
       }
     }
-  ' "$backlog" | while IFS= read -r line; do
-    [[ -n "$line" ]] && gap "waived-no-justification" "$line"
-  done
+  ' "$backlog")
 done
 
 if [[ "$GAP_COUNT" -eq 0 ]]; then
