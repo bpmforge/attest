@@ -113,7 +113,7 @@ These directories are gitignored by default — they are per-project generated r
 
 Gates run in two forms, depending on whether the artifact is mechanically validatable:
 
-**Automated validators** (deterministic coverage checks) — `scripts/validators/` has 62 validators plus gate orchestrators. Used for any artifact where "covered or not" is an objective question: architecture diagrams, OWASP tracker rows, API route coverage, ERD table coverage, sequence-diagram coverage, inventory-row coverage, post-HANDOFF scope + manifest, and delegation discipline (HANDOFF-not-spawn). Each returns exit 0 (clean) / 1 (gap) / 2 (validator errored). The `/gate` skill wraps `validate-phase-gate.sh <phase>` for the active phase. Full catalog: [FEATURES.md](FEATURES.md#validators).
+**Automated validators** (deterministic coverage checks) — `scripts/validators/` has 63 validators plus gate orchestrators. Used for any artifact where "covered or not" is an objective question: architecture diagrams, OWASP tracker rows, API route coverage, ERD table coverage, sequence-diagram coverage, inventory-row coverage, post-HANDOFF scope + manifest, and delegation discipline (HANDOFF-not-spawn). Each returns exit 0 (clean) / 1 (gap) / 2 (validator errored). The `/gate` skill wraps `validate-phase-gate.sh <phase>` for the active phase. Full catalog: [FEATURES.md](FEATURES.md#validators).
 
 **Confidence gates** (subjective 1-10 score) — used only for artifacts validators cannot check mechanically: narratives, research summaries, rationale. Asymmetric:
 - Score < 5 on any dimension = automatic fail, surface the gap, do NOT iterate

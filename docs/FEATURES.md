@@ -537,6 +537,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
 | `validate-smoke.sh` | Boots server, hits configured routes, asserts HTTP 200 |
 | `validate-spec-traceability.sh` | `docs/TRACEABILITY.md` grades every founding-brief requirement against the produced doc set + tickets (T22.15) |
+| `validate-state-drift.sh` | `docs/work/STATE.md`'s Done-section phase claims are backed by a real/waiver gate receipt (`docs/work/gates/<phase>-receipt.json`, T27.1) — used by `/sdlc resume` (warn) and `run-until-done.sh`'s outer loop (block completion) so a claimed-but-unreceipted phase can't be trusted (T27.4) |
 | `validate-tech-stack.sh` | All runtime and dev dependencies present in TECH_STACK.md |
 | `validate-test-design.sh` | TEST_DESIGN.md has 5 mandatory sections: Unit, Integration, E2E, Security, Test Infrastructure |
 | `validate-tests-mapping.sh` | Use-case ↔ test coverage mapping; UC-level PASS/FAIL derived from jest/vitest/pytest JSON results |

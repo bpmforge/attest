@@ -148,12 +148,21 @@ The SDLC loop builds large context; a user may `/clear` and come back. On `/sdlc
 reconstruct state from chat scrollback — rehydrate from disk:
 
 1. Read `docs/work/STATE.md` (the compact checkpoint: Done / In flight / Next / catch-up list).
-2. Read the **catch-up list in order** (`docs/work/sdlc-state.md` → `docs/work/TICKETS.md` if present
+2. **Drift check (T27.4)** — before trusting `Next`, run
+   `bash scripts/validators/validate-state-drift.sh . docs/work/STATE.md`. This cross-checks every
+   phase `STATE.md`'s Done section claims against a real gate receipt
+   (`docs/work/gates/<phase>-receipt.json`, T27.1) — cheap (no re-run of the phase itself), and it's
+   the same check `run-until-done.sh`'s outer loop uses to decide completion. If it reports gaps,
+   `STATE.md` is claiming a phase finished with no receipt to back it — do NOT resume into that
+   fiction. Surface the divergence to the user (which phase, what's missing) and ask whether to
+   re-run the gate (`/sdlc gate`) or treat `Next` as untrustworthy, before proceeding. A clean result
+   (including "nothing to check" when `STATE.md` claims nothing gated) means proceed normally.
+3. Read the **catch-up list in order** (`docs/work/sdlc-state.md` → `docs/work/TICKETS.md` if present
    → `docs/sdlc/SDLC_TRACKER.md` → `docs/work/HANDOFF_MANIFEST.md` only if a wave is outstanding →
    the 1–3 artifacts the Next step needs).
-3. Re-prime the six session rules (`agents/shared/SESSION_PRIMER.md`).
-4. Announce: "Resuming <mode> at <phase/step>. Next: <X>." Then continue from Next.
-5. If `In flight` names an outstanding HANDOFF, wait for its completion phrase — do not re-emit it.
+4. Re-prime the six session rules (`agents/shared/SESSION_PRIMER.md`).
+5. Announce: "Resuming <mode> at <phase/step>. Next: <X>." Then continue from Next.
+6. If `In flight` names an outstanding HANDOFF, wait for its completion phrase — do not re-emit it.
 
 **Checkpoint discipline (write side):** after every step, overwrite `docs/work/STATE.md` per
 `agents/shared/CHECKPOINT_STATE.md`. When context crosses the `CONTEXT_BUDGET.md` threshold, write the
