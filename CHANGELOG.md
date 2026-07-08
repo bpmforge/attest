@@ -12,6 +12,7 @@ cadence, found while wiring this gate into `run-handoff-gates.sh`. An `[Unreleas
 the standard Keep-a-Changelog answer: it gives every merge a tracker-worthy target without
 forcing a version bump per PR.
 
+- **T27.4** — Outer-loop completion is receipts, not the promise token: `validate-state-drift.sh` (new) cross-checks `docs/work/STATE.md`'s Done-section phase claims against real gate receipts; `run-until-done.sh`'s `is_complete()` now requires the drift check clean (and `validate-tickets.sh` clean when a plan.json exists) before trusting the promise token; `/sdlc resume` runs the same drift check before trusting `Next`.
 - **T27.5** — Runtime autonomy ledger check: `validate-autonomy-ledger.sh` (NEVER-AUTO signing tripwire).
 - **T27.3** — Challenger enforcement gate: `validate-challenger-gate.sh` (CHALLENGE_REPORT existence + CONTRADICTED tripwire).
 - **T27.2** — Truthful completion: `validate-completion-manifest.sh` v2 (Files-produced/Verify-result stat checks, Maker/Verifier identity), `validate-tickets.sh` un-orphaned into phase-4, `run-handoff-gates.sh` gains a Tracker gate, gate scores are now advisory (`GATE_SCORING_PROTOCOL.md`).
