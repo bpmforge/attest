@@ -141,6 +141,68 @@ export async function testChallengerGate(
         );
       fs.rmSync(dir, { recursive: true, force: true });
     }
+
+    // -- regression (independent review, 2026-07-08): a trivial one-line
+    // placeholder challenge report (no parseable Summary/CONTRADICTED line)
+    // used to satisfy the existence check with only a soft warn, so
+    // touching an empty CHALLENGE_REPORT_x.md bypassed the gate without
+    // ever actually challenging anything.
+    {
+      const dir = makeFixtureDir();
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/FIX_BACKLOG_release.md"),
+        "| ID | Severity | Status |\n|----|----------|--------|\n| F1 | CRITICAL | OPEN |\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/CHALLENGE_REPORT_placeholder.md"),
+        "placeholder\n",
+      );
+      const r = run(dir);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("malformed-challenge-report")
+      )
+        ok(
+          "challenger-gate — a placeholder challenge report with no parseable Summary is rejected, not silently accepted",
+        );
+      else
+        fail(
+          "challenger-gate — placeholder challenge report",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    // -- regression (independent review, 2026-07-08): a source report
+    // nested one directory deeper than docs/reviews/ itself used to be
+    // silently invisible to the maxdepth-1 find, so the gate passed clean
+    // while a real un-challenged CRITICAL finding sat one level down.
+    {
+      const dir = makeFixtureDir();
+      fs.mkdirSync(path.join(dir, "docs/reviews/2026-07-08"), {
+        recursive: true,
+      });
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/2026-07-08/FIX_BACKLOG.md"),
+        "| ID | Severity | Status |\n|----|----------|--------|\n| F1 | CRITICAL | OPEN |\n",
+      );
+      const r = run(dir);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("missing-challenge-report")
+      )
+        ok(
+          "challenger-gate — a source report nested under docs/reviews/ is not invisible to the scan",
+        );
+      else
+        fail(
+          "challenger-gate — nested source report",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("challenger-gate", `unexpected failure: ${message}`);

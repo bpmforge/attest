@@ -21,6 +21,16 @@
 # that still shows CONTRADICTED > 0 is unresolved by definition until the
 # report itself is revised down to 0 (or a fresh report replaces it).
 #
+# Non-goal, found by independent review (2026-07-08): the "at least one
+# CHALLENGE_REPORT exists" check is a pure existence count, not a match to
+# the specific source report that triggered it. Once any single clean
+# challenge report exists anywhere in docs/reviews/, a brand-new, entirely
+# unrelated CRITICAL finding in a different report won't re-trip
+# missing-challenge-report. Closing that needs slug/date correlation
+# between a source report and its challenge report, which this narrowly-
+# rescoped existence-check ticket deliberately doesn't build -- filed as a
+# follow-up rather than scope-creeping this validator.
+#
 # Usage: validate-challenger-gate.sh [project-root]
 # Exit 0 clean / 1 gaps / 2 error.
 
@@ -46,7 +56,7 @@ for dir in "$ROOT/docs/reviews" "$ROOT/docs/security"; do
     if grep -qE "$SEVERITY_PATTERN" "$f" 2>/dev/null; then
       SOURCE_HITS+=("$f")
     fi
-  done < <(find "$dir" -maxdepth 1 -type f -name '*.md' 2>/dev/null)
+  done < <(find "$dir" -type f -name '*.md' 2>/dev/null)
 done
 
 if [[ "${#SOURCE_HITS[@]}" -eq 0 ]]; then
@@ -61,7 +71,7 @@ CHALLENGE_REPORTS=()
 if [[ -d "$ROOT/docs/reviews" ]]; then
   while IFS= read -r f; do
     [[ -n "$f" ]] && CHALLENGE_REPORTS+=("$f")
-  done < <(find "$ROOT/docs/reviews" -maxdepth 1 -type f -name 'CHALLENGE_REPORT_*.md' 2>/dev/null)
+  done < <(find "$ROOT/docs/reviews" -type f -name 'CHALLENGE_REPORT_*.md' 2>/dev/null)
 fi
 
 if [[ "${#CHALLENGE_REPORTS[@]}" -eq 0 ]]; then
@@ -76,7 +86,13 @@ for report in "${CHALLENGE_REPORTS[@]}"; do
   rel="${report#"$ROOT"/}"
   contradicted_line="$(grep -m1 -E '^-[[:space:]]*CONTRADICTED:' "$report" 2>/dev/null || true)"
   if [[ -z "$contradicted_line" ]]; then
-    warn "$rel: no '- CONTRADICTED: N' line found in Summary -- can't verify resolution, skipping (malformed report?)"
+    # A challenge report with no parseable Summary is indistinguishable from
+    # a trivial placeholder ("touch CHALLENGE_REPORT_x.md") that satisfies
+    # the existence check without ever actually challenging anything --
+    # found by independent review (2026-07-08). Malformed, not silently
+    # tolerated: a real challenge report always has this line per
+    # CHALLENGER_PROTOCOL.md's format.
+    gap "malformed-challenge-report" "$rel: no '- CONTRADICTED: N' line found in its Summary -- doesn't follow CHALLENGER_PROTOCOL.md's report format, can't verify resolution"
     continue
   fi
   count="$(printf '%s' "$contradicted_line" | grep -oE '[0-9]+' | head -1)"
