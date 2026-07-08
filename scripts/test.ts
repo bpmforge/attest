@@ -17,6 +17,8 @@ import { testGateReceipts } from "./test-gate-receipts.ts";
 import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
 import { testBoardGenerator } from "./test-board-generator.ts";
 import { testBash32Compat } from "./test-bash32-compat.ts";
+import { testEvalsHarness } from "./test-evals-harness.ts";
+import { testSkillAgentRefs } from "./test-skill-agent-refs.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -117,17 +119,28 @@ function parseFrontmatter(content: string): {
 
 /**
  * Extract agent names referenced in backtick strings inside the content.
- * Matches patterns like `sdlc-lead`, `code-reviewer`, etc. that look like agent filenames.
+ *
+ * T22.5: this used to filter on `knownAgents.has(m[1])` INSIDE extraction,
+ * which made the downstream "missing agent" check inert by construction —
+ * nothing extracted could ever be missing, since only already-known names
+ * were ever pushed into the result. A skill referencing a typo'd or deleted
+ * agent name silently passed.
+ *
+ * The fix narrows the pattern instead of removing the filter: only treat a
+ * backtick string as a claimed agent reference when it's immediately
+ * followed by the word "agent" (`the `X` agent`, `routes to `X` agent`) —
+ * this repo's dominant, deliberate convention for naming an agent in prose
+ * (verified against every skill file: 34 real matches, all this shape).
+ * Without that anchor, any backtick'd lowercase-hyphenated technical term
+ * (`phase-0`, `write_scope`, `playwright-mcp`, ...) would false-positive as
+ * a "missing agent" the moment extraction stops pre-filtering.
  */
 function extractAgentRefs(content: string): string[] {
   const refs: string[] = [];
-  const pattern = /`([a-z][\w-]+)`/g;
+  const pattern = /`([a-z][\w-]+)`\s+agent\b/g;
   let m: RegExpExecArray | null;
   while ((m = pattern.exec(content)) !== null) {
-    // Only treat it as an agent ref if it looks like an agent name
-    if (knownAgents.has(m[1])) {
-      refs.push(m[1]);
-    }
+    refs.push(m[1]);
   }
   return [...new Set(refs)];
 }
@@ -175,6 +188,15 @@ for (const skillName of skillDirs) {
   const refNote = agentRefs.length ? ` (refs: ${agentRefs.join(", ")})` : "";
   ok(`${label} — name=${fields.name}${refNote}`);
 }
+
+// ---------------------------------------------------------------------------
+// Pass 2b: Skill→agent negative test (T22.5) — extracted to
+// test-skill-agent-refs.ts to keep this barrel file under the size cap.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 2b] Skill agent refs — RED/GREEN for the missing-agent check",
+);
+await testSkillAgentRefs(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Pass 3: Agents — content length + key structural sections
@@ -345,6 +367,15 @@ await testGateReceipts(root, ok, fail);
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 6] bash 3.2 compat — stock /bin/bash fixtures");
 await testBash32Compat(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 7: Evals harness (T22.5) — run-evals.mjs deterministic mode +
+// chained-validator red/green fixture coverage.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 7] Evals harness — run-evals.mjs + validator fixture coverage",
+);
+await testEvalsHarness(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
