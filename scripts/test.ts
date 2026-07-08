@@ -18,6 +18,7 @@ import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
 import { testBoardGenerator } from "./test-board-generator.ts";
 import { testBash32Compat } from "./test-bash32-compat.ts";
 import { testDeriveLanes } from "./test-derive-lanes.ts";
+import { testAutonomyLedger } from "./test-autonomy-ledger.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -356,6 +357,13 @@ await testGateReceipts(root, ok, fail);
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 6] bash 3.2 compat — stock /bin/bash fixtures");
 await testBash32Compat(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 7: Autonomy ledger (T27.5) — APPROVALS.md well-formed + NEVER-AUTO
+// rows must be human-signed, cross-referenced against AUTONOMY_PROTOCOL.md.
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 7] Autonomy ledger — NEVER-AUTO signing tripwire");
+await testAutonomyLedger(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
