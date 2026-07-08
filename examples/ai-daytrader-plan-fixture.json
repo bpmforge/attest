@@ -1,0 +1,920 @@
+{
+  "goal": "Ship the ai-daytrader learning system (Waves 2-9 + research ingestion) as independently-claimable module tickets for cheap executor models. Specs: PLAYBOOK.md + PROCESS_IMPROVEMENTS.md; interfaces: ARCHITECTURE.md section 4-6.",
+  "modules": [
+    {
+      "id": "M-pit-core",
+      "kind": "module",
+      "title": "PIT layer: bar loader, broker core, model registry (A1, A2, A5)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/ARCHITECTURE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/pit/bars.py",
+        "src/ai_daytrader/learning/pit/broker.py",
+        "src/ai_daytrader/learning/pit/model_registry.py",
+        "scripts/register_models.py",
+        "tests/unit/learning/test_pit_load.py",
+        "tests/unit/learning/test_pit_bars.py",
+        "tests/unit/learning/test_model_registry.py"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "load_bars serves only ts/open/high/low/close/volume from data/historical/ (causal-column guard)",
+        "get_bars visibility exactly bar_end <= as_of (off-by-one test green)",
+        "short-history assets (BONK) return partial lookback without raising",
+        "model registry returns newest training_end < as_of, raises ModelNotAvailable otherwise"
+      ],
+      "verify": "tests/unit/learning/test_pit_bars.py",
+      "nodes": [],
+      "lane": "pit"
+    },
+    {
+      "id": "M-events",
+      "kind": "module",
+      "title": "Event store + derived-event ingestion (A3, A4)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/pit/event_store.py",
+        "scripts/build_derived_events.py",
+        "tests/unit/learning/test_event_store.py",
+        "tests/unit/learning/test_derived_events.py"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "query filters on available_at <= as_of, never published_at",
+        "fear/greed zone crossings and funding extremes emit events using only strictly-prior data for percentiles",
+        "data/events.parquet built by script with count-by-type summary"
+      ],
+      "verify": "tests/unit/learning/test_derived_events.py",
+      "nodes": [],
+      "lane": "pit"
+    },
+    {
+      "id": "M-blinding",
+      "kind": "module",
+      "title": "Package blinding for LLM review (A7)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/v1_game/coach/weekly_package.py",
+        "src/ai_daytrader/v1_game/evolve/epoch_package.py",
+        "tests/unit/learning/test_blinding.py"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "blind=True renders relative labels only; regex finds no absolute dates or month names"
+      ],
+      "verify": "tests/unit/learning/test_blinding.py",
+      "nodes": [],
+      "lane": "coach"
+    },
+    {
+      "id": "M-leakage-proof",
+      "kind": "module",
+      "title": "Leakage corruption test, positive + negative control (A6)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "tests/integration/learning/test_no_lookahead.py"
+      ],
+      "depends_on": [
+        "M-pit-core"
+      ],
+      "acceptance": [
+        "corrupting all future bars leaves past decisions byte-identical",
+        "intentionally broken visibility filter makes the negative-control test fail as designed"
+      ],
+      "verify": "tests/integration/learning/test_no_lookahead.py",
+      "nodes": [],
+      "lane": "learning"
+    },
+    {
+      "id": "M-backtest-driver",
+      "kind": "module",
+      "title": "PIT-fed backtest driver + dual-fee scorecards (A8)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "scripts/backtest_run.py",
+        "tests/unit/learning/test_backtest_driver.py"
+      ],
+      "depends_on": [
+        "M-pit-core"
+      ],
+      "acceptance": [
+        "GameRunner receives prices only via PITBroker (spy-asserted)",
+        "runs both fee profiles (realistic 0.25%, stress 0.6%) and writes runs/<run_id>/ artifacts",
+        "baseline champion (top_tier_baseline) completes a 90-day window"
+      ],
+      "verify": "tests/unit/learning/test_backtest_driver.py",
+      "nodes": [],
+      "lane": "scripts"
+    },
+    {
+      "id": "M-ledger",
+      "kind": "module",
+      "title": "Ledger schema + repos with micro-loop states, prompts, provenance (B1-B3)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PROCESS_IMPROVEMENTS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/ledger/**",
+        "tests/unit/learning/test_ledger.py",
+        "tests/unit/learning/test_prompt_block.py",
+        "tests/unit/learning/test_provenance.py"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "schema includes micro-loop status enum, structured_json, oos_multiplier, discovery_window, state_reason, and phase column on signal_effectiveness",
+        "illegal lifecycle transitions raise; every transition requires a reason",
+        "failed_block renders negative-knowledge markdown; provenance report renders per-proposer table"
+      ],
+      "verify": "tests/unit/learning/test_ledger.py",
+      "nodes": [],
+      "lane": "ledger"
+    },
+    {
+      "id": "M-hypothesize-cli",
+      "kind": "module",
+      "title": "Operator intake CLI: hypothesize + event add (B4)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "src/ai_daytrader/cli/hypothesize.py",
+        "tests/unit/learning/test_hypothesize_cli.py"
+      ],
+      "depends_on": [
+        "M-ledger",
+        "M-events"
+      ],
+      "acceptance": [
+        "hypothesize files a ledger row at PROPOSED with manual_priority=1 and prints the id",
+        "event add ingests via EventStore with sentiment mapping and default latency",
+        "bad input exits non-zero with a clear message"
+      ],
+      "verify": "tests/unit/learning/test_hypothesize_cli.py",
+      "nodes": [],
+      "lane": "cli"
+    },
+    {
+      "id": "M-review",
+      "kind": "module",
+      "title": "Weekly review, epoch post-mortem, health report + trials panel (C1-C3)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/review/**",
+        "scripts/health_report.py",
+        "tests/unit/learning/test_weekly_review.py",
+        "tests/unit/learning/test_postmortem.py",
+        "tests/unit/learning/test_health.py"
+      ],
+      "depends_on": [
+        "M-ledger",
+        "M-backtest-driver"
+      ],
+      "acceptance": [
+        "weekly_review stores schema-valid LLM output and computes llm_weekly_bias map",
+        "post_mortem files each research_request as a PROPOSED hypothesis",
+        "health report renders lifecycle counts, trials panel (N tested all-time, expected false discoveries), champion-vs-challenger, LLM budget usage"
+      ],
+      "verify": "tests/unit/learning/test_health.py",
+      "nodes": [],
+      "lane": "review"
+    },
+    {
+      "id": "M-gate-1",
+      "kind": "module",
+      "title": "GATE 1 run: infrastructure honest-loop (PLAYBOOK section 5.1)",
+      "owner": "independent-verifier(sonnet)+opus-4.8",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "docs/learning-system/GATE1_REPORT.md"
+      ],
+      "depends_on": [
+        "M-leakage-proof",
+        "M-backtest-driver",
+        "M-review",
+        "M-blinding",
+        "M-hypothesize-cli"
+      ],
+      "acceptance": [
+        "full suite green; leakage positive + negative controls behave as designed",
+        "90-day dual-fee backtest completes with >=12 journaled weekly reviews (replay mode allowed)",
+        "health report renders all sections; blinded packages contain no absolute dates",
+        "verifier is a different session/model than the implementers (maker != checker)"
+      ],
+      "verify": "scripts/backtest_run.py",
+      "nodes": [],
+      "lane": "learning-system"
+    },
+    {
+      "id": "M-features",
+      "kind": "module",
+      "title": "Causal derived features + news features (D1s, D2s / TASKS W6-1, W6-2)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/pit/features.py",
+        "tests/unit/learning/test_features.py",
+        "tests/unit/learning/test_news_features.py"
+      ],
+      "depends_on": [
+        "M-pit-core",
+        "M-events"
+      ],
+      "acceptance": [
+        "rel_strength, universe_corr_state, time_features, news features wired into build_frame",
+        "every feature is causal: corrupting future rows leaves past values unchanged"
+      ],
+      "verify": "tests/unit/learning/test_features.py",
+      "nodes": [],
+      "lane": "pit"
+    },
+    {
+      "id": "M-regime",
+      "kind": "module",
+      "title": "Rule-based PIT-safe regime provider (D3s / W5-0)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/pit/regime.py",
+        "tests/unit/learning/test_regime.py"
+      ],
+      "depends_on": [
+        "M-pit-core"
+      ],
+      "acceptance": [
+        "detect_regime returns state/vol_level/trend/vol from visible bars only",
+        "regime_series is row-causal (future corruption changes nothing in the past)"
+      ],
+      "verify": "tests/unit/learning/test_regime.py",
+      "nodes": [],
+      "lane": "pit"
+    },
+    {
+      "id": "M-signal-library",
+      "kind": "module",
+      "title": "Signal registry: seed causal signals + dynamic registration (D4s / W6-0)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/signals/**",
+        "tests/unit/learning/test_signal_library.py"
+      ],
+      "depends_on": [
+        "M-features"
+      ],
+      "acceptance": [
+        "seed signals (rsi_14, macd_hist, bb_pct_20, ret_24h, vol_24h, funding_z_30d, fg_zone) hand-checked on fixtures",
+        "causality test passes for every registered signal including a dynamic one",
+        "dynamic signals re-register from ledger params at startup (no pickled closures)"
+      ],
+      "verify": "tests/unit/learning/test_signal_library.py",
+      "nodes": [],
+      "lane": "signals"
+    },
+    {
+      "id": "M-scout",
+      "kind": "module",
+      "title": "Pattern scout: sweeps, filters, lens, assembly-as-filer (E1-E4)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/scout/**",
+        "tests/unit/learning/test_sweeps.py",
+        "tests/unit/learning/test_filters.py",
+        "tests/unit/learning/test_lens.py",
+        "tests/unit/learning/test_scout.py"
+      ],
+      "depends_on": [
+        "M-regime",
+        "M-signal-library",
+        "M-ledger"
+      ],
+      "acceptance": [
+        "planted lead-lag and conditional effects are found; noise yields only p>0.05 candidates",
+        "Bonferroni + orthogonality filters exercised individually with reconciling stats",
+        "lens judges ONE candidate per LLM call with the negative-knowledge block; plausibility none sets oos_multiplier",
+        "scout only FILES candidates at PROPOSED with discovery_window recorded; it decides nothing"
+      ],
+      "verify": "tests/unit/learning/test_scout.py",
+      "nodes": [],
+      "lane": "scout"
+    },
+    {
+      "id": "M-lab",
+      "kind": "module",
+      "title": "Signal Lab micro-loop: pump, ablation + permutation control, lifecycle + shadow (W6L-0/1/2)",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PROCESS_IMPROVEMENTS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/lab/**",
+        "tests/unit/learning/test_pump.py",
+        "tests/unit/learning/test_ablation.py",
+        "tests/unit/learning/test_lifecycle.py"
+      ],
+      "depends_on": [
+        "M-scout",
+        "M-backtest-driver"
+      ],
+      "acceptance": [
+        "pump advances each non-terminal hypothesis exactly one gated transition, idempotent and crash-safe",
+        "ablation validates on a window disjoint from discovery with horizon embargo, realistic fees, per-regime split",
+        "permutation control (200 shuffles) rejects a planted market-drift edge",
+        "shadow stage gates live promotion; decay/retire/recover transitions all ledgered with reasons"
+      ],
+      "verify": "tests/unit/learning/test_pump.py",
+      "nodes": [],
+      "lane": "lab"
+    },
+    {
+      "id": "M-gate-2",
+      "kind": "module",
+      "title": "GATE 2 run: autonomous discovery end-to-end (PLAYBOOK section 5.2 + PROCESS_IMPROVEMENTS section 6)",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "docs/learning-system/GATE2_REPORT.md"
+      ],
+      "depends_on": [
+        "M-lab",
+        "M-gate-1"
+      ],
+      "acceptance": [
+        "90-day replay: scout averages >=5 lensed candidates/week; >=10 signals reach validated; >=1 live and >=1 rejected with reason",
+        "re-run proposes ZERO previously-rejected theses (negative knowledge holds)",
+        "acceptance rate reported within 20-60 percent band or investigated",
+        "a degraded shadow signal is demonstrably NOT promoted"
+      ],
+      "verify": "scripts/backtest_run.py",
+      "nodes": [],
+      "lane": "learning-system"
+    },
+    {
+      "id": "M-forge",
+      "kind": "module",
+      "title": "Strategy forge: spec, population assembly, hardened promotion (G1-G3)",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/forge/**",
+        "tests/unit/learning/test_spec.py",
+        "tests/unit/learning/test_forge.py",
+        "tests/unit/learning/test_promotion.py"
+      ],
+      "depends_on": [
+        "M-signal-library",
+        "M-ledger"
+      ],
+      "acceptance": [
+        "StrategySpec schema-validated; unknown signal names rejected; to_policy adapts to v1_game Policy honoring decaying weight_multiplier",
+        "population = k LLM specs + m jittered + champion; invalid LLM specs ledgered as rejects",
+        "promotion requires 2 consecutive epoch wins on all gates, >=20 round-trips/epoch, wins under BOTH fee profiles; row stores both scorecards"
+      ],
+      "verify": "tests/unit/learning/test_promotion.py",
+      "nodes": [],
+      "lane": "forge"
+    },
+    {
+      "id": "M-risk",
+      "kind": "module",
+      "title": "Risk layer: effective bets, kill-switch ladder, notifications (H1-H3)",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/risk/**",
+        "tests/unit/learning/test_effective_bets.py",
+        "tests/unit/learning/test_kill_switch.py",
+        "tests/unit/learning/test_risk_notify.py"
+      ],
+      "depends_on": [
+        "M-regime"
+      ],
+      "acceptance": [
+        "correlated-cluster effective bets math verified on hand fixtures; enforcement scales down never up",
+        "kill-switch rungs trigger and clear per spec with precedence HALT > FLAT > FLOOR",
+        "non-NONE actions notify once per action per day"
+      ],
+      "verify": "tests/unit/learning/test_kill_switch.py",
+      "nodes": [],
+      "lane": "risk"
+    },
+    {
+      "id": "M-orchestrator",
+      "kind": "module",
+      "title": "Rhythm daemon + data quality + LLM budgets (I1-I3)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/TASKS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/orchestrator.py",
+        "src/ai_daytrader/learning/pit/quality.py",
+        "src/ai_daytrader/learning/gateway/budget.py",
+        "tests/unit/learning/test_orchestrator.py",
+        "tests/unit/learning/test_quality.py",
+        "tests/unit/learning/test_budget.py"
+      ],
+      "depends_on": [
+        "M-lab",
+        "M-forge",
+        "M-risk",
+        "M-review"
+      ],
+      "acceptance": [
+        "simulated 10-day clock fires hourly/daily/weekly/epoch jobs the right number of times; restart mid-week never double-fires (state from ledger only)",
+        "daily job = decay check + feed quality feeding KillSwitch; weekly job = review + scout filing + pump",
+        "budgets block optional jobs and queue mandatory ones"
+      ],
+      "verify": "tests/unit/learning/test_orchestrator.py",
+      "nodes": [],
+      "lane": "learning"
+    },
+    {
+      "id": "M-gate-3",
+      "kind": "module",
+      "title": "GATE 3 run: full autonomous 90-day rhythm (PLAYBOOK section 5.3)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "docs/learning-system/GATE3_REPORT.md"
+      ],
+      "depends_on": [
+        "M-orchestrator",
+        "M-gate-2"
+      ],
+      "acceptance": [
+        "orchestrated 90-day run: all cadences fire correctly with ledger evidence; >=3 epochs with populations, scorecards, post-mortems",
+        "promotion machinery demonstrated (real or forced-fixture) and every epoch's decision ledgered",
+        "kill-switch fire drill halts and notifies once; restart mid-run double-fires nothing",
+        "realistic-fee scorecard beats 5-asset equal-weight baseline OR post-mortems explain why with filed directives"
+      ],
+      "verify": "scripts/backtest_run.py",
+      "nodes": [],
+      "lane": "learning-system"
+    },
+    {
+      "id": "M-research-store",
+      "kind": "module",
+      "title": "PIT research store: documents/scores/entities/edges/rollups schema + repos (WR-0)",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/store.py",
+        "tests/unit/learning/test_research_store.py"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "three-timestamp model (published_at/observed_at/available_at) with backfilled flag; replay query docs_asof excludes future available_at",
+        "append-only: edits chain via supersedes; dedup by (source, source_uid, body_sha)",
+        "a backfilled insert cannot alter narrative rollups for hours before its own available_at",
+        "graph_asof(T) serves only edges with first_learned_at <= T"
+      ],
+      "verify": "tests/unit/learning/test_research_store.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-research-collect",
+      "kind": "module",
+      "title": "Collectors, all LLM-free: Reddit, YouTube, RSS/PR-wires, GDELT, attention, DefiLlama (WR-1/2/5/6/8/9) \u2014 start early, corpus accrues",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/reddit.py",
+        "src/ai_daytrader/learning/research/youtube.py",
+        "src/ai_daytrader/learning/research/rss.py",
+        "src/ai_daytrader/learning/research/gdelt.py",
+        "src/ai_daytrader/learning/research/attention.py",
+        "src/ai_daytrader/learning/research/defillama.py",
+        "scripts/collect_research.py",
+        "config/research_sources.yaml",
+        "tests/unit/learning/test_research_collect.py"
+      ],
+      "depends_on": [
+        "M-research-store"
+      ],
+      "acceptance": [
+        "every API verified via /pre-code BEFORE coding; unverifiable -> BLOCKED, not written from memory",
+        "collectors write documents to the research store with correct available_at semantics and zero LLM calls; collector_runs row per run",
+        "RSS collector is one generic parser driven by config/research_sources.yaml (crypto media + PR wires + exchange announcements)",
+        "Google Trends stored as dated snapshots (forward-only); Wikipedia pageviews backfillable as GOLD",
+        "normalizers fixture-tested; failures degrade per-source, never crash the run"
+      ],
+      "verify": "tests/unit/learning/test_research_collect.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-edgar-collect",
+      "kind": "module",
+      "title": "EDGAR collector: 8-K + Form 4 for crypto-adjacent tickers, 10-K supplier/customer text (WR-7)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/edgar.py",
+        "tests/unit/learning/test_edgar_collect.py"
+      ],
+      "depends_on": [
+        "M-research-store"
+      ],
+      "acceptance": [
+        "8-K and Form 4 documents for COIN/MSTR/HOOD/MARA/RIOT/CLSK stored with acceptance datetime as available_at (GOLD)",
+        "10-K Item 1/1A customer-supplier sections extracted as text for the theme-graph builder",
+        "SEC fair-access rules respected (User-Agent, rate limits)"
+      ],
+      "verify": "tests/unit/learning/test_edgar_collect.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-doc-scoring",
+      "kind": "module",
+      "title": "Doc scorer: one doc per classifier call, mechanics-not-outcomes, scored once (WR-10)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/score.py",
+        "tests/unit/learning/test_doc_scoring.py"
+      ],
+      "depends_on": [
+        "M-research-store"
+      ],
+      "acceptance": [
+        "one document per LLM call; schema-validated sentiment/magnitude/novelty/themes/entities/claims",
+        "prompts blinded of absolute dates; claims are mechanics not outcomes (model-knowledge leakage guard)",
+        "scores written once with model_id; re-scores append versioned, never overwrite"
+      ],
+      "verify": "tests/unit/learning/test_doc_scoring.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-theme-graph",
+      "kind": "module",
+      "title": "Theme graph builder: LLM edge extraction + EDGAR edges + GDELT co-mentions, PIT edges (WR-11)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/graph.py",
+        "tests/unit/learning/test_theme_graph.py"
+      ],
+      "depends_on": [
+        "M-doc-scoring",
+        "M-edgar-collect"
+      ],
+      "acceptance": [
+        "edges carry relation type, confidence, provenance doc, first_learned_at = teaching doc's available_at",
+        "graph_asof(T) returns only edges learned before T (knowledge-lookahead guard, test-proven)",
+        "10-K supplier/customer edges outrank co-mention edges in confidence; duplicate edges update last_confirmed_at"
+      ],
+      "verify": "tests/unit/learning/test_theme_graph.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-narrative-features",
+      "kind": "module",
+      "title": "Narrative rollups + burst detector + broker frame features via feature_fns seam (WR-12)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/rollups.py",
+        "tests/unit/learning/test_narrative_features.py"
+      ],
+      "depends_on": [
+        "M-doc-scoring",
+        "M-pit-core"
+      ],
+      "acceptance": [
+        "hourly narrative_metrics per entity computed only over available_at <= hour",
+        "frame gains news_burst/sent_wmean_24h/novelty_max_24h/attention_z via the broker feature_fns seam (no broker.py edits)",
+        "burst detector flags doc_count spikes vs trailing 30d baseline, row-causally"
+      ],
+      "verify": "tests/unit/learning/test_narrative_features.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-theme-propagation",
+      "kind": "module",
+      "title": "Theme-propagation scout sweep: shock -> graph walk -> hypothesis filing (WR-13)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/scout/theme_sweep.py",
+        "tests/unit/learning/test_theme_sweep.py"
+      ],
+      "depends_on": [
+        "M-theme-graph",
+        "M-narrative-features",
+        "M-scout"
+      ],
+      "acceptance": [
+        "narrative/price shock at a graph entity proposes hypotheses for 1- and 2-hop tradeable neighbors with edge-chain provenance and direction",
+        "proposals enter the standard micro-loop at PROPOSED (no special trust; ablation + permutation still gate them)",
+        "walk uses graph_asof(T) \u2014 a chain learned after T cannot generate hypotheses at T (test-proven)"
+      ],
+      "verify": "tests/unit/learning/test_theme_sweep.py",
+      "nodes": [],
+      "lane": "scout"
+    },
+    {
+      "id": "M-backfill",
+      "kind": "module",
+      "title": "Backfill harness: GDELT/Wikipedia/DefiLlama/EDGAR/HN historical loads, silver-tier discipline (WR-14)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/RESEARCH_SOURCES.md",
+      "write_scope": [
+        "scripts/backfill_research.py",
+        "tests/unit/learning/test_backfill.py"
+      ],
+      "depends_on": [
+        "M-research-collect"
+      ],
+      "acceptance": [
+        "backfilled documents flagged backfilled=1 with available_at = published_at + source latency",
+        "a hypothesis validated only on silver (backfilled) data carries backfill_risk and cannot skip the shadow stage (test-proven)",
+        "idempotent: re-running a backfill window inserts zero duplicates"
+      ],
+      "verify": "tests/unit/learning/test_backfill.py",
+      "nodes": [],
+      "lane": "scripts"
+    },
+    {
+      "id": "M-research-extract",
+      "kind": "module",
+      "title": "Thesis extractor + per-source scoreboard (WR-3, WR-4)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/PROCESS_IMPROVEMENTS.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/extract.py",
+        "src/ai_daytrader/learning/ledger/reports.py",
+        "tests/unit/learning/test_extract.py",
+        "tests/unit/learning/test_source_scoreboard.py"
+      ],
+      "depends_on": [
+        "M-research-collect",
+        "M-lab"
+      ],
+      "acceptance": [
+        "one item -> one classifier-role call -> structured thesis or logged SKIP; testable theses filed at PROPOSED with manual_priority=2",
+        "scoreboard reports per source: filed / survived-screen / accepted / reached-live with rates, split by gold vs silver (backfilled) evidence",
+        "feeds the Mode A/B experiment (scout-only vs scout+external)"
+      ],
+      "verify": "tests/unit/learning/test_extract.py",
+      "nodes": [],
+      "lane": "ledger"
+    },
+    {
+      "id": "M-event-study",
+      "kind": "module",
+      "title": "Event-study sweep: asset reaction patterns after macro/company events (W5-5, audit gap G1)",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/learning-system/SDLC_AUDIT_2026-07-02.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/scout/event_study.py",
+        "tests/unit/learning/test_event_study.py"
+      ],
+      "depends_on": [
+        "M-scout",
+        "M-events"
+      ],
+      "acceptance": [
+        "event_study(events, returns, horizons=(1,4,24)) computes mean abnormal return vs unconditional baseline per (event type, sentiment sign) bucket with Welch t-test, kind='event_study'",
+        "events keyed by available_at (PIT); planted post-event drift in synthetic data is found; no-effect data yields p>0.05 only",
+        "covers CPI/FOMC calendar events, listings, 8-Ks, funding extremes, sentiment-zone crossings via the shared event surface"
+      ],
+      "verify": "tests/unit/learning/test_event_study.py",
+      "nodes": [],
+      "lane": "scout"
+    },
+    {
+      "id": "M-signal-dsl",
+      "kind": "module",
+      "title": "SignalSpec DSL: LLM invents new signals as declarative expressions, tested like any hypothesis (WS-1, audit gap G2)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/SDLC_AUDIT_2026-07-02.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/signals/spec.py",
+        "tests/unit/learning/test_signal_spec.py"
+      ],
+      "depends_on": [
+        "M-signal-library",
+        "M-forge"
+      ],
+      "acceptance": [
+        "SIGNAL_SPEC_SCHEMA: {name, thesis, expr} with expr = {op, args} tree over indicator/const/add/sub/mul/div/gt/lt/cross_above/cross_below/zscore/lag/spread; depth <= 4; unknown ops, unknown indicators, and out-of-bounds windows rejected",
+        "interpreter realizes expr against library primitives causally (tail-corruption test passes); LLM output is interpreted JSON, never executed code (invariant 3)",
+        "authored specs file into the hypothesis micro-loop at PROPOSED with structured_json = spec; strategist prompt in forge offers invention alongside strategy authoring"
+      ],
+      "verify": "tests/unit/learning/test_signal_spec.py",
+      "nodes": [],
+      "lane": "signals"
+    },
+    {
+      "id": "M-debate-gate",
+      "kind": "module",
+      "title": "Adversarial debate gate: bull/bear/judge for forge specs + live-stakes lenses (WF-0, WF-5)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/DESK_DESIGN_AND_LANDSCAPE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/review/debate.py",
+        "tests/unit/learning/test_debate.py"
+      ],
+      "depends_on": [
+        "M-forge",
+        "M-lab"
+      ],
+      "acceptance": [
+        "three schema-validated calls (bull, bear with failed_block, judge) return proceed|revise|reject with key_risk",
+        "optional via config (forge.debate_gate, lab.debate_on_live_stakes); budget-denied falls back to single-lens",
+        "persona prompt variants usable as the judge-diversity set (prompts only, no new machinery)"
+      ],
+      "verify": "tests/unit/learning/test_debate.py",
+      "nodes": [],
+      "lane": "review"
+    },
+    {
+      "id": "M-insider-flow",
+      "kind": "module",
+      "title": "Follow-the-filers: congress PTR collector + Form 4 cluster detector (WF-1, WF-2; 13F spec-only)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/DESK_DESIGN_AND_LANDSCAPE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/research/congress.py",
+        "src/ai_daytrader/learning/research/insider_cluster.py",
+        "tests/unit/learning/test_congress_collect.py",
+        "tests/unit/learning/test_insider_cluster.py"
+      ],
+      "depends_on": [
+        "M-research-store",
+        "M-edgar-collect"
+      ],
+      "acceptance": [
+        "THE PIT TRAP guarded: available_at = disclosure/filing publication timestamp, transaction_date is payload only (test-proven)",
+        "congress PTRs from official House/Senate endpoints (verified via /pre-code; tracker sites as fallback), per-politician entities for the theme graph",
+        "Form 4 cluster rule: >=2 distinct insiders open-market buys (code P) in 10 business days, routine-calendar filers excluded; emits insider_cluster_buy signal",
+        "filer signals enter the standard hypothesis micro-loop with no special trust; source scoreboard splits congress vs insider vs 13F cohorts"
+      ],
+      "verify": "tests/unit/learning/test_insider_cluster.py",
+      "nodes": [],
+      "lane": "research"
+    },
+    {
+      "id": "M-vol-target",
+      "kind": "module",
+      "title": "Portfolio vol targeting: gross exposure scalar after effective-bets (WL-4)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/DESK_DESIGN_AND_LANDSCAPE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/risk/vol_target.py",
+        "tests/unit/learning/test_vol_target.py"
+      ],
+      "depends_on": [
+        "M-risk"
+      ],
+      "acceptance": [
+        "realized 20d portfolio vol vs risk.target_vol produces a gross scalar clamped to [0.3, 1.0]",
+        "applied after effective-bets enforcement; never increases any weight; pure function with hand fixtures"
+      ],
+      "verify": "tests/unit/learning/test_vol_target.py",
+      "nodes": [],
+      "lane": "risk"
+    },
+    {
+      "id": "M-live-broker",
+      "kind": "module",
+      "title": "Live desk: order router + CCXT Coinbase adapter + reconciliation + approval ladder (WL-1, WL-2, WL-5)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/DESK_DESIGN_AND_LANDSCAPE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/live/**",
+        "tests/unit/learning/test_order_router.py",
+        "tests/unit/learning/test_broker_adapter.py",
+        "tests/unit/learning/test_approvals.py"
+      ],
+      "depends_on": [
+        "M-gate-3",
+        "M-vol-target"
+      ],
+      "acceptance": [
+        "sim and live executor share the same interface; the strategy cannot tell which it drives",
+        "idempotent client_order_ids; partial fills handled; every order/fill/cancel ledgered",
+        "reconciliation loop: exchange truth vs ledger positions; drift beyond tolerance triggers kill-switch HALT_ANOMALY",
+        "approval ladder in code: paper -> $1k -> $5k -> $10k, each step a ledgered operator approval; router refuses orders above approved step; HALT resets a step",
+        "backtest/sim processes can never read live API keys (invariant 6 extension, test-proven)"
+      ],
+      "verify": "tests/unit/learning/test_broker_adapter.py",
+      "nodes": [],
+      "lane": "live"
+    },
+    {
+      "id": "M-tca",
+      "kind": "module",
+      "title": "Transaction cost analysis: measured slippage vs model, recalibration, throttling (WL-3)",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/DESK_DESIGN_AND_LANDSCAPE.md",
+      "write_scope": [
+        "src/ai_daytrader/learning/live/tca.py",
+        "tests/unit/learning/test_tca.py"
+      ],
+      "depends_on": [
+        "M-live-broker"
+      ],
+      "acceptance": [
+        "per-fill slippage vs decision-time mid recorded; weekly aggregation per asset/tier",
+        "recalibrate_slippage proposes new tier values (operator-approved before config change, never auto-applied)",
+        "assets with real cost > 2x model get a throttle flag consumed by the trade gate"
+      ],
+      "verify": "tests/unit/learning/test_tca.py",
+      "nodes": [],
+      "lane": "live"
+    },
+    {
+      "id": "M-path-to-live",
+      "kind": "module",
+      "title": "Post-Gate-3: data refresh to present, real news ingestion, paper-trading parity",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/learning-system/PLAYBOOK.md",
+      "write_scope": [
+        "scripts/refresh_bars.py",
+        "docs/learning-system/PAPER_PARITY_REPORT.md"
+      ],
+      "depends_on": [
+        "M-gate-3",
+        "M-live-broker",
+        "M-tca"
+      ],
+      "acceptance": [
+        "bars refreshed to present for all 36 assets + daily refresh job; Gate-3 window re-run on freshest 90 days",
+        "2-week Coinbase paper trade (sandbox mode of M-live-broker) with live decisions replay-matching the backtest engine on identical frames",
+        "TCA report shows modeled vs real costs within tolerance before any live step",
+        "operator approval recorded before any live capital (D-003); approval ladder governs scale-up",
+        "docs/learning-system/OPS_RUNBOOK.md written: HALT-at-3am procedure, reconciliation drift, budget exhaustion, LLM-host down, restart drill (audit gap G5)"
+      ],
+      "verify": "docs/learning-system/PAPER_PARITY_REPORT.md",
+      "nodes": [],
+      "lane": "scripts"
+    },
+    {
+      "id": "M-gate1-harness",
+      "kind": "module",
+      "title": "Gate-1 honest-loop harness: journal >=12 weekly reviews across a 90d run",
+      "owner": "opus-4.8-session-2026-07-02",
+      "status": "done",
+      "interface": "docs/learning-system/PLAYBOOK.md#5.1",
+      "write_scope": [
+        "scripts/gate1.py",
+        "tests/unit/learning/test_gate1_harness.py"
+      ],
+      "depends_on": [
+        "M-backtest-driver",
+        "M-review",
+        "M-blinding"
+      ],
+      "acceptance": [
+        "walks a 90d run weekly, builds a blinded package each week, calls weekly_review (stub/replay) -> >=12 review rows in the run ledger",
+        "blinded packages contain no absolute dates or month names",
+        "emits a PASS/FAIL checklist for the Gate-1 runbook criteria it owns"
+      ],
+      "verify": "tests/unit/learning/test_gate1_harness.py",
+      "lane": "scripts"
+    }
+  ],
+  "nodes": []
+}

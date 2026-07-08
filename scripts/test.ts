@@ -17,6 +17,7 @@ import { testGateReceipts } from "./test-gate-receipts.ts";
 import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
 import { testBoardGenerator } from "./test-board-generator.ts";
 import { testBash32Compat } from "./test-bash32-compat.ts";
+import { testDeriveLanes } from "./test-derive-lanes.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -331,6 +332,16 @@ await testTicketLifecycle(root, ok, fail);
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 4c] Board generator — lane-column board");
 await testBoardGenerator(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 4d: Lane derivation (T10.4) — deriveLane() unit cases + the real
+// ai-daytrader fixture (37 modules) end-to-end through validatePlan() and
+// gen-tickets-board.mjs.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 4d] Lane derivation — deriveLane() + ai-daytrader fixture",
+);
+await testDeriveLanes(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Pass 5: Gate receipts (T27.1) — red/green fixtures. Extracted to
