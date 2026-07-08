@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 #
-# run-handoff-gates.sh — three-gate automated check after a HANDOFF returns.
+# run-handoff-gates.sh — automated gate chain after a HANDOFF returns.
 #
 # Replaces the orchestrator's manual "read the manifest and decide" step with
 # deterministic validators. Called by sdlc-lead from the resume protocol.
 #
 # Gates (in order; any failure aborts the rest):
 #   1. Scope    — git writes confined to assigned directories
-#   2. Manifest — completion manifest schema valid
+#   2. Manifest — completion manifest schema valid AND claims checked against
+#                 disk (T27.2 v2: files exist, verify cites a real artifact,
+#                 maker != verifier)
 #   3. Coverage — domain-specific validator (optional)
+#   4. Tracker  — tracker-worthy work changed a tracker file (T27.2; per-step
+#                 mode against HEAD -- the working tree at resume time is
+#                 exactly the diff validate-tracker-fresh.sh needs, unlike
+#                 the phase-gate's static content checks where a --base ref
+#                 comparison wouldn't have anything meaningful to diff against)
+#   5. Runtime  — build + lint (optional, --runtime flag; coding-agent HANDOFFs)
 #
 # Usage:
 #   run-handoff-gates.sh \
@@ -88,13 +96,22 @@ fi
 ROOT="$(detect_project_root "$PROJECT_ROOT_ARG")"
 VALIDATORS_DIR="$(dirname "${BASH_SOURCE[0]}")"
 
+# Resolve a relative --manifest path against --root, not the caller's CWD --
+# a relative path only worked before by accident when CWD happened to equal
+# ROOT. T27.2's manifest v2 stat-checks Files-produced paths against ROOT,
+# so a manifest path that isn't ALSO resolved against ROOT is inconsistent
+# with itself (found while adding the Tracker gate's own test fixture).
+if [[ "$MANIFEST" != /* ]]; then
+  MANIFEST="$ROOT/$MANIFEST"
+fi
+
 note "project root: $ROOT"
 note "scope(s): ${SCOPE_DIRS[*]}"
 note "manifest: $MANIFEST"
 [[ -n "$COVERAGE" ]] && note "coverage: $COVERAGE" || note "coverage: (none)"
 
 # ── Gate 1: scope ──────────────────────────────────────────────────────────
-printf '\n%s== GATE 1/3: SCOPE ==%s\n' "$_BOLD" "$_RESET" >&2
+printf '\n%s== GATE: SCOPE ==%s\n' "$_BOLD" "$_RESET" >&2
 scope_args=()
 for d in "${SCOPE_DIRS[@]}"; do
   scope_args+=("$d")
@@ -108,18 +125,18 @@ else
 fi
 
 # ── Gate 2: manifest ───────────────────────────────────────────────────────
-printf '\n%s== GATE 2/3: MANIFEST ==%s\n' "$_BOLD" "$_RESET" >&2
-if bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" > /dev/null 2>&1; then
+printf '\n%s== GATE: MANIFEST ==%s\n' "$_BOLD" "$_RESET" >&2
+if bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" "$ROOT" > /dev/null 2>&1; then
   pass "manifest gate clean"
 else
-  bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" 2>&1 | tail -20 >&2 || true
-  gap "manifest" "completion manifest schema invalid at $MANIFEST"
+  bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" "$ROOT" 2>&1 | tail -20 >&2 || true
+  gap "manifest" "completion manifest invalid at $MANIFEST"
   validator_exit
 fi
 
 # ── Gate 3: coverage (optional) ────────────────────────────────────────────
 if [[ -n "$COVERAGE" ]]; then
-  printf '\n%s== GATE 3/3: COVERAGE (%s) ==%s\n' "$_BOLD" "$COVERAGE" "$_RESET" >&2
+  printf '\n%s== GATE: COVERAGE (%s) ==%s\n' "$_BOLD" "$COVERAGE" "$_RESET" >&2
   cov_script="$VALIDATORS_DIR/$COVERAGE"
   if [[ ! -f "$cov_script" ]]; then
     gap "coverage" "coverage validator not found: $COVERAGE"
@@ -133,12 +150,24 @@ if [[ -n "$COVERAGE" ]]; then
     validator_exit
   fi
 else
-  printf '\n%s== GATE 3/3: COVERAGE ==%s (skipped -- no --coverage arg)\n' "$_BOLD" "$_RESET" >&2
+  printf '\n%s== GATE: COVERAGE ==%s (skipped -- no --coverage arg)\n' "$_BOLD" "$_RESET" >&2
 fi
 
-# ── Gate 4: runtime (only when --runtime passed — coding-agent handoffs) ───
+# ── Gate 4: tracker (T27.2) ─────────────────────────────────────────────────
+# Per-step mode (no --base): compares the working tree against HEAD, which at
+# resume time IS the uncommitted footprint of the HANDOFF that just returned.
+printf '\n%s== GATE: TRACKER ==%s\n' "$_BOLD" "$_RESET" >&2
+if bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" > /dev/null 2>&1; then
+  pass "tracker gate clean"
+else
+  bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" 2>&1 | tail -20 >&2 || true
+  gap "tracker" "work changed but no tracker file updated -- see validate-tracker-fresh.sh output"
+  validator_exit
+fi
+
+# ── Gate 5: runtime (only when --runtime passed — coding-agent handoffs) ───
 if [[ "$RUNTIME" == "true" ]]; then
-  printf '\n%s== GATE 4/4: RUNTIME (build + lint) ==%s\n' "$_BOLD" "$_RESET" >&2
+  printf '\n%s== GATE: RUNTIME (build + lint) ==%s\n' "$_BOLD" "$_RESET" >&2
   for rv in "validate-build.sh" "validate-lint.sh"; do
     rv_script="$VALIDATORS_DIR/$rv"
     if [[ ! -f "$rv_script" ]]; then
@@ -154,7 +183,7 @@ if [[ "$RUNTIME" == "true" ]]; then
     fi
   done
 else
-  printf '\n%s== GATE 4/4: RUNTIME ==%s (skipped -- no --runtime flag)\n' "$_BOLD" "$_RESET" >&2
+  printf '\n%s== GATE: RUNTIME ==%s (skipped -- no --runtime flag)\n' "$_BOLD" "$_RESET" >&2
 fi
 
 printf '\n%sAll gates passed%s\n' "$_GREEN" "$_RESET" >&2

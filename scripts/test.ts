@@ -23,6 +23,7 @@ import { testEvalsHarness } from "./test-evals-harness.ts";
 import { testSkillAgentRefs } from "./test-skill-agent-refs.ts";
 import { testTicketsGraph } from "./test-tickets-graph.ts";
 import { testChallengerGate } from "./test-challenger-gate.ts";
+import { testTruthfulCompletion } from "./test-truthful-completion.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -303,6 +304,16 @@ console.log(
   "\n[Pass 9] Challenger gate — CHALLENGE_REPORT existence + CONTRADICTED tripwire",
 );
 await testChallengerGate(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 10: Truthful completion (T27.2) — manifest v2 stat checks +
+// maker/verifier identity, validate-tickets.sh un-orphaned into phase-4,
+// run-handoff-gates.sh's new Tracker gate end-to-end.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 10] Truthful completion — manifest v2 + tickets wiring + tracker gate",
+);
+await testTruthfulCompletion(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

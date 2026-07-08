@@ -1,0 +1,18 @@
+{
+  "goal": "Red fixture — a module missing its required lane field",
+  "modules": [
+    {
+      "id": "M-a",
+      "kind": "module",
+      "title": "Module A",
+      "owner": "coding-agent",
+      "status": "ready",
+      "interface": "docs/design/api/a.md",
+      "write_scope": ["src/a/**"],
+      "depends_on": [],
+      "acceptance": ["works"],
+      "verify": "scripts/validators/validate-build.sh",
+      "nodes": []
+    }
+  ]
+}
