@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Per-PR entries land here; release-manager rolls them into the next tagged section. Added
+2026-07-08 (T27.2) because `validate-tracker-fresh.sh --base <base>` is a documented
+git-expert.md merge-gate condition, but this repo's actual CHANGELOG convention batches entries
+at tag time — a real mismatch between per-PR merge-gate granularity and per-release changelog
+cadence, found while wiring this gate into `run-handoff-gates.sh`. An `[Unreleased]` section is
+the standard Keep-a-Changelog answer: it gives every merge a tracker-worthy target without
+forcing a version bump per PR.
+
+- **T27.5** — Runtime autonomy ledger check: `validate-autonomy-ledger.sh` (NEVER-AUTO signing tripwire).
+- **T27.3** — Challenger enforcement gate: `validate-challenger-gate.sh` (CHALLENGE_REPORT existence + CONTRADICTED tripwire).
+- **T27.2** — Truthful completion: `validate-completion-manifest.sh` v2 (Files-produced/Verify-result stat checks, Maker/Verifier identity), `validate-tickets.sh` un-orphaned into phase-4, `run-handoff-gates.sh` gains a Tracker gate, gate scores are now advisory (`GATE_SCORING_PROTOCOL.md`).
+
 ## [1.32.0] — 2026-07-06
 
 ### Added — UX gate hardening + founding-brief traceability (RetroForge lesson)

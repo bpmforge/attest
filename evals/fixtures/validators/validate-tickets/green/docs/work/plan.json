@@ -1,0 +1,19 @@
+{
+  "goal": "Green fixture — a single valid module",
+  "modules": [
+    {
+      "id": "M-a",
+      "kind": "module",
+      "title": "Module A",
+      "lane": "a",
+      "owner": "coding-agent",
+      "status": "ready",
+      "interface": "docs/design/api/a.md",
+      "write_scope": ["src/a/**"],
+      "depends_on": [],
+      "acceptance": ["works"],
+      "verify": "scripts/validators/validate-build.sh",
+      "nodes": []
+    }
+  ]
+}

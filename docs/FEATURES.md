@@ -507,7 +507,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-build.sh` | Runs project build command and checks exit code |
 | `validate-c3-coverage.sh` | Every source module appears in the C3 context diagram |
 | `validate-code-health.sh` | 9 anti-slop patterns: catch-all error handlers, try-in-loop, what-comments, unused imports, single-use helpers, speculative abstractions, hardcoded config, re-implemented framework features, scope creep |
-| `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase |
+| `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase, AND (T27.2 v2) Files-produced paths exist on disk, Verify-result cites a real artifact, Maker/Verifier identity present and distinct |
 | `validate-deps.sh` | npm audit / pip-audit / cargo audit with configured waivers |
 | `validate-design-system.sh` | Token file present, component files match UX_SPEC inventory, no hardcoded hex colors |
 | `validate-doc-counts.sh` | Every "<N> validators/skills/references" count claimed in README/docs is re-derived from the filesystem and matched (release-manager step 5, made deterministic) |
@@ -536,6 +536,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-security-controls.sh` | SECURITY_CONTROLS.md: HIGH/CRITICAL threats have controls; DB, API, and ARCH security sections present |
 | `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
 | `validate-smoke.sh` | Boots server, hits configured routes, asserts HTTP 200 |
+| `validate-spec-traceability.sh` | `docs/TRACEABILITY.md` grades every founding-brief requirement against the produced doc set + tickets (T22.15) |
 | `validate-tech-stack.sh` | All runtime and dev dependencies present in TECH_STACK.md |
 | `validate-test-design.sh` | TEST_DESIGN.md has 5 mandatory sections: Unit, Integration, E2E, Security, Test Infrastructure |
 | `validate-tests-mapping.sh` | Use-case ↔ test coverage mapping; UC-level PASS/FAIL derived from jest/vitest/pytest JSON results |
@@ -546,6 +547,8 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `run-coverage-loop.sh` | 3-iteration gate loop runner — re-runs validators until clean or iteration cap reached |
 | `run-handoff-gates.sh` | Scope + manifest + coverage gate runner with any-failure-aborts semantics |
 | `validate-api-consistency.sh` | The OpenAPI spec and the implemented routes agree (paths, methods, params) |
+| `validate-autonomy-ledger.sh` | APPROVALS.md rows are well-formed and every NEVER-AUTO row is human-signed (T27.5) — the runtime counterpart to `validate-autonomy-wiring.sh`'s prose-adjacency lint |
+| `validate-challenger-gate.sh` | Any FIX_BACKLOG/review/security report with a CRITICAL or HIGH finding has a matching `CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts (T27.3) |
 | `validate-circular-deps.sh` | Detects dependency cycles in the MODULE_DESIGN.md graph |
 | `validate-data-governance.sh` | A schema with personal data ships with classification + retention/handling rules |
 | `validate-dead-code.sh` | Deterministic dead-code / stub / unused-export gate (knip / ts-prune / vulture + grep) |
