@@ -25,6 +25,7 @@ import { testTicketsGraph } from "./test-tickets-graph.ts";
 import { testChallengerGate } from "./test-challenger-gate.ts";
 import { testTruthfulCompletion } from "./test-truthful-completion.ts";
 import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
+import { testWiringLedger } from "./test-wiring-ledger.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -324,6 +325,15 @@ console.log(
   "\n[Pass 11] Outer-loop receipts — state-drift gate + is_complete() red/green",
 );
 await testOuterLoopReceipts(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 12: Wiring ledger (T22.7) — every validator + shared protocol is
+// reachable via a deterministic chain, npm test, or a documented prose-trigger.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 12] Wiring ledger — orphan validator/shared-protocol detection",
+);
+await testWiringLedger(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
