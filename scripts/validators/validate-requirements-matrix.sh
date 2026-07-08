@@ -48,7 +48,14 @@ if [[ -z "$header" ]]; then
   validator_exit
 fi
 
-for col_pattern in 'FR\|Requirement' 'UC\|Use.Case' 'Test\|Spec' 'Status\|Verified'; do
+# ERE alternation is a bare `|`, not `\|` -- POSIX ERE (grep -E) has no
+# defined meaning for an escaped `\|`, and on this machine's grep it matches
+# a literal pipe character instead of alternation, so these column checks
+# always fired "missing" regardless of the actual header (found via the
+# T22.5 green fixture: a header with every required column still produced 4
+# missing-column gaps). Not a macOS/BSD-specific quirk -- independent review
+# confirmed the same behavior is standard POSIX ERE, not a platform quirk.
+for col_pattern in 'FR|Requirement' 'UC|Use.Case' 'Test|Spec' 'Status|Verified'; do
   if ! printf '%s' "$header" | grep -qiE "$col_pattern"; then
     gap "missing-column" "REQUIREMENTS_MATRIX.md header missing column matching '${col_pattern}' — required columns: Requirement/FR, Use Case/UC, Test, Status"
   fi

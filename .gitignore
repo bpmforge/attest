@@ -36,8 +36,10 @@ docs/work/.model-context
 # Eval results (per-run, tier-stamped)
 docs/work/EVAL_RESULTS.json
 
-# Telemetry actuals (per-machine, append-only)
-docs/work/telemetry.jsonl
+# Telemetry actuals (per-machine, append-only) -- validators write this
+# under any project root they're pointed at, including fixture dirs under
+# evals/fixtures/validators/, so this must be recursive, not root-anchored.
+**/docs/work/telemetry.jsonl
 
 # Generated expert reports (per-project outputs)
 docs/reviews/
