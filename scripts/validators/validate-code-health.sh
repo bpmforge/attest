@@ -139,7 +139,13 @@ while IFS= read -r src_file; do
   ext="${src_file##*.}"
   [[ "$ext" != "ts" && "$ext" != "tsx" && "$ext" != "js" && "$ext" != "jsx" ]] && continue
 
-  awk '
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # (the parent shell still reports exit 0 even though a real gap was
+  # written to the gap file and shown in the JSON `items` array).
+  while IFS= read -r fn_info; do
+    [[ -n "$fn_info" ]] && gap "H-01-function-too-long" "${src_file#"$ROOT/"}: $fn_info"
+  done < <(awk '
     /\b(function|=>[[:space:]]*\{|async[[:space:]]+function)\b/ {
       fn_start = NR; fn_name = $0; sub(/[[:space:]]*\{.*/, "", fn_name)
     }
@@ -150,9 +156,7 @@ while IFS= read -r src_file; do
       }
       fn_start = 0
     }
-  ' "$src_file" 2>/dev/null | head -3 | while IFS= read -r fn_info; do
-    [[ -n "$fn_info" ]] && gap "H-01-function-too-long" "${src_file#"$ROOT/"}: $fn_info"
-  done
+  ' "$src_file" 2>/dev/null | head -3)
 done < <(find_source_files)
 
 # -- H-02: file size -- CONSOLIDATED into validate-file-size.sh ---------------

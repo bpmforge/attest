@@ -72,7 +72,14 @@ fi
 
 # Validate section-form: each ## UC-NN must be followed by required subheadings within 50 lines
 if [[ "$SECTION_COUNT" -gt 0 ]]; then
-  awk '
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # -- the same bug class as the missing-source loop below, found by
+  # independent review in the same file (T22.5) after the missing-source
+  # loop had already been fixed; this sibling loop was missed the first pass.
+  while IFS=$'\t' read -r id key; do
+    [[ -n "$id" ]] && gap "incomplete-uc-section" "$id: missing $key heading"
+  done < <(awk '
     /^## UC-[0-9]+/ {
       if (current_id) {
         for (key in required) {
@@ -106,9 +113,7 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
         }
       }
     }
-  ' "$UC" | while IFS=$'\t' read -r id key; do
-    [[ -n "$id" ]] && gap "incomplete-uc-section" "$id: missing $key heading"
-  done
+  ' "$UC")
 fi
 
 # -- Traceability check: each use case should have a Source: field or
@@ -123,7 +128,13 @@ if [[ "$TABLE_ROW_COUNT" -gt 0 ]]; then
 fi
 
 if [[ "$SECTION_COUNT" -gt 0 ]]; then
-  awk '
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # (the parent shell still reports exit 0 even though a real gap was
+  # written to the gap file and shown in the JSON `items` array).
+  while IFS= read -r id; do
+    [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
+  done < <(awk '
     /^## UC-[0-9]+/ {
       if (current_id && !has_source) print current_id
       current_id = $0; sub(/^## /, "", current_id); sub(/[[:space:]].*/, "", current_id)
@@ -133,9 +144,7 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
     /[Tt]race[[:space:]]*:/ { has_source = 1 }
     /FR-[0-9]+/ { has_source = 1 }
     END { if (current_id && !has_source) print current_id }
-  ' "$UC" | while IFS= read -r id; do
-    [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
-  done
+  ' "$UC")
 fi
 
 # -- REQUIREMENTS_MATRIX.md check (if present, validate it is non-empty)

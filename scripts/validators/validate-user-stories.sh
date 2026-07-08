@@ -24,7 +24,17 @@ fi
 # We scan for "## " sections and check each has acceptance criteria within
 # the section.
 
-awk '
+# Process substitution (`< <(...)`), NOT a pipe (`... | while read`): a pipe
+# runs the while-loop in a SUBSHELL, so gap()'s GAP_COUNT increment is
+# invisible to the parent shell once the subshell exits -- validator_exit()
+# would then report exit 0 (clean) even though a real gap was written to the
+# gap file and shown in the JSON `items` array. Found via the T22.5 red
+# fixture: a story missing acceptance criteria showed up correctly in
+# `items` but the validator still exited 0. Same fix already used correctly
+# a few lines up for the persona-coverage loop.
+while IFS= read -r story; do
+  [[ -n "$story" ]] && gap "missing-ac" "story without acceptance criteria: $story"
+done < <(awk '
   /^## / {
     if (in_story) {
       if (!has_ac) print prev_id
@@ -46,9 +56,7 @@ awk '
   END {
     if (in_story && !has_ac) print prev_id
   }
-' "$US" | while IFS= read -r story; do
-  [[ -n "$story" ]] && gap "missing-ac" "story without acceptance criteria: $story"
-done
+' "$US")
 
 # Cross-check: every persona has at least one story
 if [[ -f "$PERSONAS" ]]; then
