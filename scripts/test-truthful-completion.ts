@@ -91,6 +91,61 @@ export async function testTruthfulCompletion(
         );
     }
 
+    // -- regression (independent review, 2026-07-08): a "Files produced"
+    // section with pure prose and no backtick-quoted path at all used to
+    // evade the stat check entirely -- nothing was extracted, so nothing
+    // was checked, so it silently passed with zero gaps despite being
+    // exactly the unverifiable claim v2 exists to catch.
+    {
+      const dir = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-manifest-noartifact-"),
+      );
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.mkdirSync(path.join(dir, "docs/reviews"), { recursive: true });
+      fs.writeFileSync(path.join(dir, "docs/reviews/VERIFY.md"), "5 passed\n");
+      const manifestPath = path.join(dir, "manifest.md");
+      fs.writeFileSync(
+        manifestPath,
+        [
+          "# Completion Manifest",
+          "",
+          "## Files produced",
+          "I wrote some TypeScript files, they're great.",
+          "",
+          "## Decisions made",
+          "- used real.ts",
+          "",
+          "## Known issues",
+          "- none",
+          "",
+          "## Verify result",
+          "See `docs/reviews/VERIFY.md`",
+          "",
+          "Maker: coding-agent",
+          "Verifier: alice",
+          "Tracker updated: docs/work/DELEGATION_LOG.md",
+          "",
+          "coding-agent done -- shipped stuff",
+          "",
+        ].join("\n"),
+      );
+      const r = run(manifestValidator, [manifestPath, dir]);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("files-no-artifact")
+      )
+        ok(
+          "completion-manifest v2 — a 'Files produced' section with no backtick-quoted path is rejected, not silently accepted",
+        );
+      else
+        fail(
+          "completion-manifest v2 — files-no-artifact",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 400)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
     // -- 2. validate-tickets.sh (now chained into phase-4) -------------------
     const ticketsValidator = path.join(
       root,
