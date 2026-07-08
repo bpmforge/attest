@@ -123,7 +123,13 @@ if [[ "$TABLE_ROW_COUNT" -gt 0 ]]; then
 fi
 
 if [[ "$SECTION_COUNT" -gt 0 ]]; then
-  awk '
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # (the parent shell still reports exit 0 even though a real gap was
+  # written to the gap file and shown in the JSON `items` array).
+  while IFS= read -r id; do
+    [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
+  done < <(awk '
     /^## UC-[0-9]+/ {
       if (current_id && !has_source) print current_id
       current_id = $0; sub(/^## /, "", current_id); sub(/[[:space:]].*/, "", current_id)
@@ -133,9 +139,7 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
     /[Tt]race[[:space:]]*:/ { has_source = 1 }
     /FR-[0-9]+/ { has_source = 1 }
     END { if (current_id && !has_source) print current_id }
-  ' "$UC" | while IFS= read -r id; do
-    [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
-  done
+  ' "$UC")
 fi
 
 # -- REQUIREMENTS_MATRIX.md check (if present, validate it is non-empty)
