@@ -130,7 +130,7 @@ function parseFrontmatter(content: string): {
  * backtick string as a claimed agent reference when it's immediately
  * followed by the word "agent" (`the `X` agent`, `routes to `X` agent`) —
  * this repo's dominant, deliberate convention for naming an agent in prose
- * (verified against every skill file: 34 real matches, all this shape).
+ * (verified against every skill file: 31 real matches, all this shape).
  * Without that anchor, any backtick'd lowercase-hyphenated technical term
  * (`phase-0`, `write_scope`, `playwright-mcp`, ...) would false-positive as
  * a "missing agent" the moment extraction stops pre-filtering.

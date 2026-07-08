@@ -7,9 +7,12 @@
 // gate-blocking. Convention: evals/fixtures/validators/<name>/{red,green}/
 // (name = the validator script's filename without .sh). A RED fixture is a
 // small project dir the validator should find ≥1 gap in (exit 1); a GREEN
-// fixture is one it should pass clean (exit 0). Both are optional
-// individually, but a chained validator with NEITHER must be on the
-// grandfather list, or this harness fails.
+// fixture is one it should pass clean (exit 0). RED is mandatory -- proving
+// the validator can actually go red is the whole point of this harness, a
+// green-only fixture proves nothing about whether the check fires -- a
+// chained validator with no red fixture must be on the grandfather list, or
+// this harness fails. GREEN is optional even off the grandfather list (it's
+// checked when present, just not required).
 //
 // The grandfather list may only shrink: every entry is checked against
 // whether fixtures now exist for it (stale entries -- fixtures were added
@@ -69,27 +72,27 @@ function main() {
     const hasRed = existsSync(redDir);
     const hasGreen = existsSync(greenDir);
 
-    if (!hasRed && !hasGreen) {
+    if (!hasRed) {
       if (grandfathered.has(validatorScript)) {
         results.push({ validator: validatorScript, status: 'GRANDFATHERED' });
       } else {
         results.push({
           validator: validatorScript,
           status: 'FAIL',
-          reason: 'chained validator has no red or green fixture and is not on the grandfather list',
+          reason: 'chained validator has no red fixture and is not on the grandfather list',
         });
         failures++;
       }
       continue;
     }
 
-    // Fixtures exist for a grandfathered entry -- the list must shrink, not
-    // silently keep a now-stale entry alongside real fixtures.
+    // A red fixture exists for a grandfathered entry -- the list must
+    // shrink, not silently keep a now-stale entry alongside a real fixture.
     if (grandfathered.has(validatorScript)) {
       results.push({
         validator: validatorScript,
         status: 'FAIL',
-        reason: 'has fixtures now but is still on the grandfather list — remove it (list may only shrink)',
+        reason: 'has a red fixture now but is still on the grandfather list — remove it (list may only shrink)',
       });
       failures++;
       continue;
