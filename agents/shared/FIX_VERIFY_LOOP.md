@@ -174,13 +174,20 @@ Pass the printed `memory_store` payload to the memory MCP.
 
 ## Merge gate integration
 
-`git-expert` refuses to squash-merge to `main` unless ALL THREE conditions hold:
+`git-expert` refuses to merge to `main` (or a sub-component branch to its parent feature
+branch) unless ALL FIVE conditions in `git-expert.md`'s Rules section hold — this section used
+to say "ALL THREE," which drifted out of sync as the other two were added (confirmed 2026-07-07,
+T27.3):
 
 1. Matching `RUNTIME_*.md` exists with verdict PASS
-2. Fix-verify loop closed: empty backlog OR latest VERIFY all PASS OR signed waivers cover every open CRITICAL/HIGH
-3. No open CRITICAL/HIGH in any CODE_REVIEW / SECURITY / PERF / UX verdict
+2. CI pipeline green (every forge check passing)
+3. Fix-verify loop closed: empty backlog OR latest VERIFY all PASS OR signed waivers cover every open CRITICAL/HIGH
+4. No open CRITICAL/HIGH in any CODE_REVIEW / SECURITY / PERF / UX verdict
+5. Anti-drift gates pass (G-B + G-D — see `git-expert.md` for the exact validator list, which
+   changes as new anti-drift validators ship; this section intentionally doesn't duplicate it)
 
-Missing or failing any of the three -> abort and report exactly which condition blocks.
+Missing or failing any of the five -> abort and report exactly which condition blocks. This is
+prose, not enforcement — `git-expert.md` is the source of truth for the actual condition list.
 
 ---
 

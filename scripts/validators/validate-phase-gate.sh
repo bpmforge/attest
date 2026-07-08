@@ -144,6 +144,7 @@ populate_phase_artifacts() {
         "validate-deps.sh"
         "validate-smoke.sh"
         "validate-fix-backlog-closed.sh"
+        "validate-challenger-gate.sh"
         "validate-code-health.sh"
         "validate-dead-code.sh"
         "validate-module-boundaries.sh"

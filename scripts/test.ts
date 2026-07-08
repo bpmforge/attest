@@ -22,6 +22,7 @@ import { testAutonomyLedger } from "./test-autonomy-ledger.ts";
 import { testEvalsHarness } from "./test-evals-harness.ts";
 import { testSkillAgentRefs } from "./test-skill-agent-refs.ts";
 import { testTicketsGraph } from "./test-tickets-graph.ts";
+import { testChallengerGate } from "./test-challenger-gate.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -293,6 +294,15 @@ await testEvalsHarness(root, ok, fail);
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 8] Autonomy ledger — NEVER-AUTO signing tripwire");
 await testAutonomyLedger(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 9: Challenger gate (T27.3) — HIGH/CRITICAL findings require a
+// matching CHALLENGE_REPORT with zero unresolved CONTRADICTED verdicts.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 9] Challenger gate — CHALLENGE_REPORT existence + CONTRADICTED tripwire",
+);
+await testChallengerGate(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
