@@ -15,6 +15,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import { testGateReceipts } from "./test-gate-receipts.ts";
 import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
+import { testBash32Compat } from "./test-bash32-compat.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -329,6 +330,13 @@ await testTicketLifecycle(root, ok, fail);
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 5] Gate receipts — red/green fixtures");
 await testGateReceipts(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 6: bash 3.2 compat (T27.7) — validators must run clean on stock macOS
+// /bin/bash, not just whatever $BASH resolves to on the dev machine.
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 6] bash 3.2 compat — stock /bin/bash fixtures");
+await testBash32Compat(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

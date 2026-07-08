@@ -108,16 +108,25 @@ check_phase() {
 }
 
 # -- Scan all phases ----------------------------------------------------------
-declare -A PHASE_STATUS
-declare -A PHASE_MISSING
+# bash 3.2 (macOS stock) has no associative arrays -- PHASE_STATUS_VALS is a
+# parallel indexed array aligned to PHASE_NAMES by position; phase_status()
+# below does the by-name lookup with a linear scan (7 phases, negligible).
+declare -a PHASE_STATUS_VALS=(
+  "$(check_phase "phase-0" "$PHASE_0_FILES")"
+  "$(check_phase "phase-1" "$PHASE_1_FILES")"
+  "$(check_phase "phase-2" "$PHASE_2_FILES")"
+  "$(check_phase "phase-3" "$PHASE_3_FILES")"
+  "$(check_phase "phase-3.5" "$PHASE_35_FILES")"
+  "$(check_phase "phase-4" "$PHASE_4_FILES")"
+  "$(check_phase "phase-5" "$PHASE_5_FILES")"
+)
 
-PHASE_STATUS["phase-0"]=$(check_phase "phase-0" "$PHASE_0_FILES")
-PHASE_STATUS["phase-1"]=$(check_phase "phase-1" "$PHASE_1_FILES")
-PHASE_STATUS["phase-2"]=$(check_phase "phase-2" "$PHASE_2_FILES")
-PHASE_STATUS["phase-3"]=$(check_phase "phase-3" "$PHASE_3_FILES")
-PHASE_STATUS["phase-3.5"]=$(check_phase "phase-3.5" "$PHASE_35_FILES")
-PHASE_STATUS["phase-4"]=$(check_phase "phase-4" "$PHASE_4_FILES")
-PHASE_STATUS["phase-5"]=$(check_phase "phase-5" "$PHASE_5_FILES")
+phase_status() {
+  local want="$1" i
+  for i in "${!PHASE_NAMES[@]}"; do
+    [[ "${PHASE_NAMES[$i]}" == "$want" ]] && { printf '%s' "${PHASE_STATUS_VALS[$i]}"; return; }
+  done
+}
 
 # -- Detect brownfield --------------------------------------------------------
 # Brownfield: src/ exists but no SDLC docs at all
@@ -138,7 +147,7 @@ HAS_ANY_SDLC=false
 RECEIPTED=""
 FILES_COMPLETE_NO_RECEIPT=""
 for phase in "${PHASE_NAMES[@]}"; do
-  status="${PHASE_STATUS[$phase]}"
+  status="$(phase_status "$phase")"
   receipt_file="$GATES_DIR/${phase}-receipt.json"
   if [[ -f "$receipt_file" ]]; then
     RECEIPTED="$RECEIPTED $phase"
@@ -152,7 +161,7 @@ LOWEST_INCOMPLETE=""
 ALL_COMPLETE=true
 
 for phase in "phase-0" "phase-1" "phase-2" "phase-3" "phase-3.5" "phase-4" "phase-5"; do
-  status="${PHASE_STATUS[$phase]}"
+  status="$(phase_status "$phase")"
   if [[ "$status" != "COMPLETE" ]]; then
     ALL_COMPLETE=false
     if [[ -z "$LOWEST_INCOMPLETE" ]]; then
@@ -173,7 +182,7 @@ elif [[ "$HAS_CODE" == "true" && "$HAS_ANY_SDLC" == "false" ]]; then
   OVERALL_STATUS="brownfield"
   RECOMMENDATION="Existing codebase detected with no SDLC documentation. Run /sdlc onboard to document the existing system and fill the SDLC gaps."
 
-elif [[ "${PHASE_STATUS[phase-0]}" == "NOT_STARTED" && "${PHASE_STATUS[phase-1]}" == "NOT_STARTED" ]]; then
+elif [[ "$(phase_status phase-0)" == "NOT_STARTED" && "$(phase_status phase-1)" == "NOT_STARTED" ]]; then
   OVERALL_STATUS="fresh"
   RECOMMENDATION="No SDLC work found. Run /sdlc init to start from Phase 0."
 
@@ -195,7 +204,7 @@ fi
   idx=0
   for phase in "${PHASE_NAMES[@]}"; do
     label="${PHASE_LABELS[$idx]}"
-    status="${PHASE_STATUS[$phase]}"
+    status="$(phase_status "$phase")"
 
     if [[ "$status" == "COMPLETE" ]]; then
       printf '| %s | ✅ COMPLETE | — |\n' "$label"
@@ -212,10 +221,10 @@ fi
   printf 'This scan never creates a receipt — a receipt only exists if a real gate\n'
   printf 'run happened, or an explicit waiver was signed. It reports what it finds.\n\n'
   if [[ -n "$RECEIPTED" ]]; then
-    printf '- Phases with a real receipt (real run or signed waiver):%s\n' "$RECEIPTED"
+    printf -- '- Phases with a real receipt (real run or signed waiver):%s\n' "$RECEIPTED"
   fi
   if [[ -n "$FILES_COMPLETE_NO_RECEIPT" ]]; then
-    printf '- Phases whose files look complete but have NO receipt (run the real gate, or waive explicitly):%s\n' "$FILES_COMPLETE_NO_RECEIPT"
+    printf -- '- Phases whose files look complete but have NO receipt (run the real gate, or waive explicitly):%s\n' "$FILES_COMPLETE_NO_RECEIPT"
     printf '  `validate-phase-gate.sh <phase>` or `scripts/waive-gate.sh <phase> "<reason>" --signed-by <you>`\n'
   fi
   if [[ -z "$RECEIPTED" && -z "$FILES_COMPLETE_NO_RECEIPT" ]]; then
@@ -228,8 +237,8 @@ fi
   if [[ "$OVERALL_STATUS" == "partial" ]]; then
     printf '### Skip list (phases to skip — already complete)\n\n'
     for phase in "${PHASE_NAMES[@]}"; do
-      if [[ "${PHASE_STATUS[$phase]}" == "COMPLETE" ]]; then
-        printf '- %s\n' "$phase"
+      if [[ "$(phase_status "$phase")" == "COMPLETE" ]]; then
+        printf -- '- %s\n' "$phase"
       fi
     done
     printf '\n### Resume point\n\nStart from: **%s**\n' "$LOWEST_INCOMPLETE"
@@ -239,8 +248,8 @@ fi
     printf '### Brownfield gap list\n\n'
     printf 'The following SDLC artifacts need to be produced (reverse-engineered from existing code):\n\n'
     for phase in "${PHASE_NAMES[@]}"; do
-      if [[ "${PHASE_STATUS[$phase]}" != "COMPLETE" ]]; then
-        printf '- %s\n' "$phase"
+      if [[ "$(phase_status "$phase")" != "COMPLETE" ]]; then
+        printf -- '- %s\n' "$phase"
       fi
     done
   fi

@@ -61,9 +61,16 @@ if ! grep -qiE '^## Module Inventory' "$MD" 2>/dev/null; then
 else
   pass "Module Inventory section present"
 
-  # Count module rows (table rows with a directory path)
+  # Count module rows (table rows with a directory path). Guard the grep -c
+  # call on module_rows being non-empty: `grep -c . || echo 0` double-counts
+  # when there are zero matches (grep -c prints "0" AND exits 1, so `||`
+  # fires too, producing "0\n0" instead of "0").
   module_rows=$(grep -E '^\|[^|]+\|[[:space:]]*src/' "$MD" | grep -v -E '^\|[[:space:]]*(Module|---|\*\*)' || true)
-  module_count=$(printf '%s\n' "$module_rows" | grep -c . || echo 0)
+  if [[ -n "$module_rows" ]]; then
+    module_count=$(printf '%s\n' "$module_rows" | grep -c .)
+  else
+    module_count=0
+  fi
 
   if [[ "$module_count" -eq 0 ]]; then
     gap "empty-module-inventory" "Module Inventory has no module rows with src/ directory paths"
@@ -115,22 +122,40 @@ fi
 # -- 9. Circular dependency check (simple bidirectional scan) -----------------
 # Extract "Module | Depends On" pairs from the inventory table
 # Look for rows like: | auth | ... | shared-types, users |
-declare -A dep_map
+# bash 3.2 (macOS stock) has no associative arrays -- two parallel indexed
+# arrays + a linear-scan upsert stand in for the module->deps map (module
+# counts here are small, so the O(n) upsert is negligible).
+declare -a DEP_MODS=()
+declare -a DEP_DEPS=()
+
+dep_upsert() {
+  local mod="$1" deps="$2" i
+  for i in "${!DEP_MODS[@]}"; do
+    if [[ "${DEP_MODS[$i]}" == "$mod" ]]; then
+      DEP_DEPS[$i]="$deps"
+      return
+    fi
+  done
+  DEP_MODS+=("$mod")
+  DEP_DEPS+=("$deps")
+}
 
 while IFS='|' read -r _ mod _ _ _ deps _; do
   mod=$(printf '%s' "${mod:-}" | sed 's/^ *//;s/ *$//')
   deps=$(printf '%s' "${deps:-}" | sed 's/^ *//;s/ *$//')
   [[ -z "$mod" || "$mod" == "Module" || "$mod" == "---" ]] && continue
   [[ -z "$deps" || "$deps" == "Depends On" || "$deps" == "—" || "$deps" == "-" ]] && continue
-  dep_map["$mod"]="$deps"
+  dep_upsert "$mod" "$deps"
 done < <(grep -E '^\|[^|]+\|[^|]+\|[^|]+\|[^|]+\|' "$MD" 2>/dev/null || true)
 
 # Check for bidirectional deps (A→B and B→A)
-for mod_a in "${!dep_map[@]}"; do
-  deps_a="${dep_map[$mod_a]}"
-  for mod_b in "${!dep_map[@]}"; do
-    [[ "$mod_a" == "$mod_b" ]] && continue
-    deps_b="${dep_map[$mod_b]}"
+for i in "${!DEP_MODS[@]}"; do
+  mod_a="${DEP_MODS[$i]}"
+  deps_a="${DEP_DEPS[$i]}"
+  for j in "${!DEP_MODS[@]}"; do
+    [[ "$i" -eq "$j" ]] && continue
+    mod_b="${DEP_MODS[$j]}"
+    deps_b="${DEP_DEPS[$j]}"
     # Does A depend on B?
     if printf '%s' "$deps_a" | grep -qiE "(^|,| )${mod_b}($|,| )"; then
       # Does B depend on A?
@@ -141,15 +166,18 @@ for mod_a in "${!dep_map[@]}"; do
   done
 done
 
-[[ "$GAP_COUNT" -eq 0 || ! "${dep_map[*]+set}" ]] && pass "No circular dependencies found"
+[[ "$GAP_COUNT" -eq 0 || "${#DEP_MODS[@]}" -eq 0 ]] && pass "No circular dependencies found"
 
 # -- 10. New Feature Addition Recipe ------------------------------------------
 if ! grep -qiE '^## New Feature Addition' "$MD" 2>/dev/null; then
   gap "missing-feature-recipe" "MODULE_DESIGN.md missing '## New Feature Addition Recipe' section — document the exact steps to add a new feature"
 else
   pass "New Feature Addition Recipe present"
-  # Should have numbered steps
-  step_count=$(grep -cE '^[0-9]+\.' "$MD" || echo 0)
+  # Should have numbered steps. Same grep -c/-eq double-count bug as
+  # module_count above: guard on a real match instead of `|| echo 0`, since
+  # the section heading existing doesn't guarantee any numbered lines do.
+  step_matches=$(grep -cE '^[0-9]+\.' "$MD" || true)
+  step_count="${step_matches:-0}"
   if [[ "$step_count" -lt 3 ]]; then
     gap "thin-feature-recipe" "New Feature Addition Recipe has fewer than 3 numbered steps — be specific"
   fi
