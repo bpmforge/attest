@@ -97,6 +97,12 @@ construction. Closing that residual gap needs an out-of-process traversal record
 that runs gates from outside the agent and journals what it dispatched — which is out of scope
 here and belongs to M28, not this validator.
 
+It is also, like `waive-gate.sh`'s signer blocklist, a deterrent against a sloppy/eager agent
+self-signing or auto-defaulting a `NA-*` row — not a security boundary against a determined
+adversary. A fabricated human-sounding name in `signed_by` (any string not on the blocklist)
+passes the check cleanly; comprehensively verifying "is this really a human" is a different,
+harder problem this validator doesn't attempt.
+
 ## Wiring
 
 Referenced from `PHASE_ROUTING_PROTOCOL.md` (the routing spine) and `sdlc-lead.md` (start
