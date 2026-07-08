@@ -14,6 +14,7 @@
  */
 
 import { execFileSync } from "child_process";
+import * as fs from "fs";
 import * as path from "path";
 
 export async function testEvalsHarness(
@@ -72,5 +73,53 @@ export async function testEvalsHarness(
       "check-validator-fixtures.mjs — red/green harness",
       `failed to run: ${message}`,
     );
+  }
+
+  // Regression (independent review, 2026-07-08): the harness originally
+  // treated red and green as interchangeable — `!hasRed && !hasGreen`, so a
+  // green-only fixture (no red) silently reported OK instead of FAIL, even
+  // though proving the validator can actually go red is the harness's whole
+  // point. Temporarily hide validate-use-cases' red/ dir and confirm the
+  // fixed harness now reports FAIL, not clean.
+  {
+    const redDir = path.join(
+      root,
+      "evals/fixtures/validators/validate-use-cases/red",
+    );
+    const hiddenDir = `${redDir}.__test-hidden`;
+    fs.renameSync(redDir, hiddenDir);
+    try {
+      let harnessResult: {
+        failures: number;
+        results: Array<{ validator: string; status: string }>;
+      };
+      try {
+        const out = execFileSync(
+          "node",
+          [path.join(root, "scripts/check-validator-fixtures.mjs"), "--json"],
+          { encoding: "utf8", cwd: root },
+        );
+        harnessResult = JSON.parse(out);
+      } catch (err: unknown) {
+        // Non-zero exit is the expected outcome (failures > 0) — the JSON
+        // summary is still on stdout.
+        const e = err as { stdout?: string };
+        harnessResult = JSON.parse(e.stdout ?? "{}");
+      }
+      const entry = harnessResult.results?.find(
+        (r) => r.validator === "validate-use-cases.sh",
+      );
+      if (harnessResult.failures > 0 && entry?.status === "FAIL")
+        ok(
+          "check-validator-fixtures.mjs — green-only fixture (no red) is flagged FAIL, not silently passed",
+        );
+      else
+        fail(
+          "check-validator-fixtures.mjs — green-only fixture",
+          `expected a FAIL entry for validate-use-cases.sh, got ${JSON.stringify(entry)}`,
+        );
+    } finally {
+      fs.renameSync(hiddenDir, redDir);
+    }
   }
 }

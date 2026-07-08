@@ -72,7 +72,14 @@ fi
 
 # Validate section-form: each ## UC-NN must be followed by required subheadings within 50 lines
 if [[ "$SECTION_COUNT" -gt 0 ]]; then
-  awk '
+  # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
+  # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
+  # -- the same bug class as the missing-source loop below, found by
+  # independent review in the same file (T22.5) after the missing-source
+  # loop had already been fixed; this sibling loop was missed the first pass.
+  while IFS=$'\t' read -r id key; do
+    [[ -n "$id" ]] && gap "incomplete-uc-section" "$id: missing $key heading"
+  done < <(awk '
     /^## UC-[0-9]+/ {
       if (current_id) {
         for (key in required) {
@@ -106,9 +113,7 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
         }
       }
     }
-  ' "$UC" | while IFS=$'\t' read -r id key; do
-    [[ -n "$id" ]] && gap "incomplete-uc-section" "$id: missing $key heading"
-  done
+  ' "$UC")
 fi
 
 # -- Traceability check: each use case should have a Source: field or
