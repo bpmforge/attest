@@ -15,6 +15,7 @@ import * as path from "path";
 import { pathToFileURL } from "url";
 import { testGateReceipts } from "./test-gate-receipts.ts";
 import { testTicketLifecycle } from "./test-ticket-lifecycle.ts";
+import { testBoardGenerator } from "./test-board-generator.ts";
 import { testBash32Compat } from "./test-bash32-compat.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -323,6 +324,13 @@ try {
 // ---------------------------------------------------------------------------
 console.log("\n[Pass 4b] Ticket lifecycle — claim/start/close/accept/release");
 await testTicketLifecycle(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 4c: Board generator (T10.2) — lane-column board + claim-right-now
+// header, snapshot-checked against the sample plan.
+// ---------------------------------------------------------------------------
+console.log("\n[Pass 4c] Board generator — lane-column board");
+await testBoardGenerator(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Pass 5: Gate receipts (T27.1) — red/green fixtures. Extracted to
