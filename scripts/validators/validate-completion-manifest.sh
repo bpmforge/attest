@@ -28,6 +28,16 @@
 # What v2 closes is the cheaper, more common failure: claiming an artifact
 # that was simply never produced.
 #
+# Known limitation (independent review, 2026-07-08): path extraction
+# requires a backtick-quoted token containing "/". A root-level bare
+# filename with no slash (`` `test.log` ``) is invisible to the extractor
+# and can't be checked; a non-file backtick reference that happens to
+# contain a slash (a URL like `` `https://example.com/docs` ``) is treated
+# as a path candidate and false-positives as file-not-found. Both are
+# accepted asymmetric tradeoffs of a cheap grep-based extractor, not a
+# real parser -- fails toward stricter (URL) in one direction and toward
+# permissive (bare filename) in the other, rather than either uniformly.
+#
 # Required sections (any heading level, case-insensitive):
 #   - Files produced
 #   - Decisions (or Decisions made)
@@ -115,7 +125,15 @@ if [[ -n "$files_body" ]]; then
     fi
   done < <(printf '%s\n' "$files_body" | extract_paths)
 fi
-if [[ "$files_checked" -gt 0 ]]; then
+if [[ -n "$files_body" && "$files_checked" -eq 0 ]]; then
+  # Found by independent review (2026-07-08): a "Files produced" section
+  # with pure prose and no backtick-quoted paths at all trivially evaded
+  # the stat check below -- nothing was ever extracted to check, so it
+  # silently passed with zero gaps despite this being the exact claim v2
+  # exists to verify. Mirrors the equivalent "Verify result" no-artifact
+  # gap a few lines down, which already had this guard.
+  gap "files-no-artifact" "'Files produced' section has no backtick-quoted path -- an unchecked prose claim like 'I wrote some TypeScript files' isn't verifiable"
+elif [[ "$files_checked" -gt 0 ]]; then
   pass "checked $files_checked cited file(s) against disk"
 fi
 
