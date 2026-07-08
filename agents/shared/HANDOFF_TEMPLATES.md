@@ -104,10 +104,22 @@ VERIFY before completing: Confirm your output explicitly covers:
 If any are missing, add them before printing the completion phrase.
 
 Include a Completion Manifest at <manifest-path> with required sections:
-- Files produced (path, content summary, line count)
+- Files produced (path, content summary, line count) -- every path is
+  checked to exist on disk (validate-completion-manifest.sh v2, T27.2);
+  backtick-quote each path so the checker can find it
 - Decisions made (decision + why)
 - Known issues / deferred (issue + which agent should address it)
-- Verify result (what you checked, outcome)
+- Verify result (what you checked, outcome) -- must cite a concrete,
+  backtick-quoted artifact path (a test log, VERIFY_*.md, a receipt) that
+  exists on disk; a bare claim like "tests pass" with nothing to check it
+  against fails the gate
+
+Also include, outside any heading (plain lines anywhere in the manifest):
+- `Maker: <name>` -- who produced this artifact
+- `Verifier: <name>` -- who independently checked it (MODEL_ADAPTER.md
+  maker/verifier split); must differ from Maker or the gate fails --
+  self-verification defeats the point of a verify step
+- `Tracker updated: <file>` -- where this step was recorded
 
 When all files are written, print exactly:
 "<agent> done -- <one sentence describing what was produced>"
@@ -238,11 +250,12 @@ After EVERY HANDOFF returns, before accepting the work, the orchestrator runs:
   [--coverage <validate-<name>.sh>]
 ```
 
-Three gates, any failure aborts the rest:
+Gates, any failure aborts the rest:
 
 1. **Scope** — `validate-scope.sh` confirms all git writes landed in the assigned directory (plus `docs/work/**` and `docs/reviews/**`)
-2. **Manifest** — `validate-completion-manifest.sh` confirms the manifest has: Files produced, Decisions, Known issues, Verify result, and a completion phrase
+2. **Manifest** — `validate-completion-manifest.sh` v2 (T27.2) confirms the manifest has the required sections AND that its claims are real: every "Files produced" path exists on disk, "Verify result" cites an artifact that exists, Maker/Verifier identity lines are present and distinct
 3. **Coverage** — domain-specific validator (see the mapping below)
+4. **Tracker** — `validate-tracker-fresh.sh` (T27.2) confirms tracker-worthy work changed a tracker file (SDLC_TRACKER / PROGRESS / DELEGATION_LOG / CHANGELOG)
 
 | HANDOFF type | `--coverage` arg |
 |--------------|------------------|
