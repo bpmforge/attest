@@ -31,6 +31,7 @@ import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 import { testDocRenderHealth } from "./test-doc-render-health.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
+import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -374,24 +375,22 @@ console.log(
 );
 await testLoadBearingDenominators(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
-// promoted to a hard-fail error (M013) and a new markdown-table
-// orphan-fragment linter (validate-doc-render-health.sh), proving both
-// confirmed-hit publish bug classes are caught, plus false-positive
-// stress cases on clean content.
-// ---------------------------------------------------------------------------
+// Pass 16: Publish render-health (T29.9) — mermaid backtick hard-fail (M013) +
+// markdown-table orphan-fragment linter (validate-doc-render-health.sh).
 console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
 
-// Pass 17: Bootstrap & Empty-State checklist (T29.4) — validate-security-controls.sh's
-// checklist/self-referential-gate/RBAC-cardinality checks + validate-release-readiness.sh's dry-run check.
+// Pass 17/18: Bootstrap & Empty-State checklist + regressions (T29.4).
 console.log(
-  "\n[Pass 17] Bootstrap & Empty-State — self-referential permission gate + RBAC cardinality + fresh-deploy dry-run",
+  "\n[Pass 17] Bootstrap & Empty-State — self-ref gate + RBAC cardinality + dry-run",
 );
 await testBootstrapChecklist(root, ok, fail);
+console.log(
+  "\n[Pass 18] Bootstrap & Empty-State regressions — unsafe-escape/RBAC-negation/N-hop/no-TM",
+);
+await testBootstrapChecklistRegressions(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

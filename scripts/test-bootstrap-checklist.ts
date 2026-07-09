@@ -24,6 +24,13 @@
  * cycle (the edge case a direct 1-hop-only check would miss) in both a
  * broken (no escape) and fixed (documented CLI bootstrap) form, and the
  * validate-release-readiness.sh bootstrap-dry-run check in isolation.
+ *
+ * See scripts/test-bootstrap-checklist-regressions.ts (a sibling chapter,
+ * split out to stay under the 400-line file-size cap) for four regression
+ * cases added after an independent review (2026-07-09) found real gaps in
+ * this first pass: an admittedly-unsafe seed script wrongly accepted as an
+ * escape, an RBAC negation false-positive, undetected 3+-hop cycles, and
+ * the new checks being unreachable without a THREAT_MODEL.md.
  */
 
 import { execFileSync } from "child_process";
@@ -31,10 +38,14 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 
-type GapItem = { category: string; detail: string };
-type ValidatorResult = { exitCode: number; gaps: GapItem[]; raw: string };
+export type GapItem = { category: string; detail: string };
+export type ValidatorResult = {
+  exitCode: number;
+  gaps: GapItem[];
+  raw: string;
+};
 
-function runValidator(
+export function runValidator(
   root: string,
   scriptName: string,
   targetDir: string,
@@ -61,13 +72,13 @@ function runValidator(
   }
 }
 
-function mkTempProject(): string {
+export function mkTempProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "t29-4-bootstrap-"));
   fs.mkdirSync(path.join(dir, "docs"), { recursive: true });
   return dir;
 }
 
-const THREAT_MODEL_MIN = `# Threat Model
+export const THREAT_MODEL_MIN = `# Threat Model
 
 | ID | STRIDE | Component | Severity | Description |
 |----|--------|-----------|----------|--------------|
