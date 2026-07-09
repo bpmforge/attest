@@ -15,6 +15,7 @@
 #   M010  Markdown emphasis in label         [**Bold**] / [`code`] → plain or quoted
 #   M011  // line comment in mermaid          // → %% (Mermaid comments are %%)
 #   M012  Unbalanced [ ] on a node line       count mismatch → typo
+#   M013  Backtick anywhere in diagram body   confirmed publish-fallback bug (T29.9), ERROR not warning
 #
 # If the mermaid CLI (mmdc) is installed, ALSO renders every block headlessly
 # and surfaces real parser errors (authoritative — catches everything the
@@ -156,11 +157,32 @@ scan_file() {
       file_errors=$((file_errors + 1))
     fi
 
-    # ── M010: markdown emphasis or backticks inside a node label ───────────
-    if [[ "$line" =~ \[[^]\"]*(\*\*|\`)[^]\"]*\] ]]; then
+    # ── M010: markdown emphasis (**bold**) inside a node label ─────────────
+    # Cosmetic only — Mermaid renders ** literally rather than breaking the
+    # parser, so this stays a non-blocking warning. (Backticks used to share
+    # this check; see M013 below — a real parser break, not cosmetic.)
+    if [[ "$line" =~ \[[^]\"]*(\*\*)[^]\"]*\] ]]; then
       emit "warning" "$file" "$lineno" "M010" \
-        "Markdown (** or backtick) inside node label — Mermaid renders it literally; remove or quote"
+        "Markdown emphasis (**) inside node label — Mermaid renders it literally; remove or quote"
       file_warnings=$((file_warnings + 1))
+    fi
+
+    # ── M013: unescaped backtick anywhere in Mermaid diagram body (T29.9) ──
+    # CONFIRMED-HIT bug: a backtick anywhere in Mermaid diagram text (node
+    # label, edge label, decision node, Note text, ...) breaks the parser,
+    # and the publish pipeline silently falls back to rendering the raw
+    # ```mermaid code block instead of the diagram. Scoped to the whole
+    # diagram body (not just [...] labels) because the historical bug and
+    # adversarial variants can land in {...}, (...), |...| edge labels, or
+    # Note text just as easily. %% comment lines are exempt — a backtick in
+    # a comment never reaches the parser. This is an ERROR (fails the gate),
+    # unlike M010's cosmetic ** warning — a real docs sweep (T29.9) found
+    # zero legitimate backtick usage inside any mermaid block, so this is
+    # safe to promote without a documented escape hatch.
+    if [[ "$line" == *'`'* && ! "$line" =~ ^[[:space:]]*%% ]]; then
+      emit "error" "$file" "$lineno" "M013" \
+        "Backtick in Mermaid diagram text breaks the parser (confirmed publish-fallback bug) — remove the backtick or rephrase without it"
+      file_errors=$((file_errors + 1))
     fi
 
     # ── M011: // comment (Mermaid uses %%) ─────────────────────────────────
@@ -171,12 +193,25 @@ scan_file() {
     fi
 
     # ── M012: unbalanced [ ] on a node line ────────────────────────────────
-    # Only count when the line actually uses node-label brackets.
+    # Only count when the line actually uses node-label brackets. Counted
+    # via an explicit char-by-char loop, not `${line//[^]]/}` -- independent
+    # review (2026-07-09) found that bracket-negation idiom is interpreted
+    # correctly on bash 3.2 (leading `]` right after `[^` is POSIX-literal)
+    # but silently matches NOTHING on GNU bash 5.x (confirmed live: closes
+    # came back as the entire unchanged line instead of just the `]`
+    # chars), so `closes` was always wrong -- effectively dead code -- on
+    # any bash 5.x runner (this repo's own CI). The char loop has no such
+    # cross-version ambiguity.
     if [[ "$line" == *"["* || "$line" == *"]"* ]]; then
-      local opens="${line//[^[]/}"; local closes="${line//[^]]/}"
-      if [[ "${#opens}" -ne "${#closes}" ]]; then
+      local opens=0 closes=0 _m012_i _m012_ch
+      for (( _m012_i=0; _m012_i<${#line}; _m012_i++ )); do
+        _m012_ch="${line:_m012_i:1}"
+        [[ "$_m012_ch" == "[" ]] && opens=$((opens + 1))
+        [[ "$_m012_ch" == "]" ]] && closes=$((closes + 1))
+      done
+      if [[ "$opens" -ne "$closes" ]]; then
         emit "error" "$file" "$lineno" "M012" \
-          "Unbalanced square brackets (${#opens} '[' vs ${#closes} ']') — likely a typo"
+          "Unbalanced square brackets (${opens} '[' vs ${closes} ']') — likely a typo"
         file_errors=$((file_errors + 1))
       fi
     fi
@@ -257,6 +292,7 @@ done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
     echo "  M010  Markdown in node label"
     echo "  M011  // comment (use %%)"
     echo "  M012  Unbalanced [ ]"
+    echo "  M013  Backtick in diagram body (ERROR — confirmed publish-fallback bug)"
     echo "  MRENDER  Real mmdc parse failure"
     echo ""
     echo "  Auto-fix the mechanical ones:  node scripts/mermaid-fix.mjs <file> --write"

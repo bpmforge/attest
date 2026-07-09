@@ -1,5 +1,5 @@
 /**
- * test-close-receipt.ts — Pass 16 chapter module for scripts/test.ts (T26.3).
+ * test-close-receipt.ts — Pass 17 chapter module for scripts/test.ts (T26.3).
  *
  * "Close-before-next-claim" protocol wiring:
  *   1. accept() refuses in_review -> done unless the module's Completion
