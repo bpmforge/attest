@@ -1,5 +1,4 @@
 [
-  "validate-adrs.sh",
   "validate-api-consistency.sh",
   "validate-api-coverage.sh",
   "validate-architecture.sh",
