@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testDocRenderHealth } from "./test-doc-render-health.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -374,7 +375,19 @@ console.log(
 await testLoadBearingDenominators(root, ok, fail);
 
 // ---------------------------------------------------------------------------
-// Pass 16: Bootstrap & Empty-State checklist (T29.4)
+// Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
+// promoted to a hard-fail error (M013) and a new markdown-table
+// orphan-fragment linter (validate-doc-render-health.sh), proving both
+// confirmed-hit publish bug classes are caught, plus false-positive
+// stress cases on clean content.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
+);
+await testDocRenderHealth(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 17: Bootstrap & Empty-State checklist (T29.4)
 // ---------------------------------------------------------------------------
 // validate-security-controls.sh: Bootstrap & Empty-State checklist answered,
 // self-referential/2-hop circular permission gate detection, RBAC cardinality
@@ -383,7 +396,7 @@ await testLoadBearingDenominators(root, ok, fail);
 // manual SQL).
 // ---------------------------------------------------------------------------
 console.log(
-  "\n[Pass 16] Bootstrap & Empty-State — self-referential permission gate + RBAC cardinality + fresh-deploy dry-run",
+  "\n[Pass 17] Bootstrap & Empty-State — self-referential permission gate + RBAC cardinality + fresh-deploy dry-run",
 );
 await testBootstrapChecklist(root, ok, fail);
 

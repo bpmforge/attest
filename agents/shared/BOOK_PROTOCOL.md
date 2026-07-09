@@ -172,9 +172,12 @@ After writing all book files, run:
 node scripts/mermaid-fix.mjs docs/<deliverable-slug>/ --write   # auto-repair mechanical Mermaid issues first
 bash scripts/validators/validate-book-structure.sh docs/<deliverable-slug>/
 bash scripts/validators/validate-mermaid.sh . docs/<deliverable-slug>/
+bash scripts/validators/validate-doc-render-health.sh . docs/<deliverable-slug>/
 ```
 
-Both validators must exit 0 before the deliverable is marked DONE. Authoring rules: `references/mermaid-safe-syntax.md`.
+All three validators must exit 0 before the deliverable is marked DONE. Authoring rules: `references/mermaid-safe-syntax.md`.
+
+**Render-health gate (T29.9):** this repo's published docs have twice shipped diagrams/tables that looked fine in a plain-text diff but were genuinely broken once rendered — a Mermaid node label with an unescaped backtick (breaks the parser; the render tool silently falls back to showing the raw ```mermaid code block instead of the diagram) and a markdown table row orphaned by a blank line with no header/separator above it (renders as literal pipe-delimited text). `validate-mermaid.sh` (M013, error-level) and `validate-doc-render-health.sh` (`table-orphan-fragment`) close those two bug classes respectively — run both, not just `validate-book-structure.sh`, before calling a book deliverable published. Any future doc-compilation pipeline (e.g. a wiki-compiler) that renders these books to another format MUST run the same two validators as an acceptance gate — same exposure, same gate.
 
 `validate-book-structure.sh` checks:
 - Book `README.md` exists and has a navigation table
