@@ -86,8 +86,13 @@ file/buffer is never mutated:
   same path as `inputPath`.
 
 The badge defaults to the box's top-left corner and is collision-aware: its
-center is clamped so the full badge circle stays on-canvas even when the
-bounding box sits flush against an image edge.
+center is clamped to stay within the image bounds even when the bounding
+box sits flush against an image edge. For real screenshots (which clear
+Gate A's 200x200 size floor) this keeps the whole badge circle on-canvas.
+Below roughly 2x the badge diameter in either dimension — not reachable
+via the documented capture pipeline — the badge can still be larger than
+the image itself, in which case the clamp centers it rather than letting
+it collapse to a clipped corner.
 
 This is intentionally scoped to exactly one annotation per call (per the
 ticket). A multi-annotation composite is out of scope here — a future

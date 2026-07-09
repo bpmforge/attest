@@ -254,9 +254,17 @@ export async function runGateA(input, options = {}) {
 
 async function main() {
   const argv = process.argv.slice(2);
+  // Rejects a value that looks like another flag (e.g. `--second-shot
+  // --json`) instead of silently swallowing it as `--second-shot`'s value.
   const flag = (name) => {
     const i = argv.indexOf(name);
-    return i === -1 ? undefined : argv[i + 1];
+    if (i === -1) return undefined;
+    const value = argv[i + 1];
+    if (value === undefined || value.startsWith('--')) {
+      console.error(`img-gate.mjs: ${name} requires a value`);
+      process.exit(2);
+    }
+    return value;
   };
 
   if (argv.includes('--calibrate')) {
@@ -301,7 +309,9 @@ async function main() {
 const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isDirectRun) {
   main().catch((err) => {
-    console.error(err.stack || err.message);
+    // A clean message, not a full stack trace — this is meant to be
+    // machine-readable by a calling agent, not just human-debugged.
+    console.error(`img-gate.mjs: ${err.message}`);
     process.exit(1);
   });
 }
