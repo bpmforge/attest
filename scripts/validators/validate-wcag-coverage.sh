@@ -9,6 +9,16 @@
 #   blocker-cite  -- every "blocker" finding row in docs/reviews/A11Y_AUDIT_*.md
 #                    must cite a WCAG criterion number (N.N.N, e.g. 1.4.3) AND
 #                    a file:line citation -> one gap per violation
+#   interactive   -- (T22.6) re-derive the interactive-element inventory from
+#                    component source (buttons, links, inputs, selects,
+#                    onClick/role="button" handlers) and require every audit
+#                    that exists to actually mention each one -- "an a11y
+#                    audit exists" and "the a11y audit covers what's on
+#                    screen" are different claims; this checks the second
+#                    against a real ground-truth denominator instead of just
+#                    the first. Only runs once at least one audit exists (a
+#                    project with no audit yet already gets the skip/warn
+#                    below -- this isn't a second way to demand one).
 #   skip          -- neither docs/design/ nor an A11Y_AUDIT exists -> warn
 #                    "no UI artifacts -- skipping" and exit 0
 #
@@ -92,6 +102,73 @@ done < "$AUDIT_LIST_FILE"
 
 if [[ ! -s "$AUDIT_LIST_FILE" ]]; then
   warn "no docs/reviews/A11Y_AUDIT_*.md found -- design exists but the UI was never audited (run /a11y after implementation)"
+fi
+
+# 3. Interactive-element inventory as the a11y denominator (T22.6).
+#    Ground truth = every interactive element pattern found in component
+#    source (buttons, links, inputs/selects/textareas, click/keydown
+#    handlers, explicit interactive ARIA roles). "Covered" = the component
+#    file it lives in is mentioned by name in at least one audit report --
+#    doc-level and grep-based, same charter as the rest of this validator,
+#    just checked against a real denominator instead of a bare existence
+#    check. Only runs when at least one audit exists; a project with none
+#    yet is already handled by the warn above.
+if [[ -s "$AUDIT_LIST_FILE" ]]; then
+  COMP_DIR=""
+  for candidate_dir in "src/components/ui" "src/components" "src/ui" "components/ui" "app/components"; do
+    if [[ -d "$ROOT/$candidate_dir" ]]; then
+      COMP_DIR="$ROOT/$candidate_dir"
+      break
+    fi
+  done
+
+  if [[ -z "$COMP_DIR" ]]; then
+    note "no component source directory found (checked src/components/ui, src/components, src/ui, components/ui, app/components) -- interactive-element inventory check skipped"
+  else
+    INTERACTIVE_FILES="$(mktemp -t "validate-wcag.interactive.XXXXXX")"
+    find "$COMP_DIR" -maxdepth 3 -type f \
+      \( -name "*.tsx" -o -name "*.jsx" -o -name "*.vue" -o -name "*.svelte" \) \
+      2>/dev/null > "$INTERACTIVE_FILES" || true
+
+    INTERACTIVE_NAMES="$(mktemp -t "validate-wcag.interactive-names.XXXXXX")"
+    while IFS= read -r comp_file; do
+      [[ -n "$comp_file" ]] || continue
+      if grep -qiE '(<button|<a[[:space:]]|<input|<select|<textarea|onclick=|onkeydown=|role=["'"'"'](button|link|checkbox|switch|tab|menuitem))' "$comp_file" 2>/dev/null; then
+        basename "$comp_file" | sed -E 's/\.(tsx|jsx|vue|svelte)$//' >> "$INTERACTIVE_NAMES"
+      fi
+    done < "$INTERACTIVE_FILES"
+    sort -u "$INTERACTIVE_NAMES" -o "$INTERACTIVE_NAMES"
+
+    INTERACTIVE_COUNT=$(wc -l < "$INTERACTIVE_NAMES" | tr -d ' ')
+    if [[ "$INTERACTIVE_COUNT" -eq 0 ]]; then
+      note "no interactive elements discovered in $COMP_DIR -- interactive-element inventory check skipped"
+    else
+      # Concatenate all audit content once for the coverage check.
+      AUDIT_CONTENT="$(mktemp -t "validate-wcag.audit-content.XXXXXX")"
+      while IFS= read -r audit; do
+        [[ -n "$audit" ]] || continue
+        cat "$audit" >> "$AUDIT_CONTENT" 2>/dev/null || true
+      done < "$AUDIT_LIST_FILE"
+
+      covered=0
+      while IFS= read -r elem; do
+        [[ -n "$elem" ]] || continue
+        if grep -qiF "$elem" "$AUDIT_CONTENT" 2>/dev/null; then
+          covered=$((covered + 1))
+        else
+          gap "uncovered-interactive-element" "interactive component '$elem' (in $COMP_DIR) is not mentioned in any docs/reviews/A11Y_AUDIT_*.md -- the audit does not demonstrably cover it"
+        fi
+      done < "$INTERACTIVE_NAMES"
+
+      if [[ "$covered" -eq "$INTERACTIVE_COUNT" ]]; then
+        pass "interactive-element inventory: all $INTERACTIVE_COUNT/$INTERACTIVE_COUNT covered by an audit"
+      else
+        note "interactive-element inventory: $covered/$INTERACTIVE_COUNT covered by an audit"
+      fi
+      rm -f "$AUDIT_CONTENT"
+    fi
+    rm -f "$INTERACTIVE_FILES" "$INTERACTIVE_NAMES"
+  fi
 fi
 
 cleanup_tmp

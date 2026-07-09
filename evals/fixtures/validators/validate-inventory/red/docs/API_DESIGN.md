@@ -1,0 +1,2 @@
+# API
+GET /api/users

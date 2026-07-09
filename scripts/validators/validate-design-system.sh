@@ -71,8 +71,12 @@ fi
 if [[ -n "$TOKEN_FILE" ]] && file_exists_nonempty "$STYLE"; then
   # Extract color identifiers from STYLE_GUIDE.md (hex values or color names)
   # Look for lines with color definitions: "primary: #...", "--color-primary:", etc.
+  # T22.6: this used to cap extraction at `head -20` -- a STYLE_GUIDE.md with
+  # more than 20 color identifiers silently dropped the rest from the
+  # denominator before the match count was even computed. No cap: the full
+  # extracted set is the ground truth, not a sample of it.
   style_colors=$(grep -oE '(--[a-z-]+|[a-z]+-[0-9]{3}|primary|secondary|accent|background|foreground|muted|destructive|success|warning|error)' "$STYLE" \
-    | grep -iv '(example\|note\|see\|also)' | sort -u | head -20 || true)
+    | grep -iv '(example\|note\|see\|also)' | sort -u || true)
 
   if [[ -n "$style_colors" ]]; then
     matched=0
@@ -85,11 +89,22 @@ if [[ -n "$TOKEN_FILE" ]] && file_exists_nonempty "$STYLE"; then
       fi
     done <<< "$style_colors"
 
-    if [[ "$total" -gt 0 && "$matched" -eq 0 ]]; then
-      gap "tokens-dont-match-styleguide" "Token file has no color names from STYLE_GUIDE.md — design tokens must implement the color palette defined in STYLE_GUIDE.md"
-    else
-      pass "Token file references STYLE_GUIDE color names ($matched/$total matched)"
+    # T22.6: this used to pass as long as a SINGLE color matched out of N
+    # (`matched -eq 0` was the only failure condition) -- a token file that
+    # implemented 1 of 15 STYLE_GUIDE colors reported clean. Require at
+    # least half the declared colors to be present; still tolerant of
+    # heuristic-grep near-misses ("background" in prose vs "bg-" in code),
+    # not demanding a literal 100% match.
+    if [[ "$total" -gt 0 ]]; then
+      half=$(( (total + 1) / 2 ))
+      if [[ "$matched" -lt "$half" ]]; then
+        gap "tokens-dont-match-styleguide" "Token file matches only $matched/$total color names from STYLE_GUIDE.md (need >= $half) — design tokens must implement the color palette defined in STYLE_GUIDE.md"
+      else
+        pass "Token file references STYLE_GUIDE color names ($matched/$total matched)"
+      fi
     fi
+  else
+    note "no color identifiers extracted from STYLE_GUIDE.md — color-match check skipped"
   fi
 
   # Check typography is referenced
@@ -125,12 +140,40 @@ fi
 if file_exists_nonempty "$UX_SPEC" && [[ -n "$COMP_DIR" ]]; then
   # Extract component names from UX_SPEC.md inventory table
   # Look for table rows in the Component Inventory section
-  components=$(awk '/^## Component Inventory/,/^## [A-Z]/' "$UX_SPEC" 2>/dev/null \
+  # T22.6: two stacked bugs found here. (1) The awk range pattern
+  # `/^## Component Inventory/,/^## [A-Z]/` closes on its OWN start line --
+  # "## Component Inventory" itself matches the end pattern `/^## [A-Z]/`
+  # (any "## " heading starting with a capital letter), so on real awk
+  # (verified against /usr/bin/awk, not just $AWK) the range always
+  # collapsed to that single heading line. `components` was therefore
+  # EMPTY on every real invocation and this whole section was dead code --
+  # a case of the ticket's named cap (`head -10`) never even being reached.
+  # Fixed with a flag-based scan (grab everything strictly AFTER the
+  # heading, stop at the next "## " heading) that doesn't have a same-line
+  # start/end collision. (2) On top of that, extraction was ALSO capped at
+  # `head -10` -- removed, every declared component is now checked.
+  # Known limitation (independent review, T22.6): this check only
+  # recognizes the markdown-TABLE Component Inventory shape (`| Name |
+  # Purpose |` rows). references/design-review-checklist.md's own
+  # greenfield template uses a bracketed comma-list shape instead
+  # (`- [Table (...), DetailCard, ...]` under subheadings like
+  # `### Data Display`) -- a UX_SPEC.md written in that shape extracts 0
+  # components here, silently. The new § 4b STATES check below DOES parse
+  # that bracket-list shape for data components specifically, but this
+  # older per-component existence check does not cover it. Disclosed as a
+  # follow-up candidate, not fixed here (scope discipline) -- pre-T22.6 this
+  # whole section was dead code for EVERY shape via the range-pattern bug
+  # above, so table-format projects are strictly better off than before.
+  components_block=$(awk '
+    /^## Component Inventory/ { grab=1; next }
+    grab && /^## / { grab=0 }
+    grab { print }
+  ' "$UX_SPEC" 2>/dev/null || true)
+  components=$(printf '%s\n' "$components_block" \
     | grep -E '^\|[[:space:]]*[A-Z][a-zA-Z]+' \
     | awk -F'|' '{print $2}' \
     | sed 's/^ *//;s/ *$//' \
-    | grep -v -E '^(Component|---)' \
-    | head -10 || true)
+    | grep -v -E '^(Component|---)' || true)
 
   if [[ -n "$components" ]]; then
     found_comps=0
@@ -148,6 +191,100 @@ if file_exists_nonempty "$UX_SPEC" && [[ -n "$COMP_DIR" ]]; then
       fi
     done <<< "$components"
     note "Component inventory coverage: $found_comps found, $missing_comps missing"
+  fi
+fi
+
+# -- 4b. Data component STATES: loading/loaded/error/empty + hover/disabled --
+# T22.6: ground truth = every component listed under the "### Data Display"
+# subsection of UX_SPEC.md's "## Component Inventory" (the producer format
+# defined in references/design-review-checklist.md's greenfield template).
+# For each one, require a row in the "## State Matrix" table with all 4
+# state cells (Loading/Loaded/Error/Empty) populated, AND hover/disabled
+# evidence in its component file. Previously nothing checked this dimension
+# at all -- a design system could ship with zero loading/error/empty states
+# defined for any data component and no validator would notice.
+if file_exists_nonempty "$UX_SPEC"; then
+  data_display_block=$(awk '
+    { line = tolower($0) }
+    line ~ /^### data display/ { grab=1; next }
+    grab && line ~ /^###/ { grab=0 }
+    grab && line ~ /^## / { grab=0 }
+    grab { print }
+  ' "$UX_SPEC" 2>/dev/null || true)
+
+  data_components=$(printf '%s\n' "$data_display_block" \
+    | sed -E 's/^[[:space:]]*[-*][[:space:]]*//' \
+    | tr ',' '\n' \
+    | sed -E 's/\([^)]*\)//g' \
+    | sed -E 's/^[[:space:]]*\[?//; s/\]?[[:space:]]*$//' \
+    | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+    | grep -v '^$' \
+    | sort -u || true)
+
+  if [[ -z "$data_components" ]]; then
+    note "no '### Data Display' subsection found under Component Inventory in UX_SPEC.md — data-component STATES check skipped (0 data components declared)"
+  else
+    data_comp_count=$(printf '%s\n' "$data_components" | grep -c . || true)
+    note "found $data_comp_count data component(s) in Component Inventory § Data Display"
+
+    state_matrix_block=$(awk '
+      { line = tolower($0) }
+      line ~ /^## state matrix/ { grab=1; next }
+      grab && line ~ /^## / { grab=0 }
+      grab { print }
+    ' "$UX_SPEC" 2>/dev/null || true)
+
+    if [[ -z "$state_matrix_block" ]]; then
+      gap "missing-state-matrix" "$data_comp_count data component(s) declared in Component Inventory § Data Display but UX_SPEC.md has no '## State Matrix' table — add a Loading/Loaded/Error/Empty row for each"
+    else
+      states_complete=0
+      hover_disabled_covered=0
+      while IFS= read -r comp; do
+        [[ -z "$comp" ]] && continue
+
+        row=$(printf '%s\n' "$state_matrix_block" | grep -iF "| $comp " | head -1 || true)
+        if [[ -z "$row" ]]; then
+          row=$(printf '%s\n' "$state_matrix_block" | grep -i "$comp" | grep -v -E '^[[:space:]]*\|[-: ]*\|' | head -1 || true)
+        fi
+
+        if [[ -z "$row" ]]; then
+          gap "missing-state-row" "data component '$comp' has no row in the State Matrix table — add Loading/Loaded/Error/Empty specs"
+        else
+          IFS='|' read -ra cells <<< "$row"
+          empty_cells=0
+          for idx in 2 3 4 5; do
+            cell="${cells[$idx]:-}"
+            trimmed=$(printf '%s' "$cell" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            trimmed_uc=$(printf '%s' "$trimmed" | tr '[:lower:]' '[:upper:]')
+            if [[ -z "$trimmed" || "$trimmed" == "-" || "$trimmed_uc" == "TBD" || "$trimmed_uc" == "TODO" ]]; then
+              empty_cells=$((empty_cells + 1))
+            fi
+          done
+          if [[ "$empty_cells" -gt 0 ]]; then
+            gap "incomplete-state-row" "data component '$comp' State Matrix row has $empty_cells/4 empty state cell(s) — every data component needs loading/loaded/error/empty specified"
+          else
+            states_complete=$((states_complete + 1))
+          fi
+        fi
+
+        # hover/disabled evidence in the component's own source file.
+        if [[ -n "$COMP_DIR" ]]; then
+          comp_file=$(find "$COMP_DIR" -maxdepth 3 -iname "${comp}*" 2>/dev/null | head -1 || true)
+          if [[ -n "$comp_file" ]] \
+              && grep -qiE '(hover|:hover|hover:)' "$comp_file" 2>/dev/null \
+              && grep -qiE 'disabled' "$comp_file" 2>/dev/null; then
+            hover_disabled_covered=$((hover_disabled_covered + 1))
+          else
+            gap "missing-hover-disabled-state" "data component '$comp' has no hover/disabled state evidence in its component file (file $( [[ -n "$comp_file" ]] && echo "found: ${comp_file#"$ROOT/"}" || echo "not found in $COMP_DIR" )) — add hover and disabled handling"
+          fi
+        fi
+      done <<< "$data_components"
+
+      note "State Matrix completeness: $states_complete/$data_comp_count data component(s) have all 4 states populated"
+      if [[ -n "$COMP_DIR" ]]; then
+        note "hover/disabled state coverage: $hover_disabled_covered/$data_comp_count data component(s)"
+      fi
+    fi
   fi
 fi
 
