@@ -28,6 +28,13 @@
 import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
+// Pure graph invariants (validatePlan/writeScopeCollisions/hygieneCheck) live
+// in their own module specifically so claim() here can import them without a
+// circular dependency on tickets.mjs (the barrel that imports claim() FROM
+// this file). See tickets-graph.mjs's header for the full story (T26.3
+// independent review: the hygiene check had only ever been wired into the
+// CLI, not into claim() itself, so a direct library import bypassed it).
+import { hygieneCheck } from './tickets-graph.mjs';
 
 function now() {
   return new Date().toISOString();
@@ -73,12 +80,21 @@ export function openTicketFor(plan, actor, excludeId = null) {
 
 // claim: ready+unowned -> claimed. WIP=1 — refuses if actor already owns
 // another module that's claimed or in_progress elsewhere (in_review doesn't
-// count: that work is done, the actor is just waiting on a reviewer).
+// count: that work is done, the actor is just waiting on a reviewer). T26.3:
+// also refuses to select a NEW ticket while the ticket graph itself is
+// unhygienic (malformed or write-scope-colliding) — the SAME check
+// validate-tickets.sh enforces in the gate sweep, checked here in the
+// library function itself (not just the CLI) so ANY caller is refused the
+// same way; independent review found an earlier version only wired this
+// into the CLI's `claim` handler, silently bypassable by a direct import.
 export function claim(plan, id, actor) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'ready') return { ok: false, error: `'${id}' is '${m.status}', not 'ready'` };
   if (m.owner != null) return { ok: false, error: `'${id}' already owned by '${m.owner}'` };
+  const hygiene = hygieneCheck(plan);
+  if (!hygiene.ok)
+    return { ok: false, error: `refusing to claim '${id}' — ticket graph hygiene is red:\n${hygiene.output}` };
   const openElsewhere = openTicketFor(plan, actor, id);
   if (openElsewhere)
     return {
@@ -179,10 +195,15 @@ export function close(plan, id, actor, { branch, commits, cwd = process.cwd() } 
 // HANDOFF check, an unrelated axis this does not replace) is NOT enough to
 // move a ticket in_review -> done; the actual receipt text close() printed
 // must appear somewhere in the file. The evidence cross-check (recorded
-// branch + every recorded commit must appear in the pasted text) is what
+// branch + every recorded commit, AND (independent review, T26.3) the
+// receipt's own `actor:` line matching `expectedActor` -- normalized via
+// sameActor(), same as every other identity comparison in this file) is what
 // defeats a hand-typed fake receipt that merely matches the header shape --
-// without it, the header regex alone would accept any hand-typed block.
-export function manifestHasCloseReceipt(manifestPath, id, evidence) {
+// without the actor check, a real branch+commits could be pasted under a
+// fabricated `actor:` line and still pass; `expectedActor` should be the
+// ticket's owner (the actor close() actually ran as), which accept() passes
+// as m.owner.
+export function manifestHasCloseReceipt(manifestPath, id, evidence, expectedActor) {
   if (!manifestPath || !existsSync(manifestPath)) return { ok: false, reason: `manifest not found: ${manifestPath}` };
   const text = readFileSync(manifestPath, 'utf8');
   const idEsc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -210,16 +231,26 @@ export function manifestHasCloseReceipt(manifestPath, id, evidence) {
           reason: `manifest's pasted receipt is missing recorded commit '${c}' -- looks hand-typed rather than pasted from close()`,
         };
   }
+  if (expectedActor != null) {
+    const actorLine = text.match(/^[ \t]*actor:[ \t]*(.+?)[ \t]*$/im);
+    const pastedActor = actorLine ? actorLine[1] : null;
+    if (!pastedActor || !sameActor(pastedActor, expectedActor))
+      return {
+        ok: false,
+        reason: `manifest's pasted receipt actor ('${pastedActor ?? '(none)'}') does not match the ticket owner ('${expectedActor}') -- looks hand-typed rather than pasted from close()`,
+      };
+  }
   return { ok: true };
 }
 
 // accept: in_review -> done. Reviewer-only — refuses if the acceptor is the
 // same actor who owns (did) the work, preserving don't-accept-your-own-work.
 // T26.3: also refuses unless the module's Completion Manifest actually has
-// the close() receipt pasted into it (manifestHasCloseReceipt) -- this is
-// the code-enforced gate behind "a HANDOFF completing without a close
-// receipt must be rejected." `cwd` resolves module.manifest the same way
-// close() does (relative to plan.json's directory) -- defaults to process.cwd().
+// the close() receipt pasted into it (manifestHasCloseReceipt, cross-checked
+// against m.owner and m.evidence) -- this is the code-enforced gate behind
+// "a HANDOFF completing without a close receipt must be rejected." `cwd`
+// resolves module.manifest the same way close() does (relative to
+// plan.json's directory) -- defaults to process.cwd().
 export function accept(plan, id, actor, { cwd = process.cwd() } = {}) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
@@ -228,7 +259,7 @@ export function accept(plan, id, actor, { cwd = process.cwd() } = {}) {
     return { ok: false, error: `'${actor}' cannot accept their own work on '${id}' — needs a different reviewer` };
   if (!m.manifest) return { ok: false, error: `'${id}' has no manifest path configured — cannot verify a close receipt` };
   const manifestPath = resolve(cwd, m.manifest);
-  const receiptCheck = manifestHasCloseReceipt(manifestPath, id, m.evidence);
+  const receiptCheck = manifestHasCloseReceipt(manifestPath, id, m.evidence, m.owner);
   if (!receiptCheck.ok) return { ok: false, error: `close-receipt check failed for '${id}': ${receiptCheck.reason}` };
   pushHistory(m, actor, 'in_review', 'done', 'accepted');
   m.status = 'done';
