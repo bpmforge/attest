@@ -96,6 +96,11 @@ populate_phase_artifacts() {
         "validate-tech-stack.sh"
         "validate-adrs.sh"
         "validate-security-controls.sh"
+        # T29.5: an ADR/design doc asserting an unverified external rationale
+        # (compliance/supply-chain/legal/vendor mandate) must not clear Phase
+        # 3 -- wired here (not just Phase 5) so the design doc is not
+        # considered final while an external claim is still unverified.
+        "validate-challenger-gate.sh"
       )
       # UX gate is UNCONDITIONAL: validate-ux-spec.sh passes only when UX docs
       # exist OR ARCHITECTURE.md explicitly declares "No UI — UX branch not
