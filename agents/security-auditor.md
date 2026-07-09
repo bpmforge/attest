@@ -215,6 +215,36 @@ until a re-scan shows it gone — never mark closed on the strength of the diff 
 
 **Safety rails:** never weaken a check to make a scan pass; never `|| true` a re-verify; a fix that introduces a new finding is not a fix. If remediation would touch auth, crypto, or input validation in a way you're <90% sure of, flag for human review instead of applying.
 
+## Bootstrap & Empty-State Checklist (MANDATORY when producing SECURITY_CONTROLS.md)
+
+Field lesson (M29): an external team stress-tested a pre-amplifier install and found that generated designs routinely pass every security gate while never answering how the system bootstraps from an empty database. This checklist closes that gap. When you produce `docs/SECURITY_CONTROLS.md` (Phase 3, dispatched via `SDLC-TASK for security-auditor`), it MUST include a `## Bootstrap & Empty-State` section answering these t=0 questions with real content — no placeholders, no bare headings:
+
+```markdown
+## Bootstrap & Empty-State
+
+- **First privileged user:** [how the FIRST admin/owner user is created on a brand-new, empty database]
+- **Zero-seed usable:** [yes/no — is the system usable with zero seed data, and what happens if not]
+- **State-gated capabilities:** [what functionality is gated on system/DB state alone (not a role) that the gate can create — e.g. "signup grants admin when zero users exist"]
+- **Zero-role user view:** [what an authenticated user with zero roles and zero data actually sees]
+- **Bootstrap mechanism:** [concretely HOW privilege bootstrap happens — seed script / first-user-is-admin / CLI command / invite token — and confirm it requires NO manual SQL]
+```
+
+`validate-security-controls.sh` (chained into the Phase-3 gate) checks that this section exists, that every field has a real (non-placeholder) answer, and — see the Threat Catalog below — that a self-referential permission gate never ships without a documented `Bootstrap mechanism:` escaping it.
+
+## Threat Catalog: Bootstrap & Authority (MANDATORY archetypes)
+
+Every threat model MUST explicitly assess these three named threats (present with a mitigation, or explicitly ruled N/A with a one-line reason) in addition to the standard per-component STRIDE pass. All three are Elevation-of-Privilege variants — see `agents/security/OWASP_METHODOLOGY.md` Phase 4b Step 2b for the full archetype writeup used by `threat-modeler`.
+
+| ID | Name | Description |
+|----|------|-------------|
+| bootstrap-authority | **Bootstrap-authority threat** | The system has no way to create the first privileged user without out-of-band intervention (manual SQL, a seed script that isn't safe to re-run, or an undocumented env var). |
+| self-referential-permission-gate | **Self-referential permission gate** | A permission check is gated on a role that only that same role (or a role reachable only through it) can grant — a circular authority requirement with no escape path. |
+| rbac-highest-role-wins | **RBAC highest-role-wins** | A many-to-many (N roles per principal) role schema whose enforcement logic picks "the highest-priority role" instead of computing the union of grants across all held roles — see the RBAC Cardinality Rule below. |
+
+## RBAC Cardinality Rule (MANDATORY)
+
+If the schema stores **N roles per principal** (a many-to-many user↔role relationship), permission enforcement MUST compute the **union of grants** across all of a user's roles. It must NEVER resolve effective permissions by "whichever role wins" (highest-priority-role-only logic) — that silently **under-grants** a permission legitimately held via a lower-priority role, or in some buggy implementations **over-grants**, depending on which role "wins." Document the enforcement rule explicitly in `SECURITY_CONTROLS.md` (e.g. "effective permissions = union of grants across all of the principal's roles") whenever a many-to-many role model is in play.
+
 ## Methodology reference (load on demand)
 
 | When | Load |
@@ -225,3 +255,4 @@ until a re-scan shows it gone — never mark closed on the strength of the diff 
 | IaC checks | `agents/security/IaC_METHODOLOGY.md` |
 | Attack chain patterns | `agents/security/OWASP_METHODOLOGY.md` Phase 5b |
 | Finding schema | `agents/security/FINDING_SCHEMA.md` |
+| Bootstrap & authority threat archetypes | `agents/security/OWASP_METHODOLOGY.md` Phase 4b Step 2b |

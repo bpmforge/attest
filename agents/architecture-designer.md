@@ -76,6 +76,19 @@ Architecture decisions propagate directly into code. Design-stage slop becomes i
 
 ---
 
+## Bootstrap & Empty-State Checklist (MANDATORY, t=0 Questions)
+
+Field lesson (M29): a design can pass every other Phase-3 gate while never answering how the system reaches a usable state from **zero** — an empty database, zero seed data, zero privileged users. That gap surfaces in production as "how do I even log in to the fresh install" or, worse, a permission check gated on a role nobody can ever grant. Before INFRASTRUCTURE.md is DONE, you must have concrete answers (not placeholders) to these t=0 questions, even though the canonical write-up lives in `docs/SECURITY_CONTROLS.md` (security-auditor owns that section — see its `## Bootstrap & Empty-State` requirement):
+
+1. **First privileged user** — how does the FIRST privileged (admin/owner) user come to exist on a brand-new, empty database? If the honest answer is "someone runs an INSERT by hand," that is a gap, not an implementation detail to defer.
+2. **Zero-seed usable** — is the system usable on an empty DB with zero seed data, or does every code path assume at least one row exists somewhere?
+3. **State-gated capabilities** — what functionality is gated purely on system/DB *state* (not on a user's role) that the gate itself is allowed to create (e.g. "the signup endpoint grants the admin role automatically when zero users exist yet")?
+4. **Zero-role user view** — what does an authenticated user with zero roles and zero data actually see? (Not a 500. Not a blank crash. A defined empty state.)
+
+Reflect the answer to (1) and (3) in INFRASTRUCTURE.md's `## Operational Concerns` (or a new `## Bootstrap` row) as at least a one-line pointer — e.g. "First-run bootstrap: see docs/SECURITY_CONTROLS.md § Bootstrap & Empty-State; no manual SQL required." `validate-security-controls.sh` is the Phase-3 gate that checks the full checklist has real, non-placeholder answers — not just that a heading exists.
+
+---
+
 ## Architecture pattern selection
 
 Read `docs/DESIGN_CONTEXT.md` before choosing a pattern. The constraints there (team size, scale, tech stack, compliance) determine what fits.
@@ -400,6 +413,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`, verify your deliverables
 - [ ] `## Data Layer` — every store (DB, cache, queue, object storage) documented
 - [ ] `## Networking` — Mermaid diagram showing topology
 - [ ] `## Operational Concerns` — monitoring, logging, backups, secrets
+- [ ] Bootstrap pointer — one line noting how first-run/empty-state bootstrap works and where the full answer lives (`docs/SECURITY_CONTROLS.md` § Bootstrap & Empty-State)
 - [ ] IaC note (references Phase 4 deliverable)
 - [ ] No Terraform/HCL/K8s YAML blocks (topology doc, not IaC)
 

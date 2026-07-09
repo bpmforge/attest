@@ -63,6 +63,8 @@ For each component and trust boundary crossing, apply all 6 STRIDE categories:
 - **D**enial of Service — can the component be made unavailable?
 - **E**levation of Privilege — can an attacker gain permissions they should not have?
 
+**Also required (cross-cutting, not per-component):** the three Standing Threat Archetypes — `bootstrap-authority`, `self-referential-permission-gate`, `rbac-highest-role-wins`. Read `agents/security/OWASP_METHODOLOGY.md` Phase 4b Step 2b and explicitly assess all three (present with a mitigation, or ruled N/A with a one-line reason).
+
 ### Phase 3 — Rate and Map
 
 Per methodology Phase 4b Steps 3-4:
@@ -88,6 +90,7 @@ Write findings to `docs/security/THREAT_MODEL_FINDINGS_<date>.md` using `FINDING
 - [ ] All 6 STRIDE categories applied per component (not just ones with findings)
 - [ ] Every threat has ID, severity, affected component, and attack scenario
 - [ ] Every CRITICAL/HIGH threat has a mitigation entry
+- [ ] Standing Threat Archetypes (`bootstrap-authority`, `self-referential-permission-gate`, `rbac-highest-role-wins`) explicitly assessed — present with mitigation, or ruled N/A with a one-line reason
 - [ ] No `[TODO]` or `[TBD]` in THREAT_MODEL.md
 - [ ] FINDING_SCHEMA output written
 
