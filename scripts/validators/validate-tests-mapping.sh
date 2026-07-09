@@ -40,7 +40,16 @@ if [[ -z "$UC" ]]; then
 fi
 
 # -- Collect P0 + P1 use case IDs -----------------------------------------
-P_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp][01]\b' | grep -oE 'UC-[0-9]+' | sort -u)
+# T22.6 independent review: under _lib.sh's `set -euo pipefail`, a
+# multi-stage grep pipeline where an intermediate grep matches nothing exits
+# non-zero, pipefail propagates that into the `VAR=$(...)` assignment, and
+# `set -e` kills the whole script right there -- silently, before any JSON
+# is emitted. Reproduced directly: a USE_CASES.md with P0/P1 entries but no
+# P2 entries (a common, not edge, case) crashed the P2_CASES line with no
+# output at all. `|| true` on every such pipeline (both this pre-existing
+# P_CASES line and the new P2_CASES line below) makes "zero matches" a
+# legitimate empty result instead of a fatal error.
+P_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp][01]\b' | grep -oE 'UC-[0-9]+' | sort -u || true)
 
 P_COUNT=$(printf '%s\n' "$P_CASES" | grep -c . || true)
 
@@ -50,7 +59,7 @@ P_COUNT=$(printf '%s\n' "$P_CASES" | grep -c . || true)
 # consider. Make every P2 use case visible as an explicit SKIPPED note so
 # the full denominator (P0+P1+P2) is on the record, not just the subset the
 # validator happens to require.
-P2_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp]2\b' | grep -oE 'UC-[0-9]+' | sort -u)
+P2_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp]2\b' | grep -oE 'UC-[0-9]+' | sort -u || true)
 P2_COUNT=$(printf '%s\n' "$P2_CASES" | grep -c . || true)
 if [[ "$P2_COUNT" -gt 0 ]]; then
   while IFS= read -r uc2; do

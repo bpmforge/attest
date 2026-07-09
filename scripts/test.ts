@@ -26,6 +26,8 @@ import { testChallengerGate } from "./test-challenger-gate.ts";
 import { testTruthfulCompletion } from "./test-truthful-completion.ts";
 import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
 import { testWiringLedger } from "./test-wiring-ledger.ts";
+import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
+import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -337,14 +339,36 @@ console.log(
 await testWiringLedger(root, ok, fail);
 
 // ---------------------------------------------------------------------------
-// Pass 13: Load-bearing denominators (T22.6) — validate-design-system.sh
+// Pass 13: Challenger gate slug/date correlation (T22.20) — a source report
+// must be matched to its OWN clean challenge report via the declared
+// "**Artifact:**" field; an unrelated clean challenge report elsewhere no
+// longer satisfies the gate.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 13] Challenger gate correlation — per-source Artifact matching",
+);
+await testChallengerGateCorrelation(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 14: awk word-boundary (T22.19) — \b is a no-op on stock macOS system
+// awk; validate-code-health.sh (R-02, H-01) and validate-fix-backlog-closed.sh
+// (waived-justification) silently never fired. Direct repro + fixed-validator
+// regression, run on real /bin/bash + stock /usr/bin/awk.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 14] awk word-boundary — \\b-in-awk repro + fixed-validator regression",
+);
+await testAwkWordBoundary(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 15: Load-bearing denominators (T22.6) — validate-design-system.sh
 // (STATES + killed caps), validate-tests-mapping.sh (assertion-level + P2
 // SKIPPED), validate-wcag-coverage.sh (interactive-element inventory), and
 // validate-inventory.sh (second-pass source re-derivation) each used to
 // check a sample/capped-prefix/1-of-N ground truth instead of the full set.
 // ---------------------------------------------------------------------------
 console.log(
-  "\n[Pass 13] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
+  "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
 

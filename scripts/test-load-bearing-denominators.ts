@@ -1,5 +1,5 @@
 /**
- * test-load-bearing-denominators.ts — Pass 13 chapter module for
+ * test-load-bearing-denominators.ts — Pass 15 chapter module for
  * scripts/test.ts (T22.6).
  *
  * "Denominator integrity": several validators used to check a SAMPLE or a
