@@ -38,9 +38,14 @@
 # which a pure-basename compare would incorrectly conflate (that would be
 # the exact bug class this ticket exists to close, just one level down).
 # If the declared path is a bare filename (no "/"), it is compared against
-# the source's basename only, since a bare filename can't express which
-# directory it means. Either way the comparison is exact-string, no fuzzy
-# matching, so a near-miss filename does not accidentally match. A
+# the source's basename -- but ONLY when that basename is unique among all
+# of THIS run's source reports. Two source reports sharing a basename in
+# different directories (docs/reviews/FINDINGS.md, docs/security/FINDINGS.md)
+# make a bare "FINDINGS.md" declaration genuinely ambiguous: it cannot say
+# which one was actually challenged, so it satisfies NEITHER (fail closed,
+# same "ambiguous -> gate red" posture the rest of this validator already
+# takes for a malformed report). Either way the comparison is exact-string,
+# no fuzzy matching, so a near-miss filename does not accidentally match. A
 # challenge report with no parseable Artifact field cannot satisfy any
 # source's requirement (same treatment as a missing CONTRADICTED line --
 # see "malformed-challenge-report" below).
@@ -79,16 +84,35 @@ extract_artifact_declared() {
   printf '%s' "$val"
 }
 
+# is_ambiguous_basename <base> -- true if 2+ of this run's SOURCE_HITS
+# share the given basename (populated after step 1). Bash-3.2-safe empty-
+# array guard, same pattern as the CHALLENGE_REPORTS loop below.
+is_ambiguous_basename() {
+  local b="$1" x
+  if [[ "${#AMBIGUOUS_BASENAMES[@]}" -gt 0 ]]; then
+    for x in "${AMBIGUOUS_BASENAMES[@]}"; do
+      [[ "$x" == "$b" ]] && return 0
+    done
+  fi
+  return 1
+}
+
 # artifact_matches_source <declared> <src_rel> -- true if a challenge
 # report's declared Artifact value correlates to a given source report's
 # ROOT-relative path. A declared value containing "/" is compared as a
 # full path (exact match against src_rel); a bare filename is compared
-# against the source's basename only.
+# against the source's basename, but only accepted when that basename is
+# not ambiguous (see is_ambiguous_basename above) -- an ambiguous bare
+# filename cannot be trusted to name this specific source.
 artifact_matches_source() {
-  local declared="$1" src_rel="$2"
+  local declared="$1" src_rel="$2" src_base
+  src_base="$(basename "$src_rel")"
   case "$declared" in
     */*) [[ "$declared" == "$src_rel" ]] ;;
-    *)   [[ -n "$declared" && "$declared" == "$(basename "$src_rel")" ]] ;;
+    *)
+      [[ -z "$declared" || "$declared" != "$src_base" ]] && return 1
+      ! is_ambiguous_basename "$src_base"
+      ;;
   esac
 }
 
@@ -114,6 +138,28 @@ if [[ "${#SOURCE_HITS[@]}" -eq 0 ]]; then
 fi
 
 pass "found ${#SOURCE_HITS[@]} report(s) with a CRITICAL/HIGH finding"
+
+# -- 1b. detect basenames shared by 2+ source reports (see
+# is_ambiguous_basename / artifact_matches_source above for why this
+# matters: a bare-filename Artifact declaration can't disambiguate them).
+AMBIGUOUS_BASENAMES=()
+i=0
+while [[ "$i" -lt "${#SOURCE_HITS[@]}" ]]; do
+  bi="$(basename "${SOURCE_HITS[$i]}")"
+  if ! is_ambiguous_basename "$bi"; then
+    count=0
+    j=0
+    while [[ "$j" -lt "${#SOURCE_HITS[@]}" ]]; do
+      [[ "$(basename "${SOURCE_HITS[$j]}")" == "$bi" ]] && count=$((count + 1))
+      j=$((j + 1))
+    done
+    [[ "$count" -gt 1 ]] && AMBIGUOUS_BASENAMES+=("$bi")
+  fi
+  i=$((i + 1))
+done
+if [[ "${#AMBIGUOUS_BASENAMES[@]}" -gt 0 ]]; then
+  warn "basename(s) shared by 2+ source reports (bare Artifact filenames can't disambiguate these -- declare a full path): ${AMBIGUOUS_BASENAMES[*]}"
+fi
 
 # -- 2. collect CHALLENGE_REPORT files ---------------------------------------
 CHALLENGE_REPORTS=()

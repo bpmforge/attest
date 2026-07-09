@@ -329,6 +329,61 @@ export async function testChallengerGateCorrelation(
         );
       fs.rmSync(dir, { recursive: true, force: true });
     }
+
+    // -- T22.20 bare-filename ambiguity guard: two DIFFERENT source
+    // reports share a basename in different directories, and the ONLY
+    // challenge report declares a BARE filename (no directory component)
+    // -- unlike the previous case, a bare declaration can't disambiguate
+    // which of the two it actually challenged. Must satisfy NEITHER (fail
+    // closed), not silently pick one. This is the residual hole a naive
+    // "bare filename matches by basename" fallback would reopen.
+    {
+      const dir = makeFixtureDir();
+      fs.mkdirSync(path.join(dir, "docs/security"), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/FINDINGS.md"),
+        "| ID | Severity | Finding | Status |\n|----|----------|---------|--------|\n| F1 | CRITICAL | Reviewed and challenged finding | OPEN |\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "docs/security/FINDINGS.md"),
+        "| ID | Severity | Finding | Status |\n|----|----------|---------|--------|\n| F2 | CRITICAL | Unrelated, never-challenged finding | OPEN |\n",
+      );
+      fs.writeFileSync(
+        path.join(
+          dir,
+          "docs/reviews/CHALLENGE_REPORT_findings_bare_2026-07-09.md",
+        ),
+        [
+          "# Challenge Report — FINDINGS (bare filename)",
+          "",
+          "**Date:** 2026-07-09 | **Artifact:** FINDINGS.md | **Challenger:** challenger agent",
+          "",
+          "## Summary",
+          "- Claims reviewed: 1",
+          "- CONFIRMED: 1",
+          "- CONTRADICTED: 0",
+          "- UNVERIFIABLE: 0",
+          "- Action required: NO",
+          "",
+        ].join("\n"),
+      );
+      const r = run(dir);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":2') &&
+        r.stdout.includes("docs/reviews/FINDINGS.md") &&
+        r.stdout.includes("docs/security/FINDINGS.md")
+      )
+        ok(
+          "challenger-gate-correlation — a bare-filename Artifact declaration that's ambiguous between two same-basename sources satisfies neither",
+        );
+      else
+        fail(
+          "challenger-gate-correlation — bare-filename ambiguity guard",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 600)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("challenger-gate-correlation", `unexpected failure: ${message}`);
