@@ -27,7 +27,6 @@
   "validate-owasp.sh",
   "validate-release-readiness.sh",
   "validate-resilience-patterns.sh",
-  "validate-security-controls.sh",
   "validate-sequence-coverage.sh",
   "validate-smoke.sh",
   "validate-spec-traceability.sh",

@@ -238,4 +238,29 @@ else
   fi
 fi
 
+# -- 12. Fresh-deploy dry-run: new environment reaches usable state, no manual SQL --
+# Field lesson (M29): a design can pass every other release gate while the
+# actual "install this on a brand-new environment" path was never exercised.
+bootstrap_dryrun=$(latest_matching "BOOTSTRAP_DRYRUN*")
+
+if [[ -z "$bootstrap_dryrun" ]]; then
+  gap "missing-bootstrap-dryrun" "docs/reviews/BOOTSTRAP_DRYRUN_*.md not found — Phase 5 requires a fresh-environment dry run proving the new environment reaches a usable state with no manual SQL"
+else
+  pass "BOOTSTRAP_DRYRUN found: ${bootstrap_dryrun#"$ROOT/"}"
+  if grep -qiE '(verdict|status)[[:space:]]*[:=][[:space:]]*(READY|PASS|APPROVED)' "$bootstrap_dryrun" 2>/dev/null \
+    || grep -qiE '^(READY|PASS|APPROVED)$' "$bootstrap_dryrun" 2>/dev/null; then
+    pass "BOOTSTRAP_DRYRUN verdict: READY/PASS"
+  elif grep -qiE '\b(BLOCKED|FAIL)\b' "$bootstrap_dryrun" 2>/dev/null; then
+    gap "bootstrap-dryrun-blocked" "BOOTSTRAP_DRYRUN shows BLOCKED/FAIL verdict — fresh environment does not reach usable state"
+  else
+    gap "bootstrap-dryrun-verdict-unclear" "BOOTSTRAP_DRYRUN verdict is not clearly READY/PASS — check ${bootstrap_dryrun#"$ROOT/"}"
+  fi
+
+  if ! grep -qiE '(no|without|zero)[[:space:]]+manual[[:space:]]+SQL' "$bootstrap_dryrun" 2>/dev/null; then
+    gap "bootstrap-dryrun-no-manual-sql-claim" "BOOTSTRAP_DRYRUN does not explicitly state 'no manual SQL' was required to reach usable state — this is the specific claim Phase 5 requires"
+  else
+    pass "BOOTSTRAP_DRYRUN explicitly confirms no manual SQL required"
+  fi
+fi
+
 validator_exit
