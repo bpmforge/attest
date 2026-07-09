@@ -152,6 +152,18 @@ if file_exists_nonempty "$UX_SPEC" && [[ -n "$COMP_DIR" ]]; then
   # heading, stop at the next "## " heading) that doesn't have a same-line
   # start/end collision. (2) On top of that, extraction was ALSO capped at
   # `head -10` -- removed, every declared component is now checked.
+  # Known limitation (independent review, T22.6): this check only
+  # recognizes the markdown-TABLE Component Inventory shape (`| Name |
+  # Purpose |` rows). references/design-review-checklist.md's own
+  # greenfield template uses a bracketed comma-list shape instead
+  # (`- [Table (...), DetailCard, ...]` under subheadings like
+  # `### Data Display`) -- a UX_SPEC.md written in that shape extracts 0
+  # components here, silently. The new § 4b STATES check below DOES parse
+  # that bracket-list shape for data components specifically, but this
+  # older per-component existence check does not cover it. Disclosed as a
+  # follow-up candidate, not fixed here (scope discipline) -- pre-T22.6 this
+  # whole section was dead code for EVERY shape via the range-pattern bug
+  # above, so table-format projects are strictly better off than before.
   components_block=$(awk '
     /^## Component Inventory/ { grab=1; next }
     grab && /^## / { grab=0 }
