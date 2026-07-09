@@ -84,8 +84,13 @@ scan_file() {
     lineno=$((lineno + 1))
 
     # Fence tracking (any language, including mermaid) -- table syntax
-    # inside a code block is sample text, not a real table.
-    if [[ "$line" =~ ^[[:space:]]*\`\`\` ]]; then
+    # inside a code block is sample text, not a real table. Both GFM fence
+    # styles count (``` and ~~~) -- independent review (2026-07-09) found a
+    # ~~~-fenced block containing pipe-delimited sample output was scanned
+    # as live markdown and false-positived; not a strict per-style matcher
+    # (a ``` line still toggles a ~~~-opened fence and vice versa), same
+    # simplification validate-mermaid.sh's own fence tracker already makes.
+    if [[ "$line" =~ ^[[:space:]]*(\`\`\`|~~~) ]]; then
       if [[ $in_fence -eq 0 ]]; then
         in_fence=1
       else

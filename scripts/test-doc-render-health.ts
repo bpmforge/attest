@@ -254,6 +254,56 @@ export async function testDocRenderHealth(
       );
     }
 
+    // 4d. Table: a ~~~-fenced code block (GFM's other fence style)
+    // containing pipe-delimited sample output must not be scanned as a
+    // live table. Independent review (2026-07-09) found this false
+    // positive — the fence tracker originally only recognized ``` fences.
+    writeFixture(
+      tmp,
+      "docs/d.md",
+      [
+        "# D",
+        "",
+        "~~~",
+        "| this | is sample output |",
+        "| not  | a real table |",
+        "~~~",
+        "",
+      ].join("\n"),
+    );
+    const fp4 = run(RENDER_HEALTH, [tmp]);
+    if (fp4.exitCode === 0) {
+      ok(
+        "validate-doc-render-health — false-positive check: ~~~-fenced pipe-delimited sample output not flagged",
+      );
+    } else {
+      fail(
+        "validate-doc-render-health — false-positive check (~~~ fence)",
+        `expected exit=0, got exit=${fp4.exitCode} stdout=${fp4.stdout.slice(0, 400)}`,
+      );
+    }
+    fs.rmSync(path.join(tmp, "docs", "d.md"));
+
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // -- 5. Regression proof: the ~~~-fence false positive is real and the
+  // fix addresses it (old fence pattern matched only ```, not ~~~). -------
+  {
+    const oldFencePattern = /^\s*```/;
+    const newFencePattern = /^\s*(```|~~~)/;
+    const tildeFenceLine = "~~~";
+    const oldRecognizesFence = oldFencePattern.test(tildeFenceLine);
+    const newRecognizesFence = newFencePattern.test(tildeFenceLine);
+    if (!oldRecognizesFence && newRecognizesFence) {
+      ok(
+        "validate-doc-render-health — ~~~-fence regression: old fence pattern did not recognize a ~~~ line (content inside would have been scanned as live markdown); new pattern does",
+      );
+    } else {
+      fail(
+        "validate-doc-render-health — ~~~-fence regression",
+        `expected oldRecognizesFence=false newRecognizesFence=true, got old=${oldRecognizesFence} new=${newRecognizesFence}`,
+      );
+    }
   }
 }
