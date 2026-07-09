@@ -1,5 +1,5 @@
 /**
- * test-adr-external-rationale.ts — Pass 16 chapter module for scripts/test.ts
+ * test-adr-external-rationale.ts — Pass 17 chapter module for scripts/test.ts
  * (T29.5).
  *
  * Covers three additions:

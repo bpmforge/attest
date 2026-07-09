@@ -554,6 +554,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-data-governance.sh` | A schema with personal data ships with classification + retention/handling rules |
 | `validate-dead-code.sh` | Deterministic dead-code / stub / unused-export gate (knip / ts-prune / vulture + grep) |
 | `validate-doc-catalog.sh` | The FEATURES catalog lists every validator + shared protocol that actually ships (body-drift) |
+| `validate-doc-render-health.sh` | Markdown-table orphan-fragment linter — a `\|`-delimited data row with no valid header/separator above it renders as literal pipe-text, not a table (T29.9) |
 | `validate-feature-coverage.sh` | Scoped Ralph Wiggum inventory coverage for `/sdlc feature` |
 | `validate-improve-coverage.sh` | Scoped Ralph Wiggum inventory coverage for `/sdlc improve` |
 | `validate-loop-readiness.sh` | Refuse-to-loop gate (G7) — every loopable row must name a checkable success criterion |
