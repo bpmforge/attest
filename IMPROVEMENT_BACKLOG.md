@@ -2,6 +2,8 @@
 
 Generated: 2026-05-19
 Source: Expert system audit + gap analysis
+Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 engagement field report
+(`issues/field-report-mode1-sdlc-run-2026-07.md`). Groups A–G (original audit) remain all-closed.
 
 ---
 
@@ -240,6 +242,169 @@ Source: Expert system audit + gap analysis
 
 ---
 
+## Group H — Field-Report Findings (live Mode-1 run, 2026-07) — OPEN
+
+> **Source:** `issues/field-report-mode1-sdlc-run-2026-07.md` — a multi-week Mode-1 SDLC engagement on a
+> regulated full-stack platform where an external dev team joined mid-flight and stress-tested the
+> system's decisions and artifacts. Unlike Groups A–G (original audit, all closed), these are OPEN and
+> come from **observed real failures/near-misses**. Each maps to a field-report finding (A-1…C-3).
+> Theme: the system's *verification* is excellent; the gaps are in **breadth of what's proactively
+> checked** and in **self-enforcing the process it already prescribes.**
+
+### H1. Two-layer completion invariant + code↔requirement reconciliation gate [MEDIUM] — HIGH — (field-report A-1, A-6.3)
+- **Problem:** the orchestrator closed the build-task layer as waves shipped, but the requirement-story
+  layer was never transitioned — status rolled up "implementation complete" while ~half the requirements
+  were unbuilt. Discovered only by a mid-flight code↔story audit.
+- **Files to touch:**
+  - `scripts/validators/validate-phase-gate.sh` (+ any phase-4/5 gate script): a phase may not report
+    complete while requirement-stories tied to it are open. Compare *requirement* closure, not task closure.
+  - `agents/sdlc-lead.md` + `agents/sdlc-init-phase-5.md`: add a mandatory **code↔requirement
+    reconciliation** HANDOFF (test-engineer or code-reviewer) at Phase 4→5 that greps the codebase
+    against the requirement list and emits DONE / PARTIAL / OUTSTANDING per requirement.
+  - Status-artifact generation (see H7): derive "% done" from the requirement layer only.
+- **Acceptance:** phase-gate fails if a phase's requirement-stories are open; a reconciliation matrix
+  artifact (per-requirement verdict) is a required Phase-5 input.
+- **Why:** "wave done" silently masked "requirements unbuilt" — the single most consequential tracking
+  failure of the engagement.
+
+### H2. Bulk scope-cut = enumerate + per-item confirm, not a label sweep [SMALL] — HIGH — (field-report A-2)
+- **Problem:** a broad verbal deferral ("defer all the X-related work") was applied as a bulk relabel;
+  a genuinely MVP-critical, only-incidentally-related item got deferred and was later found to be a
+  launch blocker.
+- **Files to touch:** `agents/sdlc-lead.md` (decision-handling) + `agents/sdlc-improve-mode.md`. Add a
+  rule: a scope/deferral instruction affecting >1 item MUST enumerate the affected items and get
+  per-item (or per-cluster) confirmation, explicitly flagging any that look MVP-load-bearing, before
+  relabeling. Reuse the discovery "present the list, confirm the classification" pattern.
+- **Acceptance:** a bulk scope change produces a written affected-items list with a load-bearing flag
+  column, confirmed before any label mutation.
+- **Why:** the orchestrator optimized for executing the instruction over pressure-testing it.
+
+### H3. Clean-tree precondition + post-merge scope-attribution check [SMALL] — MEDIUM — (field-report A-3)
+- **Problem:** uncommitted feature-branch changes in the working tree were carried into a *different*
+  (docs) PR when the orchestrator branched while the prior unit's work was still uncommitted — reviewed
+  code reached `main` inside a docs PR, outside its own gate-merge.
+- **Files to touch:** `agents/sdlc-lead.md` + `agents/shared/` git-discipline protocol. (1) Before
+  `git checkout -b` for a new work unit, assert `git status` is clean (or only the new unit's files);
+  a dirty tree from a prior unit must be committed/stashed to its own branch first. (2) After any PR
+  merge, `git show --stat` — flag if a PR touched files outside its declared scope (docs PR that
+  changed `src/`).
+- **Acceptance:** starting a work unit on a dirty tree is blocked/flagged; a scope-mismatched merge is
+  flagged.
+- **Why:** the system's own "one unit = one branch = one PR" rule wasn't self-enforced at context-switch.
+
+### H4. ADR for load-bearing tech choices + verify asserted rationale [MEDIUM] — HIGH — (field-report A-5)
+- **Problem:** the two most-challenged choices (primary datastore; "vendor the component library")
+  rested on thin/incorrect recorded rationale — a stakeholder's deployment convenience, a prior-employer
+  habit, and (for the library) a supply-chain reason that **cited the wrong library**. Presented in
+  design docs as settled; only pressure-tested when an external reviewer arrived.
+- **Files to touch:**
+  - `agents/architecture-designer.md` (or the Phase-3 design agent) + `agents/sdlc-init-phase-3.md`:
+    require a short **ADR** for any load-bearing/hard-to-reverse choice (datastore, auth model, core
+    framework, vendoring strategy) — alternatives considered, actual deciding factors, and an explicit
+    tag when a factor is "stakeholder/deployment preference" or "prior-art habit" rather than an
+    engineering constraint.
+  - Wire the existing **Challenger/veracity** capability (`skills/challenge`, `agents/` challenger) to
+    run over **architecture-decision rationales**, not just findings — verify claims like "X for
+    supply-chain reasons" or "compliance forces engine Y" against the actual advisory/requirement
+    (researcher/security-auditor HANDOFF) before they enter a design doc.
+  - `references/` add an ADR template + "soft-reason" tagging guidance.
+- **Acceptance:** load-bearing choices have an ADR with alternatives + tagged soft-reasons; asserted
+  external rationales are Challenger-verified before doc entry.
+- **Why:** unexamined/incorrect rationale went into frozen design docs and drove weeks of build.
+
+### H5. Tracker Data Model design step + tracker-integrity validator + continuous phase→story linking [MEDIUM-LARGE] — HIGH — (field-report A-6, IN-DEPTH)
+- **Problem (5 sub-parts):** phases were modeled as tracking-*stories* under one umbrella epic with **no
+  parent/child link** to their work (A-6.1) → **no native "% of phase done" rollups**, retrofitted by
+  scripting 150+ links mid-project (A-6.2); task-layer vs requirement-layer completion diverged (A-6.3,
+  = H1); **labels were the only source of truth for scope but unenforced**, so unlabeled stories were
+  invisible to scope math and undercounted MVP (A-6.4); template/scaffolding strays polluted counts and
+  presented a confusing second epic (A-6.5). Root cause: the tracker is treated as a place to *emit*
+  work items, not a **data model to design**.
+- **Files to touch:**
+  - `agents/sdlc-lead.md` + `agents/sdlc-init-phases-0-2.md`/`sdlc-init-phase-3.md`: add a **"Tracker
+    Data Model" design step** at the Phase 2→3 boundary (when the backlog is generated). It records, as
+    a short spec: the layer map (what = epic/story/task here + why); the **phase→work linkage
+    mechanism** (structural — parent/child link or epic-per-phase — strongly preferred over label-only,
+    so rollups are native and completion can't silently diverge); the **single source of truth for scope
+    + completion** (if labels, they are mandatory on every item); and stray handling.
+  - **Backlog generator** (whatever emits the tracker items): apply required scope labels to *every*
+    item; do not leave sample/template items in the project (or tag them out of scope math from the
+    start); link each story to its phase on creation.
+  - New **`scripts/validators/validate-tracker-integrity.sh`** (runnable any session + at each phase
+    gate): every work item has required scope labels; every requirement-story is linked to its phase; no
+    orphan/stray items counted in scope math; epic/story/task layering matches the recorded model.
+  - Continuous, **idempotent phase→story linking** helper (link-on-create + re-runnable sweep for
+    stragglers) so structure stays true as the backlog grows.
+- **Acceptance:** a Tracker Data Model spec exists before build; the integrity validator passes at every
+  phase gate; no unlabeled work items; every requirement structurally linked to its phase; zero strays
+  in scope math.
+- **Why:** every Mode-1 engagement generates a backlog; without designing the work-item model it drifts
+  the same way every time (incoherent rollups, label-invisible scope, diverging completion, mid-project
+  archaeology). This is the deepest process finding — see field report A-6 for the full write-up.
+
+### H6. Bootstrap & Empty-State checklist [MEDIUM] — HIGH — (field-report B-1)
+- **Problem:** an RBAC model shipped where creating the *first* project required a role only an existing
+  role-holder could grant — the app was **unusable on an empty DB** without manual SQL or disabling the
+  auth check. Passed design + build + review; a joining dev hit it on first deploy. A sweep then found a
+  second empty-state gap (a role-gated field unsettable when no user held that role).
+- **Files to touch:**
+  - `agents/architecture-designer.md` + `agents/security-auditor.md` + `references/`: add a **"Bootstrap
+    & Empty-State" checklist** — How does the *first* privileged user/record come to exist? Can the app
+    be used on an empty DB with zero seed? What is gated on state that only that gate can create? What
+    does a zero-role/zero-data user *see* (graceful vs dead-end)? Is there a seed, and does it cover the
+    bootstrap identity?
+  - Make it a **Phase-3 design-gate item** and a **Phase-5 pre-launch check** ("fresh-deploy dry run:
+    brand-new environment reaches a usable state with no manual SQL").
+  - Add to the security-auditor threat catalog: *bootstrap-authority* + *self-referential permission
+    gates* as standard elevation/availability checks.
+- **Acceptance:** design gate includes an answered empty-state checklist; a fresh-deploy dry-run is a
+  Phase-5 gate; security catalog covers self-referential gates.
+- **Why:** designers/reviewers reason about steady state; nobody's job was t=0. Recurring, un-hunted class.
+
+### H7. Status artifacts derive % live + "built vs done" distinction + freshness check [SMALL] — HIGH — (field-report C-1)
+- **Problem:** a published status page showed all phases green / "ready for QA" while MVP was ~half
+  built; a landing page's status table was stale the *other* way (understated, months old). Both
+  misinformed stakeholders. Root: status written once, not re-derived; "phase built" (scaffolding)
+  conflated with "phase done" (features complete).
+- **Files to touch:** the status/dashboard artifact template + `skills/steward` (or the publish flow).
+  Status artifacts must lead with the **requirement-completion metric derived live** from the tracker,
+  visually distinguish **"platform/foundation built" vs "features complete,"** never paint a phase
+  green while its requirement-stories are open, and carry a **freshness check** (a status artifact older
+  than the last work event, or whose numbers don't match a live query, is flagged stale).
+- **Acceptance:** status artifact shows live requirement %, a built-vs-done split, and fails a freshness
+  check when stale.
+- **Why:** stakeholder-facing misinformation in both directions.
+
+### H8. Publish render-health gate + markdown-table + diagram-syntax linters [SMALL] — MEDIUM — (field-report C-2, C-3)
+- **Problem:** on the published doc mirror, a diagram silently failed to render (unsafe char in a node
+  label) and fell back to raw text; a large table rendered "half table, half raw text" (a blank line
+  split one table into an orphan fragment with no header); a long-lived tracker's tables corrupted from
+  append-only edits. All shipped unnoticed until a human glanced.
+- **Files to touch:**
+  - Publish/steward flow (`skills/steward`, publish scripts): **render-health check** after publish —
+    every diagram produced an image (not a raw code block); every source table rendered as a real table
+    (no orphaned pipe-text). (Built ad-hoc during the engagement; generalize it.)
+  - New/extended doc-hygiene validators: **markdown-table orphan-fragment detector** (a data row
+    preceded by a blank line with no header/separator) + **diagram-syntax linter** (unsafe chars in node
+    labels — e.g. backticks, the exact bug hit here). Consider auto-append helpers for high-churn logs.
+- **Acceptance:** publish fails/flags on a raw-mermaid fallback or orphan table; the linters catch the
+  two specific bug classes.
+- **Why:** "it committed" was treated as "it rendered"; silent artifact breakage.
+
+### H9. [REINFORCE] Make "re-ran tests myself: <counts>" a required gate-score field [SMALL] — HIGH — (field-report D-1)
+- **Not a gap — a win to codify.** Verify-don't-trust (independently re-running a returning specialist's
+  tests + reading findings against source) caught nearly every serious defect this engagement (an
+  imprecise "no route exists" claim; a vendored-library default-value trap; confirmed security invariants
+  were genuine controls not happy-paths).
+- **Files to touch:** `agents/shared/GATE_SCORING_PROTOCOL.md` + `agents/sdlc-lead.md`: make the gate
+  score require an explicit **"re-ran independently: <what, counts, exit codes>"** field; a score
+  asserted without it is incomplete. Reinforce "cite file:line, not recollection" (D-4) and "distinguish
+  platform-built vs product-done" (D-5) as standing laws.
+- **Acceptance:** gate scores without a re-ran-myself evidence field are rejected by the protocol.
+- **Why:** codifies the single highest-value discipline so it can't quietly lapse.
+
+---
+
 ## Execution Order
 
 | Phase | Weeks | Tasks |
@@ -254,7 +419,28 @@ Source: Expert system audit + gap analysis
 
 ## Summary
 
-- **Total tasks:** 28 — **ALL 28 CLOSED as of 2026-06-11** (v1.10.0–v1.12.0; see per-item notes). Backlog: ZERO.
+- **Original audit backlog (Groups A–G):** 28 tasks — **ALL 28 CLOSED as of 2026-06-11**
+  (v1.10.0–v1.12.0; see per-item notes).
+- **Group H — Field-Report Findings (live Mode-1 run, 2026-07):** **9 tasks, all OPEN.** Source:
+  `issues/field-report-mode1-sdlc-run-2026-07.md`. These come from observed real
+  failures/near-misses on a live engagement, not the original audit.
+  - **High priority:** H1 (completion invariant), H4 (ADR/rationale verification), H5 (tracker data
+    model — in-depth), H6 (bootstrap/empty-state), H7 (live status artifacts), H9 (reinforce
+    verify-don't-trust).
+  - **Medium/Small:** H2 (scope-cut confirm), H3 (clean-tree/git hygiene), H8 (render-health + doc linters).
+  - **Sizing:** Tiny 0 · Small 5 (H2, H3, H7, H8, H9) · Medium 3 (H1, H4, H6) · Medium-Large 1 (H5).
+- **Suggested sequencing for Group H:** H9 first (trivial, codifies the win) → H1 + H7 (completion +
+  honest status, tightly linked) → H5 (tracker data model — the structural root behind H1) → H6
+  (empty-state checklist) → H4 (ADR + rationale verification) → H2, H3, H8 (process/hygiene guards).
+- **Theme (Group H):** the system's *verification instincts are excellent* (see field-report §D — nearly
+  every serious defect was caught by verify-don't-trust or a specialist review). The gaps are in
+  **breadth of what's proactively checked** (empty-state, requirement-vs-task completion, decision
+  rationale, tracker integrity, doc/render health) and in **self-enforcing the process the system already
+  prescribes** (clean-tree branching, per-item scope confirmation). Closing Group H turns "caught it
+  because someone looked" into "caught it because the system always looks."
+
+### (historical) original-audit summary
+- **Total tasks:** 28 — **ALL 28 CLOSED as of 2026-06-11** (v1.10.0–v1.12.0; see per-item notes).
 - **Tiny:** 2 | **Small:** 11 | **Medium:** 9 | **Medium-Large:** 1 | **Large:** 2 | **Architecture:** 4
 - **High priority:** A1, B1, B2, C2
 - Groups B, C, E can run in parallel once foundations are done
