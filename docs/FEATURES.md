@@ -506,6 +506,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-architecture.sh` | 6 diagram types, Mermaid syntax, HLA overview, no placeholders |
 | `validate-build.sh` | Runs project build command and checks exit code |
 | `validate-c3-coverage.sh` | Every source module appears in the C3 context diagram |
+| `validate-close-receipt.sh` | A ticket module `in_review`/`done` has the `close()` receipt pasted verbatim into its Completion Manifest — not just a self-asserted "`<id> done`" phrase (wraps `scripts/lib/tickets.mjs check-receipt`; the same check `accept()` itself enforces, T26.3) |
 | `validate-code-health.sh` | 9 anti-slop patterns: catch-all error handlers, try-in-loop, what-comments, unused imports, single-use helpers, speculative abstractions, hardcoded config, re-implemented framework features, scope creep |
 | `validate-completion-manifest.sh` | HANDOFF manifest schema + completion phrase, AND (T27.2 v2) Files-produced paths exist on disk, Verify-result cites a real artifact, Maker/Verifier identity present and distinct |
 | `validate-deps.sh` | npm audit / pip-audit / cargo audit with configured waivers |

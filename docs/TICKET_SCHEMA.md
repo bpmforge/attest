@@ -60,20 +60,42 @@ from `scripts/lib/tickets.mjs`, implemented in `scripts/lib/tickets-lifecycle.mj
 sanctioned path, and each appends an immutable `history[]` entry:
 
 - **`claim <plan> <id> <actor>`** — refused unless `ready` + unowned; refused if `actor` already
-  owns another `claimed`/`in_progress` ticket (**WIP=1**). Sets `claimed_at`.
-- **`start <plan> <id> <actor>`** — `claimed → in_progress`. Owner-only.
+  owns another `claimed`/`in_progress` ticket (**WIP=1**). Sets `claimed_at`. **T26.3:** also refused
+  if the ticket graph itself is unhygienic (`validatePlan()`/`writeScopeCollisions()` red) — the
+  refuse-to-select-next-work gate. Scoped to `claim` only; `start` (below) is never gated on this,
+  since it only ever advances a ticket the actor already owns.
+- **`start <plan> <id> <actor>`** — `claimed → in_progress`. Owner-only. **T26.3:** returns a
+  paste-able "`── start receipt: <id> ──`" (actor, status transition, timestamp) — the required
+  Stage 0 artifact of the `/reflow` claim HANDOFF template (`skills/reflow/SKILL.md`), proving the
+  executor actually started the claimed ticket rather than silently skipping straight to work.
 - **`comment <plan> <id> <actor> <note>`** — appends free-text history at any time, any state.
   Does not change status.
 - **`close <plan> <id> <actor> --branch <b> --commits <c1,c2,...>`** — `in_progress → in_review`.
   The load-bearing gate: refused unless **all** of (a) `module.manifest` exists on disk, (b)
   `module.verify` — and *only* `module.verify*, never a caller-supplied override* — exits 0 when
   run by this code, (c) `branch` + at least one commit supplied. Sets `evidence`, prints a
-  paste-able receipt.
+  paste-able receipt. **T26.3:** this receipt, pasted verbatim into the manifest, is now the ONLY
+  accepted completion signal — see `accept` below.
 - **`accept <plan> <id> <actor>`** — `in_review → done`. Reviewer-only: refused if `actor` is the
-  same as the ticket's `owner` (don't accept your own work — the 3-layer-check split).
+  same as the ticket's `owner` (don't accept your own work — the 3-layer-check split). **T26.3:**
+  also refused unless the module's Completion Manifest (`module.manifest`, resolved relative to
+  `plan.json`'s directory) has the `close()` receipt pasted into it verbatim
+  (`manifestHasCloseReceipt()`) — required fields present, `status: in_review`, and the recorded
+  `branch`/every recorded `commit` from `module.evidence` present in the pasted text (defeats a
+  hand-typed block that merely matches the header shape). A manifest that only carries a
+  self-asserted "`<id> done -- ...`" phrase is refused — this is the code-enforced gate behind the
+  planted acceptance test "a HANDOFF completing without a close receipt must be rejected."
 - **`release <plan> <id> <actor> <reason>`** — `claimed`/`in_progress` → `ready`, clears
   `owner`/`claimed_at`. Requires a non-empty reason; staleness/abandonment is a human/reflow
   decision, never silent.
+- **`open-for <plan> <actor>`** (T26.3, read-only) — reports (non-zero + reason) if `actor` already
+  owns a `claimed`/`in_progress` ticket elsewhere; the query `claim`'s WIP=1 check is built on,
+  exposed separately so a caller (e.g. `run-until-done.sh`'s preflight) can ask "is it safe to hand
+  this actor NEXT work" without attempting a specific claim. `in_review` does not count as open —
+  that ticket has already been closed via a receipt, only `accept()` is outstanding.
+- **`check-receipt <plan> <id>`** (T26.3, read-only) — runs the same `manifestHasCloseReceipt()`
+  check `accept()` enforces, for use by `scripts/validators/validate-close-receipt.sh` (gate-sweep
+  / CI consumption) and manual review before running `accept`.
 
 Every verb returns non-zero and a `[x] <reason>` message on refusal; `plan.json` is only
 persisted back to disk when a verb succeeds.
@@ -104,9 +126,12 @@ recomputeStatus(plan)         -> plan (blocked/ready resolved)
 claimable(plan)               -> ModuleTicket[]
 writeScopeCollisions(plan)    -> { a, b, scope }[]           // same-lane, active-status only
 crossLaneCollisions(plan)     -> { a, b, lane_a, lane_b, scope }[]   // cross-lane, any status
+openTicketFor(plan, actor, excludeId?)     -> ModuleTicket | null   // T26.3 — the query claim()'s WIP=1 is built on
+manifestHasCloseReceipt(manifestPath, id, evidence)  -> { ok, reason? }   // T26.3 — accept()'s enforcement
 ```
 
-CLI: `node scripts/lib/tickets.mjs validate <plan.json>` · `... status <plan.json>`
+CLI: `node scripts/lib/tickets.mjs validate <plan.json>` · `... status <plan.json>` ·
+`... open-for <plan.json> <actor>` · `... check-receipt <plan.json> <id>`
 
 Reference sample: `examples/tickets-plan.sample.json` (validates; every module has a `lane`;
 `status` resolves two blocked frontend modules to claimable once their `done` deps are met).

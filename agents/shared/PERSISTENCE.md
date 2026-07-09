@@ -22,3 +22,17 @@ ends the loop. OpenAI measured this reminder at ~+20% on SWE-bench for agentic r
 Governs the moment **before** the completion phrase; `BOUNDED_TASK_CONTRACT.md` "Stop means
 stop" governs **after** it. Persistence ≠ ignoring gates: a real human gate or a NEVER-AUTO
 pause (`AUTONOMY_PROTOCOL.md`) is a legitimate stop, not an early end.
+
+## Persistence ≠ selecting new work over a red gate (T26.3)
+
+"Keep going until the task is completely handled" means finish the unit of work you are ON — it
+never means reach past a red gate to grab a NEW ticket. Before selecting/claiming the next ticket
+(`/reflow claim`, or `run-until-done.sh` starting a fresh session's worth of work), two conditions
+must both hold, and this is code-enforced, not just prose: hygiene is clean (`node scripts/lib/
+tickets.mjs claim` itself refuses on a red ticket-graph check; `run-until-done.sh`'s
+`next_work_gate_ok()` refuses to start at all if `validate-state-drift.sh`/`validate-tickets.sh` are
+red), and your own previous ticket is actually closed — a `close()` receipt exists (`in_review` or
+later), not merely claimed/in_progress (`tickets.mjs open-for <plan> <actor>` / claim's built-in
+WIP=1 check). A refusal from either of those is the same kind of legitimate stop as a NEVER-AUTO
+pause: report it (`BLOCKED: <reason>`), don't route around it by hand-editing `plan.json` or
+skipping the receipt.
