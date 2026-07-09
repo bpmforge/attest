@@ -16,6 +16,7 @@ forcing a version bump per PR.
 - **T27.4** — Outer-loop completion is receipts, not the promise token: `validate-state-drift.sh` (new) cross-checks `docs/work/STATE.md`'s Done-section phase claims against real gate receipts; `run-until-done.sh`'s `is_complete()` now requires the drift check clean (and `validate-tickets.sh` clean when a plan.json exists) before trusting the promise token; `/sdlc resume` runs the same drift check before trusting `Next`.
 - **T27.5** — Runtime autonomy ledger check: `validate-autonomy-ledger.sh` (NEVER-AUTO signing tripwire).
 - **T27.3** — Challenger enforcement gate: `validate-challenger-gate.sh` (CHALLENGE_REPORT existence + CONTRADICTED tripwire).
+- **T22.20** — Challenger gate slug/date correlation: `validate-challenger-gate.sh` now matches each source report (HIGH/CRITICAL finding) to its OWN challenge report via the declared `**Artifact:**` header field (basename match), instead of T27.3's pure existence check — an unrelated clean challenge report elsewhere no longer satisfies the gate for a fresh, never-challenged finding; `CHALLENGER_PROTOCOL.md`'s report template note updated to mark the Artifact field load-bearing; new Pass 13 (`scripts/test-challenger-gate-correlation.ts`).
 - **T27.2** — Truthful completion: `validate-completion-manifest.sh` v2 (Files-produced/Verify-result stat checks, Maker/Verifier identity), `validate-tickets.sh` un-orphaned into phase-4, `run-handoff-gates.sh` gains a Tracker gate, gate scores are now advisory (`GATE_SCORING_PROTOCOL.md`).
 
 ## [1.32.0] — 2026-07-06

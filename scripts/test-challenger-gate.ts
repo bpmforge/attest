@@ -5,6 +5,10 @@
  * HIGH or CRITICAL finding requires a matching docs/reviews/CHALLENGE_REPORT_*.md
  * with zero unresolved CONTRADICTED verdicts. Run on real /bin/bash (not
  * $BASH) per the T27.7 lesson.
+ *
+ * Slug/date correlation cases (T22.20) live in their own chapter module,
+ * scripts/test-challenger-gate-correlation.ts (Pass 13) — kept separate to
+ * stay under the 400-line CODE_BOOK_PROTOCOL.md cap.
  */
 
 import * as fs from "fs";
@@ -104,7 +108,12 @@ export async function testChallengerGate(
       fs.rmSync(dir, { recursive: true, force: true });
     }
 
-    // -- a challenge report exists but still shows CONTRADICTED > 0 -> gap
+    // -- a challenge report exists, declares the right Artifact, but still
+    // shows CONTRADICTED > 0 -> gap. Since an unresolved report can't
+    // satisfy step 4's per-source match either (T22.20), the source itself
+    // is also reported as unmatched -- 2 gaps, both pointing at the same
+    // underlying problem from two angles (the report is broken; therefore
+    // the source is unchallenged).
     {
       const dir = makeFixtureDir();
       fs.writeFileSync(
@@ -114,7 +123,9 @@ export async function testChallengerGate(
       fs.writeFileSync(
         path.join(dir, "docs/reviews/CHALLENGE_REPORT_backlog_2026-07-08.md"),
         [
-          "# Challenge Report",
+          "# Challenge Report — FIX_BACKLOG_release",
+          "",
+          "**Date:** 2026-07-08 | **Artifact:** docs/reviews/FIX_BACKLOG_release.md | **Challenger:** challenger agent",
           "",
           "## Summary",
           "- Claims reviewed: 2",
@@ -128,11 +139,12 @@ export async function testChallengerGate(
       const r = run(dir);
       if (
         r.exitCode === 1 &&
-        r.stdout.includes('"gaps":1') &&
-        r.stdout.includes("unresolved-contradicted")
+        r.stdout.includes('"gaps":2') &&
+        r.stdout.includes("unresolved-contradicted") &&
+        r.stdout.includes("missing-challenge-report")
       )
         ok(
-          "challenger-gate — a challenge report with CONTRADICTED > 0 is flagged unresolved",
+          "challenger-gate — a challenge report with CONTRADICTED > 0 is flagged unresolved, and can't satisfy its source's match",
         );
       else
         fail(
@@ -146,7 +158,9 @@ export async function testChallengerGate(
     // placeholder challenge report (no parseable Summary/CONTRADICTED line)
     // used to satisfy the existence check with only a soft warn, so
     // touching an empty CHALLENGE_REPORT_x.md bypassed the gate without
-    // ever actually challenging anything.
+    // ever actually challenging anything. A malformed report also can't
+    // satisfy step 4's per-source match (T22.20), so the source is
+    // separately reported as unmatched too -- 2 gaps.
     {
       const dir = makeFixtureDir();
       fs.writeFileSync(
@@ -160,8 +174,9 @@ export async function testChallengerGate(
       const r = run(dir);
       if (
         r.exitCode === 1 &&
-        r.stdout.includes('"gaps":1') &&
-        r.stdout.includes("malformed-challenge-report")
+        r.stdout.includes('"gaps":2') &&
+        r.stdout.includes("malformed-challenge-report") &&
+        r.stdout.includes("missing-challenge-report")
       )
         ok(
           "challenger-gate — a placeholder challenge report with no parseable Summary is rejected, not silently accepted",
