@@ -30,6 +30,19 @@ Server-side sessions in Postgres (`sessions` table, httpOnly secure cookie,
   one-database deployment for a load level (≤200 concurrent members) Postgres
   handles trivially. Revisit only if session reads show up in pg profiling.
 
+## Deciding factors
+- **Internal — rigorous:** revocation must complete within one request
+  (NFR-SEC-2); a session-row delete satisfies this, a JWT denylist only
+  approximates it and re-adds the DB lookup JWT was chosen to avoid.
+- **Internal — soft:** both volunteers already know Postgres and the
+  framework's stock session middleware — not a rigorous factor, but real:
+  it lowers the chance of a security bug in hand-rolled token code.
+- **External rationale (needs verification):** none for this decision — no
+  outside compliance/vendor/supply-chain mandate was asserted. (When one IS
+  asserted — e.g. "required for PCI-DSS" — tag it with this exact label and
+  route it through the Challenger gate per `references/adr-template.md`
+  before the ADR is final; do not assert it as settled fact.)
+
 ## Consequences
 - (+) Instant revocation: suspend = delete session rows.
 - (+) No token-refresh code path to test or get wrong.
