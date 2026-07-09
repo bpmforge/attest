@@ -207,6 +207,14 @@ else
 
   # -- SERVICE (same discovery as validate-c3-coverage.sh: top-level src/
   #    subdirs, checked in the same directory-name priority order) --
+  # Known limitation (independent review, T22.6): top-level-subdirs-only is
+  # the right granularity for a flat layout, but on a project that nests
+  # services one level deeper (e.g. src/modules/orders, src/modules/users)
+  # it derives "modules" as the one service, not "orders"/"users" -- a
+  # false positive against an INVENTORY.md that correctly documents the
+  # nested names. This is not a new invention: it deliberately matches
+  # validate-c3-coverage.sh's existing convention rather than diverging.
+  # Disclosed as a follow-up candidate, not fixed here (scope discipline).
   SRC_ROOT=""
   for candidate in src app server internal pkg packages services modules; do
     if [[ -d "$ROOT/$candidate" ]]; then

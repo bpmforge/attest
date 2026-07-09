@@ -100,6 +100,13 @@ fi
 # reference is actually load-bearing on an assertion, not just present in
 # the file. The filename match stays as-is -- a whole file scoped to a
 # UC-ID (e.g. UC-01.spec.ts) is already assertion-level by construction.
+# Known limitation (independent review, T22.6): this trades a false-green
+# (bare occurrence counted as coverage) for a narrower false-red -- a
+# legitimately real, passing test whose UC-ID and describe(/it( land on
+# DIFFERENT physical lines (long multi-line test names, template literals)
+# is no longer recognized unless the file itself is UC-scoped. Accepted:
+# single-line test names are this repo's dominant convention, and a false
+# red is visible/self-correcting where the false green it replaces was not.
 while IFS= read -r uc; do
   [[ -z "$uc" ]] && continue
   found=0
