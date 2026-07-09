@@ -1,0 +1,53 @@
+{
+  "goal": "T26.3 red fixture — HANDOFF completes without a pasted close receipt",
+  "modules": [
+    {
+      "id": "T-red",
+      "kind": "module",
+      "title": "Red fixture module",
+      "lane": "test",
+      "owner": "user",
+      "status": "in_review",
+      "write_scope": [
+        "src/red/**"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "works"
+      ],
+      "verify": "true",
+      "manifest": "manifests/T-red.md",
+      "claimed_at": "2026-07-09T19:08:57.680Z",
+      "history": [
+        {
+          "ts": "2026-07-09T19:08:57.680Z",
+          "actor": "user",
+          "from": "ready",
+          "to": "claimed",
+          "note": null
+        },
+        {
+          "ts": "2026-07-09T19:08:57.703Z",
+          "actor": "user",
+          "from": "claimed",
+          "to": "in_progress",
+          "note": null
+        },
+        {
+          "ts": "2026-07-09T19:08:57.733Z",
+          "actor": "user",
+          "from": "in_progress",
+          "to": "in_review",
+          "note": "verify: true — exit 0"
+        }
+      ],
+      "evidence": {
+        "branch": "feat/t-red",
+        "commits": [
+          "deadbeef1"
+        ],
+        "verify_cmd": "true"
+      }
+    }
+  ]
+}

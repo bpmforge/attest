@@ -1,0 +1,53 @@
+{
+  "goal": "T26.3 green fixture — HANDOFF completes with the close receipt pasted verbatim",
+  "modules": [
+    {
+      "id": "T-green",
+      "kind": "module",
+      "title": "Green fixture module",
+      "lane": "test",
+      "owner": "user",
+      "status": "in_review",
+      "write_scope": [
+        "src/green/**"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "works"
+      ],
+      "verify": "true",
+      "manifest": "manifests/T-green.md",
+      "claimed_at": "2026-07-09T19:09:34.851Z",
+      "history": [
+        {
+          "ts": "2026-07-09T19:09:34.852Z",
+          "actor": "user",
+          "from": "ready",
+          "to": "claimed",
+          "note": null
+        },
+        {
+          "ts": "2026-07-09T19:09:34.876Z",
+          "actor": "user",
+          "from": "claimed",
+          "to": "in_progress",
+          "note": null
+        },
+        {
+          "ts": "2026-07-09T19:09:34.905Z",
+          "actor": "user",
+          "from": "in_progress",
+          "to": "in_review",
+          "note": "verify: true — exit 0"
+        }
+      ],
+      "evidence": {
+        "branch": "feat/t-green",
+        "commits": [
+          "deadbeef2"
+        ],
+        "verify_cmd": "true"
+      }
+    }
+  ]
+}
