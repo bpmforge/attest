@@ -193,12 +193,25 @@ scan_file() {
     fi
 
     # ── M012: unbalanced [ ] on a node line ────────────────────────────────
-    # Only count when the line actually uses node-label brackets.
+    # Only count when the line actually uses node-label brackets. Counted
+    # via an explicit char-by-char loop, not `${line//[^]]/}` -- independent
+    # review (2026-07-09) found that bracket-negation idiom is interpreted
+    # correctly on bash 3.2 (leading `]` right after `[^` is POSIX-literal)
+    # but silently matches NOTHING on GNU bash 5.x (confirmed live: closes
+    # came back as the entire unchanged line instead of just the `]`
+    # chars), so `closes` was always wrong -- effectively dead code -- on
+    # any bash 5.x runner (this repo's own CI). The char loop has no such
+    # cross-version ambiguity.
     if [[ "$line" == *"["* || "$line" == *"]"* ]]; then
-      local opens="${line//[^[]/}"; local closes="${line//[^]]/}"
-      if [[ "${#opens}" -ne "${#closes}" ]]; then
+      local opens=0 closes=0 _m012_i _m012_ch
+      for (( _m012_i=0; _m012_i<${#line}; _m012_i++ )); do
+        _m012_ch="${line:_m012_i:1}"
+        [[ "$_m012_ch" == "[" ]] && opens=$((opens + 1))
+        [[ "$_m012_ch" == "]" ]] && closes=$((closes + 1))
+      done
+      if [[ "$opens" -ne "$closes" ]]; then
         emit "error" "$file" "$lineno" "M012" \
-          "Unbalanced square brackets (${#opens} '[' vs ${#closes} ']') — likely a typo"
+          "Unbalanced square brackets (${opens} '[' vs ${closes} ']') — likely a typo"
         file_errors=$((file_errors + 1))
       fi
     fi
