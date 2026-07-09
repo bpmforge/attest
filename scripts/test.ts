@@ -30,6 +30,9 @@ import { testChallengerGateCorrelation } from "./test-challenger-gate-correlatio
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 import { testDocRenderHealth } from "./test-doc-render-health.ts";
+import { testAdrExternalRationale } from "./test-adr-external-rationale.ts";
+import { testCloseReceipt } from "./test-close-receipt.ts";
+import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
 
@@ -341,54 +344,60 @@ console.log(
 );
 await testWiringLedger(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 13: Challenger gate slug/date correlation (T22.20) — a source report
-// must be matched to its OWN clean challenge report via the declared
-// "**Artifact:**" field; an unrelated clean challenge report elsewhere no
-// longer satisfies the gate.
-// ---------------------------------------------------------------------------
+// Pass 13: Challenger gate correlation (T22.20) — a source report must match
+// its OWN clean challenge report via "**Artifact:**", not an unrelated one.
 console.log(
   "\n[Pass 13] Challenger gate correlation — per-source Artifact matching",
 );
 await testChallengerGateCorrelation(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 14: awk word-boundary (T22.19) — \b is a no-op on stock macOS system
-// awk; validate-code-health.sh (R-02, H-01) and validate-fix-backlog-closed.sh
-// (waived-justification) silently never fired. Direct repro + fixed-validator
-// regression, run on real /bin/bash + stock /usr/bin/awk.
-// ---------------------------------------------------------------------------
+// Pass 14: awk word-boundary (T22.19) — \b is a no-op on stock macOS awk;
+// direct repro + fixed-validator regression on real /bin/bash + system awk.
 console.log(
   "\n[Pass 14] awk word-boundary — \\b-in-awk repro + fixed-validator regression",
 );
 await testAwkWordBoundary(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 15: Load-bearing denominators (T22.6) — validate-design-system.sh
-// (STATES + killed caps), validate-tests-mapping.sh (assertion-level + P2
-// SKIPPED), validate-wcag-coverage.sh (interactive-element inventory), and
-// validate-inventory.sh (second-pass source re-derivation) each used to
-// check a sample/capped-prefix/1-of-N ground truth instead of the full set.
-// ---------------------------------------------------------------------------
+// Pass 15: Load-bearing denominators (T22.6) — design-system/tests-mapping/
+// wcag-coverage/inventory validators each used to check a sample/capped
+// ground truth instead of the full set.
 console.log(
   "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
 
-// Pass 16: Publish render-health (T29.9) — mermaid backtick hard-fail (M013) +
-// markdown-table orphan-fragment linter (validate-doc-render-health.sh).
+// Pass 16: Publish render-health (T29.9) — mermaid backtick hard-fail (M013)
+// + markdown-table orphan-fragment linter (validate-doc-render-health.sh).
 console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
 
-// Pass 17/18: Bootstrap & Empty-State checklist + regressions (T29.4).
+// Pass 17: ADR + external-rationale routing (T29.5) — hard-to-reverse choice
+// needs a matching ADR; an ADR's external-rationale marker needs its own
+// clean challenge report (T22.20 correlation, not a parallel mechanism).
 console.log(
-  "\n[Pass 17] Bootstrap & Empty-State — self-ref gate + RBAC cardinality + dry-run",
+  "\n[Pass 17] ADR + external-rationale routing — hard-choice gate + Challenger correlation",
+);
+await testAdrExternalRationale(root, ok, fail);
+
+// Pass 18: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF that
+// completed without a pasted close receipt (planted acceptance test).
+console.log("\n[Pass 18] Close-before-next-claim — close-receipt gate");
+await testCloseReceipt(root, ok, fail);
+
+// Pass 19: Refuse-to-select-next-work (T26.3) — claim() refuses on red
+// hygiene (CLI + direct import), openTicketFor()/`open-for` WIP query.
+console.log("\n[Pass 19] Refuse-to-select-next-work — claim hygiene gate");
+await testRefuseNextWork(root, ok, fail);
+
+// Pass 20/21: Bootstrap & Empty-State checklist + regressions (T29.4).
+console.log(
+  "\n[Pass 20] Bootstrap & Empty-State — self-ref gate + RBAC cardinality + dry-run",
 );
 await testBootstrapChecklist(root, ok, fail);
 console.log(
-  "\n[Pass 18] Bootstrap & Empty-State regressions — unsafe-escape/RBAC-negation/N-hop/no-TM",
+  "\n[Pass 21] Bootstrap & Empty-State regressions — unsafe-escape/RBAC-negation/N-hop/no-TM",
 );
 await testBootstrapChecklistRegressions(root, ok, fail);
 
