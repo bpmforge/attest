@@ -19,6 +19,7 @@
   "validate-improve-coverage.sh",
   "validate-infrastructure.sh",
   "validate-lint.sh",
+  "validate-mermaid.sh",
   "validate-migrations.sh",
   "validate-module-boundaries-transitive.sh",
   "validate-module-boundaries.sh",
