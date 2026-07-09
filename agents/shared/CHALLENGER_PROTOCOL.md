@@ -34,6 +34,7 @@ Challenger runs **after** Ralph Wiggum confirms coverage. Do not challenge a hal
 | `MODULE_DESIGN.md` + `INFRASTRUCTURE.md` | architecture-designer | After design phase HANDOFF completes |
 | `TECH_STACK.md` | sdlc-lead | Before Gate A (Phase 2 → 3) |
 | `THREAT_MODEL.md` + `SECURITY_CONTROLS.md` | security-auditor | After Phase 3 security HANDOFF completes |
+| ADR / design doc with `**External rationale (needs verification):**` | architecture-designer, sdlc-lead | Before Phase 3 gate — enforced by `validate-challenger-gate.sh` (T29.5) |
 | Gate A checklist items | sdlc-lead | Before presenting Gate A to user |
 | Gate B checklist items | sdlc-lead | Before presenting Gate B to user |
 | `PERFORMANCE_*.md` with HIGH/CRITICAL regressions | performance-engineer | Before fix backlog is finalized |
@@ -200,3 +201,30 @@ Complete:   "challenge done — <slug>"
 ```
 
 From sdlc-lead at Gate A/B: challenger runs on the gate checklist items before the human approval block is presented.
+
+### External rationale in an ADR (T29.5)
+
+`references/adr-template.md` tags an asserted outside mandate (compliance,
+supply-chain, legal, vendor) with the literal marker
+`**External rationale (needs verification):**`. `validate-challenger-gate.sh`
+treats any ADR or design doc carrying that marker as a source requiring a
+challenge report, exactly like a HIGH/CRITICAL finding — same correlation
+mechanism (T22.20 per-source `**Artifact:**` matching), not a second gate.
+
+```
+HANDOFF to: challenger
+Artifact:   docs/adrs/ADR-<NNN>-<slug>.md
+Context:    ADR asserts an external rationale ("<quote the marker's claim>")
+            that has not been independently verified.
+Trigger:    "**External rationale (needs verification):**" marker present —
+            Challenger Gate mandatory (validate-challenger-gate.sh, T29.5).
+Produce:    docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md
+Complete:   "challenge done — <slug>"
+```
+
+If the claim needs real research first (e.g. "does this framework actually
+require X"), dispatch `researcher` in FACT CHECK mode before challenger — but
+the loop only closes when a challenge report declares
+`**Artifact:** docs/adrs/ADR-<NNN>-<slug>.md` (the ADR itself). A challenge
+report whose Artifact field names only the researcher's `RESEARCH_*.md`
+output does not correlate to the ADR and leaves it gapped.
