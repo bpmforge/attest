@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testDocRenderHealth } from "./test-doc-render-health.ts";
 import { testCloseReceipt } from "./test-close-receipt.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -374,7 +375,19 @@ console.log(
 await testLoadBearingDenominators(root, ok, fail);
 
 // ---------------------------------------------------------------------------
-// Pass 16: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF
+// Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
+// promoted to a hard-fail error (M013) and a new markdown-table
+// orphan-fragment linter (validate-doc-render-health.sh), proving both
+// confirmed-hit publish bug classes are caught, plus false-positive
+// stress cases on clean content.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
+);
+await testDocRenderHealth(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 17: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF
 // completing without a pasted close receipt (planted acceptance test, both
 // at the library level and through the real validate-close-receipt.sh
 // script + its red/green fixtures), start()'s Stage-0 receipt, and the
@@ -382,7 +395,7 @@ await testLoadBearingDenominators(root, ok, fail);
 // refusing on red ticket-graph hygiene).
 // ---------------------------------------------------------------------------
 console.log(
-  "\n[Pass 16] Close-before-next-claim — close-receipt gate + refuse-to-select-next-work",
+  "\n[Pass 17] Close-before-next-claim — close-receipt gate + refuse-to-select-next-work",
 );
 await testCloseReceipt(root, ok, fail);
 
