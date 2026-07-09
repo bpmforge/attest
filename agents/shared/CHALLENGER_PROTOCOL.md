@@ -118,12 +118,17 @@ Output file: `docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md`
 
 > **Artifact field is load-bearing (T22.20):** `scripts/validators/validate-challenger-gate.sh`
 > parses this field to correlate a challenge report back to the specific
-> source report it challenges (matched by filename basename). A report
-> missing this field, or declaring the wrong filename, does not satisfy
-> the gate for its intended source — even if the report itself is
-> otherwise clean (`CONTRADICTED: 0`). Always set `<path>` to the actual
-> relative path (or at minimum the filename) of the artifact being
-> challenged.
+> source report it challenges. Always set `<path>` to the actual
+> ROOT-relative path of the artifact being challenged (e.g.
+> `docs/security/final-report.md`), as plain text — no markdown link
+> syntax (`[text](path)`), no surrounding brackets. A bare filename with
+> no directory (e.g. just `final-report.md`) is accepted ONLY when that
+> filename is unique across all of this run's source reports; if two
+> source reports share a filename in different directories, a bare
+> declaration is ambiguous and satisfies neither, so declare the full
+> path in that case. A report missing this field, or declaring the wrong
+> path, does not satisfy the gate for its intended source — even if the
+> report itself is otherwise clean (`CONTRADICTED: 0`).
 
 ## Summary
 - Claims reviewed: N
