@@ -1,5 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   runGateA,
   channelStddev,
@@ -12,6 +17,8 @@ import {
   DEFAULT_THRESHOLDS,
 } from '../img-gate.mjs';
 import { blankPng, knownGoodPng, skeletonPng, stableVariantPng, unstableVariantPng } from './fixtures.mjs';
+
+const IMG_GATE_CLI = fileURLToPath(new URL('../img-gate.mjs', import.meta.url));
 
 // ── (a) blank PNG ──────────────────────────────────────────────────────────
 
@@ -168,4 +175,21 @@ test('a 1x1 pixel image fails size-floor and blank-detect without throwing', asy
   const result = await runGateA(png);
   assert.equal(result.pass, false);
   assert.ok(result.failures.some((f) => f.includes('size-floor')));
+});
+
+// ── regression: independent review finding B ────────────────────────────
+// The CLI's flag() helper used to blindly take argv[i+1] as a flag's value,
+// even when that token was itself another flag (e.g. `--second-shot
+// --json` silently tried to open a file literally named "--json"). It now
+// rejects a flag-shaped value with a clear error instead of swallowing it.
+test('regression: CLI rejects a flag value that looks like another flag, instead of swallowing it', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'img-gate-cli-test-'));
+  const imagePath = join(dir, 'good.png');
+  writeFileSync(imagePath, await knownGoodPng());
+
+  const result = spawnSync(process.execPath, [IMG_GATE_CLI, imagePath, '--second-shot', '--json'], {
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /--second-shot requires a value/);
 });

@@ -31,12 +31,19 @@ function escapeXml(str) {
 
 // Badge sits at the highlight box's top-left corner by default, nudged
 // inward (collision-aware) so it never gets clipped off the image edge.
-function badgeCenter(box, imgWidth, imgHeight, { badgeRadius, strokeWidth }) {
+//
+// The clamp range is [marginX, imgWidth - marginX] with marginX capped at
+// imgWidth/2 (and same for Y) so the lower bound never exceeds the upper
+// bound — for very small images (below Gate A's 200x200 size floor, so not
+// reachable via the documented capture pipeline) this centers the badge
+// rather than collapsing the range to a single point past the edge, which
+// is what the naive `Math.max(imgWidth - margin, margin)` form did.
+export function badgeCenter(box, imgWidth, imgHeight, { badgeRadius, strokeWidth }) {
   const margin = badgeRadius + strokeWidth;
-  const rawX = box.x;
-  const rawY = box.y;
-  const x = Math.min(Math.max(rawX, margin), Math.max(imgWidth - margin, margin));
-  const y = Math.min(Math.max(rawY, margin), Math.max(imgHeight - margin, margin));
+  const marginX = Math.min(margin, imgWidth / 2);
+  const marginY = Math.min(margin, imgHeight / 2);
+  const x = Math.min(Math.max(box.x, marginX), imgWidth - marginX);
+  const y = Math.min(Math.max(box.y, marginY), imgHeight - marginY);
   return { x, y };
 }
 
@@ -105,9 +112,17 @@ export async function annotateToFile(inputPath, outputPath, boundingBox, options
 
 async function main() {
   const argv = process.argv.slice(2);
+  // Rejects a value that looks like another flag (e.g. `--color --number 7`)
+  // instead of silently swallowing it as `--color`'s value.
   const flag = (name) => {
     const i = argv.indexOf(name);
-    return i === -1 ? undefined : argv[i + 1];
+    if (i === -1) return undefined;
+    const value = argv[i + 1];
+    if (value === undefined || value.startsWith('--')) {
+      console.error(`annotate.mjs: ${name} requires a value`);
+      process.exit(2);
+    }
+    return value;
   };
   const [input, output] = argv;
 
@@ -134,7 +149,9 @@ async function main() {
 const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
 if (isDirectRun) {
   main().catch((err) => {
-    console.error(err.stack || err.message);
+    // A clean message, not a full stack trace — this is meant to be
+    // machine-readable by a calling agent, not just human-debugged.
+    console.error(`annotate.mjs: ${err.message}`);
     process.exit(1);
   });
 }

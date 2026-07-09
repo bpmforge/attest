@@ -5,8 +5,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import sharp from 'sharp';
-import { annotate, annotateToFile } from '../annotate.mjs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { annotate, annotateToFile, badgeCenter, DEFAULT_OPTIONS } from '../annotate.mjs';
 import { knownGoodPng } from './fixtures.mjs';
+
+const ANNOTATE_CLI = fileURLToPath(new URL('../annotate.mjs', import.meta.url));
 
 const BOX = { x: 150, y: 90, width: 100, height: 40 };
 
@@ -99,4 +103,54 @@ test('annotate() clamps the badge on-canvas when the box sits at the image origi
 test('annotate() rejects a non-positive bounding box instead of silently producing garbage', async () => {
   const input = await knownGoodPng();
   await assert.rejects(() => annotate(input, { x: 10, y: 10, width: 0, height: 20 }));
+});
+
+// ── regression: independent review finding A ────────────────────────────
+// badgeCenter()'s clamp used to collapse to a single out-of-range point
+// (Math.max(imgWidth - margin, margin), which floors to `margin` once
+// imgWidth < 2*margin) on small images, clipping the badge off-canvas even
+// though the README promises it stays on-canvas. Repro from the review: a
+// 30x30 image with a box at (25, 2) put the badge center at (19, 19),
+// clipping a 15px-radius badge by 4px on the right/bottom.
+test('regression: badge stays on-canvas for the reviewer-reported 30x30 small-image repro', () => {
+  const opts = DEFAULT_OPTIONS; // badgeRadius 15, strokeWidth 4 -> margin 19
+  const center = badgeCenter({ x: 25, y: 2, width: 4, height: 4 }, 30, 30, opts);
+  assert.ok(center.x - opts.badgeRadius >= 0 && center.x + opts.badgeRadius <= 30, `x=${center.x} clips`);
+  assert.ok(center.y - opts.badgeRadius >= 0 && center.y + opts.badgeRadius <= 30, `y=${center.y} clips`);
+});
+
+test('badgeCenter() clamp range is always well-formed (lower <= upper) regardless of image size', () => {
+  const opts = DEFAULT_OPTIONS;
+  for (const size of [5, 10, 30, 38, 100, 400]) {
+    const center = badgeCenter({ x: 0, y: 0, width: 4, height: 4 }, size, size, opts);
+    assert.ok(Number.isFinite(center.x) && Number.isFinite(center.y), `non-finite center for size=${size}`);
+    assert.ok(center.x >= 0 && center.x <= size, `x out of [0,${size}] for size=${size}`);
+    assert.ok(center.y >= 0 && center.y <= size, `y out of [0,${size}] for size=${size}`);
+  }
+});
+
+// ── regression: independent review finding B ────────────────────────────
+// The CLI's flag() helper used to blindly take argv[i+1] as a flag's value,
+// even when that token was itself another flag (e.g. `--color --number 7`
+// silently set color to the string "--number"). It now rejects a
+// flag-shaped value with a clear error instead of swallowing it.
+test('regression: CLI rejects a flag value that looks like another flag, instead of swallowing it', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'annotate-cli-test-'));
+  const inputPath = join(dir, 'in.png');
+  const outputPath = join(dir, 'out.png');
+  writeFileSync(inputPath, Buffer.alloc(1)); // content doesn't matter, should fail before reading it
+
+  const result = spawnSync(
+    process.execPath,
+    [
+      ANNOTATE_CLI,
+      inputPath,
+      outputPath,
+      '--x', '10', '--y', '10', '--width', '50', '--height', '20',
+      '--color', '--number', '7',
+    ],
+    { encoding: 'utf8' }
+  );
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /--color requires a value/);
 });
