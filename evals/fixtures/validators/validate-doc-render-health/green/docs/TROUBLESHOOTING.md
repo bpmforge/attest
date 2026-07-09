@@ -18,3 +18,11 @@ cat file.txt | sort | uniq
 | Left | Right |
 |  :-  |  -:   |
 | a    | b     |
+
+A tilde-fenced code block (independent review, 2026-07-09) also containing
+pipe-delimited sample output that must not be scanned as a live table.
+
+~~~
+| this | is sample output |
+| not  | a real table |
+~~~
