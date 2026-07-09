@@ -373,12 +373,8 @@ console.log(
 );
 await testDocRenderHealth(root, ok, fail);
 
-// Pass 17: ADR + external-rationale routing (T29.5) — hard-to-reverse choice
-// needs a matching ADR; an ADR's external-rationale marker needs its own
-// clean challenge report (T22.20 correlation, not a parallel mechanism).
-console.log(
-  "\n[Pass 17] ADR + external-rationale routing — hard-choice gate + Challenger correlation",
-);
+// Pass 17: ADR + external-rationale routing (T29.5) — hard-choice gate + Challenger correlation.
+console.log("\n[Pass 17] ADR + external-rationale routing");
 await testAdrExternalRationale(root, ok, fail);
 
 // Pass 18: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF that
@@ -392,13 +388,9 @@ console.log("\n[Pass 19] Refuse-to-select-next-work — claim hygiene gate");
 await testRefuseNextWork(root, ok, fail);
 
 // Pass 20/21: Bootstrap & Empty-State checklist + regressions (T29.4).
-console.log(
-  "\n[Pass 20] Bootstrap & Empty-State — self-ref gate + RBAC cardinality + dry-run",
-);
+console.log("\n[Pass 20] Bootstrap & Empty-State");
 await testBootstrapChecklist(root, ok, fail);
-console.log(
-  "\n[Pass 21] Bootstrap & Empty-State regressions — unsafe-escape/RBAC-negation/N-hop/no-TM",
-);
+console.log("\n[Pass 21] Bootstrap & Empty-State regressions");
 await testBootstrapChecklistRegressions(root, ok, fail);
 
 // ---------------------------------------------------------------------------
