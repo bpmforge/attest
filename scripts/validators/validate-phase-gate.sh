@@ -90,6 +90,7 @@ populate_phase_artifacts() {
         "validate-erd-coverage.sh"
         "validate-no-ascii-art.sh"
         "validate-mermaid.sh"
+        "validate-doc-render-health.sh"
         "validate-c3-coverage.sh"
         "validate-entry-points.sh"
         "validate-tech-stack.sh"
@@ -163,6 +164,7 @@ populate_phase_artifacts() {
         "validate-sequence-coverage.sh"
         "validate-no-ascii-art.sh"
         "validate-mermaid.sh"
+        "validate-doc-render-health.sh"
       )
       ;;
     security-deep)

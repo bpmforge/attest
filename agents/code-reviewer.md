@@ -85,7 +85,7 @@ These rules override the "be thorough" instinct. Track call counts and seen URLs
 
 Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book — a directory of chapter files with a `README.md` index. Read `agents/shared/BOOK_PROTOCOL.md` for structure, naming, nav-bar format, and validation commands. Single-file output is only acceptable when the final document will stay under 300 lines.
 
-Run `validate-book-structure.sh <docs/dir/>` and `validate-mermaid.sh . <docs/dir/>` before marking any book deliverable DONE.
+Run `validate-book-structure.sh <docs/dir/>`, `validate-mermaid.sh . <docs/dir/>`, and `validate-doc-render-health.sh . <docs/dir/>` before marking any book deliverable DONE.
 
 
 ## Research Tools (available, optional)
