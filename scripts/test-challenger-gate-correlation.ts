@@ -276,6 +276,59 @@ export async function testChallengerGateCorrelation(
         );
       fs.rmSync(dir, { recursive: true, force: true });
     }
+
+    // -- T22.20 cross-directory collision guard: two DIFFERENT source
+    // reports share the same basename in different directories
+    // (docs/reviews/FINDINGS.md vs docs/security/FINDINGS.md). A challenge
+    // report declaring the FULL path of only one of them must not also
+    // satisfy the other -- a pure basename compare would incorrectly
+    // conflate the two, which is the exact bug class this ticket exists to
+    // close, one level down.
+    {
+      const dir = makeFixtureDir();
+      fs.mkdirSync(path.join(dir, "docs/security"), { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/FINDINGS.md"),
+        "| ID | Severity | Finding | Status |\n|----|----------|---------|--------|\n| F1 | CRITICAL | Reviewed and challenged finding | OPEN |\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "docs/security/FINDINGS.md"),
+        "| ID | Severity | Finding | Status |\n|----|----------|---------|--------|\n| F2 | CRITICAL | Unrelated, never-challenged finding | OPEN |\n",
+      );
+      fs.writeFileSync(
+        path.join(dir, "docs/reviews/CHALLENGE_REPORT_findings_2026-07-09.md"),
+        [
+          "# Challenge Report — FINDINGS (docs/reviews)",
+          "",
+          "**Date:** 2026-07-09 | **Artifact:** docs/reviews/FINDINGS.md | **Challenger:** challenger agent",
+          "",
+          "## Summary",
+          "- Claims reviewed: 1",
+          "- CONFIRMED: 1",
+          "- CONTRADICTED: 0",
+          "- UNVERIFIABLE: 0",
+          "- Action required: NO",
+          "",
+        ].join("\n"),
+      );
+      const r = run(dir);
+      if (
+        r.exitCode === 1 &&
+        r.stdout.includes('"gaps":1') &&
+        r.stdout.includes("missing-challenge-report") &&
+        r.stdout.includes("docs/security/FINDINGS.md") &&
+        !r.stdout.includes("docs/reviews/FINDINGS.md: contains a CRITICAL")
+      )
+        ok(
+          "challenger-gate-correlation — a full-path Artifact match for docs/reviews/FINDINGS.md does not also satisfy the unrelated docs/security/FINDINGS.md",
+        );
+      else
+        fail(
+          "challenger-gate-correlation — cross-directory basename collision",
+          `exit=${r.exitCode} stdout=${r.stdout.slice(0, 600)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("challenger-gate-correlation", `unexpected failure: ${message}`);

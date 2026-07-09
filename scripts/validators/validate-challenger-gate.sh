@@ -29,13 +29,19 @@
 # never-challenged CRITICAL finding in a different report. This validator
 # now requires each SOURCE report (the one with the HIGH/CRITICAL finding)
 # to be individually matched to a challenge report that declares it via the
-# header's "**Artifact:** <path>" field. Matching is by basename only (not
-# full relative path, not a slug/date regex derived from the filename):
-# the Artifact field is already mandatory in CHALLENGER_PROTOCOL.md's
-# report template, so basename comparison is the simplest mechanism that
-# doesn't require guessing a slug convention, and it is exact-string (no
-# fuzzy matching) so a near-miss filename does not accidentally match.
-# A challenge report with no parseable Artifact field cannot satisfy any
+# header's "**Artifact:** <path>" field. The Artifact field is already
+# mandatory in CHALLENGER_PROTOCOL.md's report template, so no new slug
+# convention needed inventing. Matching: if the declared path contains a
+# "/" it is compared as a full ROOT-relative path (exact string, after
+# stripping a leading "./") -- this avoids a same-basename collision
+# between, say, docs/reviews/FINDINGS.md and docs/security/FINDINGS.md,
+# which a pure-basename compare would incorrectly conflate (that would be
+# the exact bug class this ticket exists to close, just one level down).
+# If the declared path is a bare filename (no "/"), it is compared against
+# the source's basename only, since a bare filename can't express which
+# directory it means. Either way the comparison is exact-string, no fuzzy
+# matching, so a near-miss filename does not accidentally match. A
+# challenge report with no parseable Artifact field cannot satisfy any
 # source's requirement (same treatment as a missing CONTRADICTED line --
 # see "malformed-challenge-report" below).
 #
@@ -58,17 +64,32 @@ ROOT="$(detect_project_root "${1:-}")"
 
 SEVERITY_PATTERN='\b(CRITICAL|HIGH)\b'
 
-# extract_artifact_basename <file> -- prints the basename of the file's
-# declared "**Artifact:** <path>" header field, or "" if none/unparseable.
-extract_artifact_basename() {
+# extract_artifact_declared <file> -- prints the file's declared
+# "**Artifact:** <path>" header field, trimmed and with a leading "./"
+# stripped, or "" if none/unparseable. Prints the value AS DECLARED (full
+# path or bare filename) -- callers decide how to compare it.
+extract_artifact_declared() {
   local report="$1" line val
   line="$(grep -m1 -oE '\*\*Artifact:\*\*[^|]*' "$report" 2>/dev/null || true)"
   [[ -z "$line" ]] && { printf ''; return; }
   val="${line#\*\*Artifact:\*\*}"
   val="$(printf '%s' "$val" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
   val="${val#\`}"; val="${val%\`}"
-  [[ -z "$val" ]] && { printf ''; return; }
-  basename "$val" 2>/dev/null || true
+  val="${val#./}"
+  printf '%s' "$val"
+}
+
+# artifact_matches_source <declared> <src_rel> -- true if a challenge
+# report's declared Artifact value correlates to a given source report's
+# ROOT-relative path. A declared value containing "/" is compared as a
+# full path (exact match against src_rel); a bare filename is compared
+# against the source's basename only.
+artifact_matches_source() {
+  local declared="$1" src_rel="$2"
+  case "$declared" in
+    */*) [[ "$declared" == "$src_rel" ]] ;;
+    *)   [[ -n "$declared" && "$declared" == "$(basename "$src_rel")" ]] ;;
+  esac
 }
 
 # -- 1. find source reports with a HIGH/CRITICAL finding --------------------
@@ -115,7 +136,7 @@ fi
 # same as T27.3, but are excluded from matching -- an unresolved or
 # unattributable challenge report cannot vouch for any source.
 OK_CR_FILE=()
-OK_CR_ARTIFACT_BASE=()
+OK_CR_ARTIFACT_DECLARED=()
 
 # Guard against bash 3.2's "${arr[@]}" unbound-variable error under `set -u`
 # when the array is empty (fixed upstream in bash 4.4+, but macOS system
@@ -135,8 +156,8 @@ if [[ "${#CHALLENGE_REPORTS[@]}" -gt 0 ]]; then
       continue
     fi
 
-    artifact_base="$(extract_artifact_basename "$report")"
-    if [[ -z "$artifact_base" ]]; then
+    artifact_declared="$(extract_artifact_declared "$report")"
+    if [[ -z "$artifact_declared" ]]; then
       # Same rationale as the missing-Summary case: CHALLENGER_PROTOCOL.md's
       # report template requires "**Artifact:** <path>" on the header line.
       # Without it this report cannot be correlated to the source report it
@@ -152,20 +173,19 @@ if [[ "${#CHALLENGE_REPORTS[@]}" -gt 0 ]]; then
       continue
     fi
 
-    pass "$rel: 0 CONTRADICTED, declares Artifact: $artifact_base"
+    pass "$rel: 0 CONTRADICTED, declares Artifact: $artifact_declared"
     OK_CR_FILE+=("$rel")
-    OK_CR_ARTIFACT_BASE+=("$artifact_base")
+    OK_CR_ARTIFACT_DECLARED+=("$artifact_declared")
   done
 fi
 
 # -- 4. every source report needs its OWN matching clean challenge report ---
 for src in "${SOURCE_HITS[@]}"; do
   src_rel="${src#"$ROOT"/}"
-  src_base="$(basename "$src")"
   matched_file=""
   i=0
-  while [[ "$i" -lt "${#OK_CR_ARTIFACT_BASE[@]}" ]]; do
-    if [[ "${OK_CR_ARTIFACT_BASE[$i]}" == "$src_base" ]]; then
+  while [[ "$i" -lt "${#OK_CR_ARTIFACT_DECLARED[@]}" ]]; do
+    if artifact_matches_source "${OK_CR_ARTIFACT_DECLARED[$i]}" "$src_rel"; then
       matched_file="${OK_CR_FILE[$i]}"
       break
     fi
@@ -173,9 +193,9 @@ for src in "${SOURCE_HITS[@]}"; do
   done
 
   if [[ -n "$matched_file" ]]; then
-    pass "$src_rel: matched by clean challenge report $matched_file (Artifact: $src_base)"
+    pass "$src_rel: matched by clean challenge report $matched_file (Artifact: $(basename "$src_rel"))"
   else
-    gap "missing-challenge-report" "$src_rel: contains a CRITICAL/HIGH finding but no docs/reviews/CHALLENGE_REPORT_*.md declares '**Artifact:** ...$src_base' with 0 unresolved CONTRADICTED -- an unrelated challenge report elsewhere does not satisfy this gate (T22.20); run the challenger agent on this specific report per CHALLENGER_PROTOCOL.md"
+    gap "missing-challenge-report" "$src_rel: contains a CRITICAL/HIGH finding but no docs/reviews/CHALLENGE_REPORT_*.md declares '**Artifact:** $src_rel' (or a bare '$(basename "$src_rel")') with 0 unresolved CONTRADICTED -- an unrelated challenge report elsewhere does not satisfy this gate (T22.20); run the challenger agent on this specific report per CHALLENGER_PROTOCOL.md"
   fi
 done
 
