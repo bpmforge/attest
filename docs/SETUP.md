@@ -184,8 +184,7 @@ Make sure LM Studio is configured to accept connections on all interfaces (not j
 
 | Problem | Fix |
 |---------|-----|
-| `# OpenCode reads MCPs from opencode.json — check with:
-cat ~/.config/opencode/opencode.json | python3 -m json.tool` shows MCP as "Pending approval" | Restart OpenCode once and approve it |
+| `cat ~/.config/opencode/opencode.json \| python3 -m json.tool` shows MCP as "Pending approval" | Restart OpenCode once and approve it |
 | code-search: "no embedding provider available" | Start LM Studio with the embedding model loaded, or set `EMBEDDING_PROVIDER=none` for BM25-only |
 | memory: vector search returns 0 results | LM Studio isn't running or model name doesn't match — check `LM_STUDIO_MODEL` |
 | playwright-mcp: "browser not found" | Run `npx playwright install chromium` |
