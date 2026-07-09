@@ -632,6 +632,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `engineering-artifacts.md` | `sdlc-lead` | SDLC phase deliverables per phase |
 | `report-template.md` | all agents | Common report header + confidence footer |
 | `context7-mcp.md` | all agents | Live library docs via Context7 MCP |
+| `parallel-worktree-agent-playbook.md` | orchestrating session | Gotchas for briefing multiple agents on separate tickets concurrently: worktree isolation, git-stash cross-worktree collision, `--base origin/main`, `build-target-claude.mjs --out`, awk/bash portability traps, fixture/CHANGELOG/merge-gate conventions |
 
 ---
 
