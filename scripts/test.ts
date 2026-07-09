@@ -374,27 +374,19 @@ console.log(
 );
 await testLoadBearingDenominators(root, ok, fail);
 
-// ---------------------------------------------------------------------------
 // Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
 // promoted to a hard-fail error (M013) and a new markdown-table
 // orphan-fragment linter (validate-doc-render-health.sh), proving both
 // confirmed-hit publish bug classes are caught, plus false-positive
 // stress cases on clean content.
-// ---------------------------------------------------------------------------
 console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 17: ADR + external-rationale routing (T29.5) — validate-adrs.sh gates
-// a hard-to-reverse choice (datastore/auth-model/core-framework/vendoring)
-// on a matching, on-topic ADR; validate-challenger-gate.sh treats an ADR's
-// "**External rationale (needs verification):**" marker as a source
-// requiring its OWN clean challenge report (T22.20 correlation, not a
-// parallel mechanism) — includes the ticket's planted acceptance test plus
-// soft-tag and researcher-proxy bypass guards.
-// ---------------------------------------------------------------------------
+// Pass 17: ADR + external-rationale routing (T29.5) — hard-to-reverse choice
+// needs a matching ADR; an ADR's external-rationale marker needs its own
+// clean challenge report (T22.20 correlation, not a parallel mechanism).
 console.log(
   "\n[Pass 17] ADR + external-rationale routing — hard-choice gate + Challenger correlation",
 );
