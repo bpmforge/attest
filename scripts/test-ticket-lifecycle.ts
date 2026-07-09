@@ -54,19 +54,38 @@ export async function testTicketLifecycle(
   }
 
   try {
-    // -- GREEN: full lifecycle claim -> start -> close -> accept
+    // -- GREEN: full lifecycle claim -> start -> close -> accept. T26.3:
+    // accept() now also requires the close() receipt pasted verbatim into
+    // the manifest, so the receipt is appended to manifest.md before accept
+    // is called — this is what a real HANDOFF's final stage does.
     {
       const planPath = makeFixturePlan([oneModule()]);
       const plan = tickets.loadPlan(planPath);
+      const manifestPath = path.join(path.dirname(planPath), "manifest.md");
 
       const c1 = tickets.claim(plan, "M-a", "user");
       const s1 = tickets.start(plan, "M-a", "user");
+      if (
+        typeof s1.receipt !== "string" ||
+        !/start receipt: M-a/.test(s1.receipt)
+      ) {
+        fail(
+          "ticket lifecycle — start() must return a paste-able start receipt (T26.3)",
+          JSON.stringify(s1),
+        );
+      }
       const cl1 = tickets.close(plan, "M-a", "user", {
         branch: "feat/m-a",
         commits: ["abc123"],
         cwd: path.dirname(planPath),
       });
-      const a1 = tickets.accept(plan, "M-a", "reviewer2");
+      // Paste the close receipt verbatim into the manifest — the durable
+      // artifact accept() checks — exactly as the /reflow HANDOFF's final
+      // stage requires.
+      fs.appendFileSync(manifestPath, `\n${cl1.receipt}\n`);
+      const a1 = tickets.accept(plan, "M-a", "reviewer2", {
+        cwd: path.dirname(planPath),
+      });
 
       if (
         c1.ok &&
@@ -80,7 +99,7 @@ export async function testTicketLifecycle(
         plan.modules[0].evidence?.branch === "feat/m-a"
       )
         ok(
-          "ticket lifecycle — full claim->start->close->accept chain succeeds",
+          "ticket lifecycle — full claim->start->close->accept chain succeeds (receipt pasted into manifest)",
         );
       else
         fail(
