@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testDocRenderHealth } from "./test-doc-render-health.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -371,6 +372,18 @@ console.log(
   "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
+// promoted to a hard-fail error (M013) and a new markdown-table
+// orphan-fragment linter (validate-doc-render-health.sh), proving both
+// confirmed-hit publish bug classes are caught, plus false-positive
+// stress cases on clean content.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
+);
+await testDocRenderHealth(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
