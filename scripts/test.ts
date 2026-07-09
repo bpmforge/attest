@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testAdrExternalRationale } from "./test-adr-external-rationale.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -371,6 +372,20 @@ console.log(
   "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 16: ADR + external-rationale routing (T29.5) — validate-adrs.sh gates
+// a hard-to-reverse choice (datastore/auth-model/core-framework/vendoring)
+// on a matching, on-topic ADR; validate-challenger-gate.sh treats an ADR's
+// "**External rationale (needs verification):**" marker as a source
+// requiring its OWN clean challenge report (T22.20 correlation, not a
+// parallel mechanism) — includes the ticket's planted acceptance test plus
+// soft-tag and researcher-proxy bypass guards.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] ADR + external-rationale routing — hard-choice gate + Challenger correlation",
+);
+await testAdrExternalRationale(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
