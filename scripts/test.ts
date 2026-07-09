@@ -27,6 +27,7 @@ import { testTruthfulCompletion } from "./test-truthful-completion.ts";
 import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
 import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
+import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -346,6 +347,17 @@ console.log(
   "\n[Pass 13] Challenger gate correlation — per-source Artifact matching",
 );
 await testChallengerGateCorrelation(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 14: awk word-boundary (T22.19) — \b is a no-op on stock macOS system
+// awk; validate-code-health.sh (R-02, H-01) and validate-fix-backlog-closed.sh
+// (waived-justification) silently never fired. Direct repro + fixed-validator
+// regression, run on real /bin/bash + stock /usr/bin/awk.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 14] awk word-boundary — \\b-in-awk repro + fixed-validator regression",
+);
+await testAwkWordBoundary(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
