@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testCloseReceipt } from "./test-close-receipt.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -371,6 +372,19 @@ console.log(
   "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 16: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF
+// completing without a pasted close receipt (planted acceptance test, both
+// at the library level and through the real validate-close-receipt.sh
+// script + its red/green fixtures), start()'s Stage-0 receipt, and the
+// refuse-to-select-next-work checks (openTicketFor()/`open-for`, `claim`
+// refusing on red ticket-graph hygiene).
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] Close-before-next-claim — close-receipt gate + refuse-to-select-next-work",
+);
+await testCloseReceipt(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

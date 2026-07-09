@@ -31,8 +31,17 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 // Lifecycle verbs (T26.1) live in their own chapter module to keep this
 // barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md.
-import { claim, start, comment, close, accept, release } from './tickets-lifecycle.mjs';
-export { claim, start, comment, close, accept, release };
+import {
+  claim,
+  start,
+  comment,
+  close,
+  accept,
+  release,
+  openTicketFor,
+  manifestHasCloseReceipt,
+} from './tickets-lifecycle.mjs';
+export { claim, start, comment, close, accept, release, openTicketFor, manifestHasCloseReceipt };
 
 export const STATUSES = ['blocked', 'ready', 'claimed', 'in_progress', 'in_review', 'done'];
 const AUTO = new Set(['blocked', 'ready']);           // states the resolver may set
@@ -171,12 +180,35 @@ export function crossLaneCollisions(plan) {
 // writer of module status; nothing hand-edits plan.json's modules[].status.
 const USAGE =
   'usage: tickets.mjs <validate|status> <plan.json>\n' +
-  '   or: tickets.mjs claim   <plan.json> <id> <actor>\n' +
-  '   or: tickets.mjs start   <plan.json> <id> <actor>\n' +
-  '   or: tickets.mjs comment <plan.json> <id> <actor> <note...>\n' +
-  '   or: tickets.mjs close   <plan.json> <id> <actor> --branch <b> --commits <c1,c2,...>\n' +
-  '   or: tickets.mjs accept  <plan.json> <id> <actor>\n' +
-  '   or: tickets.mjs release <plan.json> <id> <actor> <reason...>';
+  '   or: tickets.mjs claim      <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs start      <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs comment    <plan.json> <id> <actor> <note...>\n' +
+  '   or: tickets.mjs close      <plan.json> <id> <actor> --branch <b> --commits <c1,c2,...>\n' +
+  '   or: tickets.mjs accept     <plan.json> <id> <actor>\n' +
+  '   or: tickets.mjs release    <plan.json> <id> <actor> <reason...>\n' +
+  '   or: tickets.mjs open-for   <plan.json> <actor>\n' +
+  '   or: tickets.mjs check-receipt <plan.json> <id>';
+
+// hygieneCheck (T26.3): before claim/start select/advance a ticket, run the
+// same ticket-graph invariant validate-tickets.sh enforces in the gate sweep
+// (validatePlan()+writeScopeCollisions() — the identical check, invoked here
+// directly rather than shelling out to the bash wrapper, so this has no
+// dependency on $PATH/cwd quirks) — a malformed or colliding graph must
+// refuse to hand out MORE work, not just fail the gate sweep after the fact.
+// This is deliberately scoped to ticket-graph hygiene only (not
+// validate-state-drift.sh, which checks SDLC *phase* claims — a different
+// axis that can be legitimately unwritten mid-phase and would false-block a
+// single ticket claim; see PR description for the full rationale).
+function hygieneCheck(plan) {
+  const { ok, errors } = validatePlan(plan);
+  const collisions = writeScopeCollisions(plan);
+  if (ok && collisions.length === 0) return { ok: true };
+  const lines = [
+    ...errors.map((e) => `  [x] ${e}`),
+    ...collisions.map((c) => `  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`),
+  ];
+  return { ok: false, output: lines.join('\n') };
+}
 
 function parseFlags(argv) {
   const flags = {};
@@ -212,10 +244,51 @@ if (isMain) {
   } else if (cmd === 'claim' || cmd === 'start') {
     const [id, actor] = rest;
     if (!id || !actor) { console.error(USAGE); process.exit(2); }
+    // T26.3: refuse to SELECT a NEW ticket while the ticket graph itself is
+    // unhygienic — checked before claim's mutation, not just in the gate
+    // sweep after the fact. Scoped to `claim` only (not `start`): `start`
+    // only ever advances a ticket the actor already claimed, so gating it on
+    // the WHOLE plan's hygiene would deadlock that actor's own in-flight
+    // ticket on an unrelated, unclaimed colliding module elsewhere in the
+    // graph — a real bug, not the "select next work" case this exists to
+    // stop. Also: `start` cannot be "next-work selection" by definition, it
+    // requires an existing `claimed` ticket already owned by `actor`.
+    if (cmd === 'claim') {
+      const hygiene = hygieneCheck(plan);
+      if (!hygiene.ok) {
+        console.error(`[x] refusing to claim '${id}' — ticket graph hygiene is red:\n${hygiene.output}`);
+        process.exit(1);
+      }
+    }
     const r = (cmd === 'claim' ? claim : start)(plan, id, actor);
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
-    console.log(`ok — ${id}: ${cmd === 'claim' ? 'ready -> claimed' : 'claimed -> in_progress'} (${actor})`);
+    if (cmd === 'start') {
+      console.log(r.receipt);
+    } else {
+      console.log(`ok — ${id}: ready -> claimed (${actor})`);
+    }
+    process.exit(0);
+  } else if (cmd === 'open-for') {
+    const [actor] = rest;
+    if (!actor) { console.error(USAGE); process.exit(2); }
+    const m = openTicketFor(plan, actor);
+    if (m) {
+      console.error(`[x] '${actor}' has an open ticket ('${m.id}', ${m.status}) — refuse to select next work until it is closed (T26.3)`);
+      process.exit(1);
+    }
+    console.log(`ok — '${actor}' has no open ticket, clear to select next work`);
+    process.exit(0);
+  } else if (cmd === 'check-receipt') {
+    const [id] = rest;
+    if (!id) { console.error(USAGE); process.exit(2); }
+    const m = (plan.modules || []).find((x) => x.id === id);
+    if (!m) { console.error(`[x] no such module '${id}'`); process.exit(1); }
+    if (!m.manifest) { console.error(`[x] '${id}' has no manifest configured`); process.exit(1); }
+    const manifestPath = resolve(dirname(resolve(path)), m.manifest);
+    const r = manifestHasCloseReceipt(manifestPath, id, m.evidence);
+    if (!r.ok) { console.error(`[x] ${r.reason}`); process.exit(1); }
+    console.log(`ok — ${id}: manifest has a valid pasted close receipt`);
     process.exit(0);
   } else if (cmd === 'comment') {
     const [id, actor, ...noteParts] = rest;
@@ -238,7 +311,7 @@ if (isMain) {
   } else if (cmd === 'accept') {
     const [id, actor] = rest;
     if (!id || !actor) { console.error(USAGE); process.exit(2); }
-    const r = accept(plan, id, actor);
+    const r = accept(plan, id, actor, { cwd: dirname(resolve(path)) });
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
     console.log(`ok — ${id}: in_review -> done (accepted by ${actor})`);

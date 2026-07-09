@@ -122,6 +122,15 @@ If the task's "done" is genuinely subjective (taste, wording, "make it nicer") w
 
 A micro-loop never spawns sub-agents (one level of orchestration only — opencode #9280). A micro-loop never re-scans for new work — it verifies the ONE artifact it owns. Cross-artifact coverage is always the macro loop's job.
 
+**Refuse-to-select-next-work (T26.3).** The macro loop's own "what's next" step (`/reflow claim`,
+`run-until-done.sh` starting another session) is gated the same way a micro-loop's checkable
+criterion is: a red hygiene validator (`validate-tickets.sh`/`validate-state-drift.sh`) or an
+actor's still-open previous ticket (claimed/in_progress, no `close()` receipt yet) refuses
+selection outright — `scripts/lib/tickets.mjs claim`/`open-for` and `run-until-done.sh`'s
+`next_work_gate_ok()` enforce this in code, not just prose (see `PERSISTENCE.md`'s "Persistence ≠
+selecting new work over a red gate"). Treat that refusal like a failed checkable criterion: report
+it, don't work around it.
+
 ---
 
 ## Why two levels and not one

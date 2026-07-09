@@ -25,7 +25,7 @@
 // paste-able `receipt` string on success) and mutates `plan` in place —
 // callers persist with savePlan().
 
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 import { execSync } from 'child_process';
 
@@ -56,6 +56,21 @@ function pushHistory(m, actor, from, to, note) {
   m.history.push({ ts: now(), actor, from, to, note: note ?? null });
 }
 
+// openTicketFor: read-only query -- the module (if any) `actor` already owns
+// that is `claimed`/`in_progress` (i.e. still open; `in_review` does NOT
+// count -- that work is closed, the actor is just waiting on a reviewer, see
+// T26.1's rationale above). Exposed separately from claim() (T26.3) so a
+// caller can ask "is it safe to hand this actor NEXT work" without attempting
+// a specific claim -- run-until-done.sh's refuse-to-select-next-work preflight
+// uses exactly this query via `tickets.mjs open-for`.
+export function openTicketFor(plan, actor, excludeId = null) {
+  return (
+    (plan.modules || []).find(
+      (o) => sameActor(o.owner, actor) && o.id !== excludeId && (o.status === 'claimed' || o.status === 'in_progress'),
+    ) ?? null
+  );
+}
+
 // claim: ready+unowned -> claimed. WIP=1 — refuses if actor already owns
 // another module that's claimed or in_progress elsewhere (in_review doesn't
 // count: that work is done, the actor is just waiting on a reviewer).
@@ -64,9 +79,7 @@ export function claim(plan, id, actor) {
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'ready') return { ok: false, error: `'${id}' is '${m.status}', not 'ready'` };
   if (m.owner != null) return { ok: false, error: `'${id}' already owned by '${m.owner}'` };
-  const openElsewhere = (plan.modules || []).find(
-    (o) => sameActor(o.owner, actor) && o.id !== id && (o.status === 'claimed' || o.status === 'in_progress'),
-  );
+  const openElsewhere = openTicketFor(plan, actor, id);
   if (openElsewhere)
     return {
       ok: false,
@@ -79,7 +92,10 @@ export function claim(plan, id, actor) {
   return { ok: true };
 }
 
-// start: claimed -> in_progress. Only the claiming owner may start it.
+// start: claimed -> in_progress. Only the claiming owner may start it. Returns
+// a paste-able "start receipt" (T26.3) -- Stage 0 of the /reflow claim HANDOFF
+// requires the executor to paste this before doing any work, the same way
+// close()'s receipt is the required final-stage artifact.
 export function start(plan, id, actor) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
@@ -87,7 +103,14 @@ export function start(plan, id, actor) {
   if (!sameActor(m.owner, actor)) return { ok: false, error: `'${id}' is owned by '${m.owner}', not '${actor}'` };
   pushHistory(m, actor, 'claimed', 'in_progress');
   m.status = 'in_progress';
-  return { ok: true };
+  const ts = m.history[m.history.length - 1].ts;
+  const receipt =
+    `── start receipt: ${id} ──\n` +
+    `actor: ${actor}\n` +
+    `status: claimed -> in_progress\n` +
+    `timestamp: ${ts}\n` +
+    `paste this block verbatim as Stage 0 of the HANDOFF you are about to execute`;
+  return { ok: true, receipt };
 }
 
 // comment: append a free-text history entry at any time, any state. Does
@@ -148,14 +171,65 @@ export function close(plan, id, actor, { branch, commits, cwd = process.cwd() } 
   return { ok: true, receipt };
 }
 
+// manifestHasCloseReceipt: does the module's Completion Manifest have the
+// close()-issued receipt pasted into it, verbatim (T26.3)? This is the
+// enforcement behind "a close receipt is the ONLY accepted completion
+// signal" -- a manifest that only ends with a self-asserted "<id> done --
+// ..." phrase (still required by validate-completion-manifest.sh's generic
+// HANDOFF check, an unrelated axis this does not replace) is NOT enough to
+// move a ticket in_review -> done; the actual receipt text close() printed
+// must appear somewhere in the file. The evidence cross-check (recorded
+// branch + every recorded commit must appear in the pasted text) is what
+// defeats a hand-typed fake receipt that merely matches the header shape --
+// without it, the header regex alone would accept any hand-typed block.
+export function manifestHasCloseReceipt(manifestPath, id, evidence) {
+  if (!manifestPath || !existsSync(manifestPath)) return { ok: false, reason: `manifest not found: ${manifestPath}` };
+  const text = readFileSync(manifestPath, 'utf8');
+  const idEsc = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (!new RegExp(`close receipt:\\s*${idEsc}\\s*──`, 'i').test(text))
+    return {
+      ok: false,
+      reason: `manifest has no 'close receipt: ${id}' block pasted verbatim -- a bare "done" claim without a pasted close receipt is not an accepted completion signal (T26.3)`,
+    };
+  const required = ['actor:', 'branch:', 'commits:', 'verify:', 'manifest:', 'timestamp:', 'status:'];
+  const lower = text.toLowerCase();
+  for (const field of required)
+    if (!lower.includes(field)) return { ok: false, reason: `manifest's close receipt is missing a '${field}' line` };
+  if (!/status:\s*in_review/i.test(text))
+    return { ok: false, reason: `manifest's close receipt does not show 'status: in_review'` };
+  if (evidence?.branch && !text.includes(evidence.branch))
+    return {
+      ok: false,
+      reason: `manifest's pasted receipt branch does not match the recorded evidence branch '${evidence.branch}' -- looks hand-typed rather than pasted from close()`,
+    };
+  if (Array.isArray(evidence?.commits)) {
+    for (const c of evidence.commits)
+      if (!text.includes(c))
+        return {
+          ok: false,
+          reason: `manifest's pasted receipt is missing recorded commit '${c}' -- looks hand-typed rather than pasted from close()`,
+        };
+  }
+  return { ok: true };
+}
+
 // accept: in_review -> done. Reviewer-only — refuses if the acceptor is the
 // same actor who owns (did) the work, preserving don't-accept-your-own-work.
-export function accept(plan, id, actor) {
+// T26.3: also refuses unless the module's Completion Manifest actually has
+// the close() receipt pasted into it (manifestHasCloseReceipt) -- this is
+// the code-enforced gate behind "a HANDOFF completing without a close
+// receipt must be rejected." `cwd` resolves module.manifest the same way
+// close() does (relative to plan.json's directory) -- defaults to process.cwd().
+export function accept(plan, id, actor, { cwd = process.cwd() } = {}) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'in_review') return { ok: false, error: `'${id}' is '${m.status}', not 'in_review'` };
   if (sameActor(actor, m.owner))
     return { ok: false, error: `'${actor}' cannot accept their own work on '${id}' — needs a different reviewer` };
+  if (!m.manifest) return { ok: false, error: `'${id}' has no manifest path configured — cannot verify a close receipt` };
+  const manifestPath = resolve(cwd, m.manifest);
+  const receiptCheck = manifestHasCloseReceipt(manifestPath, id, m.evidence);
+  if (!receiptCheck.ok) return { ok: false, error: `close-receipt check failed for '${id}': ${receiptCheck.reason}` };
   pushHistory(m, actor, 'in_review', 'done', 'accepted');
   m.status = 'done';
   return { ok: true };
