@@ -1,5 +1,5 @@
 /**
- * test-awk-word-boundary.ts — Pass 13 chapter module for scripts/test.ts (T22.19).
+ * test-awk-word-boundary.ts — Pass 14 chapter module for scripts/test.ts (T22.19).
  *
  * `\b` word-boundary is a no-op on stock macOS system awk (onetrueawk
  * 20200816): `/usr/bin/awk '/\bx\b/'` silently matches nothing, while
