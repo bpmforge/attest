@@ -374,26 +374,16 @@ console.log(
 );
 await testLoadBearingDenominators(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
-// promoted to a hard-fail error (M013) and a new markdown-table
-// orphan-fragment linter (validate-doc-render-health.sh), proving both
-// confirmed-hit publish bug classes are caught, plus false-positive
-// stress cases on clean content.
-// ---------------------------------------------------------------------------
+// Pass 16: Publish render-health (T29.9) — mermaid backtick hard-fail (M013)
+// + markdown-table orphan-fragment linter (validate-doc-render-health.sh).
 console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 17: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF
-// completing without a pasted close receipt (planted acceptance test, both
-// at the library level and through the real validate-close-receipt.sh
-// script + its red/green fixtures), start()'s Stage-0 receipt, and the
-// refuse-to-select-next-work checks (openTicketFor()/`open-for`, `claim`
-// refusing on red ticket-graph hygiene).
-// ---------------------------------------------------------------------------
+// Pass 17: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF that
+// completed without a pasted close receipt (planted acceptance test), plus
+// start()'s Stage-0 receipt and the refuse-to-select-next-work checks.
 console.log(
   "\n[Pass 17] Close-before-next-claim — close-receipt gate + refuse-to-select-next-work",
 );
