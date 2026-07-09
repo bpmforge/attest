@@ -1,7 +1,7 @@
 /**
  * test-close-receipt.ts — Pass 17 chapter module for scripts/test.ts (T26.3).
  *
- * "Close-before-next-claim" protocol wiring:
+ * "Close-before-next-claim" protocol wiring, receipt-gate half:
  *   1. accept() refuses in_review -> done unless the module's Completion
  *      Manifest has the close() receipt pasted verbatim into it (not just a
  *      self-asserted "<id> done -- ..." phrase) — the planted acceptance
@@ -11,21 +11,17 @@
  *      evals/fixtures/validators/validate-close-receipt/{red,green} fixture
  *      directories, so the rejection is proven to fire, not just documented.
  *   2. A hand-typed receipt that matches the header shape but not the
- *      recorded branch/commits evidence must not fool accept() (defeats the
- *      obvious bypass an independent reviewer would try first).
+ *      recorded branch/commits/actor evidence must not fool accept() —
+ *      defeats the obvious bypasses an independent reviewer tried first
+ *      (wrong commit, and a fabricated `actor:` line with otherwise-correct
+ *      evidence — the second one was a real gap found and closed here).
  *   3. start() returns a paste-able "start receipt" (Stage 0 of the /reflow
  *      claim HANDOFF template).
- *   4. openTicketFor()/`tickets.mjs open-for` — the refuse-to-select-
- *      next-work query: an actor with an open (claimed/in_progress) ticket
- *      is refused; one with none (or only an in_review ticket — already
- *      "closed" per T26.1) is not.
- *   5. `tickets.mjs claim` refuses when the ticket graph itself is
- *      unhygienic (write-scope collision) — the hygiene half of "refuse to
- *      select next work."
  *
- * Extracted to its own chapter module (rather than growing
- * test-ticket-lifecycle.ts further) to keep both files under the file-size
- * cap, matching test-gate-receipts.ts's precedent.
+ * The refuse-to-select-next-work half (openTicketFor/`open-for`, claim's
+ * hygiene refusal) lives in test-refuse-next-work.ts (Pass 18) — split out
+ * to keep both files under the file-size cap, matching test-gate-receipts.ts's
+ * precedent.
  */
 
 import * as fs from "fs";
@@ -42,7 +38,6 @@ export async function testCloseReceipt(
   const tickets = await import(
     pathToFileURL(path.join(root, "scripts/lib/tickets.mjs")).href
   );
-  const LIB = path.join(root, "scripts/lib/tickets.mjs");
   const VALIDATOR = path.join(
     root,
     "scripts/validators/validate-close-receipt.sh",
@@ -73,27 +68,6 @@ export async function testCloseReceipt(
       manifest: "manifest.md",
       ...overrides,
     };
-  }
-
-  function runCli(args: string[]): {
-    exitCode: number;
-    stdout: string;
-    stderr: string;
-  } {
-    try {
-      const stdout = execFileSync("node", [LIB, ...args], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      return { exitCode: 0, stdout, stderr: "" };
-    } catch (err: unknown) {
-      const e = err as { status?: number; stdout?: string; stderr?: string };
-      return {
-        exitCode: e.status ?? 1,
-        stdout: e.stdout ?? "",
-        stderr: e.stderr ?? "",
-      };
-    }
   }
 
   function runValidator(dir: string): {
@@ -199,6 +173,48 @@ export async function testCloseReceipt(
         );
     }
 
+    // -- RED (regression, independent review): a hand-typed receipt with the
+    // CORRECT branch/commits but a fabricated `actor:` line must not fool
+    // accept() -- misattributing whose work this is is exactly the kind of
+    // fake the receipt is supposed to make impossible.
+    {
+      const planPath = makeFixturePlan([oneModule()]);
+      const plan = tickets.loadPlan(planPath);
+      const manifestPath = path.join(path.dirname(planPath), "manifest.md");
+      tickets.claim(plan, "M-a", "user");
+      tickets.start(plan, "M-a", "user");
+      const cl = tickets.close(plan, "M-a", "user", {
+        branch: "feat/m-a",
+        commits: ["abc123"],
+        cwd: path.dirname(planPath),
+      });
+      const fakeActor =
+        "── close receipt: M-a ──\n" +
+        "actor: someone-else\n" + // real branch/commits, fabricated actor
+        "branch: feat/m-a\n" +
+        "commits: abc123\n" +
+        "verify: true (exit 0)\n" +
+        "manifest: manifest.md\n" +
+        "timestamp: 2026-01-01T00:00:00Z\n" +
+        "status: in_review — awaiting accept() by a reviewer other than 'user'\n";
+      fs.writeFileSync(
+        manifestPath,
+        `# Manifest\n\nM-a done -- fake actor.\n\n${fakeActor}`,
+      );
+      const r = tickets.accept(plan, "M-a", "reviewer2", {
+        cwd: path.dirname(planPath),
+      });
+      if (cl.ok && !r.ok && /pasted receipt actor/i.test(r.error))
+        ok(
+          "close receipt — RED: accept refuses a hand-typed receipt with the right evidence but a fabricated actor",
+        );
+      else
+        fail(
+          "close receipt — accept must reject a receipt whose actor doesn't match the ticket owner",
+          JSON.stringify({ cl: { ...cl, receipt: undefined }, r }),
+        );
+    }
+
     // -- GREEN: the real validate-close-receipt.sh script exits 0 against its
     // own green fixture, and non-zero against its red fixture -- proves the
     // planted rejection fires through the actual gate-sweep entry point, not
@@ -245,109 +261,6 @@ export async function testCloseReceipt(
           "close receipt — start() returns a paste-able start receipt (Stage 0)",
         );
       else fail("close receipt — start() receipt shape", JSON.stringify(s));
-    }
-
-    // -- refuse-to-select-next-work: openTicketFor()/`open-for` -----------
-    // an actor with an open (claimed/in_progress) ticket is refused; a
-    // different actor, or the same actor once the ticket is in_review
-    // (closed via receipt), is not.
-    {
-      const planPath = makeFixturePlan([
-        oneModule({ id: "M-a" }),
-        oneModule({ id: "M-b", write_scope: ["src/b/**"] }),
-      ]);
-      const plan = tickets.loadPlan(planPath);
-      tickets.claim(plan, "M-a", "user");
-      const openForOwner = tickets.openTicketFor(plan, "user");
-      const openForOther = tickets.openTicketFor(plan, "someone-else");
-      if (openForOwner?.id === "M-a" && openForOther === null)
-        ok(
-          "close receipt — openTicketFor(): flags the owner's open ticket, clears an unrelated actor",
-        );
-      else
-        fail(
-          "close receipt — openTicketFor() semantics",
-          JSON.stringify({ openForOwner, openForOther }),
-        );
-
-      // CLI: `open-for` mirrors the same semantics via subprocess -- persist
-      // the in-memory claim() mutation to disk first, since the CLI reads
-      // plan.json fresh from disk rather than sharing this process's `plan`.
-      tickets.savePlan(planPath, plan);
-      const cliOwner = runCli(["open-for", planPath, "user"]);
-      const cliOther = runCli(["open-for", planPath, "someone-else"]);
-      if (cliOwner.exitCode !== 0 && cliOther.exitCode === 0)
-        ok(
-          "close receipt — `tickets.mjs open-for`: refuses for the owner of an open ticket, clear for a different actor",
-        );
-      else
-        fail(
-          "close receipt — `open-for` CLI semantics",
-          JSON.stringify({ cliOwner, cliOther }),
-        );
-    }
-
-    // -- refuse-to-select-next-work: an actor whose ticket has been CLOSED
-    // (in_review, via a receipt) is no longer "open" -- WIP=1 unblocks.
-    {
-      const planPath = makeFixturePlan([oneModule()]);
-      const plan = tickets.loadPlan(planPath);
-      tickets.claim(plan, "M-a", "user");
-      tickets.start(plan, "M-a", "user");
-      tickets.close(plan, "M-a", "user", {
-        branch: "feat/m-a",
-        commits: ["abc123"],
-        cwd: path.dirname(planPath),
-      });
-      const open = tickets.openTicketFor(plan, "user");
-      if (open === null && plan.modules[0].status === "in_review")
-        ok(
-          "close receipt — openTicketFor(): an in_review ticket (closed via receipt) no longer counts as open",
-        );
-      else
-        fail(
-          "close receipt — in_review should not count as an open ticket",
-          JSON.stringify({ open, status: plan.modules[0].status }),
-        );
-    }
-
-    // -- refuse-to-select-next-work: `tickets.mjs claim` refuses a NEW claim
-    // while the ticket graph itself is unhygienic (write-scope collision
-    // between an active module and the one being claimed).
-    {
-      const planPath = makeFixturePlan([
-        oneModule({ id: "M-a", write_scope: ["src/shared/**"] }),
-        oneModule({ id: "M-b", write_scope: ["src/shared/**"] }),
-      ]);
-      const claimA = runCli(["claim", planPath, "M-a", "actor-one"]);
-      const claimB = runCli(["claim", planPath, "M-b", "actor-two"]);
-      if (
-        claimA.exitCode === 0 &&
-        claimB.exitCode !== 0 &&
-        /hygiene is red/.test(claimB.stderr)
-      )
-        ok(
-          "close receipt — `tickets.mjs claim` refuses a new claim while the ticket graph is unhygienic (write-scope collision)",
-        );
-      else
-        fail(
-          "close receipt — claim should refuse on a red hygiene check",
-          JSON.stringify({ claimA, claimB }),
-        );
-
-      // `start` on the actor's OWN already-claimed ticket must NOT be blocked
-      // by an unrelated colliding module elsewhere in the graph -- hygiene
-      // gates SELECTING new work, not advancing work already claimed.
-      const startA = runCli(["start", planPath, "M-a", "actor-one"]);
-      if (startA.exitCode === 0 && /start receipt: M-a/.test(startA.stdout))
-        ok(
-          "close receipt — `tickets.mjs start` is NOT blocked by an unrelated colliding module (only `claim` gates on hygiene)",
-        );
-      else
-        fail(
-          "close receipt — start() should not be blocked by unrelated hygiene issues",
-          JSON.stringify(startA),
-        );
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);

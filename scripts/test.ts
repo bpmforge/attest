@@ -31,6 +31,7 @@ import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 import { testDocRenderHealth } from "./test-doc-render-health.ts";
 import { testCloseReceipt } from "./test-close-receipt.ts";
+import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -382,12 +383,14 @@ console.log(
 await testDocRenderHealth(root, ok, fail);
 
 // Pass 17: Close-before-next-claim (T26.3) — accept() refuses a HANDOFF that
-// completed without a pasted close receipt (planted acceptance test), plus
-// start()'s Stage-0 receipt and the refuse-to-select-next-work checks.
-console.log(
-  "\n[Pass 17] Close-before-next-claim — close-receipt gate + refuse-to-select-next-work",
-);
+// completed without a pasted close receipt (planted acceptance test).
+console.log("\n[Pass 17] Close-before-next-claim — close-receipt gate");
 await testCloseReceipt(root, ok, fail);
+
+// Pass 18: Refuse-to-select-next-work (T26.3) — claim() refuses on red
+// hygiene (CLI + direct import), openTicketFor()/`open-for` WIP query.
+console.log("\n[Pass 18] Refuse-to-select-next-work — claim hygiene gate");
+await testRefuseNextWork(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
