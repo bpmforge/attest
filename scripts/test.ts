@@ -26,6 +26,7 @@ import { testChallengerGate } from "./test-challenger-gate.ts";
 import { testTruthfulCompletion } from "./test-truthful-completion.ts";
 import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
 import { testWiringLedger } from "./test-wiring-ledger.ts";
+import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -334,6 +335,17 @@ console.log(
   "\n[Pass 12] Wiring ledger — orphan validator/shared-protocol detection",
 );
 await testWiringLedger(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 13: Challenger gate slug/date correlation (T22.20) — a source report
+// must be matched to its OWN clean challenge report via the declared
+// "**Artifact:**" field; an unrelated clean challenge report elsewhere no
+// longer satisfies the gate.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 13] Challenger gate correlation — per-source Artifact matching",
+);
+await testChallengerGateCorrelation(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

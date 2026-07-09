@@ -116,6 +116,15 @@ Output file: `docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md`
 # Challenge Report — <artifact name>
 **Date:** <YYYY-MM-DD> | **Artifact:** <path> | **Challenger:** challenger agent
 
+> **Artifact field is load-bearing (T22.20):** `scripts/validators/validate-challenger-gate.sh`
+> parses this field to correlate a challenge report back to the specific
+> source report it challenges (matched by filename basename). A report
+> missing this field, or declaring the wrong filename, does not satisfy
+> the gate for its intended source — even if the report itself is
+> otherwise clean (`CONTRADICTED: 0`). Always set `<path>` to the actual
+> relative path (or at minimum the filename) of the artifact being
+> challenged.
+
 ## Summary
 - Claims reviewed: N
 - CONFIRMED: N
