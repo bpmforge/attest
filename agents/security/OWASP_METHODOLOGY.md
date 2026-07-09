@@ -1060,6 +1060,16 @@ For each cell, ask:
 - **Denial of Service**: Can this component be overwhelmed? Resource exhaustion? Deadlocks?
 - **Elevation of Privilege**: Can a user of this component gain higher permissions?
 
+#### Step 2b: Standing Threat Archetypes — Bootstrap & Authority (MANDATORY)
+
+In addition to the per-component STRIDE pass, explicitly assess these three named archetypes against the design for EVERY threat model. All three are Elevation-of-Privilege variants that field-testing (M29 field lessons) found slip through per-component STRIDE passes because they are cross-cutting (about the system's t=0 state, not any one component):
+
+1. **bootstrap-authority** — the system has no way to create the first privileged user without out-of-band intervention (a hand-run SQL INSERT, a seed script that isn't safe to re-run, or an undocumented env var). Ask: on a brand-new, empty database, how does the first admin/owner come to exist?
+2. **self-referential-permission-gate** — a permission check is gated on a role that only that same role (or a role reachable only through it) can grant. Concretely: "only an admin may grant the admin role" with no other path to create the first admin is a circular authority trap with no escape path. Ask: for every "only role X may grant role Y" rule, is there a path to grant Y that does NOT require already holding X or Y?
+3. **rbac-highest-role-wins** — a many-to-many (N roles per principal) role schema whose enforcement resolves effective permissions by picking "the highest-priority role" instead of computing the **union of grants** across all roles the principal holds. This can silently under-grant a permission legitimately held via a lower-priority role, or over-grant depending on the implementation. Ask: if a principal can hold more than one role, does the enforcement code union the grants, or does it short-circuit on the first/highest-priority match?
+
+For each archetype: rate it (DREAD, same as any other threat) if applicable, or record it as explicitly assessed and ruled N/A (e.g. single-role systems have no rbac-highest-role-wins exposure) — never silently omit it. Mitigations for (1) and (2) both resolve to the same requirement: a documented, idempotent bootstrap mechanism (seed script safe to re-run, first-user-is-admin logic, CLI bootstrap command, or invite-token flow) that requires **no manual SQL**. `validate-security-controls.sh` enforces that `docs/SECURITY_CONTROLS.md` documents concrete, non-placeholder answers for all three (see `agents/security-auditor.md` § Bootstrap & Empty-State Checklist / Threat Catalog / RBAC Cardinality Rule).
+
 #### Step 3: Rate Each Threat
 For each threat identified, rate using DREAD:
 - **D**amage potential (1-10)

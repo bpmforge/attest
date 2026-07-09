@@ -29,6 +29,7 @@ import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
+import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -371,6 +372,20 @@ console.log(
   "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
 );
 await testLoadBearingDenominators(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 16: Bootstrap & Empty-State checklist (T29.4)
+// ---------------------------------------------------------------------------
+// validate-security-controls.sh: Bootstrap & Empty-State checklist answered,
+// self-referential/2-hop circular permission gate detection, RBAC cardinality
+// (union-of-grants, never highest-role-wins). validate-release-readiness.sh:
+// fresh-deploy bootstrap dry-run (new environment reaches usable state, no
+// manual SQL).
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 16] Bootstrap & Empty-State — self-referential permission gate + RBAC cardinality + fresh-deploy dry-run",
+);
+await testBootstrapChecklist(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
