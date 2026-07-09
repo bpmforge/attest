@@ -12,7 +12,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (4)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (38)](#skills)
+- [Skills (39)](#skills)
 - [Shared protocols (24)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -386,7 +386,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**38 skills total** (includes `/guide` — the concierge front door).
+**39 skills total** (includes `/guide` — the concierge front door).
 
 ---
 
@@ -501,7 +501,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 
 | Script | Checks |
 |--------|--------|
-| `validate-adrs.sh` | Every ADR-NNN reference in docs has a corresponding file with a valid status field |
+| `validate-adrs.sh` | Every ADR-NNN reference in docs has a corresponding file with a valid status field; a hard-to-reverse choice (datastore/auth-model/core-framework/vendoring-strategy) asserted in ARCHITECTURE.md/TECH_STACK.md has a matching, on-topic ADR (T29.5) |
 | `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md and a path entry in openapi.yaml |
 | `validate-architecture.sh` | 6 diagram types, Mermaid syntax, HLA overview, no placeholders |
 | `validate-build.sh` | Runs project build command and checks exit code |
@@ -549,7 +549,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `run-handoff-gates.sh` | Scope + manifest + coverage gate runner with any-failure-aborts semantics |
 | `validate-api-consistency.sh` | The OpenAPI spec and the implemented routes agree (paths, methods, params) |
 | `validate-autonomy-ledger.sh` | APPROVALS.md rows are well-formed and every NEVER-AUTO row is human-signed (T27.5) — the runtime counterpart to `validate-autonomy-wiring.sh`'s prose-adjacency lint |
-| `validate-challenger-gate.sh` | Any FIX_BACKLOG/review/security report with a CRITICAL or HIGH finding has a matching `CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts (T27.3) |
+| `validate-challenger-gate.sh` | Any FIX_BACKLOG/review/security report with a CRITICAL or HIGH finding, or any ADR/design doc asserting an unverified external rationale, has a matching `CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts (T27.3, T29.5) |
 | `validate-circular-deps.sh` | Detects dependency cycles in the MODULE_DESIGN.md graph |
 | `validate-data-governance.sh` | A schema with personal data ships with classification + retention/handling rules |
 | `validate-dead-code.sh` | Deterministic dead-code / stub / unused-export gate (knip / ts-prune / vulture + grep) |

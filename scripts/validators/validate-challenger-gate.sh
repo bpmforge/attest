@@ -5,6 +5,24 @@
 # docs/reviews/CHALLENGE_REPORT_*.md, and every challenge report found must
 # show zero unresolved CONTRADICTED verdicts (T27.3).
 #
+# T29.5 extension: a second, independent source category feeds the SAME
+# SOURCE_HITS collection and the SAME correlation mechanism below (per-source
+# Artifact-field matching, T22.20) -- an ASSERTED EXTERNAL RATIONALE (a claim
+# that an outside compliance/supply-chain/legal/vendor mandate forces a
+# hard-to-reverse architecture choice) is exactly the kind of unverified
+# factual claim this gate exists to police, so it is treated as a source
+# requiring a matching challenge report, not a parallel gate. The marker is
+# the literal string "**External rationale (needs verification):**" (see
+# references/adr-template.md) found in docs/ARCHITECTURE.md, docs/TECH_STACK.md,
+# or any docs/adrs/*.md (or docs/architecture/decisions/*.md) file -- the
+# ADR_DIR resolution mirrors validate-adrs.sh exactly, on purpose (same
+# convention, not a second one). A researcher FACT CHECK's own RESEARCH_*.md
+# output going through ITS OWN Challenger Gate does NOT satisfy this --
+# per T22.20 correlation, only a challenge report whose Artifact field names
+# THIS source (the ADR/design doc) counts; a challenge report that only
+# declares a RESEARCH_*.md Artifact does not correlate to the ADR and leaves
+# it gapped (references/adr-template.md documents the two-path convergence).
+#
 # CHALLENGER_PROTOCOL.md already defines the trigger table and report
 # format (docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md, a header line
 # "**Date:** <date> | **Artifact:** <path> | **Challenger:** ..." followed
@@ -117,7 +135,11 @@ artifact_matches_source() {
 }
 
 # -- 1. find source reports with a HIGH/CRITICAL finding --------------------
+# SOURCE_HITS / SOURCE_KINDS are index-aligned (bash 3.2 -- no assoc arrays).
+# kind is "review" (pre-existing HIGH/CRITICAL severity scan) or
+# "external-rationale" (T29.5 -- an ADR/design doc's unverified marker).
 SOURCE_HITS=()
+SOURCE_KINDS=()
 for dir in "$ROOT/docs/reviews" "$ROOT/docs/security"; do
   [[ -d "$dir" ]] || continue
   while IFS= read -r f; do
@@ -128,16 +150,40 @@ for dir in "$ROOT/docs/reviews" "$ROOT/docs/security"; do
     esac
     if grep -qE "$SEVERITY_PATTERN" "$f" 2>/dev/null; then
       SOURCE_HITS+=("$f")
+      SOURCE_KINDS+=("review")
     fi
   done < <(find "$dir" -type f -name '*.md' 2>/dev/null)
 done
 
+# -- 1a. find design docs / ADRs asserting an unverified external rationale --
+# EXTERNAL_RATIONALE_MARKER is a literal string match (grep -F), not a regex --
+# it must appear byte-for-byte, exactly as references/adr-template.md
+# instructs authors to write it. ADR_DIR resolution mirrors validate-adrs.sh.
+EXTERNAL_RATIONALE_MARKER='**External rationale (needs verification):**'
+ADR_DIR="$ROOT/docs/adrs"
+[[ ! -d "$ADR_DIR" ]] && ADR_DIR="$ROOT/docs/architecture/decisions"
+
+EXTERNAL_RATIONALE_CANDIDATES=("$ROOT/docs/ARCHITECTURE.md" "$ROOT/docs/TECH_STACK.md")
+if [[ -d "$ADR_DIR" ]]; then
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && EXTERNAL_RATIONALE_CANDIDATES+=("$f")
+  done < <(find "$ADR_DIR" -type f -name '*.md' 2>/dev/null)
+fi
+
+for f in "${EXTERNAL_RATIONALE_CANDIDATES[@]}"; do
+  [[ -f "$f" ]] || continue
+  if grep -qF "$EXTERNAL_RATIONALE_MARKER" "$f" 2>/dev/null; then
+    SOURCE_HITS+=("$f")
+    SOURCE_KINDS+=("external-rationale")
+  fi
+done
+
 if [[ "${#SOURCE_HITS[@]}" -eq 0 ]]; then
-  note "no FIX_BACKLOG/review/security report with a CRITICAL or HIGH finding found -- nothing to gate"
+  note "no FIX_BACKLOG/review/security report with a CRITICAL or HIGH finding, and no ADR/design doc with an unverified external rationale marker, found -- nothing to gate"
   validator_exit
 fi
 
-pass "found ${#SOURCE_HITS[@]} report(s) with a CRITICAL/HIGH finding"
+pass "found ${#SOURCE_HITS[@]} source(s) requiring a challenge report (CRITICAL/HIGH finding or unverified external rationale)"
 
 # -- 1b. detect basenames shared by 2+ source reports (see
 # is_ambiguous_basename / artifact_matches_source above for why this
@@ -226,7 +272,10 @@ if [[ "${#CHALLENGE_REPORTS[@]}" -gt 0 ]]; then
 fi
 
 # -- 4. every source report needs its OWN matching clean challenge report ---
-for src in "${SOURCE_HITS[@]}"; do
+src_idx=0
+while [[ "$src_idx" -lt "${#SOURCE_HITS[@]}" ]]; do
+  src="${SOURCE_HITS[$src_idx]}"
+  kind="${SOURCE_KINDS[$src_idx]}"
   src_rel="${src#"$ROOT"/}"
   matched_file=""
   i=0
@@ -240,9 +289,12 @@ for src in "${SOURCE_HITS[@]}"; do
 
   if [[ -n "$matched_file" ]]; then
     pass "$src_rel: matched by clean challenge report $matched_file (Artifact: $(basename "$src_rel"))"
+  elif [[ "$kind" == "external-rationale" ]]; then
+    gap "unverified-external-rationale" "$src_rel: asserts an external rationale (\"**External rationale (needs verification):**\") but no docs/reviews/CHALLENGE_REPORT_*.md declares '**Artifact:** $src_rel' (or a bare '$(basename "$src_rel")') with 0 unresolved CONTRADICTED -- a challenge report on a RESEARCH_*.md alone does not satisfy this (it must name THIS artifact, T22.20); route through the challenger per references/adr-template.md before this design doc is final"
   else
     gap "missing-challenge-report" "$src_rel: contains a CRITICAL/HIGH finding but no docs/reviews/CHALLENGE_REPORT_*.md declares '**Artifact:** $src_rel' (or a bare '$(basename "$src_rel")') with 0 unresolved CONTRADICTED -- an unrelated challenge report elsewhere does not satisfy this gate (T22.20); run the challenger agent on this specific report per CHALLENGER_PROTOCOL.md"
   fi
+  src_idx=$((src_idx + 1))
 done
 
 validator_exit

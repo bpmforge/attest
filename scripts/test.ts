@@ -30,6 +30,7 @@ import { testChallengerGateCorrelation } from "./test-challenger-gate-correlatio
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 import { testDocRenderHealth } from "./test-doc-render-health.ts";
+import { testAdrExternalRationale } from "./test-adr-external-rationale.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -373,17 +374,23 @@ console.log(
 );
 await testLoadBearingDenominators(root, ok, fail);
 
-// ---------------------------------------------------------------------------
 // Pass 16: Publish render-health (T29.9, H8/C-2/C-3) — mermaid backtick
 // promoted to a hard-fail error (M013) and a new markdown-table
 // orphan-fragment linter (validate-doc-render-health.sh), proving both
 // confirmed-hit publish bug classes are caught, plus false-positive
 // stress cases on clean content.
-// ---------------------------------------------------------------------------
 console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
+
+// Pass 17: ADR + external-rationale routing (T29.5) — hard-to-reverse choice
+// needs a matching ADR; an ADR's external-rationale marker needs its own
+// clean challenge report (T22.20 correlation, not a parallel mechanism).
+console.log(
+  "\n[Pass 17] ADR + external-rationale routing — hard-choice gate + Challenger correlation",
+);
+await testAdrExternalRationale(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
