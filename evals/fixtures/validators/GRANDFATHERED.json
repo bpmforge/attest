@@ -11,7 +11,6 @@
   "validate-data-governance.sh",
   "validate-dead-code.sh",
   "validate-deps.sh",
-  "validate-design-system.sh",
   "validate-e2e-setup.sh",
   "validate-entry-points.sh",
   "validate-erd-coverage.sh",
@@ -21,7 +20,6 @@
   "validate-iac.sh",
   "validate-improve-coverage.sh",
   "validate-infrastructure.sh",
-  "validate-inventory.sh",
   "validate-lint.sh",
   "validate-mermaid.sh",
   "validate-migrations.sh",
@@ -39,8 +37,6 @@
   "validate-spec-traceability.sh",
   "validate-tech-stack.sh",
   "validate-test-design.sh",
-  "validate-tests-mapping.sh",
   "validate-tests.sh",
-  "validate-ux-spec.sh",
-  "validate-wcag-coverage.sh"
+  "validate-ux-spec.sh"
 ]

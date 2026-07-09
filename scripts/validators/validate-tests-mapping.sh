@@ -43,12 +43,32 @@ fi
 P_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp][01]\b' | grep -oE 'UC-[0-9]+' | sort -u)
 
 P_COUNT=$(printf '%s\n' "$P_CASES" | grep -c . || true)
+
+# -- Collect P2 use case IDs (T22.6: denominator visibility) --------------
+# P2 coverage is not required, but a P2 use case that never appears anywhere
+# in this report is indistinguishable from one nobody remembered to
+# consider. Make every P2 use case visible as an explicit SKIPPED note so
+# the full denominator (P0+P1+P2) is on the record, not just the subset the
+# validator happens to require.
+P2_CASES=$(grep -E 'UC-[0-9]+' "$UC" | grep -E '\b[Pp]2\b' | grep -oE 'UC-[0-9]+' | sort -u)
+P2_COUNT=$(printf '%s\n' "$P2_CASES" | grep -c . || true)
+if [[ "$P2_COUNT" -gt 0 ]]; then
+  while IFS= read -r uc2; do
+    [[ -z "$uc2" ]] && continue
+    note "$uc2 SKIPPED (P2 — coverage not required this phase)"
+  done <<< "$P2_CASES"
+fi
+
 if [[ "$P_COUNT" -eq 0 ]]; then
-  warn "no P0 or P1 use cases found — skipping"
+  if [[ "$P2_COUNT" -gt 0 ]]; then
+    warn "no P0 or P1 use cases found ($P2_COUNT P2 use case(s) SKIPPED above) — skipping"
+  else
+    warn "no P0 or P1 use cases found — skipping"
+  fi
   validator_exit
 fi
 
-pass "found $P_COUNT P0/P1 use case(s)"
+pass "found $P_COUNT P0/P1 use case(s) ($P2_COUNT P2 use case(s) SKIPPED, visible above)"
 
 # -- Find test directories -------------------------------------------------
 TEST_DIRS=()
@@ -61,7 +81,16 @@ if [[ "${#TEST_DIRS[@]}" -eq 0 ]]; then
   validator_exit
 fi
 
-# -- Forward check: every P0/P1 has a test reference ----------------------
+# -- Forward check: every P0/P1 has an assertion-level test reference -----
+# T22.6: this used to accept ANY occurrence of the UC-ID anywhere inside the
+# test directory (grep -rq with no context) as "covered" -- a UC-ID sitting
+# in an unrelated comment, a changelog blurb, or a skipped-and-forgotten
+# stub satisfied the check exactly as well as a real assertion. Tighten the
+# content match to require the UC-ID on the same line as a test-block
+# keyword (describe(/it(/test(/context( or Python's def test_...) so the
+# reference is actually load-bearing on an assertion, not just present in
+# the file. The filename match stays as-is -- a whole file scoped to a
+# UC-ID (e.g. UC-01.spec.ts) is already assertion-level by construction.
 while IFS= read -r uc; do
   [[ -z "$uc" ]] && continue
   found=0
@@ -72,12 +101,14 @@ while IFS= read -r uc; do
       found=1
       break
     fi
-    if grep -rqE "\b${uc}\b" "$d" 2>/dev/null; then
+    uc_lines=$(grep -rnE "\b${uc}\b" "$d" 2>/dev/null || true)
+    if [[ -n "$uc_lines" ]] && printf '%s\n' "$uc_lines" \
+        | grep -qE '(describe|it|test|context)\(|def[[:space:]]+test_'; then
       found=1
       break
     fi
   done
-  [[ "$found" -eq 0 ]] && gap "uncovered-uc" "$uc has no test file referencing it (add a describe/it block with '$uc' in the name)"
+  [[ "$found" -eq 0 ]] && gap "uncovered-uc" "$uc has no assertion-level test reference (add a describe/it/test block or def test_ with '$uc' in the name — a bare mention elsewhere in the file does not count)"
 done <<< "$P_CASES"
 
 # -- Reverse check (warning only) -----------------------------------------
