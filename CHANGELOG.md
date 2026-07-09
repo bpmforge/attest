@@ -21,6 +21,7 @@ forcing a version bump per PR.
 - **T27.3** — Challenger enforcement gate: `validate-challenger-gate.sh` (CHALLENGE_REPORT existence + CONTRADICTED tripwire).
 - **T22.20** — Challenger gate slug/date correlation: `validate-challenger-gate.sh` now matches each source report (HIGH/CRITICAL finding) to its OWN challenge report via the declared `**Artifact:**` header field (basename match), instead of T27.3's pure existence check — an unrelated clean challenge report elsewhere no longer satisfies the gate for a fresh, never-challenged finding; `CHALLENGER_PROTOCOL.md`'s report template note updated to mark the Artifact field load-bearing; new Pass 13 (`scripts/test-challenger-gate-correlation.ts`).
 - **T27.2** — Truthful completion: `validate-completion-manifest.sh` v2 (Files-produced/Verify-result stat checks, Maker/Verifier identity), `validate-tickets.sh` un-orphaned into phase-4, `run-handoff-gates.sh` gains a Tracker gate, gate scores are now advisory (`GATE_SCORING_PROTOCOL.md`).
+- **T21.2** — M21 user-guide capture tooling: `skills/user-guide/scripts/img-gate.mjs` (Gate A quality check — size floor, per-channel-stddev blank-detect, dominant-color-vs-per-app-baseline, two-shot `pixelmatch` stability, each with a specific failure reason) and `annotate.mjs` (one rounded highlight box + numbered badge composited onto a copy via `sharp`; original never mutated). New deps `sharp`, `pixelmatch`. 23 `node --test` cases incl. blank/skeleton/known-good synthetic fixtures generated in-test. No agent-prompt changes.
 
 ## [1.32.0] — 2026-07-06
 
