@@ -386,15 +386,8 @@ console.log(
 );
 await testDocRenderHealth(root, ok, fail);
 
-// ---------------------------------------------------------------------------
-// Pass 17: Bootstrap & Empty-State checklist (T29.4)
-// ---------------------------------------------------------------------------
-// validate-security-controls.sh: Bootstrap & Empty-State checklist answered,
-// self-referential/2-hop circular permission gate detection, RBAC cardinality
-// (union-of-grants, never highest-role-wins). validate-release-readiness.sh:
-// fresh-deploy bootstrap dry-run (new environment reaches usable state, no
-// manual SQL).
-// ---------------------------------------------------------------------------
+// Pass 17: Bootstrap & Empty-State checklist (T29.4) — validate-security-controls.sh's
+// checklist/self-referential-gate/RBAC-cardinality checks + validate-release-readiness.sh's dry-run check.
 console.log(
   "\n[Pass 17] Bootstrap & Empty-State — self-referential permission gate + RBAC cardinality + fresh-deploy dry-run",
 );
