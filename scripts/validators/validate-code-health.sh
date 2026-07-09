@@ -84,10 +84,39 @@ while IFS= read -r src_file; do
 
   # Look for try blocks that appear inside for/while/forEach contexts
   # Heuristic: try { appears within 5 lines after a loop keyword on the same nesting level
+  #
+  # NOTE (T22.19): stock macOS system awk (onetrueawk 20200816) has no \b
+  # word-boundary support -- /\bfor\b/ silently matches nothing, ever, on
+  # /usr/bin/awk (confirmed live: `echo x | awk '/\bx\b/'` prints nothing
+  # while `awk '/x/'` prints the line). The original \b(...)\b.*\{ and
+  # \btry\b[[:space:]]*\{ patterns therefore never actually fired on this
+  # machine. word_end() below finds a plain (boundary-free) regex match and
+  # then manually verifies the characters immediately before/after are not
+  # [[:alnum:]_] (word chars, including underscore -- a [[:punct:]] check
+  # would wrongly treat `for_loop`/`my_function` as boundaries since POSIX
+  # [:punct:] does not exclude `_`), replicating \b semantics portably.
   matches=$(awk '
-    /\b(for|while|forEach|map|reduce|filter)\b.*\{/ { in_loop=NR }
-    in_loop && NR <= in_loop+5 && /\btry\b[[:space:]]*\{/ {
-      print NR": "substr($0,1,80)
+    function word_end(line, word,    off, pos, len, abspos, before, after) {
+      off = 1
+      while ((pos = match(substr(line, off), word)) != 0) {
+        len = RLENGTH
+        abspos = off + pos - 1
+        before = (abspos == 1) ? "" : substr(line, abspos - 1, 1)
+        after = substr(line, abspos + len, 1)
+        if (before !~ /[[:alnum:]_]/ && after !~ /[[:alnum:]_]/) return abspos + len
+        off = abspos + (len > 0 ? len : 1)
+      }
+      return 0
+    }
+    {
+      p = word_end($0, "(for|while|forEach|map|reduce|filter)")
+      if (p > 0 && index(substr($0, p), "{") > 0) in_loop = NR
+      if (in_loop && NR <= in_loop + 5) {
+        q = word_end($0, "try")
+        if (q > 0 && substr($0, q) ~ /^[[:space:]]*\{/) {
+          print NR": "substr($0,1,80)
+        }
+      }
     }
   ' "$src_file" 2>/dev/null | head -3 || true)
   if [[ -n "$matches" ]]; then
@@ -145,8 +174,22 @@ while IFS= read -r src_file; do
   # written to the gap file and shown in the JSON `items` array).
   while IFS= read -r fn_info; do
     [[ -n "$fn_info" ]] && gap "H-01-function-too-long" "${src_file#"$ROOT/"}: $fn_info"
+  # NOTE (T22.19): \b is a no-op on stock macOS /usr/bin/awk (onetrueawk),
+  # so the original /\b(function|=>[[:space:]]*\{|async[[:space:]]+function)\b/
+  # never fired on this machine. Tokenize on runs of non-word characters
+  # ([^[:alnum:]_]+ -- underscore counts as a word char, same as \b) and
+  # compare tokens exactly for whole-word "function" (this alone also
+  # covers "async function", since "function" is still a distinct token
+  # there). The "=> {" branch never needed a word boundary in the first
+  # place -- there is no word character for \b to bound immediately before
+  # "=" -- so it is matched directly as punctuation, unwrapped.
   done < <(awk '
-    /\b(function|=>[[:space:]]*\{|async[[:space:]]+function)\b/ {
+    function has_word(line, word,    n, i, toks) {
+      n = split(line, toks, /[^[:alnum:]_]+/)
+      for (i = 1; i <= n; i++) if (toks[i] == word) return 1
+      return 0
+    }
+    (has_word($0, "function") || /=>[[:space:]]*\{/) {
       fn_start = NR; fn_name = $0; sub(/[[:space:]]*\{.*/, "", fn_name)
     }
     fn_start && /\}/ {
