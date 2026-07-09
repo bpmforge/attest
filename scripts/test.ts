@@ -28,6 +28,7 @@ import { testOuterLoopReceipts } from "./test-outer-loop-receipts.ts";
 import { testWiringLedger } from "./test-wiring-ledger.ts";
 import { testChallengerGateCorrelation } from "./test-challenger-gate-correlation.ts";
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
+import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -358,6 +359,18 @@ console.log(
   "\n[Pass 14] awk word-boundary — \\b-in-awk repro + fixed-validator regression",
 );
 await testAwkWordBoundary(root, ok, fail);
+
+// ---------------------------------------------------------------------------
+// Pass 15: Load-bearing denominators (T22.6) — validate-design-system.sh
+// (STATES + killed caps), validate-tests-mapping.sh (assertion-level + P2
+// SKIPPED), validate-wcag-coverage.sh (interactive-element inventory), and
+// validate-inventory.sh (second-pass source re-derivation) each used to
+// check a sample/capped-prefix/1-of-N ground truth instead of the full set.
+// ---------------------------------------------------------------------------
+console.log(
+  "\n[Pass 15] Load-bearing denominators — design-system/tests-mapping/wcag-coverage/inventory completeness",
+);
+await testLoadBearingDenominators(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
