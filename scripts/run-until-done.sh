@@ -193,6 +193,26 @@ checkpoint_kill() {
     "$session" "$reason" "$elapsed" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >> "$wlog"
 }
 
+# kill_tree (T31.5): a plain `kill $pid` only signals that one process --
+# bash does NOT forward signals to a backgrounded pipeline's children (e.g.
+# $RUN_CMD's own `sleep`/model-call subprocess), so killing just the top pid
+# orphans them to keep running (and keep consuming resources) instead of
+# actually reclaiming what the watchdog killed the session to reclaim.
+# Walks the descendant tree via `pgrep -P` (portable: macOS + Linux both
+# support it, no GNU-only flags) and signals every pid found. Re-walked fresh
+# on each call rather than cached, since the TERM pass may still leave a
+# child alive for the follow-up KILL pass.
+kill_tree() {
+  local root="$1" sig="$2"
+  local pids=("$root") i=0 children c
+  while (( i < ${#pids[@]} )); do
+    children="$(pgrep -P "${pids[$i]}" 2>/dev/null)"
+    for c in $children; do pids+=("$c"); done
+    i=$((i + 1))
+  done
+  for c in "${pids[@]}"; do kill "-$sig" "$c" 2>/dev/null; done
+}
+
 # run_one_session (T31.5): run exactly one $RUN_CMD invocation under the
 # per-session task budget + heartbeat watchdog. Sets SESSION_OUT/SESSION_RC/
 # SESSION_KILLED (empty, "budget", or "stall") for the caller. Bash-3.2-safe:
@@ -229,9 +249,9 @@ run_one_session() {
   done
 
   if [[ -n "$SESSION_KILLED" ]]; then
-    kill -TERM "$pid" 2>/dev/null
+    kill_tree "$pid" TERM
     sleep 1
-    kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+    kill_tree "$pid" KILL
     wait "$pid" 2>/dev/null
     SESSION_RC=124
   else
