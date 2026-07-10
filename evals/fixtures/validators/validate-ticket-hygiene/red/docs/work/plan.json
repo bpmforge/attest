@@ -1,0 +1,59 @@
+{
+  "goal": "T26.2 red fixture -- plants one instance of every hygiene gap category",
+  "modules": [
+    {
+      "id": "T-hygiene-red-done",
+      "kind": "module",
+      "title": "Done with no evidence trail (incomplete-evidence)",
+      "lane": "test",
+      "owner": "alice",
+      "status": "done",
+      "write_scope": ["src/red-done/**"],
+      "depends_on": [],
+      "acceptance": ["works"],
+      "manifest": "manifests/missing.md"
+    },
+    {
+      "id": "T-hygiene-red-wip-1",
+      "kind": "module",
+      "title": "First open ticket for bob (wip-violation, stale-claim)",
+      "lane": "test",
+      "owner": "bob",
+      "status": "claimed",
+      "claimed_at": "2020-01-01T00:00:00.000Z",
+      "write_scope": ["src/red-wip-1/**"],
+      "depends_on": [],
+      "acceptance": ["works"]
+    },
+    {
+      "id": "T-hygiene-red-wip-2",
+      "kind": "module",
+      "title": "Second concurrent open ticket for bob (wip-violation)",
+      "lane": "test",
+      "owner": "bob",
+      "status": "in_progress",
+      "claimed_at": "2026-07-09T00:00:00.000Z",
+      "write_scope": ["src/red-wip-2/**"],
+      "depends_on": [],
+      "acceptance": ["works"]
+    },
+    {
+      "id": "T-hygiene-red-scope",
+      "kind": "module",
+      "title": "Evidence commit outside write_scope + a fabricated commit",
+      "lane": "test",
+      "owner": "carol",
+      "status": "in_progress",
+      "write_scope": ["totally/unrelated/**"],
+      "depends_on": [],
+      "acceptance": ["works"],
+      "evidence": {
+        "branch": "feat/t26.2-validate-ticket-hygiene",
+        "commits": [
+          "80a9df70def0ccd7e5a80bbf3936e499aa45d695",
+          "0000000000000000000000000000000000dead"
+        ]
+      }
+    }
+  ]
+}

@@ -135,6 +135,7 @@ populate_phase_artifacts() {
         "validate-dead-code.sh"
         "validate-file-size.sh"
         "validate-tickets.sh"
+        "validate-ticket-hygiene.sh"
       )
       # UI-bearing: validate design system was implemented
       if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
