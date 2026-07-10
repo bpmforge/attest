@@ -17,7 +17,7 @@
     {
       "id": "dead-module-found",
       "defect": "legacy.ts never imported",
-      "requires": "bash",
+      "requires": "knip",
       "cmd": [
         "bash",
         "{REPO}/scripts/validators/validate-dead-code.sh",

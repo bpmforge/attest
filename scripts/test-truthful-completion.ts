@@ -200,6 +200,12 @@ export async function testTruthfulCompletion(
       fs.writeFileSync(path.join(dir, "docs/reviews/.gitkeep"), "");
       fs.writeFileSync(path.join(dir, "docs/work/.gitkeep"), "");
       execFileSync("git", ["init", "-q"], { cwd: dir });
+      // Set a repo-local identity so the commit works on a fresh CI runner that
+      // has no global git user configured (otherwise: "Author identity unknown").
+      execFileSync("git", ["config", "user.email", "test@example.com"], {
+        cwd: dir,
+      });
+      execFileSync("git", ["config", "user.name", "Test"], { cwd: dir });
       execFileSync("git", ["add", "-A"], { cwd: dir });
       execFileSync("git", ["commit", "-q", "-m", "init"], { cwd: dir });
 
