@@ -106,6 +106,7 @@ export async function testWatchdogBudget(
       fs.writeFileSync(statePath, "# STATE\n");
       const stub = completesFastFromSecondCall(dir, statePath);
       const hungStub = path.join(dir, "hung.sh");
+      const sleepPidPath = path.join(dir, "sleep-pid");
       fs.writeFileSync(
         hungStub,
         [
@@ -113,7 +114,12 @@ export async function testWatchdogBudget(
           `c="${dir}/count"; n=$(( $(cat "$c" 2>/dev/null || echo 0) + 1 )); echo $n > "$c"`,
           "if (( n == 1 )); then",
           "  echo 'starting session 1'",
-          "  sleep 300",
+          // Backgrounded (not `exec sleep`) so it is a genuine CHILD of this
+          // script -- a plain `kill $pid` on the parent does not reach it;
+          // this is what the orphan-leak check below verifies got fixed.
+          "  sleep 300 &",
+          `  echo $! > "${sleepPidPath}"`,
+          "  wait",
           "else",
           `  exec "${stub}"`,
           "fi",
@@ -124,13 +130,20 @@ export async function testWatchdogBudget(
       const started = Date.now();
       const r = run(
         [
-          "--prompt", "wd-stall-test",
-          "--state", statePath,
-          "--root", dir,
-          "--max-sessions", "3",
-          "--max-seconds", "60",
-          "--max-session-seconds", "20",
-          "--heartbeat-seconds", "2",
+          "--prompt",
+          "wd-stall-test",
+          "--state",
+          statePath,
+          "--root",
+          dir,
+          "--max-sessions",
+          "3",
+          "--max-seconds",
+          "60",
+          "--max-session-seconds",
+          "20",
+          "--heartbeat-seconds",
+          "2",
         ],
         { RUN_CMD: hungStub, POLL_SECONDS: "1" },
         dir,
@@ -152,6 +165,40 @@ export async function testWatchdogBudget(
           `exit=${r.exitCode} elapsedMs=${elapsedMs} events=${JSON.stringify(events)} stdout=${r.stdout.slice(-400)}`,
         );
       }
+
+      // REGRESSION: a plain `kill $pid` does not reach a backgrounded pipeline's
+      // own children -- the first implementation of this watchdog orphaned the
+      // stalled session's `sleep 300` child instead of reclaiming it (confirmed
+      // live via `pgrep -fl` before the kill_tree() fix). Assert the recorded
+      // child pid is actually gone, not just that run-until-done moved on.
+      if (fs.existsSync(sleepPidPath)) {
+        const sleepPid = parseInt(
+          fs.readFileSync(sleepPidPath, "utf8").trim(),
+          10,
+        );
+        let alive = true;
+        try {
+          process.kill(sleepPid, 0);
+        } catch {
+          alive = false;
+        }
+        if (!alive) {
+          ok(
+            `run-until-done — STALL: the killed session's child process (sleep, pid ${sleepPid}) does not survive as an orphan`,
+          );
+        } else {
+          fail(
+            "run-until-done — orphaned child after stall kill",
+            `pid ${sleepPid} is still alive after the session was killed`,
+          );
+          process.kill(sleepPid, "SIGKILL");
+        }
+      } else {
+        fail(
+          "run-until-done — orphan check",
+          "sleep-pid file was never written by the stub",
+        );
+      }
       fs.rmSync(dir, { recursive: true, force: true });
     }
 
@@ -170,7 +217,7 @@ export async function testWatchdogBudget(
           "#!/usr/bin/env bash",
           `c="${dir}/count"; n=$(( $(cat "$c" 2>/dev/null || echo 0) + 1 )); echo $n > "$c"`,
           "if (( n == 1 )); then",
-          "  for i in $(seq 1 60); do echo \"tick $i\"; sleep 0.5; done",
+          '  for i in $(seq 1 60); do echo "tick $i"; sleep 0.5; done',
           "else",
           `  exec "${stub}"`,
           "fi",
@@ -181,20 +228,31 @@ export async function testWatchdogBudget(
       const started = Date.now();
       const r = run(
         [
-          "--prompt", "wd-budget-test",
-          "--state", statePath,
-          "--root", dir,
-          "--max-sessions", "3",
-          "--max-seconds", "60",
-          "--max-session-seconds", "2",
-          "--heartbeat-seconds", "30",
+          "--prompt",
+          "wd-budget-test",
+          "--state",
+          statePath,
+          "--root",
+          dir,
+          "--max-sessions",
+          "3",
+          "--max-seconds",
+          "60",
+          "--max-session-seconds",
+          "2",
+          "--heartbeat-seconds",
+          "30",
         ],
         { RUN_CMD: chattyStub, POLL_SECONDS: "1" },
         dir,
       );
       const elapsedMs = Date.now() - started;
       const events = watchdogEvents(dir);
-      if (r.exitCode === 0 && events.some((e) => e.reason === "budget") && elapsedMs < 20_000) {
+      if (
+        r.exitCode === 0 &&
+        events.some((e) => e.reason === "budget") &&
+        elapsedMs < 20_000
+      ) {
         ok(
           `run-until-done — BUDGET: a still-producing-output session is killed once it exceeds --max-session-seconds (${elapsedMs}ms, not the full ~30s of output)`,
         );
@@ -216,13 +274,20 @@ export async function testWatchdogBudget(
 
       const r = run(
         [
-          "--prompt", "wd-green-test",
-          "--state", statePath,
-          "--root", dir,
-          "--max-sessions", "3",
-          "--max-seconds", "30",
-          "--max-session-seconds", "10",
-          "--heartbeat-seconds", "10",
+          "--prompt",
+          "wd-green-test",
+          "--state",
+          statePath,
+          "--root",
+          dir,
+          "--max-sessions",
+          "3",
+          "--max-seconds",
+          "30",
+          "--max-session-seconds",
+          "10",
+          "--heartbeat-seconds",
+          "10",
         ],
         { RUN_CMD: stub, POLL_SECONDS: "1" },
         dir,
