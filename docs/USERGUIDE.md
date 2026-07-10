@@ -249,7 +249,7 @@ Reach for `--deep` before contract bids, diligence reviews, security-sensitive t
 ```
 /sdlc init my-game "A roguelike about ..." --game
 ```
-Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator).
+Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator, game-asset-pipeline).
 
 ### Cut a release
 ```
