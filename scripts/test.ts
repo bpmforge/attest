@@ -37,6 +37,7 @@ import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
+import { testSkillsParity } from "./test-skills-parity.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -408,6 +409,15 @@ console.log(
   "\n[Pass 23] Reflow lane claim — claimableByLane() + status CLI + stranger test",
 );
 await testReflowLaneClaim(root, ok, fail);
+
+// Pass 24: Skills parity (T22.12) — build-target-claude.mjs's skillsParity()
+// diffs skill IDENTITY (name/trigger, not directory) across bpm-opencode-experts
+// and claude-experts skills/, cited exceptions for one-sided skills, red
+// fixture proves a one-sided skill fails the check.
+console.log(
+  "\n[Pass 24] Skills parity — cross-repo skills/ identity diff, red/green fixtures",
+);
+await testSkillsParity(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
