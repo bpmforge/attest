@@ -37,10 +37,13 @@ import {
   validatePlan,
   recomputeStatus,
   claimable,
+  claimableByLane,
+  laneOf,
+  UNASSIGNED_LANE,
   writeScopeCollisions,
   crossLaneCollisions,
 } from './tickets-graph.mjs';
-export { STATUSES, validatePlan, recomputeStatus, claimable, writeScopeCollisions, crossLaneCollisions };
+export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions };
 // Lifecycle verbs (T26.1) live in their own chapter module to keep this
 // barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md. claim() itself
 // now enforces the T26.3 hygiene check (via tickets-graph.mjs), not just this
@@ -112,7 +115,13 @@ if (isMain) {
     recomputeStatus(plan);
     const ready = claimable(plan);
     console.log(`claimable (${ready.length}):`);
-    for (const m of ready) console.log(`  ${m.id} — ${m.title}  [${m.write_scope.join(', ')}]`);
+    // T10.3: broken out per lane — lane is the parallel-safety partition,
+    // so "what can start now" should be answerable per lane without
+    // cross-referencing write-scopes by hand.
+    for (const { lane, modules } of claimableByLane(plan)) {
+      console.log(`  ${lane} (${modules.length}):`);
+      for (const m of modules) console.log(`    ${m.id} — ${m.title}  [${m.write_scope.join(', ')}]`);
+    }
     process.exit(0);
   } else if (cmd === 'claim' || cmd === 'start') {
     const [id, actor] = rest;
