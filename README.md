@@ -1,6 +1,6 @@
 # BPM OpenCode Experts
 
-Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 31 cluster specialists (security, code-review, performance, onboarding, game dev), 39 skills, a 4-mode SDLC workflow, full git lifecycle management, and 59 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
+Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 32 cluster specialists (security, code-review, performance, onboarding, game dev), 40 skills, a 4-mode SDLC workflow, full git lifecycle management, and 59 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
 **Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
 
