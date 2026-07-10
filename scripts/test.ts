@@ -36,6 +36,7 @@ import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
+import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -296,7 +297,9 @@ await testBash32Compat(root, ok, fail);
 // Pass 7: Evals harness (T22.5) — run-evals.mjs deterministic mode +
 // chained-validator red/green fixture coverage.
 // ---------------------------------------------------------------------------
-console.log("\n[Pass 7] Evals harness — run-evals.mjs + validator fixture coverage");
+console.log(
+  "\n[Pass 7] Evals harness — run-evals.mjs + validator fixture coverage",
+);
 await testEvalsHarness(root, ok, fail);
 
 // ---------------------------------------------------------------------------
@@ -310,7 +313,9 @@ await testAutonomyLedger(root, ok, fail);
 // Pass 9: Challenger gate (T27.3) — HIGH/CRITICAL findings require a
 // matching CHALLENGE_REPORT with zero unresolved CONTRADICTED verdicts.
 // ---------------------------------------------------------------------------
-console.log("\n[Pass 9] Challenger gate — CHALLENGE_REPORT existence + CONTRADICTED tripwire");
+console.log(
+  "\n[Pass 9] Challenger gate — CHALLENGE_REPORT existence + CONTRADICTED tripwire",
+);
 await testChallengerGate(root, ok, fail);
 
 // ---------------------------------------------------------------------------
@@ -327,7 +332,9 @@ await testTruthfulCompletion(root, ok, fail);
 // Pass 11: Outer-loop receipts (T27.4) — run-until-done.sh's is_complete()
 // checks validate-state-drift.sh, not just the promise token.
 // ---------------------------------------------------------------------------
-console.log("\n[Pass 11] Outer-loop receipts — state-drift gate + is_complete() red/green");
+console.log(
+  "\n[Pass 11] Outer-loop receipts — state-drift gate + is_complete() red/green",
+);
 await testOuterLoopReceipts(root, ok, fail);
 
 // ---------------------------------------------------------------------------
@@ -388,8 +395,18 @@ await testBootstrapChecklist(root, ok, fail);
 console.log("\n[Pass 21] Bootstrap & Empty-State regressions");
 await testBootstrapChecklistRegressions(root, ok, fail);
 
-// Pass 22: Reflow lane claim (T10.3) — claimableByLane() + status CLI + stranger test.
-console.log("\n[Pass 22] Reflow lane claim — claimableByLane() + status CLI + stranger test");
+// Pass 22: run-until-done.sh task budget + watchdog (T31.5) — per-session
+// --max-session-seconds / --heartbeat-seconds kill+checkpoint on a hung or
+// over-budget session, loop continues rather than hanging overnight.
+console.log(
+  "\n[Pass 22] Watchdog + task budget — stall/budget kill, no false positives",
+);
+await testWatchdogBudget(root, ok, fail);
+
+// Pass 23: Reflow lane claim (T10.3) — claimableByLane() + status CLI + stranger test.
+console.log(
+  "\n[Pass 23] Reflow lane claim — claimableByLane() + status CLI + stranger test",
+);
 await testReflowLaneClaim(root, ok, fail);
 
 // ---------------------------------------------------------------------------

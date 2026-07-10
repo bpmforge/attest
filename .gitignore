@@ -41,6 +41,10 @@ docs/work/EVAL_RESULTS.json
 # evals/fixtures/validators/, so this must be recursive, not root-anchored.
 **/docs/work/telemetry.jsonl
 
+# Watchdog kill checkpoints (T31.5, per-run, append-only) -- run-until-done.sh
+# writes this under any --root it's pointed at, same reasoning as telemetry above.
+**/docs/work/watchdog-events.jsonl
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/
