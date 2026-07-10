@@ -14,7 +14,7 @@
 //           out  = docs/work/TICKETS.md
 
 import { existsSync, writeFileSync } from 'fs';
-import { loadPlan, savePlan, recomputeStatus, claimable } from './lib/tickets.mjs';
+import { loadPlan, savePlan, recomputeStatus, claimable, laneOf, UNASSIGNED_LANE } from './lib/tickets.mjs';
 
 const args = process.argv.slice(2);
 const toStdout = args.includes('--stdout');
@@ -44,9 +44,8 @@ export function renderBoard(plan, planPath) {
   // path that doesn't call it -- a lane-less module (hand-edited or legacy
   // plan.json) still needs to be visible here, not silently dropped from
   // the board while the claim-right-now header (which doesn't filter on
-  // lane) still counts it. UNASSIGNED_LANE makes that mismatch impossible.
-  const UNASSIGNED_LANE = '(unassigned)';
-  const laneOf = m => m.lane || UNASSIGNED_LANE;
+  // lane) still counts it. UNASSIGNED_LANE (shared with tickets.mjs's
+  // claimableByLane(), T10.3) makes that mismatch impossible.
   const lanes = [...new Set(modules.map(laneOf))].sort();
   const laneSections = lanes.map(lane => {
     const laneModules = modules.filter(m => laneOf(m) === lane);

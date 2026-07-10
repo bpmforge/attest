@@ -99,6 +99,32 @@ export function claimable(plan) {
   return (plan.modules || []).filter(m => m.status === 'ready' && m.owner == null);
 }
 
+// Lane grouping shared by the CLI (`tickets.mjs status`) and the board
+// generator: a module with no `lane` still needs a bucket instead of being
+// silently dropped (T10.2 independent review found exactly this bug for the
+// board — same fix applies here).
+export const UNASSIGNED_LANE = '(unassigned)';
+export const laneOf = m => m.lane || UNASSIGNED_LANE;
+
+// claimable() grouped by lane (T10.3) — lane is the parallel-safety
+// partition (crossLaneCollisions()), so "what can start now" should be
+// answerable per lane, not as one flat list a newcomer has to cross-reference
+// against write-scopes by hand. Every lane present in the plan gets a
+// bucket, even an empty one — "0 claimable in backend right now" is useful
+// signal, not noise to hide, and it mirrors gen-tickets-board.mjs's
+// Ready/In Progress/Blocked sections, which show "(none)" the same way.
+export function claimableByLane(plan) {
+  const modules = plan.modules || [];
+  const readyIds = new Set(claimable(plan).map(m => m.id));
+  const lanes = [...new Set(modules.map(laneOf))].sort();
+  return lanes.map(lane => ({
+    lane,
+    modules: modules
+      .filter(m => laneOf(m) === lane && readyIds.has(m.id))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+  }));
+}
+
 // Collisions among modules "someone is in" (active) plus ready modules that
 // would collide with an active one — i.e. what /reflow must refuse to hand off.
 // SAME-LANE pairs only: a different-lane overlap is a schema error caught
