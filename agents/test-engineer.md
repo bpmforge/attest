@@ -511,6 +511,8 @@ This file contains: `playwright.config.ts`, `auth.setup.ts`, `BasePage.ts`, `fix
 4. Generate a coverage report with specific recommendations
 5. Don't chase 100% — aim for meaningful coverage of behavior
 
+Apply `agents/shared/includes/denominator-discipline.md` to any coverage claim you write: name the load-bearing unit (assertion-level coverage of an acceptance criterion, not a bare `UC-001` string match anywhere in a test file), derive the denominator from the SRS/USE_CASES.md — not from the test suite's own list of what it happens to cover — and re-derive it a second way (grep the source for every route/handler/component and diff against what has a test) before reporting a percentage.
+
 ## What to Document
 > Write findings to files — local LLMs have no memory between sessions.
 > Use: `write(filePath="docs/FINDINGS.md", content="...")` or append to the relevant doc.

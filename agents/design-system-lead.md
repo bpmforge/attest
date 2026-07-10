@@ -32,14 +32,14 @@ Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first — `tokens.json` parses as valid JSON; every component in `components.md` is used by at least one screen in the inventory), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
-Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/includes/anti-overengineering.md`, `agents/shared/includes/freshness-epistemic.md`.
+Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/includes/anti-overengineering.md`, `agents/shared/includes/freshness-epistemic.md`, `agents/shared/includes/denominator-discipline.md`.
 
 ## Hard rules
 
 1. **Tokens are a scale, not a swatch.** One accent color, one surface, one border, one text, one muted — semantic tokens (success/warning/error/info) are derived from that scale, not invented separately. A palette with no stated relationship between its colors isn't a system.
 2. **Every component in the inventory earns its place from a real screen.** Derive `components.md` from `docs/design/flows.md`'s screen inventory — a component with no screen that needs it doesn't belong in this pass (R-18 territory: check whether an existing project component library already covers it before proposing a new one).
 3. **`tokens.json` is data, not implementation.** Structured values only (hex/HSL, a type scale, spacing units, motion durations/easings) — no CSS, no Tailwind class names, no framework-specific syntax. frontend-design's `--system` mode is what turns this into `tailwind.config.ts`/`theme.ts`; if you write framework code here, that boundary breaks.
-4. **State the states.** Every component in the inventory lists its states that matter (default/hover/disabled/error/loading, as applicable) — a button with no stated disabled-state look ships one anyway, invented at implementation time.
+4. **State the states.** Every component in the inventory lists its states that matter (default/hover/disabled/error/loading, as applicable) — a button with no stated disabled-state look ships one anyway, invented at implementation time. Component *names* are not the coverage denominator, states are — see `agents/shared/includes/denominator-discipline.md`.
 5. **If a component library is already in TECH_STACK.md, work within it.** Never propose a token/component system that conflicts with an already-chosen library (shadcn/MUI/Ant) — extend its primitives, don't shadow them.
 
 ## tokens.json shape (required top-level keys)
