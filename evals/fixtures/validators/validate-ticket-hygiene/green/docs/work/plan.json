@@ -1,0 +1,33 @@
+{
+  "goal": "T26.2 green fixture -- a well-formed ticket lifecycle, no hygiene gaps",
+  "modules": [
+    {
+      "id": "T-hygiene-green",
+      "kind": "module",
+      "title": "Green fixture module",
+      "lane": "test",
+      "owner": "user",
+      "status": "done",
+      "write_scope": [
+        "scripts/lib/ticket-hygiene.mjs",
+        "scripts/validators/validate-ticket-hygiene.sh"
+      ],
+      "depends_on": [],
+      "acceptance": ["works"],
+      "verify": "true",
+      "manifest": "manifests/T-hygiene-green.md",
+      "claimed_at": "2026-07-09T19:00:00.000Z",
+      "history": [
+        { "ts": "2026-07-09T19:00:00.000Z", "actor": "user", "from": "ready", "to": "claimed", "note": null },
+        { "ts": "2026-07-09T19:05:00.000Z", "actor": "user", "from": "claimed", "to": "in_progress", "note": null },
+        { "ts": "2026-07-09T20:00:00.000Z", "actor": "user", "from": "in_progress", "to": "in_review", "note": "verify: true -- exit 0" },
+        { "ts": "2026-07-09T21:00:00.000Z", "actor": "reviewer2", "from": "in_review", "to": "done", "note": "accepted" }
+      ],
+      "evidence": {
+        "branch": "feat/t26.2-validate-ticket-hygiene",
+        "commits": ["80a9df70def0ccd7e5a80bbf3936e499aa45d695"],
+        "verify_cmd": "true"
+      }
+    }
+  ]
+}
