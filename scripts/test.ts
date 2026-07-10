@@ -38,6 +38,7 @@ import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-re
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
+import { testTicketHygiene } from "./test-ticket-hygiene.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -418,6 +419,10 @@ console.log(
   "\n[Pass 24] Skills parity — cross-repo skills/ identity diff, red/green fixtures",
 );
 await testSkillsParity(root, ok, fail);
+
+// Pass 25: Ticket lifecycle hygiene (T26.2) — incomplete-evidence/wip/stale-claim/tracker-drift/scope.
+console.log("\n[Pass 25] Ticket lifecycle hygiene");
+await testTicketHygiene(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

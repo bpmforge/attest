@@ -497,7 +497,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Sixty-six bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -518,6 +518,7 @@ Fifty-five bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-fix-backlog-closed.sh` | CRITICAL and HIGH rows in FIX_BACKLOG resolved before phase-5 gate |
 | `validate-handoff-discipline.sh` | Every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)`/`subagent_type` spawn bypasses the contract, and concurrent `HANDOFF to:` dispatchers must gate on has_task_tool (runs in the git-expert merge gate when `agents/**.md` changes) |
 | `validate-tickets.sh` | Module-contract ticket graph integrity — malformed tickets, cyclic/dangling depends_on, orphan node refs, and overlapping write-scopes among active modules (wraps `scripts/lib/tickets.mjs`) |
+| `validate-ticket-hygiene.sh` | Ticket LIFECYCLE hygiene audit, distinct from graph validity — a `done` module missing complete history/evidence/manifest, an owner holding >1 open ticket, a claim open >7d, TICKETS.md/STATE.md status contradicting plan.json, and an evidence commit touching a file outside its write_scope or citing a commit absent from git history (wraps `scripts/lib/ticket-hygiene.mjs`, T26.2) |
 | `validate-persistence-block.sh` | Every executor/coding agent carries the anti-announce-then-stop rule (`PERSISTENCE.md`), directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — kills the #1 accidental pause |
 | `validate-autonomy-wiring.sh` | Every by-design pause directive is autonomy-aware — carries the `AUTONOMY_PROTOCOL` gate or is marked NEVER-AUTO within ±5 lines, so `autonomy: auto` takes documented defaults instead of silently waiting |
 | `validate-contract-conformance.sh` | Live app vs frozen `openapi` spec — every GET endpoint returns a declared 2xx with required JSON fields present; drift (spec route missing from the app) is a gap. SKIPs when no spec/base-url (wraps `scripts/contract-conformance.mjs`) |
