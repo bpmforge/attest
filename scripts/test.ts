@@ -35,6 +35,7 @@ import { testCloseReceipt } from "./test-close-receipt.ts";
 import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
+import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -392,6 +393,12 @@ console.log("\n[Pass 20] Bootstrap & Empty-State");
 await testBootstrapChecklist(root, ok, fail);
 console.log("\n[Pass 21] Bootstrap & Empty-State regressions");
 await testBootstrapChecklistRegressions(root, ok, fail);
+
+// Pass 22: run-until-done.sh task budget + watchdog (T31.5) — per-session
+// --max-session-seconds / --heartbeat-seconds kill+checkpoint on a hung or
+// over-budget session, loop continues rather than hanging overnight.
+console.log("\n[Pass 22] Watchdog + task budget — stall/budget kill, no false positives");
+await testWatchdogBudget(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
