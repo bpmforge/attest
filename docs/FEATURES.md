@@ -10,9 +10,9 @@ This document describes what every agent, skill, reference document, and tool in
   - [Code-review micro-agents (8)](#code-review-micro-agents)
   - [Performance micro-agents (6)](#performance-micro-agents)
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
-  - [Game-dev cluster (4)](#game-dev-cluster)
+  - [Game-dev cluster (5)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (39)](#skills)
+- [Skills (40)](#skills)
 - [Shared protocols (24)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -327,6 +327,7 @@ Live in `agents/game/`. Activated by the `/sdlc init "<name>" "<desc>" --game` f
 | `gameplay-engineer` | Engine-grain implementation (Godot/Unity/Phaser/Bevy): frame budget, fixed-timestep vs render FPS, allocation discipline, input buffering, determinism |
 | `game-balance-designer` | Progression curves, economy sinks/sources; **simulates 1000 player-sessions** as a rerunnable script before shipping numbers |
 | `playtest-evaluator` | Blind-first playtest of the vertical slice; 6 fun heuristics with evidence, time-to-first-success vs the slice acceptance test |
+| `game-asset-pipeline` | Sprite batch micro-loop: gen → lattice/pixel-snapper cleanup + transparency de-fringe (deterministic `skills/game-asset-pipeline/` scripts) → sprite-sheet pack → portable TexturePacker-hash atlas manifest for engine import |
 
 ---
 
@@ -386,7 +387,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 
-**39 skills total** (includes `/guide` — the concierge front door).
+**40 skills total** (includes `/guide` — the concierge front door).
 
 ---
 

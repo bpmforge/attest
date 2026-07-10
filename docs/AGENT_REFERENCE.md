@@ -189,6 +189,7 @@ Activated by `/sdlc init "<name>" "<desc>" --game`:
 - **gameplay-engineer** — engine-grain implementation (frame budget, timestep, determinism)
 - **game-balance-designer** — progression/economy, simulates 1000 sessions before shipping numbers
 - **playtest-evaluator** — blind-first playtest, 6 fun heuristics
+- **game-asset-pipeline** — sprite batch: gen → pixel-snap/transparency cleanup (deterministic scripts) → sprite-sheet pack → portable atlas manifest
 
 ## Notes
 
