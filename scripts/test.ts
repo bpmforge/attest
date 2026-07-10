@@ -35,6 +35,7 @@ import { testCloseReceipt } from "./test-close-receipt.ts";
 import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
+import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
@@ -397,8 +398,16 @@ await testBootstrapChecklistRegressions(root, ok, fail);
 // Pass 22: run-until-done.sh task budget + watchdog (T31.5) — per-session
 // --max-session-seconds / --heartbeat-seconds kill+checkpoint on a hung or
 // over-budget session, loop continues rather than hanging overnight.
-console.log("\n[Pass 22] Watchdog + task budget — stall/budget kill, no false positives");
+console.log(
+  "\n[Pass 22] Watchdog + task budget — stall/budget kill, no false positives",
+);
 await testWatchdogBudget(root, ok, fail);
+
+// Pass 23: Reflow lane claim (T10.3) — claimableByLane() + status CLI + stranger test.
+console.log(
+  "\n[Pass 23] Reflow lane claim — claimableByLane() + status CLI + stranger test",
+);
+await testReflowLaneClaim(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

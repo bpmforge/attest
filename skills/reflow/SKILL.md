@@ -44,8 +44,12 @@ so the module graph exists). Then:
      <actor>` answers this read-only, without attempting a claim, if you want to check first.
    Do not work around a refusal by hand-editing `plan.json` — fix the graph, or close/release the open
    ticket, then retry the real command.
-4. **Present the claimable set** — for each `ready` + unclaimed module: id, title, write-scope,
-   acceptance criteria, and its interface doc. This is the menu a newcomer picks from.
+4. **Present the claimable set — grouped by lane.** `tickets.mjs status` (step 2) already breaks the
+   claimable set out per lane (`claimableByLane()`, T10.3) — every lane gets a line, including a `(0)`
+   line for a lane with nothing claimable right now, matching `docs/work/TICKETS.md`'s lane board. Lane
+   is the parallel-safety partition, so this is the menu a newcomer picks from without cross-referencing
+   write-scopes by hand: for each `ready` + unclaimed module, under its lane, show id, title, write-scope,
+   acceptance criteria, and its interface doc.
 
 ## Claiming a module → emit a HANDOFF (follow handoff rules)
 

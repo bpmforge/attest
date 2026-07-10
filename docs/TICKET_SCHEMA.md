@@ -124,6 +124,9 @@ loadPlan(path) · savePlan(path, plan)
 validatePlan(plan)            -> { ok, errors[] }   // includes lane-required + cross-lane collision errors
 recomputeStatus(plan)         -> plan (blocked/ready resolved)
 claimable(plan)               -> ModuleTicket[]
+claimableByLane(plan)         -> { lane, modules: ModuleTicket[] }[]   // T10.3 — claimable() grouped by lane;
+                                                                        // every lane present gets a bucket, even an empty one
+laneOf(module) -> string · UNASSIGNED_LANE = '(unassigned)'   // shared lane-grouping helpers (tickets.mjs + gen-tickets-board.mjs)
 writeScopeCollisions(plan)    -> { a, b, scope }[]           // same-lane, active-status only
 crossLaneCollisions(plan)     -> { a, b, lane_a, lane_b, scope }[]   // cross-lane, any status
 openTicketFor(plan, actor, excludeId?)     -> ModuleTicket | null   // T26.3 — the query claim()'s WIP=1 is built on
