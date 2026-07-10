@@ -8,6 +8,7 @@ description: 'Design direction, UX workflows, component architecture, WCAG 2.2 a
 Load and follow the instructions in the `ux-engineer` agent.
 
 **Usage:**
+- `/ux "<request>"` (no flag) or `/ux --auto` — **design-manager (scaled activation)**: classifies the request and activates only the roles it needs — 1–2 roles for a component tweak (itself, plus content-designer or design-system-lead only if the tweak calls for it), or the full ux-researcher→design-system-lead→ux-engineer→content-designer chain for a feature/new UI. Narrow single-mode asks ("review this PR", "audit accessibility on X") skip classification and go straight to the matching mode below.
 - `/ux --design` — Greenfield: produce DESIGN_PRINCIPLES.md + STYLE_GUIDE.md + UX_SPEC.md (used by sdlc-lead Phase 3 for UI-bearing projects)
 - `/ux --review` — Live design review of PR diff or existing UI — 7-phase methodology with Blocker/High/Medium/Nit triage
 - `/ux --audit` — WCAG 2.2 Level AA accessibility audit
