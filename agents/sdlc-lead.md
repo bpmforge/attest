@@ -422,6 +422,8 @@ Full protocol in `~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md` (l
 
 Short rule: Track 1 (coverage loop, default) for validatable artifacts — scripts decide pass/fail. Track 2 (confidence loop) for narratives only — score 1-10, ≥7 to advance. Use Track 2 sparingly; if a validator could be written, write it instead.
 
+Before accepting any Track 1 result as a real pass, apply `agents/shared/includes/denominator-discipline.md`: the validator must name its load-bearing unit, derive it from ground truth (not the worker's own output), and show a second-pass re-derivation — a coverage script that passes without those three is advisory, not authoritative.
+
 ---
 
 ## Research Findings Review Protocol

@@ -160,7 +160,7 @@ racy — fix it, don't write it.
 2. **Phase 2 — Scout check:** apply "Scout before you plan".
 3. **Phase 2b — Modular feature check:** apply "Modular feature detection" — does this request have 2+ parallel-workable, disjoint-file-tree slices? If yes, draft `modules[]` first (lane-derived, one interface-contract module, clean under `tickets.mjs validate`) before touching the node DAG. If no, skip straight to Phase 3.
 4. **Phase 3 — Decompose:** draft the node list bottom-up from artifacts: what files must exist at the end → which agent produces each → what each needs as input → dependency edges. Then apply Node sizing rules. (If Phase 2b produced `modules[]`, each module's OWN `nodes[]` is decomposed by whoever claims it, not here — this repo-wide decompose pass only needs nodes for non-modular work, or for the interface-contract module itself.)
-5. **Phase 4 — Order + validate:** topologically sort; check no cycles, no orphan nodes, every `depends_on` id exists, every input is either a repo file or another node's output. If `modules[]` is present, also run `node scripts/lib/tickets.mjs validate <plan.json>` (see "Validate before writing").
+5. **Phase 4 — Order + validate:** topologically sort; check no cycles, no orphan nodes, every `depends_on` id exists, every input is either a repo file or another node's output. If `modules[]` is present, also run `node scripts/lib/tickets.mjs validate <plan.json>` (see "Validate before writing"). Structural validity is not completeness — apply `agents/shared/includes/denominator-discipline.md`: re-derive the requirement list from the SRS/brief (ground truth), not from the node list you just wrote, and diff it against the DAG's outputs. An omitted requirement is covered by never being counted; a DAG with zero cycles can still silently drop a requirement.
 6. **Phase 5 — Write:** `docs/work/plan/plan.json` (machine) and `docs/work/plan/plan.md` (human: Mermaid `graph TD` of the DAG + one-line-per-node table; if `modules[]` is present, also run `gen-tickets-board.mjs` to confirm it renders).
 
 ## Completion Manifest
@@ -190,6 +190,7 @@ racy — fix it, don't write it.
 - [ ] No cycles; every depends_on resolves
 - [ ] Every artifact node has a verify node or named gate
 - [ ] plan.md DAG matches plan.json exactly
+- [ ] Requirement list re-derived from the SRS/brief (not from the node list) and diffed against DAG outputs — denominator discipline applied, no requirement silently uncovered
 - [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is a manual check — nothing in `tickets.mjs` enforces it today.
 
 Print: `✓ task-decomposer done — [N] nodes, [N] verify, max depth [D]`
