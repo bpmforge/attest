@@ -35,11 +35,31 @@
 # both optional; with neither set the gate is a no-op (a plain SDLC-phase run with
 # no ticket layer has nothing to check here).
 #
+# Task budget + watchdog (T31.5): each individual `opencode run` invocation is a
+# black box that can hang (model stuck, tool call blocked) well inside the outer
+# --max-seconds wall-clock cap, which is only checked BETWEEN sessions -- a single
+# stalled session would otherwise hang the whole overnight run forever. Every
+# session now runs in the background under two independent guards, checked on a
+# short poll:
+#   - --max-session-seconds: hard per-session task budget (elapsed time since the
+#     session started), regardless of whether it is still producing output.
+#   - --heartbeat-seconds: stall detection -- the session's combined stdout+stderr
+#     must grow at least once per this window, or it is considered stalled.
+# A breach sends SIGTERM (then SIGKILL if it doesn't exit within 1s) and the
+# breach is checkpointed as a JSON line in docs/work/watchdog-events.jsonl
+# (alongside the run log) so a killed/stalled session is a visible, auditable
+# event, not a silent hang. The session is then treated like any other
+# non-completing pass: it counts toward --max-sessions and the loop continues --
+# the NEXT session resumes from whatever --state the killed session last wrote,
+# same as any other restart (T26.3/T27.4's existing resume path IS the recovery
+# checkpoint; the watchdog's job is only to make sure the loop reaches it).
+#
 # Usage:
 #   run-until-done.sh --prompt "<task>" [--agent sdlc-lead] [--model <m>]
 #                     [--state docs/work/STATE.md] [--root .]
 #                     [--plan docs/work/plan.json] [--actor <name>]
 #                     [--max-sessions 12] [--max-seconds 7200]
+#                     [--max-session-seconds 1800] [--heartbeat-seconds 300]
 #   run-until-done.sh --self-test        # no opencode needed; stubbed runner
 #   run-until-done.sh --help
 #
@@ -57,6 +77,9 @@ PLAN=""
 ACTOR=""
 MAX_SESSIONS=12
 MAX_SECONDS=7200
+MAX_SESSION_SECONDS=1800
+HEARTBEAT_SECONDS=300
+POLL_SECONDS="${POLL_SECONDS:-5}"
 PROMPT=""
 SELFTEST=0
 LOG="docs/work/run-until-done.log"
@@ -74,9 +97,11 @@ while [[ $# -gt 0 ]]; do
     --actor) ACTOR="$2"; shift 2 ;;
     --max-sessions) MAX_SESSIONS="$2"; shift 2 ;;
     --max-seconds) MAX_SECONDS="$2"; shift 2 ;;
+    --max-session-seconds) MAX_SESSION_SECONDS="$2"; shift 2 ;;
+    --heartbeat-seconds) HEARTBEAT_SECONDS="$2"; shift 2 ;;
     --self-test) SELFTEST=1; shift ;;
     --help|-h)
-      sed -n '3,47p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      sed -n '3,67p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
@@ -155,6 +180,67 @@ next_work_gate_ok() {
   return 0
 }
 
+# checkpoint_kill (T31.5): append a structured, greppable checkpoint record for
+# a watchdog kill so the event survives past the free-text log -- the actual
+# recovery checkpoint is whatever --state the killed session last wrote (the
+# existing /sdlc resume path); this record is the audit trail of *why* the loop
+# didn't just hang.
+checkpoint_kill() {
+  local session="$1" reason="$2" elapsed="$3"
+  local wlog; wlog="$(dirname "$LOG")/watchdog-events.jsonl"
+  mkdir -p "$(dirname "$wlog")"
+  printf '{"session":%d,"reason":"%s","elapsedSeconds":%d,"timestamp":"%s"}\n' \
+    "$session" "$reason" "$elapsed" "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" >> "$wlog"
+}
+
+# run_one_session (T31.5): run exactly one $RUN_CMD invocation under the
+# per-session task budget + heartbeat watchdog. Sets SESSION_OUT/SESSION_RC/
+# SESSION_KILLED (empty, "budget", or "stall") for the caller. Bash-3.2-safe:
+# no associative arrays, no GNU-coreutils `timeout` (not present on stock
+# macOS) -- the watchdog is a manual background-process poll loop instead.
+run_one_session() {
+  local model_arg=(); [[ -n "$MODEL" ]] && model_arg=(--model "$MODEL")
+  local tmp_out; tmp_out="$(mktemp "${TMPDIR:-/tmp}/run-until-done.XXXXXX")"
+  SESSION_KILLED=""
+
+  resume_preamble | $RUN_CMD --agent "$AGENT" ${model_arg[@]+"${model_arg[@]}"} >"$tmp_out" 2>&1 &
+  local pid=$!
+  local session_start now size last_size=0 stalled_for=0
+  session_start=$(date +%s 2>/dev/null || echo 0)
+
+  while kill -0 "$pid" 2>/dev/null; do
+    sleep "$POLL_SECONDS"
+    now=$(date +%s 2>/dev/null || echo 0)
+    size=$(wc -c <"$tmp_out" 2>/dev/null | tr -d ' '); [[ -z "$size" ]] && size=0
+    if (( size > last_size )); then
+      last_size=$size
+      stalled_for=0
+    else
+      stalled_for=$(( stalled_for + POLL_SECONDS ))
+    fi
+    if (( MAX_SESSION_SECONDS > 0 && now - session_start >= MAX_SESSION_SECONDS )); then
+      SESSION_KILLED="budget"
+      break
+    fi
+    if (( HEARTBEAT_SECONDS > 0 && stalled_for >= HEARTBEAT_SECONDS )); then
+      SESSION_KILLED="stall"
+      break
+    fi
+  done
+
+  if [[ -n "$SESSION_KILLED" ]]; then
+    kill -TERM "$pid" 2>/dev/null
+    sleep 1
+    kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null
+    SESSION_RC=124
+  else
+    wait "$pid"; SESSION_RC=$?
+  fi
+  SESSION_OUT="$(cat "$tmp_out" 2>/dev/null)"
+  rm -f "$tmp_out"
+}
+
 run_loop() {
   mkdir -p "$(dirname "$LOG")"
   local start now session=0 out rc
@@ -167,9 +253,15 @@ run_loop() {
       return 1
     fi
     echo "[run-until-done] session ${session}/${MAX_SESSIONS} $(date 2>/dev/null)" >> "$LOG"
-    local model_arg=(); [[ -n "$MODEL" ]] && model_arg=(--model "$MODEL")
-    out="$(resume_preamble | $RUN_CMD --agent "$AGENT" ${model_arg[@]+"${model_arg[@]}"} 2>&1)"; rc=$?
+    run_one_session
+    out="$SESSION_OUT"; rc=$SESSION_RC
     printf '%s\n' "$out" >> "$LOG"
+    if [[ -n "$SESSION_KILLED" ]]; then
+      local elapsed=$(( $(date +%s 2>/dev/null || echo 0) - now ))
+      echo "[run-until-done] session ${session} KILLED (${SESSION_KILLED}, ${elapsed}s) -- checkpointed, continuing" | tee -a "$LOG"
+      checkpoint_kill "$session" "$SESSION_KILLED" "$elapsed"
+      continue
+    fi
     if is_complete "$out"; then
       echo "[run-until-done] COMPLETE at session ${session} (rc=${rc})" | tee -a "$LOG"
       return 0
@@ -181,7 +273,7 @@ run_loop() {
 
 if [[ "$SELFTEST" == "1" ]]; then
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
-  STATE="$tmp/STATE.md"; LOG="$tmp/run.log"; PROMPT="self-test"; MAX_SESSIONS=5; ROOT="$tmp"
+  STATE="$tmp/STATE.md"; LOG="$tmp/run.log"; PROMPT="self-test"; MAX_SESSIONS=5; ROOT="$tmp"; POLL_SECONDS=1
   mkdir -p "$tmp/docs/work/gates"
   echo "# STATE" > "$STATE"
   # Stub runner: emits the promise token only on the 3rd invocation, AND (T27.4)
