@@ -135,9 +135,11 @@ const SKILL_PARITY_EXCEPTIONS = new Set([
 // tracked warning instead of a hard failure, pending a follow-up ticket to
 // actually port them into claude-experts/skills/. Removing an id here
 // without porting the skill first will correctly go red again.
-export const KNOWN_MISSING_IN_CLAUDE = new Set([
-  'design-options', 'explore', 'simplify', 'steward',
-]);
+// v2.0.0: emptied — the four documented gaps (design-options, explore,
+// simplify, steward) plus game-asset-pipeline were ported to claude-experts
+// for the v2 release; parity is now exact. Add entries here ONLY with a
+// tracked follow-up ticket.
+export const KNOWN_MISSING_IN_CLAUDE = new Set([]);
 
 function parseSkillFrontmatter(skillMdPath) {
   const text = readFileSync(skillMdPath, 'utf8');
