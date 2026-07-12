@@ -1,0 +1,10 @@
+{
+  "$note": "Per-role model routing for conductor.mjs. Aliases resolve to the latest model of each tier via the claude CLI. cheapLanes/cheapMaxPoints route small or mechanical tickets to haiku.",
+  "maker": "sonnet",
+  "cheap": "haiku",
+  "reviewer": "sonnet",
+  "security": "sonnet",
+  "escalate": "opus",
+  "cheapLanes": ["content"],
+  "cheapMaxPoints": 2
+}
