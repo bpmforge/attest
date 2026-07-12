@@ -247,11 +247,31 @@ while IFS= read -r src_file; do
   [[ -z "$src_file" ]] && continue
   ext="${src_file##*.}"
   [[ "$ext" != "ts" && "$ext" != "tsx" && "$ext" != "js" && "$ext" != "jsx" ]] && continue
+  # Fixture/test FILES are recorded data, not production code — the line-text
+  # filter below can't see the filename, so exclude here (field calibration).
+  case "$(basename "$src_file")" in
+    *test*|*spec*|*mock*|*fixture*|*seed*) continue ;;
+  esac
 
   # Match: bare numbers > 1 in non-const, non-test, non-config contexts
   # Exclude: 0, 1, -1 (common sentinel values), port 3000, common HTTP codes 200/404/500
-  matches=$(grep -nE '[^a-zA-Z_0-9.](([2-9][0-9]{2,})|([1-9][0-9]{3,}))[^a-zA-Z_0-9.]' "$src_file" \
-    | grep -vE '(const|readonly|PORT|STATUS|CODE|LIMIT|MAX|MIN|http|https|3000|8080|200|201|400|401|403|404|500|503)' \
+  # TS calibration (Shipwright field run 2026-07-12): strip comment lines,
+  # inline // tails, and string/template contents BEFORE matching — the raw
+  # grep flagged `256` inside "AES-256-GCM" in a doc comment, dates in file
+  # headers, and model-id strings, which false-blocks any hard gate built on
+  # this. sed is line-by-line substitution only (no line deletion), so grep -n
+  # line numbers stay true to the source file.
+  matches=$(sed -E \
+      -e 's|^[[:space:]]*\*.*$||' \
+      -e 's|^[[:space:]]*//.*$||' \
+      -e 's|/\*.*\*/||g' \
+      -e "s|'[^']*'|''|g" \
+      -e 's|"[^"]*"|""|g' \
+      -e 's|`[^`]*`|``|g' \
+      -e 's%//.*$%%' \
+      "$src_file" 2>/dev/null \
+    | grep -nE '[^a-zA-Z_0-9.](([2-9][0-9]{2,})|([1-9][0-9]{3,}))[^a-zA-Z_0-9.]' \
+    | grep -vE '(const|readonly|PORT|STATUS|CODE|LIMIT|MAX|MIN|http|https|3000|8080|200|201|301|302|304|400|401|403|404|409|422|429|500|502|503|529)' \
     | grep -vE '(test|spec|mock|fixture|seed)' \
     | head -3 || true)
   if [[ -n "$matches" ]]; then

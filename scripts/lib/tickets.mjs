@@ -42,8 +42,9 @@ import {
   UNASSIGNED_LANE,
   writeScopeCollisions,
   crossLaneCollisions,
+  scopeCoverageWarnings,
 } from './tickets-graph.mjs';
-export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions };
+export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions, scopeCoverageWarnings };
 // Lifecycle verbs (T26.1) live in their own chapter module to keep this
 // barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md. claim() itself
 // now enforces the T26.3 hygiene check (via tickets-graph.mjs), not just this
@@ -108,6 +109,8 @@ if (isMain) {
     const collisions = writeScopeCollisions(plan);
     for (const e of errors) console.log(`  [x] ${e}`);
     for (const c of collisions) console.log(`  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`);
+    // Advisory [!] lines — surfaced to humans/leads; validate-tickets.sh gates on [x] only.
+    for (const w of scopeCoverageWarnings(plan)) console.log(`  [!] ${w.msg}`);
     const clean = ok && collisions.length === 0;
     console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s)`);
     process.exit(clean ? 0 : 1);

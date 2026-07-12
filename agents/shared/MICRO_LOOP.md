@@ -103,7 +103,7 @@ A specialist does NOT return its first draft. It runs this internal loop before 
 | **Cap** | ≤ 2 revise iterations inside a micro-loop (3 is a macro-loop budget; a micro-loop that needs 3 should return PARTIAL and let the orchestrator re-scope). | RALPH cap |
 | **Checkable exit** | The criterion must be objectively decidable. No binary pass/fail ⇒ do not loop. | G7 refuse-to-loop |
 | **Independent verify** | Deterministic check preferred; model self-verify runs on `verifier_model`, not the maker session. | G1 maker/verifier |
-| **No-progress kill** | If the same gap survives a revision (gap unchanged), stop — don't burn the second iteration. | G2 gap-checksum |
+| **No-progress kill** | If the same gap survives a revision (gap unchanged), stop — don't burn the second iteration. **Distinguish the two loop-failure classes** (Shipwright field run 2026-07-12): the *same* gap surviving a targeted fix = stall → stop/escalate now; prior gaps *resolved but new ones surfacing* = progress (review seeing deeper) → that budget question belongs to the macro loop, not here — return with the manifest and let FIX_VERIFY's class-dependent budgets govern. A previously-cleared gap *reappearing* = oscillation → return [PARTIAL] immediately, never re-fix at the same tier. | G2 gap-checksum |
 | **Learn on exit-without-success** | On PARTIAL/stall, run `scripts/loop-learn.mjs` so the same miss isn't repeated. | G3 loop-learn |
 
 ---

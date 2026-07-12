@@ -146,6 +146,80 @@ export async function testTruthfulCompletion(
       fs.rmSync(dir, { recursive: true, force: true });
     }
 
+    // -- red case (Shipwright field run 2026-07-12, W1-07 escape class): a
+    // manifest citing (a) a symlink inside root pointing OUTSIDE it, or (b) a
+    // `../` traversal path, used to pass the bare `-e` stat (it follows
+    // symlinks and resolves traversal) -- letting a session "prove" files it
+    // never produced or probe paths outside the worktree. Both must be
+    // flagged file-escapes-root; the legit in-root file stays accepted.
+    {
+      const dir = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-manifest-symlink-"),
+      );
+      const outside = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-manifest-outside-"),
+      );
+      try {
+        fs.mkdirSync(path.join(dir, "docs/reviews"), { recursive: true });
+        fs.mkdirSync(path.join(dir, "src"), { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, "docs/reviews/VERIFY.md"),
+          "5 passed\n",
+        );
+        fs.writeFileSync(path.join(dir, "src/real.ts"), "export {};\n");
+        fs.writeFileSync(path.join(outside, "secret.txt"), "TOP SECRET\n");
+        fs.symlinkSync(
+          path.join(outside, "secret.txt"),
+          path.join(dir, "src/leak.ts"),
+        );
+        const manifestPath = path.join(dir, "manifest.md");
+        fs.writeFileSync(
+          manifestPath,
+          [
+            "# Completion Manifest",
+            "",
+            "## Files produced",
+            "- `src/real.ts`",
+            "- `src/leak.ts`",
+            "- `../escape/anything.txt`",
+            "",
+            "## Decisions made",
+            "- used real.ts",
+            "",
+            "## Known issues",
+            "- none",
+            "",
+            "## Verify result",
+            "See `docs/reviews/VERIFY.md`",
+            "",
+            "Maker: coding-agent",
+            "Verifier: alice",
+            "Tracker updated: docs/work/DELEGATION_LOG.md",
+            "",
+            "coding-agent done -- shipped stuff",
+            "",
+          ].join("\n"),
+        );
+        const r = run(manifestValidator, [manifestPath, dir]);
+        const escapes = (r.stdout.match(/file-escapes-root/g) ?? []).length;
+        const legitFlagged = /src\/real\.ts[^"]*(escapes|not-found)/.test(
+          r.stdout,
+        );
+        if (r.exitCode === 1 && escapes === 2 && !legitFlagged)
+          ok(
+            "completion-manifest v2 — symlink escape + ../ traversal flagged file-escapes-root; legit in-root file accepted",
+          );
+        else
+          fail(
+            "completion-manifest v2 — symlink/traversal escape",
+            `exit=${r.exitCode} escapes=${escapes} stdout=${r.stdout.slice(0, 400)}`,
+          );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(outside, { recursive: true, force: true });
+      }
+    }
+
     // -- 2. validate-tickets.sh (now chained into phase-4) -------------------
     const ticketsValidator = path.join(
       root,
