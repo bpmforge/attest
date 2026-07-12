@@ -113,6 +113,35 @@ extract_paths() {
   grep -oE '`[^`]*/[^`]*`' | tr -d '`'
 }
 
+# Symlink/traversal-safe existence check (Shipwright field run 2026-07-12,
+# W1-07 escape class): a bare `-e "$ROOT/$p"` (a) resolves `../` traversal
+# outside ROOT and (b) FOLLOWS a symlink the session created inside its own
+# scope pointing outside (src/leak.txt -> ~/.ssh/id_rsa) -- so a manifest
+# could "prove" files it never produced, or probe paths outside the worktree.
+# Resolve the REAL path of both ROOT and the candidate and require prefix
+# containment; a cited path that escapes is a gap, never stat'd further.
+#   prints: "ok" | "missing" | "escapes"
+resolve_in_root() {
+  python3 - "$ROOT" "$1" 2>/dev/null <<'PYEOF'
+import os, sys
+root = os.path.realpath(sys.argv[1])
+cand = sys.argv[2]
+if os.path.isabs(cand):
+    print("escapes"); sys.exit(0)
+# Containment BEFORE any filesystem touch: probing existence of an outside
+# path first would itself leak information (missing vs escapes reveals
+# whether the outside target exists).
+lexical = os.path.normpath(os.path.join(root, cand))
+if not (lexical == root or lexical.startswith(root + os.sep)):
+    print("escapes"); sys.exit(0)
+if not os.path.lexists(lexical):
+    print("missing"); sys.exit(0)
+real = os.path.realpath(lexical)
+inside = real == root or real.startswith(root + os.sep)
+print("ok" if inside else "escapes")
+PYEOF
+}
+
 # -- 1. Files produced: every cited path must exist on disk -----------------
 files_body="$(section_body '(files[[:space:]]+produced|files[[:space:]]+created|outputs)')"
 files_checked=0
@@ -120,9 +149,13 @@ if [[ -n "$files_body" ]]; then
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
     files_checked=$((files_checked + 1))
-    if [[ ! -e "$ROOT/$p" ]]; then
-      gap "file-not-found" "'Files produced' cites '$p' -- does not exist at $ROOT/$p"
-    fi
+    case "$(resolve_in_root "$p")" in
+      ok) : ;;
+      escapes)
+        gap "file-escapes-root" "'Files produced' cites '$p' -- resolves outside $ROOT (traversal or symlink escape); refused, never read" ;;
+      *)
+        gap "file-not-found" "'Files produced' cites '$p' -- does not exist at $ROOT/$p" ;;
+    esac
   done < <(printf '%s\n' "$files_body" | extract_paths)
 fi
 if [[ -n "$files_body" && "$files_checked" -eq 0 ]]; then

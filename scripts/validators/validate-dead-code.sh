@@ -76,11 +76,23 @@ $RAN_TOOL || warn "no dead-code tool found (knip/ts-prune/vulture/staticcheck) �
 printf '\n[3] unreachable code\n' >&2
 while IFS= read -r f; do
   [[ -z "$f" ]] && continue
-  # a return/throw/break/continue immediately followed by a non-brace, non-comment statement
+  # a COMPLETED return/throw/break/continue immediately followed by a
+  # non-brace, non-comment statement. TS calibration (Shipwright field run
+  # 2026-07-12): the statement must END on its line (`;` terminated, or the
+  # bare keyword) — the old pattern treated multiline expressions (`return (`,
+  # `throw new Error(` continuing on the next line) as "unreachable after",
+  # producing 20 false positives across a passing codebase and disqualifying
+  # this scan from ever hard-gating. Unterminated lines (ending in an opener
+  # or operator) never arm the check; false negatives are acceptable for a
+  # script floor, false positives are not.
   m=$(awk '
-    /^[[:space:]]*(return|throw|break|continue)([[:space:];]|$)/ && !/=>/ { pend=NR; next }
+    /^[[:space:]]*(return|throw|break|continue)[[:space:]]*;?[[:space:]]*$/ && !prevcond { pend=NR; prevcond=0; next }
+    /^[[:space:]]*(return|throw|break|continue)[[:space:]]+.*;[[:space:]]*$/ && !/=>/ && !prevcond { pend=NR; prevcond=0; next }
     pend && NR==pend+1 && $0 !~ /^[[:space:]]*([}\)\];]|\/\/|\/\*|\*|#|case |default:|else)/ && NF>0 { print pend": unreachable after line "pend }
-    { pend=0 }
+    { pend=0
+      # a brace-less conditional (if/for/while line ending in `)`) makes the
+      # NEXT keyword line conditional, not unconditional — do not arm on it
+      prevcond = ($0 ~ /^[[:space:]]*(}?[[:space:]]*else[[:space:]]+)?(if|for|while)[[:space:]]*\(.*\)[[:space:]]*$/) }
   ' "$f" 2>/dev/null | head -2 || true)
   [[ -n "$m" ]] && gap "unreachable" "${f#"$ROOT/"}: $m"
 done < <(find_source_files)

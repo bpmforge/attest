@@ -146,6 +146,32 @@ export function writeScopeCollisions(plan, { states = new Set([...ACTIVE, 'ready
   return out;
 }
 
+// ADVISORY (Shipwright field run 2026-07-12; three live instances of the class):
+// a module whose acceptance names a concrete path in its OWN territory that no
+// write_scope glob covers cannot deliver what it promises — the executor either
+// blocks on the scope gate (W0-01 lockfile, W0-05 migrations dir) or silently
+// under-delivers (W1-01 named-examples import). Scoped to the module's own
+// top-level dirs so incidental mentions of other modules' files don't flag;
+// docs/ and dotfiles skipped (shared-ledger convention). Returned as WARNINGS,
+// not errors — the CLI prints them as [!] lines; validate-tickets.sh gates
+// only on [x].
+export function scopeCoverageWarnings(plan) {
+  const out = [];
+  for (const m of plan.modules || []) {
+    const scopes = (m.write_scope || []).map(normScope).filter(Boolean);
+    const ownTop = new Set(scopes.map(s => s.split('/')[0]));
+    const text = (m.acceptance || []).join(' ');
+    const paths = [...text.matchAll(/([\w.-]+(?:\/[\w.*-]+)+\.[a-z]{2,4})\b/g)].map(x => x[1]);
+    for (const p of new Set(paths)) {
+      if (p.startsWith('docs/') || p.startsWith('.')) continue;
+      if (!ownTop.has(p.split('/')[0])) continue;
+      const covered = scopes.some(s => p === s || p.startsWith(s + '/'));
+      if (!covered) out.push({ id: m.id, path: p, msg: `module '${m.id}': acceptance names '${p}' in its own area but no write_scope glob covers it` });
+    }
+  }
+  return out;
+}
+
 // Any two modules in DIFFERENT lanes must never share write_scope — this is the
 // invariant that makes "different lane = safe to run in parallel" true. Checked
 // regardless of status: a plan with this defect is malformed, not just racy at

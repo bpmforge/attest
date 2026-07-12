@@ -121,6 +121,50 @@ export async function testTicketsGraph(
         "tickets — crossLaneCollisions() clean on sample",
         `unexpected collisions: ${JSON.stringify(tickets.crossLaneCollisions(plan))}`,
       );
+
+    // scopeCoverageWarnings (Shipwright field run 2026-07-12): acceptance
+    // naming a path in the module's OWN area that its globs can't cover is the
+    // defect class that blocked three live tickets. Advisory, not an error.
+    const scopeGap = {
+      modules: [
+        {
+          id: "M-a",
+          kind: "module",
+          title: "a",
+          lane: "l1",
+          status: "ready",
+          owner: null,
+          depends_on: [],
+          write_scope: ["src/events/api/**"],
+          acceptance: [
+            "creates src/events/migrations/001_init.sql", // own area (src/), uncovered -> WARN
+            "reads docs/DATABASE.md", // docs/ -> skipped
+            "uses packages/other/src/x.ts", // other module's area -> skipped
+            "updates src/events/api/routes.ts", // covered -> clean
+          ],
+        },
+      ],
+    };
+    const warns = tickets.scopeCoverageWarnings(scopeGap);
+    if (
+      warns.length === 1 &&
+      warns[0].path === "src/events/migrations/001_init.sql"
+    )
+      ok(
+        "tickets — scopeCoverageWarnings flags own-area uncovered path only (docs/, other-area, covered all skipped)",
+      );
+    else
+      fail(
+        "tickets — scopeCoverageWarnings",
+        `expected exactly the migrations path, got: ${JSON.stringify(warns)}`,
+      );
+    if (tickets.scopeCoverageWarnings(plan).length === 0)
+      ok("tickets — scopeCoverageWarnings clean on the valid sample plan");
+    else
+      fail(
+        "tickets — scopeCoverageWarnings on sample",
+        `unexpected warnings: ${JSON.stringify(tickets.scopeCoverageWarnings(plan))}`,
+      );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("tickets", `import/exec failed: ${message}`);
