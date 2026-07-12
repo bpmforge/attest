@@ -39,6 +39,7 @@ import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
 import { testTicketHygiene } from "./test-ticket-hygiene.ts";
+import { testFixVerify } from "./test-fix-verify.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -423,6 +424,10 @@ await testSkillsParity(root, ok, fail);
 // Pass 25: Ticket lifecycle hygiene (T26.2) — incomplete-evidence/wip/stale-claim/tracker-drift/scope.
 console.log("\n[Pass 25] Ticket lifecycle hygiene");
 await testTicketHygiene(root, ok, fail);
+
+// Pass 26: Fix-verify iteration classes (R4) — REGRESSED detection, per-row counters, iteration classification.
+console.log("\n[Pass 26] Fix-verify iteration classes");
+await testFixVerify(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
