@@ -40,6 +40,7 @@ import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
 import { testTicketHygiene } from "./test-ticket-hygiene.ts";
 import { testFixVerify } from "./test-fix-verify.ts";
+import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -428,6 +429,11 @@ await testTicketHygiene(root, ok, fail);
 // Pass 26: Fix-verify iteration classes (R4) — REGRESSED detection, per-row counters, iteration classification.
 console.log("\n[Pass 26] Fix-verify iteration classes");
 await testFixVerify(root, ok, fail);
+
+// Pass 27: run-plan.mjs tier-aware retry budgets (O2 runtime fold, T31.7) —
+// stall-2-then-escalate, PROGRESSED extension, tier-aware ceiling (6/12).
+console.log("\n[Pass 27] Run-plan tier-aware retry budgets");
+await testRunPlanBudgets(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
