@@ -94,5 +94,29 @@ while IFS= read -r f; do
   fi
 done < <(find "$AGENTS_DIR" -name '*.md' -type f)
 
-note "checked $checked task()-shorthand file(s) and $dispatchers concurrent-dispatch coordinator(s)"
+# ── Scan-heavy specialist inline-dispatch (T30.10 TUI session-hygiene) ─────
+# The TUI and `opencode run` assemble requests identically; the only
+# difference is session LIFETIME, so a coordinator that runs a scan-heavy
+# specialist's methodology INLINE in an accumulating TUI session (instead of
+# a fresh Executor A/B context) is the flood source that empties the window
+# (LOCAL_CONTEXT_INTEGRITY_DESIGN.md V8: 219 evicted-and-re-read tool calls,
+# 0 compaction summaries, doom-loop detector silent on cross-message
+# repeats). Flag any coordinator that names a scan-heavy specialist AND
+# describes running it inline, unless it also carries the explicit
+# never-inline override (TUI_SESSION_HYGIENE.md's hard rule).
+SCAN_SPECIALIST_RE='semgrep-runner|secrets-scanner|dependency-auditor|owasp-web-checker|owasp-llm-checker|threat-modeler|cloud-security-checker|iac-security-checker'
+INLINE_SCAN_DISPATCH_RE='runs? (each |the )?specialist.{0,40}inline|execute.{0,40}(directly in this conversation|inline)|coordinator runs them inline|inline \(Executor D\)|dispatch.{0,20}inline'
+NEVER_INLINE_SCAN_RE='must never be dispatched inline|never be dispatched inline|TUI_SESSION_HYGIENE\.md'
+scan_dispatchers=0
+while IFS= read -r f; do
+  rel="${f#"$ROOT"/}"
+  case "$rel" in agents/shared/*) continue ;; esac
+  grep -qiE "$SCAN_SPECIALIST_RE" "$f" || continue
+  grep -qiE "$INLINE_SCAN_DISPATCH_RE" "$f" || continue
+  scan_dispatchers=$((scan_dispatchers + 1))
+  grep -qiE "$NEVER_INLINE_SCAN_RE" "$f" && continue
+  gap "scan-inline-dispatch" "$rel dispatches a scan-heavy specialist (semgrep/secrets/dependency/OWASP/threat-model/cloud/IaC) inline instead of a fresh Executor A/B context -- inline dispatch in an accumulating TUI session is the flood source (LOCAL_CONTEXT_INTEGRITY_DESIGN.md V8); route via task-tool subagent or opencode run subprocess, never inline. See agents/shared/TUI_SESSION_HYGIENE.md."
+done < <(find "$AGENTS_DIR" -name '*.md' -type f)
+
+note "checked $checked task()-shorthand file(s), $dispatchers concurrent-dispatch coordinator(s), and $scan_dispatchers scan-specialist inline-dispatch site(s)"
 validator_exit

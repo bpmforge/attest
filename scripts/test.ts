@@ -44,6 +44,7 @@ import { testModelTierLint } from "./test-model-tier-lint.ts";
 import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
 import { testVendorProvenance } from "./test-vendor-provenance.ts";
 import { testSyncModelLimits } from "./test-sync-model-limits.ts";
+import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -472,6 +473,15 @@ await testVendorProvenance(root, ok, fail);
 // rule REFUSEs sub-floor loads instead of writing an unconvergeable limit.
 console.log("\n[Pass 32] Context-limit sync — planSync() against fixtures");
 await testSyncModelLimits(root, ok, fail);
+
+// Pass 33: TUI session-hygiene protocol (T30.10, LOCAL_CONTEXT_INTEGRITY_DESIGN
+// P3) -- thin-orchestrator + mandatory fresh-context dispatch + scan-output-to-
+// disk + 70% checkpoint-and-resume; validate-handoff-discipline.sh's new
+// scan-inline-dispatch check red/green; EXECUTOR_SELECTION.md's TUI mode note.
+console.log(
+  "\n[Pass 33] TUI session-hygiene — scan-inline-dispatch red/green + protocol text",
+);
+await testTuiSessionHygiene(root, ok, fail);
 
 
 // ---------------------------------------------------------------------------

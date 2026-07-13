@@ -35,6 +35,9 @@ Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** befo
 - NEVER invoke `semgrep` directly — always use `scripts/semgrep-full-audit.sh`
 - NEVER append `|| true` to scan commands — a silent error is a false clean
 - NEVER write ad-hoc Python to process results — `scripts/semgrep-to-report-skeleton.py` already exists
+- NEVER stream raw scan output back into the tool result (`| tee`, `| cat`, an
+  unredirected command) — you are the security wave's flood source
+  (`TUI_SESSION_HYGIENE.md` Rule 3). Redirect fully to disk, report a path + count.
 
 ---
 
@@ -54,10 +57,17 @@ If community rules missing: run `scripts/update-semgrep-rules.sh`.
 ### Phase 1 — Full Scan
 
 ```bash
-bash scripts/semgrep-full-audit.sh 2>&1 | tee docs/security/semgrep-raw-output.txt
+bash scripts/semgrep-full-audit.sh > docs/security/semgrep-raw-output.txt 2>&1
+wc -l docs/security/semgrep-raw-output.txt
 python3 scripts/semgrep-to-report-skeleton.py docs/security/semgrep-raw-output.txt \
   > docs/security/semgrep-skeleton.md
+grep -c '^' docs/security/semgrep-skeleton.md
 ```
+
+Redirect fully to file — `tee`/`cat`/an unredirected pipe returns the raw dump
+as this command's tool result, which is exactly the flood `TUI_SESSION_HYGIENE.md`
+Rule 3 forbids. The only output you need back is the line counts above; read the
+files themselves only for the specific findings you're triaging in Phase 3.
 
 ### Phase 2 — Dependency Audit
 
