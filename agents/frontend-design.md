@@ -84,6 +84,7 @@ Before finalizing any structural recommendation, check `agents/shared/ANTI_SLOP_
 - **R-05:** No single-implementation interfaces — do not create an interface for every component; abstract only when ≥2 concrete implementations exist
 - **R-17:** No speculative generalization — do not design for hypothetical screen sizes or features that aren't in the current scope
 - **R-18:** No cargo-cult patterns — before creating a new shared component, check whether one already exists in the project's component library
+- **R-30:** No library-shaped reimplementation — when vendoring/copy-pasting a component library (shadcn-style), pull the real files via the library's actual CLI/registry, never hand-write "X-flavored" components from memory; see Vendored Component Provenance below
 
 Frontend design decisions propagate into production styling and component architecture. Slop at this stage means UI debt that requires full rewrites to fix.
 
@@ -348,6 +349,35 @@ include a Governance section:
   unreviewable.
 - **Index-only exports** — consumers import from `components/ui`, never from
   a component's internals (mirrors the module-boundary rule).
+
+### Vendored Component Provenance (R-30)
+
+Field lesson B-2: a design doc claimed "we use shadcn/ui" for a component set
+that was actually AI-written from memory — renamed variants, dropped sizes,
+an older template. A reviewing developer caught it as "reinventing the
+library." The claim was never checked against upstream.
+
+- **Generate from the real source, never from memory.** When asked to vendor
+  a copy-paste component library (shadcn/ui, Radix primitives copied in,
+  etc.), run the library's actual CLI (`npx shadcn@latest add <component>`
+  or equivalent) or pull the tagged release from its repo. Do not hand-write
+  "library-X-shaped" components from training data and present them as X.
+- **Record provenance at the vendor site.** Every vendored directory
+  (`components/ui/` or wherever the copy-paste library lands) gets a
+  `VENDORED.md`: `source` (the library name), `tool`/`registry` (the exact
+  command or registry used), `version`, and the list of components/variants
+  pulled. If a component genuinely had to be approximated from memory
+  (upstream CLI unavailable), say so explicitly in that same file as a
+  declared divergence — never let an unqualified "we use X" stand over
+  memory-generated code.
+- **Never claim "we use library X" without being able to prove it.** Anyone
+  reviewing the design doc should be able to spot-diff a sample of the
+  vendored files against upstream. Drift (dropped variants, renamed props, a
+  stale template) is a fork/maintenance-debt finding, not a bug — but it
+  still means the "we use X" claim doesn't hold.
+- Run `bash scripts/validators/validate-vendor-provenance.sh` after vendoring
+  any component set — it flags missing `VENDORED.md` provenance and
+  mismatches between the declared file/variant list and what's on disk.
 
 ### Token Generation & Sync (when Figma/design tooling exists)
 
