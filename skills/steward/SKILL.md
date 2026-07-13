@@ -82,6 +82,29 @@ Run audit, then apply fixes:
 4. Add session learnings
 5. Commit the updates
 
+### Cross-installation lesson intake
+
+`docs/work/LESSONS.md` in this repo (bpm-opencode-experts, the canonical expert-system repo)
+is **THE single intake table** for cross-installation lessons — field reports from other
+installations, another repo's own loop escalations, anything shaped "we learned X the hard
+way." This is not a preference; it is a direct fix for a fragmentation this program's VISION
+names: a lesson that lands in a loose folder in another repo (an `expertlessons/LESSONS.md`,
+a one-off `FIELD_REPORT.md`) and never gets merged here is a second, unmerged truth — the
+next `/steward distill` pass can't distill what it never read.
+
+When capturing or auditing lessons (`/steward`, `/steward capture`, `/steward audit`):
+1. Check for lesson content living outside `docs/work/LESSONS.md` in this repo — another
+   repo's lessons folder, a field-report doc, a session's ad-hoc notes.
+2. Anything found there and not already present here (dedupe by `Source` + `Symptom`) gets
+   ported in as a new row, preserving its original `Source` tag (e.g. `field-report:...`,
+   `<repo>:<path>`) so provenance isn't lost.
+3. The loose copy is left in place (never delete another repo's history) but is no longer
+   the thing `/steward distill` reads — flag it in the audit report as "superseded by
+   docs/work/LESSONS.md row N" so a future session doesn't treat it as a second source.
+4. If a lesson is genuinely repo-specific (only makes sense in one codebase's context), it
+   still gets a row here — the canonical table indexes ALL cross-installation learning, not
+   just the general-purpose subset.
+
 ### `/steward distill` — The Distillation Loop (per release)
 
 Compress operational experience into the prompt corpus — what training does
