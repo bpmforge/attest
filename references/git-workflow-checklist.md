@@ -115,9 +115,23 @@ main (protected)
 6. When runtime PASS + reviews APPROVED:
    a. Mark PR ready              gh pr ready / tea pr edit --state open
    b. Merge using squash merge   gh pr merge --squash --delete-branch
+   c. Post-merge scope check     git show --stat <merge-sha>
+                                 ← flag any path outside the branch's
+                                   declared scope (see § Post-Merge
+                                   Scope-Attribution Check below)
 7. Delete branch after merge     (done by merge if --delete-branch)
 8. Forward-merge to peer branches that started before this one merged (if any)
 ```
+
+### Clean-Tree Precondition (before `git switch -c` / `git checkout -b` for a NEW unit)
+
+Run `git status --porcelain` before creating any new branch:
+
+- **Clean →** proceed to fetch + branch.
+- **Dirty, and every changed file genuinely belongs to the unit about to start** (e.g. resuming after a context clear, before the branch existed) **→** proceed.
+- **Dirty, and any changed file belongs to a DIFFERENT (prior) unit →** STOP. Do **not** stash-and-carry-forward into the new branch. Commit or branch the prior unit's changes to **its own branch** first, then re-run `git status --porcelain` and confirm clean before creating the new branch.
+
+**Why this matters:** a generic "stash WIP" default silently carries a prior unit's uncommitted work into whatever branch is created next — including a branch meant only for a different unit's docs. That is exactly how feature code rode to `main` inside a docs-only PR in one field engagement: reviewed code reached `main` before its own review records formally landed and outside its own gate-merge PR (the content was verified sound after the fact, but the process was violated). `git stash` is acceptable only when the WIP genuinely belongs to the unit being started — never as a way to relocate unrelated work out of the way.
 
 ### Merge Strategy
 
@@ -142,6 +156,24 @@ All of the following must be true. git-expert --feature enforces this:
 - [ ] **CI pipeline green** — every check on the PR must be passing (not just the manual runtime gate)
 - [ ] No open CRITICAL/HIGH in any review without a signed waiver in `WAIVERS_*_<date>.md`
 - [ ] Branch is up to date with main (no conflicts)
+
+### Post-Merge Scope-Attribution Check (required immediately AFTER every merge to main)
+
+Cheap and mandatory — run right after every merge:
+
+```bash
+git show --stat <merge-sha>
+```
+
+Compare the changed-file list against the branch's declared scope (its prefix, see Branch Naming / SDLC Branch Topology above):
+
+| Branch prefix | Files expected in the diff | Flag if the diff also touches |
+|---|---|---|
+| `docs/*`, `sdlc/setup` | `docs/**`, repo-root doc files | `src/`, `lib/`, `scripts/`, any app code |
+| `feat/*`, `fix/*` | source + its own tests + directly-related docs | an unrelated module's files |
+| `chore/*` | tooling/config only | app source or docs content |
+
+A flag does **not** automatically mean the merge is wrong — it means STOP and confirm with the user whether the out-of-scope content was intentional (e.g. a legitimate cross-cutting change) or a leak from a dirty tree that skipped the Clean-Tree Precondition above and needs its own follow-up commit/PR record. Log the check's result (clean, or flagged + resolution) in the branch's `FEATURE_<branch>.md` report.
 
 ### When to Commit (Commit Cadence)
 
@@ -386,7 +418,10 @@ Initial commit: <sha>
 
 ### Subtask list
 ```
-[1] Verify clean working tree OR stash WIP — PENDING
+[1] Clean-Tree Precondition: git status --porcelain must be clean before
+    branching; a prior unit's dirty tree gets committed/branched to ITS OWN
+    branch first — never stashed-and-carried-forward (see § Clean-Tree
+    Precondition below) — PENDING
 [2] Fetch all remotes, pull main — PENDING
 [3] Determine branch name from user input / issue / spec — PENDING
 [4] Create branch `<type>/<scope>-<desc>` off main — PENDING
@@ -398,7 +433,9 @@ Initial commit: <sha>
 [10] Push branch to all remotes — PENDING
 [11] Create draft PR on gitea + github via `tea` + `gh` — PENDING
 [12] Link issue, add labels, reviewers, test plan — PENDING
-[13] Write FEATURE report — PENDING
+[13] On merge: post-merge scope-attribution check (`git show --stat
+     <merge-sha>`, see § Post-Merge Scope-Attribution Check) — PENDING
+[14] Write FEATURE report — PENDING
 ```
 
 ### Commit message drafting rules

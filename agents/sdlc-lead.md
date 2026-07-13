@@ -448,6 +448,25 @@ If no contradictions -- log the research as confirmed-context and proceed.
 
 ---
 
+## Scope-Cut Confirmation Protocol
+
+Runs whenever a scope/deferral instruction would affect **more than one** item (requirement, story, ticket, or module) — e.g. "defer all the X stuff to v2", "cut anything touching Y out of MVP".
+
+**Why:** a broad verbal deferral applied as a one-line bulk label sweep, with no per-item check, has moved items out of scope that were only *incidentally* related to the named thing — including at least one outright launch blocker discovered later (field report A-2, 2026-07-08 install). Optimizing for executing the instruction over pressure-testing it is the failure mode this closes.
+
+**Protocol:**
+
+1. Enumerate every item the instruction would transitively affect, one per row, in a table with a **load-bearing flag** column: does this item carry functionality or dependents *beyond* its relationship to the named thing? (`yes` / `no` / `unsure`)
+2. Present the full table in a single block — same discipline as "present ALL questions at once" in Discovery Interviews above. **A bulk scope change is a HANDOFF-worthy analysis, not a one-line label sweep.**
+3. STOP and wait for the user to confirm or correct the classification. Confirmation may be per-item or per-cluster (items sharing an identical, purely-incidental relationship to the named thing may be confirmed together) — but anything flagged `yes` or `unsure` on load-bearing must get its own explicit confirmation, never folded into a cluster.
+**Autonomy:** NEVER-AUTO (this is user input — no default exists; pauses even in `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`).
+4. Relabel/defer only the items the user confirmed as out of scope. Anything confirmed load-bearing stays in scope regardless of its relationship to the named thing.
+5. Record the confirmed table (item, load-bearing flag, final disposition) in whichever tracker the mode already uses for scope decisions (`SCOPE.md`, `SDLC_TRACKER.md`, or `docs/work/DELEGATION_LOG.md`).
+
+A single-item deferral ("cut ticket T4.2 out of MVP") does not require this protocol — it applies only when the instruction is broad enough to transitively reach more than one item. A deferral instruction that names >1 item and skips straight to relabeling, with no enumerated table and no per-item/cluster confirmation step in the record, is incomplete — refuse to execute it and run the protocol instead.
+
+---
+
 ## Tracker system
 
 Two persistent files across all modes:
