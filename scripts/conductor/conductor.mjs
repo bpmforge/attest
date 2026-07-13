@@ -4,8 +4,17 @@
 // machinery: scripts/lib/tickets.mjs's enforced module lifecycle
 // (ready->claimed->in_progress->in_review->done) instead of shipwright's
 // flat todo/in_progress/blocked/done, and `opencode run` instead of
-// `claude -p`. Breakpoints/morning-queue (T28.4) and resume/drift refusal
-// (T28.5) are explicitly out of scope here — see their board entries.
+// `claude -p`. Breakpoints/morning-queue (T28.4) is explicitly out of scope
+// here — see its board entry.
+//
+// T28.5 — resume + drift refusal (scripts/conductor/resume.mjs). On
+// startup, any module left `claimed`/`in_progress` and owned by THIS actor
+// (orphaned by a killed prior run) is reconciled from disk — re-verified
+// via the same scope/close gates, never redone with a fresh coder session,
+// when the worktree already carries real committed work — or refused
+// outright, for the whole run, when plan.json disagrees with its own
+// receipts (docs/work/conductor-log.jsonl) or the git reality of its
+// worktree/branch. See resume.mjs's header for the full rationale.
 //
 // T28.2 — models.json role→model routing. The coder session's --model is
 // resolved from models.json's `roles.coder` (CLI --model still wins when
@@ -51,6 +60,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
+import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url)); // scripts/conductor
 const LIB_ROOT = resolve(SELF_DIR, '..');                 // scripts/ (this repo — where our own tickets.mjs/validators live)
@@ -132,8 +142,9 @@ function persistPlan(plan, message) {
 
 // ---------- worktree lifecycle ----------
 function slug(id) { return id.toLowerCase().replace(/[^a-z0-9.]+/g, '-'); }
+function branchFor(id) { return `feat/${slug(id)}${CONFIG.branchSuffix}`; }
 function makeWorktree(m) {
-  const branch = `feat/${slug(m.id)}${CONFIG.branchSuffix}`;
+  const branch = branchFor(m.id);
   const wt = resolve(WT_BASE, m.id);
   try { git('worktree', 'remove', '--force', wt); } catch {}
   try { rmSync(wt, { recursive: true, force: true }); } catch {}
@@ -219,29 +230,41 @@ Rules of engagement:
 - Nothing you print is trusted — only the tree state and manifest are checked. When finished, stop; do not wait for further input.`;
 
 // ---------- per-ticket flow ----------
-async function executeTicket(plan, m) {
+// T28.5: `alreadyStarted` lets a resumed ticket (start() already ran, in a
+// now-dead prior process) re-enter the attempt loop without re-running the
+// one-shot claimed->in_progress transition (start() would simply refuse —
+// the module is no longer 'claimed'). `maxAttempts` lets a resumed ticket's
+// remaining budget be less than a full fresh MAX_ATTEMPTS, accounting for
+// attempts already spent before the crash (see reconcileOrphan in main()).
+async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MAX_ATTEMPTS } = {}) {
   // start() is a one-shot claimed->in_progress transition — only valid once
   // per ticket, not once per retry attempt (a retry re-runs the session in a
   // fresh worktree, it does not re-start the ticket).
-  const startRes = start(plan, m.id, ACTOR);
-  if (!startRes.ok) {
-    const rel = release(plan, m.id, ACTOR, `conductor: start() refused unexpectedly: ${startRes.error}`);
-    if (rel.ok) persistPlan(plan, `chore(${m.id}): conductor releases after start() refusal`);
-    return { ok: false, exhausted: true, gaps: [`start() refused: ${startRes.error}`] };
+  let startReceipt;
+  if (alreadyStarted) {
+    startReceipt = startReceiptFromHistory(m);
+  } else {
+    const startRes = start(plan, m.id, ACTOR);
+    if (!startRes.ok) {
+      const rel = release(plan, m.id, ACTOR, `conductor: start() refused unexpectedly: ${startRes.error}`);
+      if (rel.ok) persistPlan(plan, `chore(${m.id}): conductor releases after start() refusal`);
+      return { ok: false, exhausted: true, gaps: [`start() refused: ${startRes.error}`] };
+    }
+    persistPlan(plan, `chore(${m.id}): conductor starts ticket`);
+    startReceipt = startRes.receipt;
   }
-  persistPlan(plan, `chore(${m.id}): conductor starts ticket`);
 
   const gapsPerAttempt = [];
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
-    log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${MAX_ATTEMPTS}`, role: 'coder', model: CODER_MODEL });
-    await runSession(handoffPrompt(m, startRes.receipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+    log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${maxAttempts}`, role: 'coder', model: CODER_MODEL });
+    await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
 
     if (!hasUncommittedWork(wt)) {
       const gap = 'session produced no changes (clean working tree)';
       gapsPerAttempt.push([gap]);
-      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${MAX_ATTEMPTS} failed: ${gap}`);
+      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gap}`);
       persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
       removeWorktree(wt);
       continue;
@@ -252,7 +275,7 @@ async function executeTicket(plan, m) {
       const gaps = [`scope gate failed: ${scope.detail}`];
       gapsPerAttempt.push(gaps);
       log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
-      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${MAX_ATTEMPTS} failed: ${gaps[0]}`.slice(0, 900));
+      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
       persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
       removeWorktree(wt);
       continue;
@@ -269,7 +292,7 @@ async function executeTicket(plan, m) {
       const gaps = [closeRes.error];
       gapsPerAttempt.push(gaps);
       log('gates.fail', { ticket: m.id, msg: closeRes.error.slice(0, 300) });
-      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${MAX_ATTEMPTS} failed: ${closeRes.error}`.slice(0, 900));
+      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${closeRes.error}`.slice(0, 900));
       persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
       removeWorktree(wt);
       continue;
@@ -290,7 +313,7 @@ async function executeTicket(plan, m) {
     log('ticket.receipt', { ticket: m.id, msg: 'close receipt', receipt: closeRes.receipt });
     return { ok: true, branch, wt, receipt: closeRes.receipt };
   }
-  const reason = `conductor exhausted ${MAX_ATTEMPTS} attempt(s) — ${gapsPerAttempt.map((g, i) => `[${i + 1}] ${g.join('; ')}`).join(' | ')}`.slice(0, 1800);
+  const reason = `conductor exhausted ${maxAttempts} attempt(s) — ${gapsPerAttempt.map((g, i) => `[${i + 1}] ${g.join('; ')}`).join(' | ')}`.slice(0, 1800);
   const rel = release(plan, m.id, ACTOR, reason);
   if (rel.ok) persistPlan(plan, `chore(${m.id}): conductor releases after exhausting attempts`);
   return { ok: false, exhausted: true, gaps: gapsPerAttempt.flat() };
@@ -380,12 +403,45 @@ async function main() {
     }
   }
 
+  // T28.5: resume + drift refusal. Any module left claimed/in_progress and
+  // owned by THIS actor before a single ticket is (re-)claimed below is
+  // either safely reconcilable from disk or a sign plan.json disagrees with
+  // its own receipts/disk — in which case the WHOLE run refuses to start,
+  // surfacing every divergence found, rather than silently proceeding on
+  // some tickets and guessing on others.
+  const logRowsAtStart = loadLogRows(LOG);
+  const resumePlan = loadFreshPlan();
+  const { drift, safe } = findDrift(resumePlan, logRowsAtStart, ACTOR, {
+    root: ROOT, wtBase: WT_BASE, branchSuffix: CONFIG.branchSuffix, slug,
+  });
+  if (drift.length) {
+    for (const d of drift) log('resume.drift-refused', { ticket: d.id, msg: d.reason });
+    console.error(
+      `conductor: refusing to resume — ${drift.length} ticket(s) disagree between plan.json, receipts (${LOG}), and disk:\n` +
+      drift.map((d) => `  - ${d.id}: ${d.reason}`).join('\n') +
+      `\nResolve by hand (inspect the ticket's worktree/branch and ${LOG}, then release()/comment() plan.json as appropriate) before re-running.`,
+    );
+    process.exit(3);
+  }
+
   log('conductor.start', {
     msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
     roles: ROLE_MODELS,
   });
 
   let landed = 0;
+  if (safe.length) {
+    const resumeCtx = {
+      actor: ACTOR, maxAttempts: MAX_ATTEMPTS, log, git, gitIn, scopeGate, close, comment,
+      persistPlan, removeWorktree, appendFileSync, resolvePath: resolve, land, executeTicket, loadFreshPlan,
+    };
+    for (const { m, disk } of safe) {
+      const outcome = await reconcileOrphan(resumeCtx, m, disk, logRowsAtStart);
+      log('resume.outcome', { ticket: m.id, msg: outcome });
+      if (outcome === 'landed') landed++;
+    }
+  }
+
   // Tickets that exhausted every attempt THIS run are release()d back to
   // `ready` (so other tickets/lanes aren't blocked by their ownership) but
   // must not be immediately re-claimed in an infinite retry loop — skip them
