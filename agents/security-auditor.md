@@ -59,20 +59,25 @@ Starting security audit. Specialists:
 
 Read `docs/design/ARCHITECTURE.md`, `README.md`, and entry points to understand the system before dispatching.
 
-> **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see
-> `agents/shared/EXECUTOR_SELECTION.md`). If true, you MAY dispatch the specialists
-> in each wave as subagents (parallel within a wave, waves in order). Otherwise
-> (opencode / no task tool) do NOT wait on parallel spawns that cannot run — read
-> each specialist's agent file and execute its methodology directly in this
-> conversation, one specialist after another, writing each specialist's
-> `*_FINDINGS_*` file before moving on. Sequential execution achieves the same
-> result: same outputs, same files, same wave ordering. The specialists have no
-> user-facing `/skill`, so manual paste (Executor C) is not an option for them —
-> in opencode the coordinator runs them inline.
+> **Executor rule (T30.10 — must never be dispatched inline):** check
+> `docs/work/.model-context` for `has_task_tool` (see
+> `agents/shared/EXECUTOR_SELECTION.md`). If true, dispatch the specialists in
+> each wave as Executor A subagents (parallel within a wave, waves in order).
+> Otherwise, dispatch via **Executor B** — `opencode run` subprocess
+> (`tools/task.ts`), one specialist after another, writing each specialist's
+> `*_FINDINGS_*` file before moving on; the specialists have no user-facing
+> `/skill`, so manual paste (Executor C) is not an option for them, but in the
+> TUI `opencode_cli` is always true, so B is always available. Sequential B
+> dispatch achieves the same result as parallel A: same outputs, same files,
+> same wave ordering. **Never Executor D (inline)** — reading a specialist's
+> agent file and running its methodology in this conversation defeats fresh-
+> context dispatch and is exactly the flood source `TUI_SESSION_HYGIENE.md`
+> exists to prevent (semgrep/secrets/dependency scans are the largest tool
+> outputs in the system). Full rule: `agents/shared/TUI_SESSION_HYGIENE.md`.
 
 ### Phase 1 — Wave 1 (semgrep-runner, secrets-scanner, dependency-auditor)
 
-Per the Executor rule above: with a task tool, dispatch these three as parallel subagents; in opencode (no task tool), run each specialist's methodology inline in order (Executor D) — they have no `/skill` to paste into. The blocks below are the per-specialist tasks:
+Per the Executor rule above: with a task tool, dispatch these three as parallel Executor A subagents; without one, dispatch each in order as an Executor B `opencode run` subprocess — never inline (Executor D), they have no `/skill` to paste into. The blocks below are the per-specialist tasks; each specialist writes its raw scan output to disk and returns only the file path + finding count, per `TUI_SESSION_HYGIENE.md` Rule 3.
 
 ```
 HANDOFF to: security/semgrep-runner
