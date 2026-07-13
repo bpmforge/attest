@@ -54,17 +54,39 @@
 # same as any other restart (T26.3/T27.4's existing resume path IS the recovery
 # checkpoint; the watchdog's job is only to make sure the loop reaches it).
 #
+# Tier-aware session budget + stall detection (O2 runtime fold, T31.7 --
+# folds FIX_VERIFY_LOOP.md's v2 iteration classes from protocol text into
+# this runner, same convention as run-plan.mjs's per-node retries):
+#   - --max-sessions, when not explicitly given, defaults per the CURRENT
+#     session's docs/work/.model-context tier -- 6 on metered/cloud tiers,
+#     12 on local/unknown tiers (is_local_tier(); same defaults as
+#     fix-verify.mjs's R4 classes and run-plan.mjs's attemptCeiling()).
+#   - stall-2-then-escalate: if a completed (non-killed) session's combined
+#     output is byte-identical to the immediately prior session's output --
+#     genuinely repeating itself, not just "STATE.md not yet touched" --
+#     twice in a row, the loop stops early (exit 1) rather than grinding out
+#     the rest of the session cap. --stall-sessions overrides the threshold
+#     (default 2; 0 disables the check).
+#   - PROGRESSED extension: a run whose output keeps changing session to
+#     session is never cut short by the stall check, so it naturally rides
+#     the full tier-aware ceiling above -- "as long as it is not looping on
+#     the same output, let it keep going."
+#   A watchdog-killed session (SESSION_KILLED set) is an infra event, same as
+#   FIX_VERIFY_LOOP.md's rule: it counts toward --max-sessions but never
+#   touches the stall counter.
+#
 # Usage:
 #   run-until-done.sh --prompt "<task>" [--agent sdlc-lead] [--model <m>]
 #                     [--state docs/work/STATE.md] [--root .]
 #                     [--plan docs/work/plan.json] [--actor <name>]
-#                     [--max-sessions 12] [--max-seconds 7200]
+#                     [--max-sessions <tier-aware: 6 metered / 12 local>]
+#                     [--stall-sessions 2] [--max-seconds 7200]
 #                     [--max-session-seconds 1800] [--heartbeat-seconds 300]
 #   run-until-done.sh --self-test        # no opencode needed; stubbed runner
 #   run-until-done.sh --help
 #
-# Exit 0 = completed, 1 = hit a cap without completing (or the refuse-to-select-next-work
-# gate refused to start), 2 = usage/error.
+# Exit 0 = completed, 1 = hit a cap without completing, stalled twice in a
+# row, or the refuse-to-select-next-work gate refused to start; 2 = usage/error.
 
 set -uo pipefail
 
@@ -75,7 +97,8 @@ ROOT="."
 STATE="docs/work/STATE.md"
 PLAN=""
 ACTOR=""
-MAX_SESSIONS=12
+MAX_SESSIONS=""
+STALL_SESSIONS=2
 MAX_SECONDS=7200
 MAX_SESSION_SECONDS=1800
 HEARTBEAT_SECONDS=300
@@ -96,15 +119,38 @@ while [[ $# -gt 0 ]]; do
     --plan) PLAN="$2"; shift 2 ;;
     --actor) ACTOR="$2"; shift 2 ;;
     --max-sessions) MAX_SESSIONS="$2"; shift 2 ;;
+    --stall-sessions) STALL_SESSIONS="$2"; shift 2 ;;
     --max-seconds) MAX_SECONDS="$2"; shift 2 ;;
     --max-session-seconds) MAX_SESSION_SECONDS="$2"; shift 2 ;;
     --heartbeat-seconds) HEARTBEAT_SECONDS="$2"; shift 2 ;;
     --self-test) SELFTEST=1; shift ;;
     --help|-h)
-      sed -n '3,67p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+      sed -n '3,90p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 2 ;;
   esac
 done
+
+# is_local_tier (T31.7): reads $ROOT/docs/work/.model-context's tier= line --
+# same signal + same "unknown defaults to local" convention as run-plan.mjs's
+# attemptCeiling()/fix-verify.mjs's getAttemptCeiling(), so all three runners
+# agree on what "local" means. Returns true (0) for local/unknown, false (1)
+# for a metered/cloud tier (large, from detect-model-context.sh's cloud path).
+is_local_tier() {
+  local mc="$ROOT/docs/work/.model-context"
+  [[ -f "$mc" ]] || return 0
+  local tier; tier="$(grep -E '^tier=' "$mc" 2>/dev/null | head -1 | cut -d= -f2)"
+  [[ -z "$tier" ]] && return 0
+  case "$tier" in
+    *local*|*small*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+# Tier-aware --max-sessions default (T31.7): only when the caller did not
+# pass --max-sessions explicitly -- an explicit value always wins.
+if [[ -z "$MAX_SESSIONS" ]]; then
+  if is_local_tier; then MAX_SESSIONS=12; else MAX_SESSIONS=6; fi
+fi
 
 resume_preamble() {
   printf '/sdlc resume\nRead %s and continue from its Next step. When the whole task is finished, emit the exact token %s.\n\n%s\n' \
@@ -264,6 +310,7 @@ run_one_session() {
 run_loop() {
   mkdir -p "$(dirname "$LOG")"
   local start now session=0 out rc
+  local last_out="" repeat_count=0
   start=$(date +%s 2>/dev/null || echo 0)
   while (( session < MAX_SESSIONS )); do
     session=$((session + 1))
@@ -280,11 +327,26 @@ run_loop() {
       local elapsed=$(( $(date +%s 2>/dev/null || echo 0) - now ))
       echo "[run-until-done] session ${session} KILLED (${SESSION_KILLED}, ${elapsed}s) -- checkpointed, continuing" | tee -a "$LOG"
       checkpoint_kill "$session" "$SESSION_KILLED" "$elapsed"
+      # infra event (T31.7): watchdog kills spend a session but never touch
+      # the stall-repeat counter -- neither reset nor increment.
       continue
     fi
     if is_complete "$out"; then
       echo "[run-until-done] COMPLETE at session ${session} (rc=${rc})" | tee -a "$LOG"
       return 0
+    fi
+    # stall-2-then-escalate (T31.7): PROGRESSED extension is implicit -- a
+    # session whose output keeps changing never trips this and rides the
+    # full tier-aware --max-sessions ceiling above.
+    if [[ -n "$out" && "$out" == "$last_out" ]]; then
+      repeat_count=$((repeat_count + 1))
+    else
+      repeat_count=0
+    fi
+    last_out="$out"
+    if (( STALL_SESSIONS > 0 && repeat_count >= STALL_SESSIONS )); then
+      echo "[run-until-done] session output identical for ${repeat_count} consecutive sessions -- stalled, stopping early at session ${session}/${MAX_SESSIONS} (stall-${STALL_SESSIONS}-then-escalate)" | tee -a "$LOG"
+      return 1
     fi
   done
   echo "[run-until-done] session cap ${MAX_SESSIONS} reached without completion" | tee -a "$LOG"
@@ -366,8 +428,64 @@ PLANJSON
   fi
   PLAN=""; ACTOR=""
 
-  if [[ "$scenario1_ok" == "1" && "$scenario2_ok" == "1" ]]; then
-    echo "self-test PASS (session-restart completion + refuse-to-select-next-work gate)"
+  # -- Scenario 3 (T31.7): stall-2-then-escalate -----------------------------
+  # A stub that never completes and never varies its output -- the exact
+  # same "still working" line every session -- must stop after 2 consecutive
+  # identical sessions, well before exhausting a generous session cap.
+  scenario3_ok=1
+  {
+    saved_max="$MAX_SESSIONS"
+    MAX_SESSIONS=8
+    stall_state="$tmp/stall-STATE.md"; echo "# STATE" > "$stall_state"
+    saved_state="$STATE"; STATE="$stall_state"
+    stall_log="$tmp/stall-run.log"; saved_log="$LOG"; LOG="$stall_log"
+    rm -f "$tmp/stall-count"
+    cat > "$tmp/stall-stub.sh" <<STUB2
+#!/usr/bin/env bash
+c="$tmp/stall-count"; n=\$(( \$(cat "\$c" 2>/dev/null || echo 0) + 1 )); echo \$n > "\$c"
+echo "still working, no progress"
+STUB2
+    chmod +x "$tmp/stall-stub.sh"
+    RUN_CMD="$tmp/stall-stub.sh"
+    if run_loop; then
+      echo "self-test scenario 3 FAIL: stalled run should not report complete"; scenario3_ok=0
+    else
+      passes="$(cat "$tmp/stall-count" 2>/dev/null || echo 0)"
+      if [[ "$passes" == "3" ]] && grep -qF "stall-2-then-escalate" "$stall_log"; then
+        echo "self-test scenario 3 PASS (stopped early at session 3/8 on 2 identical sessions, never reached the cap)"
+      else
+        echo "self-test scenario 3 FAIL (sessions=$passes, expected 3, or missing stall log line)"; scenario3_ok=0
+      fi
+    fi
+    MAX_SESSIONS="$saved_max"; STATE="$saved_state"; LOG="$saved_log"
+    RUN_CMD="$tmp/stub.sh"
+  }
+
+  # -- Scenario 4 (T31.7): is_local_tier() tier-aware default signal ---------
+  scenario4_ok=1
+  mc_root="$tmp/mc-test"; mkdir -p "$mc_root/docs/work"
+  saved_root="$ROOT"; ROOT="$mc_root"
+  if is_local_tier; then
+    echo "self-test scenario 4a PASS (no .model-context -> local/unknown default)"
+  else
+    echo "self-test scenario 4a FAIL: expected local default with no .model-context present"; scenario4_ok=0
+  fi
+  printf 'type=cloud\ntier=large\n' > "$mc_root/docs/work/.model-context"
+  if is_local_tier; then
+    echo "self-test scenario 4b FAIL: expected metered (false) for tier=large"; scenario4_ok=0
+  else
+    echo "self-test scenario 4b PASS (tier=large -> metered)"
+  fi
+  printf 'type=local\ntier=small\n' > "$mc_root/docs/work/.model-context"
+  if is_local_tier; then
+    echo "self-test scenario 4c PASS (tier=small -> local)"
+  else
+    echo "self-test scenario 4c FAIL: expected local (true) for tier=small"; scenario4_ok=0
+  fi
+  ROOT="$saved_root"
+
+  if [[ "$scenario1_ok" == "1" && "$scenario2_ok" == "1" && "$scenario3_ok" == "1" && "$scenario4_ok" == "1" ]]; then
+    echo "self-test PASS (session-restart completion + refuse-to-select-next-work gate + stall-2-then-escalate + tier-aware default)"
     exit 0
   else
     echo "self-test FAIL"
