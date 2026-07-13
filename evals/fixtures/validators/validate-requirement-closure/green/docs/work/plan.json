@@ -1,0 +1,29 @@
+{
+  "goal": "Green fixture — every story is mapped to a done module and the reconciliation matrix covers both with DONE verdicts",
+  "modules": [
+    {
+      "id": "M-checkout",
+      "kind": "module",
+      "title": "Checkout flow",
+      "lane": "backend",
+      "owner": "coding-agent",
+      "status": "done",
+      "write_scope": ["src/checkout/**"],
+      "depends_on": [],
+      "acceptance": ["checkout completes and charges the card"],
+      "stories": ["US-01"]
+    },
+    {
+      "id": "M-catalog",
+      "kind": "module",
+      "title": "Catalog service",
+      "lane": "backend",
+      "owner": "coding-agent",
+      "status": "done",
+      "write_scope": ["src/catalog/**"],
+      "depends_on": [],
+      "acceptance": ["catalog API returns product listings"],
+      "stories": ["US-02"]
+    }
+  ]
+}

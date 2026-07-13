@@ -606,6 +606,74 @@ After "test-design done":
 
 ---
 
+## Template 11: Requirement Reconciliation HANDOFF (Phase 4 → 5, T29.2)
+
+Use once Phase 4 implementation is otherwise complete, before the Phase 5 release gate runs.
+**Mandatory when `docs/USER_STORIES.md` exists and any `plan.json` module declares `stories[]`** —
+`validate-requirement-closure.sh` refuses Phase 5 without the resulting matrix (see
+`docs/TICKET_SCHEMA.md`'s "Requirement (story) coverage & closure"). The point of this HANDOFF is
+that it looks at the actual code, not the ticket board — a module can show `status: "done"` and
+the story it claims can still be unimplemented, half-implemented, or claimed by a ticket that
+never actually touched it; that gap is exactly what task closure (module status) cannot catch and
+requirement closure (this matrix) is built to.
+
+```
+---
+  HANDOFF -> /code (coding-agent) — REQUIREMENT RECONCILIATION
+---
+Open a new OpenCode conversation and paste this EXACT prompt to /code:
+
+SDLC-TASK for coding-agent:
+
+CONTEXT (read these before starting):
+- agents/shared/BOUNDED_TASK_CONTRACT.md       -- the six rules
+- docs/work/context-for-coding-agent.md        -- full context packet
+- docs/USER_STORIES.md                         -- every story this reconciles against (source of truth)
+- docs/work/plan.json                          -- modules[], each module's `stories[]` + `status`
+- docs/TRACEABILITY.md                         -- if present, cross-reference FR/UC ids already linked to stories
+
+WRITE-SCOPE (exclusive):
+- docs/work/REQUIREMENT_RECONCILIATION.md      -- the only file this HANDOFF produces
+
+YOUR TASK:
+For EVERY story heading in docs/USER_STORIES.md (not just the ones a module claims), determine
+its real implementation state by reading the actual source/tests it should have produced --
+never take a module's `status: "done"` at face value. For each story, record one of:
+  - DONE       -- code + tests exist and demonstrably satisfy every acceptance bullet
+  - PARTIAL    -- some acceptance bullets are met, some are not (say which); disclosed, not hidden
+  - OUTSTANDING -- no code implements this story yet, or the module claiming it doesn't actually
+                   cover it (module `stories[]` says it does, but the code says otherwise)
+A story with zero modules referencing it in `stories[]` is OUTSTANDING by definition -- do not
+upgrade it just because some other module happens to touch related code.
+
+PRODUCE exactly this file:
+- docs/work/REQUIREMENT_RECONCILIATION.md -- one markdown table row per story:
+  | Story | Title | Verdict | Evidence |
+  |-------|-------|---------|----------|
+  | US-01 | Checkout | DONE | src/checkout/checkout.test.ts:12-40, all 3 AC bullets pass |
+  Evidence must name real files/tests/commits -- "looks done" is not evidence.
+
+VERIFY before completing:
+- Every story heading in docs/USER_STORIES.md has exactly one row.
+- No row is missing a DONE/PARTIAL/OUTSTANDING verdict.
+- Any PARTIAL/OUTSTANDING row states specifically what's missing, not just the label.
+
+Print exactly:
+"reconciliation done -- [N DONE, N PARTIAL, N OUTSTANDING of N total stories]"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+
+---
+```
+
+After "reconciliation done": run
+`./scripts/validators/validate-requirement-closure.sh` — it fails Phase 5 on any missing row or
+any `OUTSTANDING` verdict (a `PARTIAL` verdict is allowed through; it's a disclosed gap, not a
+silently-missing one). An `OUTSTANDING` row is a real signal to go implement that story, or to
+explicitly descope it out of `docs/USER_STORIES.md` with the T29.7 scope-cut protocol (never just
+delete the row from the matrix to make the gate pass).
+
+---
+
 ## Context Packet template
 
 Before every HANDOFF, write a `docs/work/context-for-<agent>.md` with:
