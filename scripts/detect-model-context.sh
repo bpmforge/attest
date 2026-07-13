@@ -26,6 +26,38 @@ detect_capabilities() {
 }
 detect_capabilities
 
+# ── Escalation ledger hook (MODEL_ADAPTER.md § Hops) ──────────────────────────
+# Emit a hop to the escalation ledger via log-hop.mjs when model context is detected.
+# Fails gracefully (silent on errors) so model detection never breaks.
+emit_hop() {
+  local model="$1"
+  local gate="${2:-pass}"
+  local lane="${3:-proc}"
+
+  # Skip if node isn't available (not a fatal error)
+  if ! command -v node >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Resolve the script's directory (where log-hop.mjs lives)
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || return 0
+  local log_hop_path="$script_dir/log-hop.mjs"
+
+  # Skip if the log-hop shim doesn't exist (expected in test environments)
+  if [[ ! -f "$log_hop_path" ]]; then
+    return 0
+  fi
+
+  # Call log-hop with fail-safe: redirect errors and ignore exit code
+  node "$log_hop_path" \
+    --task-fp "session/detect-model-context-$(date +%s%N)" \
+    --actual-model "$model" \
+    --gate "$gate" \
+    --lane "$lane" \
+    2>/dev/null || true
+}
+
 # Maker/Verifier split (MODEL_ADAPTER.md § Maker/Verifier split). The verifier
 # MUST be a different, ideally faster instance than the maker, so confidence
 # scoring and re-verify never ask a model to grade its own work. Reads the
@@ -99,6 +131,7 @@ if [[ -n "$ANTHROPIC_API_KEY" ]]; then
   echo "model=${MODEL_OVERRIDE:-claude-sonnet-4-5}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
   write_capabilities
+  emit_hop "${MODEL_OVERRIDE:-claude-sonnet-4-5}"
 cat "$CONTEXT_FILE"
   exit 0
 fi
@@ -110,6 +143,7 @@ if [[ -n "$GOOGLE_GENERATIVE_AI_API_KEY" ]]; then
   echo "model=${MODEL_OVERRIDE:-gemini-2.0-flash}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
   write_capabilities
+  emit_hop "${MODEL_OVERRIDE:-gemini-2.0-flash}"
 cat "$CONTEXT_FILE"
   exit 0
 fi
@@ -121,6 +155,7 @@ if [[ -n "$OPENAI_API_KEY" ]]; then
   echo "model=${MODEL_OVERRIDE:-gpt-4o}" >> "$CONTEXT_FILE"
   echo "tier=large"           >> "$CONTEXT_FILE"
   write_capabilities
+  emit_hop "${MODEL_OVERRIDE:-gpt-4o}"
 cat "$CONTEXT_FILE"
   exit 0
 fi
@@ -170,6 +205,7 @@ else
     echo "tier=small"           >> "$CONTEXT_FILE"
     echo "WARNING: Could not reach LM Studio at $LMSTUDIO_URL — defaulting to 32k budget" >&2
     write_capabilities
+    emit_hop "unknown" "borderline"
     cat "$CONTEXT_FILE"
     exit 0
   fi
@@ -235,4 +271,5 @@ echo "tier=$TIER"            >> "$CONTEXT_FILE"
 echo "context_source=$CONTEXT_SOURCE" >> "$CONTEXT_FILE"
 
 write_capabilities
+emit_hop "$MODEL_ID"
 cat "$CONTEXT_FILE"
