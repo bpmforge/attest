@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+#
+# opencode-local -- sync-then-exec launch wrapper for TUI/interactive sessions
+# against local LM Studio models (T30.8, LOCAL_CONTEXT_INTEGRITY_DESIGN P2).
+#
+# opencode has no runtime hook to re-read `limit.*` mid-session -- static
+# config is the only mechanism it supports (see design doc Part 3). This
+# wrapper is one of the three call sites that keep the config truthful before
+# a session starts: (a) here for interactive `opencode`/`opencode run` launches,
+# (b) run-until-done.sh's outer loop, (c) conductor session spawn once it
+# gains a local-tier dispatch path (see scripts/conductor/README.md -- it
+# currently only spawns `claude -p`, no opencode invocation exists there yet).
+#
+# Runs sync-model-limits.mjs --write against the resolved opencode config,
+# then execs opencode with all original arguments. A REFUSE (sub-floor load)
+# or an unreachable LM Studio is reported loudly but never blocks the launch
+# itself -- the user may be running a cloud/large-tier session where this
+# doesn't apply, or intends to reload a bigger model before working locally;
+# per the design's floor rule, refusing to WRITE a too-small limit is the
+# safe behavior, not refusing to start opencode at all.
+#
+# Usage: opencode-local [any opencode args]
+#   OPENCODE_CONFIG  path to the opencode config file (else resolved via
+#                     `opencode debug paths`'s `config` dir + opencode.json)
+#   LMSTUDIO_URL      LM Studio base URL (default http://127.0.0.1:1234)
+
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LMSTUDIO_URL="${LMSTUDIO_URL:-http://127.0.0.1:1234}"
+
+CONFIG="${OPENCODE_CONFIG:-}"
+if [[ -z "$CONFIG" ]]; then
+  if command -v opencode >/dev/null 2>&1; then
+    CONFIG_DIR="$(opencode debug paths 2>/dev/null | awk '/^config[[:space:]]/{print $2}')"
+  fi
+  CONFIG="${CONFIG_DIR:-$HOME/.config/opencode}/opencode.json"
+fi
+
+if [[ -f "$CONFIG" ]]; then
+  node "$SCRIPT_DIR/sync-model-limits.mjs" --config "$CONFIG" --base "$LMSTUDIO_URL" --write >&2
+  rc=$?
+  if [[ $rc -eq 1 ]]; then
+    echo "opencode-local: sync-model-limits refused a sub-floor load or found LM Studio unreachable (see above) -- launching opencode anyway with limits left untouched" >&2
+  fi
+else
+  echo "opencode-local: no opencode config found at '$CONFIG' -- skipping limit sync" >&2
+fi
+
+exec opencode "$@"
