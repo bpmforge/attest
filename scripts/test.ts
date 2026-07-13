@@ -42,6 +42,7 @@ import { testReflowAudit } from "./test-reflow-audit.ts";
 import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
 import { testModelTierLint } from "./test-model-tier-lint.ts";
 import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
+import { testVendorProvenance } from "./test-vendor-provenance.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -455,6 +456,14 @@ await testModelTierLint(root, ok, fail);
 // running at session start, mirroring scripts/lib/model-tiers.mjs.
 console.log("\n[Pass 30] Session-model receipt — G1 resolved model + tier");
 await testSessionModelReceipt(root, ok, fail);
+
+// Pass 31: Vendor provenance (T29.8, R-30, field lesson B-2) — vendored
+// library code must be generated from the real upstream, not memory;
+// dropped/renamed variants and undeclared vendoring are flagged.
+console.log(
+  "\n[Pass 31] Vendor provenance — library-shaped reimplementation (R-30)",
+);
+await testVendorProvenance(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

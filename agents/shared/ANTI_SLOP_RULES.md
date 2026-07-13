@@ -8,11 +8,11 @@ mode: "all"
 
 **Canonical list of AI code-quality anti-patterns ("AI slop").**
 
-Single source of truth referenced by `coding-agent.md`, `code-reviewer.md`, and `validate-code-health.sh`. Every specialist that produces or reviews code must check against these rules.
+Single source of truth referenced by `coding-agent.md`, `code-reviewer.md`, `frontend-design.md`, `validate-code-health.sh`, and `validate-vendor-provenance.sh`. Every specialist that produces or reviews code must check against these rules.
 
 Sources: GitClear 2025 (211M LOC study), Veracode GenAI Code Security Report 2025, CSA AI-Generated Code Security Surge 2026, USENIX Security 2025 (package hallucinations), dev community research (Greptile, Addy Osmani, DEV Community, eslint-plugin-llm-core, AI-SLOP Detector v2.7.0, Sloppylint Dec 2025).
 
-**2025-2026 additions (R-21 through R-28):** slopsquatting, architectural privilege escalation, credential leakage, docstring inflation, phantom imports, disconnected pipelines, logic density, and LLM output handling. These were not documented in 2024 editions.
+**2025-2026 additions (R-21 through R-30):** slopsquatting, architectural privilege escalation, credential leakage, docstring inflation, phantom imports, disconnected pipelines, logic density, LLM output handling, prose padding, and library-shaped reimplementation. These were not documented in 2024 editions.
 
 ---
 
@@ -243,6 +243,18 @@ Each rule is scored per finding:
 **Why it fails:** Padding dilutes real signal. A report where every finding is prefixed with "It's important to note that this is a significant concern" forces the reader to parse 30% more text to get the same information. On local LLMs with tight output budgets, it also wastes tokens on noise.
 **Rule:** State findings directly. "This function has no error handling" not "It's worth noting that one might observe that this function arguably lacks error handling." If citing a practice, name it: "OWASP recommends parameterized queries (A03:2021)" not "industry best practices suggest using safe query patterns."
 **Grep signal:** `grep -rn "worth noting\|it should be mentioned\|one might consider\|important to note" docs/ agents/` — flag any occurrence in agent-produced deliverables.
+
+---
+
+## Category 8: Vendoring & Provenance Slop (2025-2026 — NEW)
+
+### R-30 Library-Shaped Reimplementation (Silent Fork)
+**Research basis:** Field lesson B-2 (Mode-1 SDLC engagement, external install, field report 2026-07). A design doc claimed "we use library X" for a vendored/copy-paste component set. A reviewing developer identified the actual components as renamed variants, missing sizes, and an older template — not the real library, just library-X-*shaped* — "reinventing the component lib" under the library's name.
+**Pattern:** An agent told to vendor/copy-paste library X generates X-flavored files from memory (training data) instead of pulling the real upstream artifacts via the library's actual CLI, registry, or repo. The design doc, a comment, or a README then asserts "we use X" unqualified, masking the drift. No step ever diffs the vendored copy against upstream, so dropped variants (missing sizes/components), renamed props, and stale structure accumulate invisibly.
+**Why it fails:** The claim "we use X" is untested. The vendored code becomes an unacknowledged fork carrying its own maintenance burden — upstream security fixes and API changes never arrive — with none of the review scrutiny a declared fork would get. The field lesson also found the design doc's *stated reason* for vendoring (a supply-chain rationale) named the wrong library entirely (see R-A5/ADR rules) — B-2 is specifically about the code drifting from upstream, not the rationale being wrong.
+**Rule:** When a library is vendored/copied (not a runtime dependency), it MUST be generated from the library's real CLI, registry, or repository — never approximated from memory — with the source name and version recorded at the vendor site (e.g. a `VENDORED.md` file listing `source`, `tool`/`registry`, `version`, and the exact file/variant list pulled). If a vendored file was in fact written from memory (no CLI/registry pull was possible), that MUST be declared explicitly in the same manifest ("generated from memory, not pulled from upstream — divergence risk") rather than presented as an unqualified "we use X."
+**Reviewer check:** For any "we use library X" claim (docs, comments, ADRs, PR descriptions), spot-diff a sample of the vendored files against the real upstream artifact (the CLI's fresh output, or the tagged release in the upstream repo). Drift — renamed/dropped variants, a stale template, missing affordances — is filed as a **fork / maintenance-debt finding**, distinct from a functional bug: it still blocks the "library X" claim from standing unqualified even when the vendored code works correctly.
+**Detection:** `scripts/validators/validate-vendor-provenance.sh` — flags (a) a directory with vendoring language ("vendored from", "copied from", "based on", "adapted from" a named library) but no `VENDORED.md` provenance record, and (b) a `VENDORED.md` whose declared file/variant list doesn't match what's actually on disk (dropped variants = declared-but-missing, renamed/undeclared variants = present-but-not-declared).
 
 ---
 
