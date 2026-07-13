@@ -107,6 +107,7 @@ Phases 0–5, discovery-driven from a blank repo.
 - `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/design/` — UX spec, style guide, design principles (if UI-bearing)
+- `docs/TRACKER_DATA_MODEL.md` — Layer map, phase→work linkage, source of truth, stray handling (external trackers only — `references/tracker-data-model-template.md`; not applicable to projects using only this repo's `plan.json`)
 
 **Delegate to:**
 - `/dba` — Database schema from requirements
@@ -118,7 +119,7 @@ Phases 0–5, discovery-driven from a blank repo.
 
 **Contract-first ordering:** API contracts + event schemas are frozen at the end of Phase 3 before any Phase 4 implementation starts.
 
-**Gate validators:** `validate-module-design.sh`, `validate-infrastructure.sh`, `validate-architecture.sh`, `validate-api-coverage.sh`, `validate-sequence-coverage.sh`, `validate-erd-coverage.sh`, `validate-no-ascii-art.sh`, `validate-c3-coverage.sh`, `validate-entry-points.sh`, `validate-tech-stack.sh`, `validate-adrs.sh`, `validate-security-controls.sh`, `validate-ux-spec.sh` (UI-bearing only)
+**Gate validators:** `validate-module-design.sh`, `validate-infrastructure.sh`, `validate-architecture.sh`, `validate-api-coverage.sh`, `validate-sequence-coverage.sh`, `validate-erd-coverage.sh`, `validate-no-ascii-art.sh`, `validate-c3-coverage.sh`, `validate-entry-points.sh`, `validate-tech-stack.sh`, `validate-adrs.sh`, `validate-security-controls.sh`, `validate-tracker-integrity.sh` (spec-before-backlog; no-op without an external tracker), `validate-ux-spec.sh` (UI-bearing only)
 
 **Exit criteria:** All components documented, data flows diagrammed, modular structure defined, `PARALLELIZATION_MAP.md` Module Inventory populated for every module in ARCHITECTURE.md § Implementation View.
 
@@ -186,7 +187,7 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 
 **Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 
-**Gate validators:** `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-e2e-setup.sh`, `validate-migrations.sh`, `validate-iac.sh`, `validate-module-boundaries.sh`, `validate-code-health.sh`, `validate-design-system.sh` (UI-bearing only)
+**Gate validators:** `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-tests-mapping.sh`, `validate-e2e-setup.sh`, `validate-migrations.sh`, `validate-iac.sh`, `validate-module-boundaries.sh`, `validate-code-health.sh`, `validate-tracker-integrity.sh` (snapshot integrity once a backlog exists), `validate-design-system.sh` (UI-bearing only)
 
 **Exit criteria:** All components implemented, tests passing, security audit clean, every wave verified before advancing, all UC-level test mapping rows green.
 

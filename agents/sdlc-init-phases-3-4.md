@@ -679,6 +679,50 @@ After ARCHITECTURE.md is complete, derive the Phase 4 wave plan. This is a synth
 3. A module's contract (OpenAPI section, interface file) must be frozen in the `docs/` deliverable from Phase 3 BEFORE its wave begins — otherwise downstream waves can't mock it
 4. Default execution is sequential; parallel is user-opt-in per wave (see Phase 4 below)
 
+### Tracker Data Model — Mandatory Before Any External-Tracker Backlog (T29.6)
+
+**Only applies when this project's backlog will be generated into an
+external issue tracker** (Jira, Linear, GitHub Projects, or anything that
+isn't this repo's own `plan.json` — see `docs/TICKET_SCHEMA.md` for that
+internal path, which this step does not touch). If the project uses
+`plan.json`/`scripts/lib/tickets.mjs` exclusively, this step is not
+applicable — say so and move on.
+
+Field lesson (`issues/field-report-mode1-sdlc-run-2026-07.md` §A-6): a
+live Mode-1 engagement generated ~200 requirement-stories directly in a
+client's tracker with no deliberate data model. Phases and stories ended up
+as siblings under one umbrella epic — nothing structurally tied a phase to
+its stories — so completion rollups had no native answer, 150+ phase↔story
+links had to be retrofitted mid-project, labels silently undercounted scope
+because they were unenforced, and template/sample tickets polluted totals.
+This step exists so that reverse-engineering never has to happen again.
+
+**Before generating a single backlog item in the external tracker:**
+
+1. Copy `references/tracker-data-model-template.md` to
+   `docs/TRACKER_DATA_MODEL.md` and fill all four sections: **Layer Map**
+   (what epic/story/task/sub-task mean in *this* tracker), **Phase → Work
+   Linkage** (structural strongly preferred over label-only — if the
+   tracker's native parent field is already spent on a single umbrella
+   epic, choose the explicit link type now, not after 150 items exist),
+   **Source of Truth** (name the one field authoritative for scope +
+   completion), **Stray & Template Handling** (tag sample/scaffolding
+   items `stray: true` from the first snapshot, never leave them
+   untagged).
+2. As the backlog is generated, maintain a normalized snapshot at
+   `docs/work/tracker-snapshot.json` (schema:
+   `docs/TRACKER_DATA_MODEL_SCHEMA.md`) — however this project pulls one
+   from the live tracker (API script, CSV export, ...).
+3. Link each new story to its phase **at creation time**, and re-run the
+   idempotent straggler sweep any session:
+   `node scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
+   — a clean run links 0 stragglers; this is what keeps linkage continuous
+   instead of a one-time retrofit.
+4. Run `scripts/validators/validate-tracker-integrity.sh` — chained at the
+   Phase 3 gate (spec must exist before any snapshot does) and the Phase 4
+   gate (item-level integrity: unlabeled items, unlinked stories, untagged
+   strays polluting scope math, once a snapshot exists).
+
 ### Mermaid Diagram Templates
 
 **C1 System Context:**
@@ -863,6 +907,7 @@ This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validat
 - `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table AND a Waves section listing Wave 1..N
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md` all present, all gate-passed. If NOT UI-bearing, ARCHITECTURE.md § Logical View must say "No UI — UX branch not applicable".
 - **Spec Traceability Audit:** `docs/TRACEABILITY.md` present — every concrete requirement from the founding brief + Discovery Interview answers graded COVERED/PARTIAL/MISSING against the doc set and ticket board; zero MISSING remaining, every PARTIAL resolved or explicitly deferred with user approval. `validate-spec-traceability.sh` gate-passed.
+- **Tracker Data Model (external trackers only):** if this project's backlog targets an external issue tracker, `docs/TRACKER_DATA_MODEL.md` exists with all four sections filled (no placeholders) BEFORE any `docs/work/tracker-snapshot.json` is written. `validate-tracker-integrity.sh` gate-passed. Not applicable projects using only `plan.json` skip this row.
 
 **Git checkpoint — commit Phase 3 docs before advancing:**
 ```
