@@ -45,6 +45,7 @@ import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
 import { testVendorProvenance } from "./test-vendor-provenance.ts";
 import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
+import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -482,6 +483,17 @@ console.log(
   "\n[Pass 33] TUI session-hygiene — scan-inline-dispatch red/green + protocol text",
 );
 await testTuiSessionHygiene(root, ok, fail);
+
+// Pass 34: macOS-vs-Linux bash regex-engine divergence audit (T32.4) --
+// validate-mermaid.sh's remaining [^...]-style bracket idioms: M001 was
+// genuinely bash-version divergent (dead on bash 3.2, working on bash
+// 5.x) and is now fixed; M004 was found dead identically on both engines
+// (a related but distinct bug) and is also fixed; M005/M007/M010 audited
+// and confirmed not to diverge.
+console.log(
+  "\n[Pass 34] Mermaid bash regex-engine divergence — M001/M004 bracket-idiom audit",
+);
+await testMermaidBashDivergence(root, ok, fail);
 
 
 // ---------------------------------------------------------------------------
