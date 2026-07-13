@@ -22,6 +22,20 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   gap history recorded, never advanced to `in_review`/`done`.
 - `supervise.sh` — crash-restart layer (reset target tree, relaunch, cap,
   `STOP` file in the target root).
+- `resume.mjs` (T28.5) — resume + drift refusal. On every startup, before a
+  single ticket is (re-)claimed, any module left `claimed`/`in_progress` and
+  owned by THIS actor (orphaned by a killed prior run) is checked against its
+  receipts (`docs/work/conductor-log.jsonl`) and the git reality of its
+  worktree/branch: a worktree already carrying real committed work is
+  **re-verified** through the same scope/close gates — never re-run through
+  a fresh `opencode` session, which would duplicate the killed run's work —
+  while a plan.json claim with no receipt trail behind it, internally
+  inconsistent evidence, or a branch already merged into main that plan.json
+  never advanced past is **drift**: the whole run refuses to start (exit 3),
+  surfacing every divergence, rather than guessing which source is right.
+  plan.json plays the STATE.md role here (T27.4's drift-check pattern —
+  claims vs receipts vs disk — applied to this ticket lifecycle instead of
+  the SDLC's phase-based STATE.md, which this Conductor doesn't use).
 - `models.json` — per-role model routing. **Not yet wired into
   `conductor.mjs`** — T28.2 (`blocked(T28.1)`) is scoped to pass `--model`
   per role and mechanically enforce maker != reviewer model. Today
@@ -43,14 +57,19 @@ and merges. Not wired into `scripts/test.ts`'s Pass-N suite (out of this
 ticket's `scripts/conductor/**` write scope) — run it standalone or as a
 fast-follow adds a new Pass.
 
+`node --test scripts/conductor/resume.test.mjs` (T28.5) — same
+real-fixture style: one case hand-reconstructs a killed-mid-ticket state
+(real `claim()`/`start()`, a real git worktree/branch with a committed
+checkpoint, a hand-written receipts log matching what that run would have
+logged) and proves a fresh `conductor.mjs` invocation lands it via
+re-verification with the `opencode` stub never invoked; the other
+hand-doctors plan.json with no receipt trail behind it and proves resume
+refuses (exit 3) without touching plan.json or spawning any session.
+
 ## Deferred to later M28 tickets
 
-- **T28.2** — `models.json` per-role routing wired into `conductor.mjs`;
-  maker-model != reviewer-model enforced mechanically, not just by name.
 - **T28.4** — `--breakpoint ticket|wave|never`, NEVER-AUTO parking queue,
   morning-review summary.
-- **T28.5** — `conductor resume` idempotent from receipts; refuses to resume
-  on STATE/receipt/disk drift.
 
 **Local-tier dispatch note (T30.8):** `runSession()` always spawns
 `opencode run` — if a future ticket adds routing to a *different* local
