@@ -325,7 +325,7 @@ When the user returns and says "<agent> done", load and follow the full scoring 
 read(filePath="~/.config/opencode/agents/shared/GATE_SCORING_PROTOCOL.md")
 ```
 
-Summary of the 6 steps: (1) confirm state from sdlc-state.md, (2) run automated gates via `run-handoff-gates.sh`, (3) score 1-10, (4) apply asymmetric threshold (≥7 pass, 5-6 revise, <5 auto-fail), (5) update DELEGATION_LOG, (6) continue or escalate.
+Summary of the 6 steps: (1) confirm state from sdlc-state.md, (2) run automated gates via `run-handoff-gates.sh`, (3) score 1-10 **with a required `re-ran independently: <what, counts, exit codes>` field — a score missing it is incomplete, reject and return it to the scorer**, (4) apply asymmetric threshold (≥7 pass, 5-6 revise, <5 auto-fail), (5) update DELEGATION_LOG (same required field), (6) continue or escalate.
 
 ---
 

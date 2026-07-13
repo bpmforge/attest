@@ -68,6 +68,29 @@ The score still matters — it's an early-warning signal for **quality** questio
 | 5-6 | Files present but thin, or deferred issues needing attention |
 | 1-4 | Deviated from spec, work is materially incomplete despite passing gates |
 
+### Required field: "re-ran independently"
+
+**Every score MUST carry a `re-ran independently:` line** — the specific check the *verifier* re-executed itself (not the maker's self-report), plus its concrete result:
+
+```
+re-ran independently: <what you re-ran> — <counts> — <exit code>
+```
+
+Examples:
+- `re-ran independently: npm test (fresh, no cache) — 292 passed, 0 failed — exit 0`
+- `re-ran independently: re-read src/auth/session.ts:40-80 — confirmed the timeout guard the manifest claims — n/a`
+- `re-ran independently: grep for the removed route in router.ts — 0 matches, confirmed gone — exit 0`
+
+**A score submitted without this field is INCOMPLETE — not a valid score.** Do not proceed to Step 4; send it back to whoever scored it ("add `re-ran independently: <...>`") and wait for the resubmission. This codifies the single highest-value pattern from the 2026-07-08 field report (H9/D-1): verify-don't-trust caught nearly every serious defect that run precisely *because* verification was independently re-run by the verifier, not read off the maker's manifest. A score with no re-run behind it is a guess wearing a number.
+
+**Checklist — a score is only complete when all of these hold:**
+- [ ] Step 2's automated gates ran and their pass/fail result is known
+- [ ] A 1-10 number was assigned per the table above
+- [ ] `re-ran independently: <what, counts, exit codes>` is present and names a concrete, independent action — not "looks good" or "manifest checks out"
+- [ ] The DELEGATION_LOG row (Step 5) carries the same field
+
+Any unchecked box → reject the score and return it to the scorer; it does not reach Step 4.
+
 ## Step 4 — Interpret the Score
 
 Gates already decided pass/fail (Step 2). The score decides whether to accept as-is or ask for a polish pass — it does not undo Step 2's verdict:
@@ -82,10 +105,10 @@ If Step 2's gates **failed**, the HANDOFF does not reach scoring at all — retu
 
 ## Step 5 — Update DELEGATION_LOG
 
-Append the result to `docs/work/DELEGATION_LOG.md`:
+Append the result to `docs/work/DELEGATION_LOG.md`. The `re-ran independently` field (see Step 3) is required — a row without it is an incomplete log entry, same as an unscored HANDOFF:
 
 ```
-| <timestamp> | <agent> | <task summary> | DONE/FAILED/REDO | <score>/10 | <notes> |
+| <timestamp> | <agent> | <task summary> | DONE/FAILED/REDO | <score>/10 | re-ran independently: <what, counts, exit codes> | <notes> |
 ```
 
 ## Step 6 — Continue or Escalate
