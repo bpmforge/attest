@@ -42,6 +42,7 @@ import { testReflowAudit } from "./test-reflow-audit.ts";
 import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
 import { testModelTierLint } from "./test-model-tier-lint.ts";
 import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
+import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -455,6 +456,13 @@ await testModelTierLint(root, ok, fail);
 // running at session start, mirroring scripts/lib/model-tiers.mjs.
 console.log("\n[Pass 30] Session-model receipt — G1 resolved model + tier");
 await testSessionModelReceipt(root, ok, fail);
+
+// Pass 31: Context-limit sync (T30.8, LOCAL_CONTEXT_INTEGRITY_DESIGN P2) --
+// scripts/lib/model-limits-sync.mjs's planSync() reconciles opencode's
+// believed provider limit.* to LM Studio's actually-loaded context; floor
+// rule REFUSEs sub-floor loads instead of writing an unconvergeable limit.
+console.log("\n[Pass 31] Context-limit sync — planSync() against fixtures");
+await testSyncModelLimits(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

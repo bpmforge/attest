@@ -20,3 +20,13 @@ Adaptation TODO for this repo's module-ticket schema (T28.x): claim/close via
 `scripts/lib/tickets.mjs` verbs instead of raw status flips; gates via
 `run-handoff-gates.sh`; finding ledger per FIX_VERIFY_LOOP step-5 classes
 (tier-aware budgets). Until then this runs plan.json product boards as-is.
+
+**Local-tier dispatch gap (T30.8):** `runSession()` only ever spawns `claude -p`
+today -- there is no code path here that invokes `opencode run` against a local
+LM Studio model, so there is nothing yet to wire `sync-model-limits.mjs` into.
+When this conductor gains a local-tier dispatch path, call
+`node scripts/sync-model-limits.mjs --config <opencode.json> --write` immediately
+before that spawn (same pattern as `scripts/opencode-local` and
+`run-until-done.sh`'s `sync_model_limits()`) -- do not add a local dispatch path
+without it, or the exact tool-loop LOCAL_CONTEXT_INTEGRITY_DESIGN.md documents
+reappears.
