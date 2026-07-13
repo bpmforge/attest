@@ -499,7 +499,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Sixty-nine bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Seventy bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -544,6 +544,7 @@ Sixty-nine bash validators + gate runners in `scripts/validators/`. Each returns
 | `validate-smoke.sh` | Boots server, hits configured routes, asserts HTTP 200 |
 | `validate-spec-traceability.sh` | `docs/TRACEABILITY.md` grades every founding-brief requirement against the produced doc set + tickets (T22.15) |
 | `validate-state-drift.sh` | `docs/work/STATE.md`'s Done-section phase claims are backed by a real/waiver gate receipt (`docs/work/gates/<phase>-receipt.json`, T27.1) — used by `/sdlc resume` (warn) and `run-until-done.sh`'s outer loop (block completion) so a claimed-but-unreceipted phase can't be trusted (T27.4) |
+| `validate-status-freshness.sh` | A generated project `docs/work/STATUS.md` (T29.3, H7/C-1) is flagged stale when its embedded numbers mismatch a live recompute against `plan.json`, or predate the plan's own last work event (latest `history[]`/`claimed_at` timestamp). Not chained into a phase gate — advisory, the intended caller is the steward skill (wraps `scripts/gen-status-report.mjs --check`) |
 | `validate-tech-stack.sh` | All runtime and dev dependencies present in TECH_STACK.md |
 | `validate-test-design.sh` | TEST_DESIGN.md has 5 mandatory sections: Unit, Integration, E2E, Security, Test Infrastructure |
 | `validate-tests-mapping.sh` | Use-case ↔ test coverage mapping; UC-level PASS/FAIL derived from jest/vitest/pytest JSON results |

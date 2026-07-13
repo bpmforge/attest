@@ -35,6 +35,17 @@ but never written down. This skill fixes that.
    - **Patterns:** Do the coding standards in docs match what the code actually does? (e.g., docs say "max 150 lines per component" but 15 components exceed it)
    - **Features:** Are all documented features still present? Any undocumented features?
    - **Dependencies:** Are documented dependencies current? Any deprecated?
+   - **Generated status artifacts stale? (T29.3, H7/C-1):** if the project has a `docs/work/plan.json`
+     module layer and a generated `docs/work/STATUS.md`
+     (`scripts/gen-status-report.mjs`), run
+     `scripts/validators/validate-status-freshness.sh` — it flags the artifact
+     stale when its embedded numbers mismatch a live recompute against
+     `plan.json`, or the plan has a work event (a module/story closing) newer
+     than the artifact's own `generatedAt`. A stale STATUS.md is exactly the
+     class of drift this skill exists to catch: numbers a human trusts that no
+     longer match reality. Report any stale finding under "Stale" below and
+     regenerate with `node scripts/gen-status-report.mjs` as the fix, never
+     hand-edit the artifact.
 
 ```
 ▶ Phase 3: Reporting drift...
