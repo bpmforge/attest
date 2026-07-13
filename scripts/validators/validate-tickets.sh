@@ -53,12 +53,26 @@ if ! grep -q '"kind"[[:space:]]*:[[:space:]]*"module"' "$PLAN"; then
 fi
 
 rel="${PLAN#"$ROOT"/}"
-# tickets.mjs prints "  [x] <reason>" per problem and exits non-zero on any.
+
+# T29.2: story-coverage check (a story in USER_STORIES.md mapped to no
+# module) rides the same `validate` invocation -- passed as an optional 3rd
+# arg. Empty string when the doc doesn't exist: tickets.mjs's CLI treats a
+# falsy 3rd arg as "story layer not in use here", so this never gates a
+# project that hasn't adopted docs/USER_STORIES.md + stories[]. Advisory
+# ([!]) by default; STORY_COVERAGE_STRICT=1 (set by the caller's environment,
+# not this script) promotes it to [x] via tickets.mjs itself -- see
+# docs/TICKET_SCHEMA.md's "Requirement (story) coverage & closure".
+US_DOC=""
+[[ -f "$ROOT/docs/USER_STORIES.md" ]] && US_DOC="$ROOT/docs/USER_STORIES.md"
+
+# tickets.mjs prints "  [x] <reason>" per problem and "  [!] <reason>" per
+# advisory warning, exits non-zero on any [x].
 while IFS= read -r line; do
   case "$line" in
     *"[x]"*) gap "ticket-invariant" "${rel}: ${line#*\[x\] }" ;;
+    *"[!]"*) warn "${rel}: ${line#*\[\!\] }" ;;
   esac
-done < <(node "$LIB" validate "$PLAN" 2>&1)
+done < <(node "$LIB" validate "$PLAN" "$US_DOC" 2>&1)
 
 note "validated ticket graph in $rel"
 validator_exit

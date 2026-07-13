@@ -43,8 +43,16 @@ import {
   writeScopeCollisions,
   crossLaneCollisions,
   scopeCoverageWarnings,
+  storyCoverageWarnings,
+  requirementClosure,
 } from './tickets-graph.mjs';
-export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions, scopeCoverageWarnings };
+export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions, scopeCoverageWarnings, storyCoverageWarnings, requirementClosure };
+// T29.2: story ids come from docs/USER_STORIES.md, an external doc — this is
+// the only file in the lib/ chapter set that ever reads a *doc*, not just
+// plan.json, since story-coverage/requirement-closure are inherently
+// cross-artifact checks.
+import { extractStoryIds } from './user-stories.mjs';
+export { extractStoryIds };
 // Lifecycle verbs (T26.1) live in their own chapter module to keep this
 // barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md. claim() itself
 // now enforces the T26.3 hygiene check (via tickets-graph.mjs), not just this
@@ -77,7 +85,8 @@ export function savePlan(path, plan) {
 // mutated plan back to disk on success — this CLI IS the single sanctioned
 // writer of module status; nothing hand-edits plan.json's modules[].status.
 const USAGE =
-  'usage: tickets.mjs <validate|status> <plan.json>\n' +
+  'usage: tickets.mjs validate <plan.json> [user-stories.md]\n' +
+  '   or: tickets.mjs status <plan.json>\n' +
   '   or: tickets.mjs claim      <plan.json> <id> <actor>\n' +
   '   or: tickets.mjs start      <plan.json> <id> <actor>\n' +
   '   or: tickets.mjs comment    <plan.json> <id> <actor> <note...>\n' +
@@ -85,7 +94,8 @@ const USAGE =
   '   or: tickets.mjs accept     <plan.json> <id> <actor>\n' +
   '   or: tickets.mjs release    <plan.json> <id> <actor> <reason...>\n' +
   '   or: tickets.mjs open-for   <plan.json> <actor>\n' +
-  '   or: tickets.mjs check-receipt <plan.json> <id>';
+  '   or: tickets.mjs check-receipt <plan.json> <id>\n' +
+  '   or: tickets.mjs requirement-status <plan.json> <user-stories.md>';
 
 function parseFlags(argv) {
   const flags = {};
@@ -111,9 +121,34 @@ if (isMain) {
     for (const c of collisions) console.log(`  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`);
     // Advisory [!] lines — surfaced to humans/leads; validate-tickets.sh gates on [x] only.
     for (const w of scopeCoverageWarnings(plan)) console.log(`  [!] ${w.msg}`);
-    const clean = ok && collisions.length === 0;
-    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s)`);
+    // T29.2: story-coverage is advisory too, UNLESS STORY_COVERAGE_STRICT
+    // promotes it to a gate (docs/TICKET_SCHEMA.md's "configurable gap").
+    // Only runs when a USER_STORIES.md path was actually passed — a caller
+    // that never adopted the stories[] layer sees no new output at all.
+    let storyGaps = 0;
+    const storiesPath = rest[0];
+    if (storiesPath) {
+      const storyIds = extractStoryIds(readFileSync(storiesPath, 'utf8')).map((s) => s.id);
+      const strict = /^(1|true)$/i.test(process.env.STORY_COVERAGE_STRICT || '');
+      for (const w of storyCoverageWarnings(plan, storyIds)) {
+        if (strict) { console.log(`  [x] ${w.msg}`); storyGaps++; }
+        else console.log(`  [!] ${w.msg}`);
+      }
+    }
+    const clean = ok && collisions.length === 0 && storyGaps === 0;
+    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s), ${storyGaps} story gap(s)`);
     process.exit(clean ? 0 : 1);
+  } else if (cmd === 'requirement-status') {
+    const storiesPath = rest[0];
+    if (!storiesPath) { console.error(USAGE); process.exit(2); }
+    const storyIds = extractStoryIds(readFileSync(storiesPath, 'utf8')).map((s) => s.id);
+    const { stories, openCount, closedCount } = requirementClosure(plan, storyIds);
+    for (const s of stories) {
+      if (s.status === 'open') console.log(`  [x] story '${s.id}' open — ${s.reason}`);
+      else console.log(`  [ok] story '${s.id}' closed (${s.modules.join(', ')})`);
+    }
+    console.log(openCount === 0 ? `ok — ${closedCount} stor${closedCount === 1 ? 'y' : 'ies'} closed, 0 open` : `INVALID — ${openCount} stor${openCount === 1 ? 'y' : 'ies'} open, ${closedCount} closed`);
+    process.exit(openCount === 0 ? 0 : 1);
   } else if (cmd === 'status') {
     recomputeStatus(plan);
     const ready = claimable(plan);

@@ -46,6 +46,7 @@ import { testVendorProvenance } from "./test-vendor-provenance.ts";
 import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
+import { testRequirementClosure } from "./test-requirement-closure.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -494,6 +495,17 @@ console.log(
   "\n[Pass 34] Mermaid bash regex-engine divergence — M001/M004 bracket-idiom audit",
 );
 await testMermaidBashDivergence(root, ok, fail);
+
+// Pass 35: Requirement-story layer + requirement-closure gate (T29.2, H1/A-6.3)
+// -- extractStoryIds() heading parsing, storyCoverageWarnings()/
+// requirementClosure() (tickets-graph.mjs), and parseReconciliationMatrix()/
+// reconciliationGaps() (reconciliation-matrix.mjs): task closure (every
+// module done) is independent of requirement closure (every story actually
+// mapped and delivered) -- the ticket's own acceptance criterion.
+console.log(
+  "\n[Pass 35] Requirement-story layer — story coverage + requirement-closure gate",
+);
+await testRequirementClosure(root, ok, fail);
 
 
 // ---------------------------------------------------------------------------

@@ -63,4 +63,5 @@ END HANDOFF #N
 
 ## Full templates (load only when needed)
 `read(filePath="~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md")`
-For: parallel waves (Template 4), remediation (Template 2), re-verification (Template 3), IaC (Template 9).
+For: parallel waves (Template 4), remediation (Template 2), re-verification (Template 3), IaC (Template 9),
+requirement reconciliation before Phase 5 (Template 11 — mandatory when `plan.json` modules declare `stories[]`).
