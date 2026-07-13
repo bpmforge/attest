@@ -12,6 +12,10 @@ deterministic helpers so the graph math is not vibes.
 **Usage:**
 - `/reflow` — recompute status, show the claimable modules + the board
 - `/reflow claim <module-id> [as <owner>] [with /<skill>]` — claim a module and emit its HANDOFF
+- `/reflow audit [plan.json] [--skip-verify]` — reconciliation mode (T26.4): the incident
+  recovery tool, not a phase-gate check. Use it when a plan.json's process trail may already be
+  broken (self-asserted "done" with no claim/close history — the 2026-07-07 incident) and you
+  need to know what the CODE actually says was built, independent of what the tickets claim.
 
 ## Procedure
 
@@ -104,6 +108,41 @@ says "`<id> done -- ...`" with no receipt block is refused (`scripts/lib/tickets
 `evals/fixtures/validators/validate-close-receipt/{red,green}` fixtures). The evidence in the receipt
 (branch + every commit) must match what `close()` actually recorded — a hand-typed block that merely
 looks like the receipt is rejected too.
+
+## Audit mode — reconciliation after a lost audit trail (T26.4)
+
+Distinct from `validate-ticket-hygiene.sh` (T26.2): that validator is a forward-looking GATE —
+it blocks new claims while a plan.json's *recorded* evidence is incomplete, and checks
+evidence→code correspondence (does a cited commit stay inside its module's write_scope?). Audit
+mode answers the reverse question a post-incident cleanup actually needs — code→evidence
+correspondence — and is a manually-invoked recovery tool, not a chained gate:
+
+```
+node scripts/lib/reflow-audit.mjs <plan.json> [--repo <path>] [--out <path>] [--skip-verify]
+```
+
+Grades every non-`blocked` module against real git history, independent of what `status` claims:
+
+- **manifest** — does `module.manifest` exist on disk (resolved relative to `plan.json`'s directory)?
+- **verify** — does `module.verify`, re-run now (never a caller override — same rule `close()`
+  already follows), exit 0? Pass `--skip-verify` when the target plan's `verify` fields aren't
+  known-safe runnable commands (bare doc paths, side-effecting scripts) — a module simply cannot
+  reach `VERIFIED` without a confirmed pass, so skipping only ever costs precision, never
+  fabricates one. "Not configured" and "skipped" are distinct from "ran and failed" — a module
+  with no `verify` field at all is not penalized for it.
+- **evidence** — do `module.evidence.commits` (if any) actually exist in git history?
+- **code** — does `git log` on the *current checkout* (HEAD, not `--all` — an unmerged branch
+  should never manufacture a false grade) show real commits touching this module's `write_scope`?
+
+Three grades: **VERIFIED** (manifest + verify + evidence all check out), **ORPHAN-CODE** (real
+commits touch the write_scope but no evidence was ever recorded — the 2026-07-07 incident
+pattern: code was built outside the lifecycle machinery), **UNVERIFIED** (everything else,
+including not-yet-started tickets — that alone is not a red flag). Writes
+`docs/work/RECONCILIATION.md` (or `<plan-dir>/RECONCILIATION.md` for an out-of-repo target, or
+wherever `--out` points) with a summary + one subsection per graded module explaining exactly
+which checks passed. Use the ORPHAN-CODE section as the reconciliation punch list: confirm what
+was actually built, then record evidence retroactively (or re-close properly) before trusting the
+ticket layer again.
 
 ## Notes
 - Reflow itself runs inline (deterministic scripts + one HANDOFF on claim) — it does not fan out

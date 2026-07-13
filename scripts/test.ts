@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 /**
- * test.ts — comprehensive validation for bpm-opencode-experts
- *
- * Three passes:
- *   1. Tools    — dynamically import each .ts tool, verify runtime shape
- *   2. Skills   — parse YAML frontmatter, check required fields + cross-refs
- *   3. Agents   — verify content length + required structural sections
+ * test.ts — comprehensive validation for bpm-opencode-experts. Pass 1-3 are
+ * inline (tools/skills/agents); every later pass is a chapter module in its
+ * own scripts/test-*.ts file (see CODE_BOOK_PROTOCOL.md) imported above and
+ * invoked below, each with its own rationale in its own header.
  *
  * Run:  node --experimental-strip-types scripts/test.ts
  */
@@ -40,6 +38,7 @@ import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
 import { testTicketHygiene } from "./test-ticket-hygiene.ts";
 import { testFixVerify } from "./test-fix-verify.ts";
+import { testReflowAudit } from "./test-reflow-audit.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -428,6 +427,12 @@ await testTicketHygiene(root, ok, fail);
 // Pass 26: Fix-verify iteration classes (R4) — REGRESSED detection, per-row counters, iteration classification.
 console.log("\n[Pass 26] Fix-verify iteration classes");
 await testFixVerify(root, ok, fail);
+
+// Pass 27: /reflow audit reconciliation (T26.4) — grades every non-blocked
+// module VERIFIED/UNVERIFIED/ORPHAN-CODE against real git history; the
+// incident-recovery tool, not a phase-gate validator.
+console.log("\n[Pass 27] Reflow audit — code↔ticket reconciliation grading");
+await testReflowAudit(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
