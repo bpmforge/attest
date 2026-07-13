@@ -47,6 +47,7 @@ import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
+import { testModelRoleRouting } from "./test-model-role-routing.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -507,6 +508,17 @@ console.log(
 );
 await testRequirementClosure(root, ok, fail);
 
+// Pass 36: models.json role→model routing (T28.2, M28 Conductor) --
+// resolveRole()/checkMakerVerifierDistinct() (scripts/lib/model-tiers.mjs)
+// and conductor.mjs's own G4 startup gate: a planted same-model
+// coder/reviewer (or coder/challenger) config refuses the run by default
+// (--role-gate block) and only warns-and-continues under --role-gate warn;
+// the run log's conductor.start entry always carries the resolved per-role
+// model map.
+console.log(
+  "\n[Pass 36] Model-role routing — maker/verifier distinctness + conductor G4 gate",
+);
+await testModelRoleRouting(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

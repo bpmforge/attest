@@ -41,6 +41,35 @@ export function loadModelsConfig(path) {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
+// -- role→model routing (T28.2, M28 Conductor) -------------------------------
+//
+// config.roles is a flat { roleName: modelId } map -- the conductor resolves
+// its coder session's model from roles.coder (falling back to an explicit
+// --model, then to opencode's own default); reviewer/challenger entries are
+// config-level routing declarations, not (yet) live sessions this repo's
+// conductor spawns itself -- see conductor.mjs's own header note on scope.
+
+export function resolveRole(role, config, fallback = null) {
+  return config?.roles?.[role] ?? fallback;
+}
+
+// Maker != verifier, mechanically: a verifier role (reviewer/challenger by
+// default) configured to the SAME model id as the coder role defeats the
+// never-self-judge principle at the config level, before any session even
+// runs. Returns [] when clean or when the coder role isn't configured (no
+// coder model -> nothing to compare against). Each violation names the
+// offending verifier role + the shared model id.
+export function checkMakerVerifierDistinct(config, { coderRole = 'coder', verifierRoles = ['reviewer', 'challenger'] } = {}) {
+  const coderModel = resolveRole(coderRole, config);
+  if (!coderModel) return [];
+  const violations = [];
+  for (const role of verifierRoles) {
+    const model = resolveRole(role, config);
+    if (model && model === coderModel) violations.push({ role, model });
+  }
+  return violations;
+}
+
 // -- G3 config-pin lint primitives -------------------------------------------
 //
 // "repo config / agent frontmatter" = a YAML frontmatter `model:` key at the
@@ -123,8 +152,18 @@ function main() {
     }
     return;
   }
+  if (cmd === 'roles-check') {
+    const [modelsJsonPath] = rest;
+    const config = loadModelsConfig(modelsJsonPath);
+    const violations = checkMakerVerifierDistinct(config);
+    for (const v of violations) {
+      console.log(`[VIOLATION] roles.${v.role} ("${v.model}") matches roles.coder -- maker and verifier must differ`);
+    }
+    if (!violations.length) console.log('[CLEAN] coder/reviewer/challenger roles are distinct');
+    return;
+  }
   console.error(
-    'usage: model-tiers.mjs resolve <modelId> <modelsJsonPath> | scan <root> <modelsJsonPath>',
+    'usage: model-tiers.mjs resolve <modelId> <modelsJsonPath> | scan <root> <modelsJsonPath> | roles-check <modelsJsonPath>',
   );
   process.exitCode = 2;
 }
