@@ -49,6 +49,7 @@ import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
 import { testModelRoleRouting } from "./test-model-role-routing.ts";
 import { testStatusReport } from "./test-status-report.ts";
+import { testTrackerIntegrity } from "./test-tracker-integrity.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -532,6 +533,21 @@ console.log(
   "\n[Pass 37] Status report — built-vs-done split + freshness check",
 );
 await testStatusReport(root, ok, fail);
+
+// Pass 38: Tracker Data Model + integrity validator (T29.6, M29 field
+// lesson H5/A-6, external trackers) -- parseTrackerSpec()/
+// validateTrackerSnapshot() (tracker-model.mjs) and sweepLinks()
+// (tracker-link-sweep.mjs): a project generating its backlog into an
+// external tracker (Jira/Linear/GitHub Projects/...) must record
+// docs/TRACKER_DATA_MODEL.md BEFORE any docs/work/tracker-snapshot.json
+// exists; once a snapshot exists, every non-stray item needs its required
+// label, every story needs a structural phase link, and no untagged
+// template/sample item silently pollutes scope math. Straggler links are
+// idempotent, not a one-time retrofit.
+console.log(
+  "\n[Pass 38] Tracker Data Model — spec-before-backlog gate + snapshot integrity + idempotent link sweep",
+);
+await testTrackerIntegrity(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
