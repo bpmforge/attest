@@ -194,3 +194,121 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ---------------------------------------------------------------------------
+// T28.2 (M28 model routing): a single-ticket fixture whose OWN models.json
+// carries a `roles.coder` distinct from `roles.reviewer` — proves the
+// resolved coder-role model actually threads through to the real
+// `opencode run --model <...>` spawn (not just resolved and logged), and
+// that a fully-distinct roles map lands the ticket normally (the routing
+// gate itself never blocks a clean config).
+function setupRoleRoutingFixture() {
+  const base = mkdtempSync(resolve(tmpdir(), 'conductor-t28-2-'));
+  const target = resolve(base, 'target-repo');
+  mkdirSync(target, { recursive: true });
+  const git = (...a) => sh('git', a, { cwd: target });
+
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'conductor-test@example.com');
+  git('config', 'user.name', 'Conductor Test');
+  git('config', 'commit.gpgsign', 'false');
+
+  const verifyFor = (id, scopeDir) =>
+    `bash ${GATES_SH} --scope ${scopeDir} --manifest docs/reviews/MANIFEST_${id}.md --root .`;
+
+  const plan = {
+    goal: 'T28.2 role-routing fixture',
+    modules: [{
+      id: 'TICK-ROLE', kind: 'module', title: 'Role-routed ticket', lane: 'lane-a', owner: null, status: 'ready',
+      write_scope: ['a/**'], depends_on: [], acceptance: ['writes a/hello.txt'],
+      verify: verifyFor('TICK-ROLE', 'a'), manifest: 'docs/reviews/MANIFEST_TICK-ROLE.md',
+    }],
+  };
+  writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  // Distinct, obviously-fake model ids -- this test only needs to prove they
+  // route through, not that they're real opencode-recognized identifiers.
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
+  for (const d of ['a', 'docs/reviews']) {
+    mkdirSync(resolve(target, d), { recursive: true });
+    writeFileSync(resolve(target, d, '.gitkeep'), '');
+  }
+  mkdirSync(resolve(target, 'docs/work'), { recursive: true });
+  writeFileSync(resolve(target, '.gitignore'), 'docs/work/\n.conductor-worktrees/\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'initial fixture');
+
+  const binDir = resolve(base, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const stub = resolve(binDir, 'opencode-stub.sh');
+  const argsLog = resolve(base, 'stub-args.log');
+  writeFileSync(stub, `#!/usr/bin/env bash
+set -euo pipefail
+echo "$@" >> ${JSON.stringify(argsLog)}
+[[ "\${1:-}" == "run" ]] || exit 0
+DIR=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in --dir) DIR="$2"; shift 2 ;; *) shift ;; esac
+done
+mkdir -p "$DIR/a" "$DIR/docs/reviews"
+echo hello > "$DIR/a/hello.txt"
+cat > "$DIR/docs/reviews/MANIFEST_TICK-ROLE.md" <<EOF
+# Completion Manifest — TICK-ROLE
+
+Maker: conductor
+Verifier: conductor-review
+Tracker updated: CHANGELOG.md
+
+## Files produced
+- \\\`a/hello.txt\\\`
+
+## Decisions
+- kept it simple
+
+## Known issues
+- none
+
+## Verify result
+- \\\`a/hello.txt\\\` written and present
+
+TICK-ROLE done -- wrote a/hello.txt.
+EOF
+exit 0
+`);
+  chmodSync(stub, 0o755);
+
+  return { base, target, stub, argsLog };
+}
+
+test('conductor.mjs: T28.2 role routing — resolved coder-role model reaches the real opencode spawn', { timeout: 60_000 }, () => {
+  const { base, target, stub, argsLog } = setupRoleRoutingFixture();
+  try {
+    sh('node', [CONDUCTOR, '--root', target, '--max-attempts', '1', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'done', 'the ticket should land — a clean, distinct roles map must never block a run');
+
+    // The stub echoes its raw argv (`echo "$@"`); the prompt argument itself
+    // contains embedded newlines, so this is read as one blob, not split
+    // per-line — a per-line parse would truncate at the prompt's first line.
+    const stubArgv = readFileSync(argsLog, 'utf8');
+    assert.ok(stubArgv.trimStart().startsWith('run '), 'opencode stub should have received a run invocation');
+    assert.match(stubArgv, /--model fixture\/coder-model/, 'the spawned opencode session must receive roles.coder\'s resolved model, not roles.reviewer\'s or none at all');
+
+    const log = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const start = log.find((r) => r.kind === 'conductor.start');
+    assert.deepEqual(start.roles, { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model', challenger: null }, 'conductor.start log entry must show the mapped model per role');
+    const mismatch = log.find((r) => r.kind === 'gate.role-mismatch');
+    assert.equal(mismatch, undefined, 'a fully-distinct roles map must never be flagged');
+
+    const sessionStarts = log.filter((r) => r.kind === 'session.start');
+    assert.ok(sessionStarts.length > 0 && sessionStarts.every((r) => r.role === 'coder' && r.model === 'fixture/coder-model'), 'every session.start entry must be tagged with the coder role + its resolved model');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
