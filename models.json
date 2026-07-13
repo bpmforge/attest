@@ -15,5 +15,11 @@
   },
   "models": {
     "lmstudio/qwen3.6-35b-a3b": { "max_output_real": 10000 }
+  },
+  "roles": {
+    "coder": "google/gemini-2.5-flash",
+    "reviewer": "anthropic/claude-opus-4-8",
+    "challenger": "anthropic/claude-opus-4-8",
+    "advisor": "anthropic/claude-opus-4-8"
   }
 }
