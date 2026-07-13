@@ -39,6 +39,7 @@ import { testSkillsParity } from "./test-skills-parity.ts";
 import { testTicketHygiene } from "./test-ticket-hygiene.ts";
 import { testFixVerify } from "./test-fix-verify.ts";
 import { testReflowAudit } from "./test-reflow-audit.ts";
+import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -433,6 +434,11 @@ await testFixVerify(root, ok, fail);
 // incident-recovery tool, not a phase-gate validator.
 console.log("\n[Pass 27] Reflow audit — code↔ticket reconciliation grading");
 await testReflowAudit(root, ok, fail);
+
+// Pass 28: run-plan.mjs tier-aware retry budgets (O2 runtime fold, T31.7) —
+// stall-2-then-escalate, PROGRESSED extension, tier-aware ceiling (6/12).
+console.log("\n[Pass 28] Run-plan tier-aware retry budgets");
+await testRunPlanBudgets(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

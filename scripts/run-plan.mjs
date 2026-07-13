@@ -24,6 +24,23 @@
 //   --max-retries, then mark escalated; downstream nodes are blocked, but
 //   independent branches keep running.
 //
+// Tier-aware retry budgets (O2 runtime fold, T31.7 — folds FIX_VERIFY_LOOP.md's
+// v2 iteration classes from protocol text into this runner):
+//   - STALLED: a failed attempt whose checkpoint file (<output>.checkpoint.md)
+//     did not grow since the prior attempt. Two STALLED attempts in a row
+//     escalate immediately (stall-2-then-escalate) — even inside the base
+//     --max-retries budget, never waiting for a third identical attempt.
+//   - PROGRESSED: a failed attempt whose checkpoint grew. Does not count
+//     against the stall budget; may extend retries past --max-retries as
+//     long as each attempt keeps progressing, up to a tier-aware ceiling
+//     read from docs/work/.model-context (attemptCeiling(): 6 on
+//     metered/cloud tiers, 12 on local/unknown tiers — same convention as
+//     fix-verify.mjs's R4 classes). Hitting the ceiling while still
+//     PROGRESSED is a decomposition signal, not folded in here — it falls
+//     through to the existing escalation path.
+//   - Infra event (timeout/kill): spends an attempt but is never judged
+//     STALLED or PROGRESSED — it does not touch the stall counter.
+//
 // Journal: <plan dir>/journal.json — re-running the script resumes; completed
 // nodes never re-run. Logs: <plan dir>/logs/<node>.log
 //
@@ -80,6 +97,34 @@ if (has('--self-test')) {
       `else { process.exit(1); }\n`);
     return { dir, stub };
   };
+  // Stub that grows <output>.checkpoint.md by 10 bytes on every failed
+  // attempt (a real checkpoint-writing agent, minus the model) — optionally
+  // succeeds once its own invocation counter reaches successAt, or never
+  // succeeds (successAt=null) to exercise the ceiling. modelContext, when
+  // given, is written to docs/work/.model-context before the run so
+  // attemptCeiling() reads a forced tier.
+  const mkGrowingCase = (successAt, modelContext) => {
+    const dir = mkdtempSync(join(tmpdir(), 'runplan-'));
+    const out = join(dir, 'out.txt');
+    const checkpoint = `${out}.checkpoint.md`;
+    const countFile = join(dir, 'count');
+    writeFileSync(join(dir, 'plan.json'), JSON.stringify({ request: 'self-test',
+      nodes: [{ id: 'n1', agent: 'stub', task: 'self-test node', inputs: [], output: out, depends_on: [], tier_needed: 'small' }] }));
+    if (modelContext) {
+      mkdirSync(join(dir, 'docs/work'), { recursive: true });
+      writeFileSync(join(dir, 'docs/work/.model-context'), modelContext);
+    }
+    const stub = join(dir, 'stub.mjs');
+    writeFileSync(stub, [
+      `import {writeFileSync,existsSync,readFileSync} from 'node:fs';`,
+      `const c=${JSON.stringify(countFile)};`,
+      `const n=(existsSync(c)?parseInt(readFileSync(c,'utf8')):0)+1;`,
+      `writeFileSync(c,String(n));`,
+      `if (${successAt !== null} && n>=${successAt}) { writeFileSync(${JSON.stringify(out)},'ok'); }`,
+      `else { writeFileSync(${JSON.stringify(checkpoint)}, 'x'.repeat(n*10)); process.exit(1); }`,
+    ].join('\n'));
+    return { dir, stub };
+  };
   const fail = (m) => { console.log(`run-plan self-test FAIL: ${m}`); process.exit(1); };
   // 1. escalate-success — fails at small, succeeds after bump to medium
   let c = mkCase(true);
@@ -96,7 +141,32 @@ if (has('--self-test')) {
   r = await runSub(c.dir, ['--auto-escalate', '--max-escalations', '0', '--max-retries', '0', '--cmd', `node ${c.stub}`]);
   j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
   if (!(r.code === 4 && j.n1.status === 'escalated' && /cap 0 reached/.test(r.out))) fail(`cap (code=${r.code})`);
-  console.log('run-plan self-test PASS (escalate-success + escalate-fail + cap)');
+  // 4. stall-2-then-escalate (T31.7) — a node that never progresses (no
+  // checkpoint growth) escalates after 2 attempts, well inside a generous
+  // --max-retries budget — never waiting for a 3rd identical attempt.
+  c = mkCase(false);
+  r = await runSub(c.dir, ['--max-retries', '5', '--cmd', `node ${c.stub}`]);
+  j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 4 && j.n1.status === 'escalated' && j.n1.attempts === 2 && j.n1.consecutiveStalls === 2))
+    fail(`stall-2-then-escalate (code=${r.code}, attempts=${j.n1?.attempts}, stalls=${j.n1?.consecutiveStalls})`);
+  // 5. PROGRESSED extension (T31.7) — a node whose checkpoint keeps growing
+  // extends past --max-retries (2, i.e. 3 base attempts) and succeeds on
+  // attempt 5, under the tier-aware ceiling (12, no .model-context present).
+  c = mkGrowingCase(5, null);
+  r = await runSub(c.dir, ['--max-retries', '2', '--cmd', `node ${c.stub}`]);
+  j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 0 && j.n1.status === 'done' && j.n1.attempts === 5))
+    fail(`progressed-extension (code=${r.code}, attempts=${j.n1?.attempts})`);
+  // 6. Tier-aware ceiling hit while still PROGRESSED (T31.7) — a node that
+  // keeps growing its checkpoint but never succeeds still stops at the
+  // metered ceiling (6, forced via a docs/work/.model-context tier=large
+  // fixture) rather than extending forever.
+  c = mkGrowingCase(null, 'type=cloud\ntier=large\n');
+  r = await runSub(c.dir, ['--max-retries', '2', '--cmd', `node ${c.stub}`]);
+  j = JSON.parse(readFileSync(join(c.dir, 'journal.json'), 'utf8'));
+  if (!(r.code === 4 && j.n1.status === 'escalated' && j.n1.attempts === 6 && j.n1.attemptCeiling === 6))
+    fail(`ceiling-while-progressed (code=${r.code}, attempts=${j.n1?.attempts}, ceiling=${j.n1?.attemptCeiling})`);
+  console.log('run-plan self-test PASS (escalate-success + escalate-fail + cap + stall-2-then-escalate + progressed-extension + tier-ceiling)');
   process.exit(0);
 }
 
@@ -173,6 +243,41 @@ async function healthCheck() {
   return false;
 }
 
+// Tier-aware attempt ceiling (O2 runtime fold, T31.7). Same
+// docs/work/.model-context convention + defaults as fix-verify.mjs's R4
+// classes (metered_ceiling 6 / local_ceiling 12, values overridable via the
+// context file) — kept as a standalone read here (not imported) so this
+// script has no cross-script dependency, matching the rest of the file's
+// style. Deliberately reads the AMBIENT session tier (is this session itself
+// running on a local model), never a node's own tier_needed — those are two
+// different axes and conflating them would apply the wrong ceiling.
+function readModelContext() {
+  const contextFile = 'docs/work/.model-context';
+  const defaults = { tier: 'unknown', metered_ceiling: 6, local_ceiling: 12 };
+  if (!existsSync(contextFile)) return defaults;
+  try {
+    const ctx = {};
+    for (const line of readFileSync(contextFile, 'utf8').split('\n')) {
+      const [k, v] = line.split('=');
+      if (k) ctx[k.trim()] = v?.trim();
+    }
+    return {
+      tier: ctx.tier || defaults.tier,
+      metered_ceiling: parseInt(ctx.metered_ceiling || defaults.metered_ceiling, 10),
+      local_ceiling: parseInt(ctx.local_ceiling || defaults.local_ceiling, 10),
+    };
+  } catch {
+    return defaults;
+  }
+}
+
+function attemptCeiling() {
+  const ctx = readModelContext();
+  const t = ctx.tier;
+  if (!t || t === 'unknown' || t.includes('local') || t.includes('small')) return ctx.local_ceiling;
+  return ctx.metered_ceiling;
+}
+
 function buildPrompt(n, attempt) {
   const checkpoint = `${n.output}.checkpoint.md`;
   const inputs = [...(n.inputs ?? [])];
@@ -209,6 +314,8 @@ function telemetry(row) {
 
 async function runNode(n) {
   const entry = (journal[n.id] ??= { status: 'pending', attempts: 0 });
+  entry.consecutiveStalls ??= 0;
+  entry.lastCheckpointSize ??= 0;
   let tier = n.tier_needed ?? plan.executor_tier ?? 'small';
   mkdirSync(LOG_DIR, { recursive: true });
   mkdirSync(dirname(n.output), { recursive: true });
@@ -242,13 +349,44 @@ async function runNode(n) {
       return true;
     }
     console.log(`[run-plan] ${n.id} ✗ no valid output (${attemptLabel})` + (err ? ` (${err.killed ? 'TIMEOUT' : 'error'})` : ''));
+    entry.lastAttemptInfra = !!(err && err.killed);
     saveJournal();
     return false;
   };
 
-  while (entry.attempts <= MAX_RETRIES) {
-    if (await attemptOnce(tier, `attempt ${entry.attempts + 1}/${MAX_RETRIES + 1}`)) return true;
+  const ceiling = attemptCeiling();
+  entry.attemptCeiling = ceiling;
+  const checkpointPath = `${n.output}.checkpoint.md`;
+  const checkpointSize = () => (existsSync(checkpointPath) ? statSync(checkpointPath).size : 0);
+
+  for (;;) {
+    const withinBase = entry.attempts <= MAX_RETRIES;
+    const extending = !withinBase && entry.iterationClass === 'PROGRESSED' && entry.attempts < ceiling;
+    if (!withinBase && !extending) break;
+    if (entry.consecutiveStalls >= 2) break;
+
+    const label = withinBase
+      ? `attempt ${entry.attempts + 1}/${MAX_RETRIES + 1}`
+      : `progressed-extension attempt ${entry.attempts + 1}/${ceiling}`;
+    if (await attemptOnce(tier, label)) return true;
     if (DRY) return true;
+
+    if (entry.lastAttemptInfra) continue; // infra event (timeout/kill): no stall/progress verdict
+
+    const size = checkpointSize();
+    if (size > entry.lastCheckpointSize) {
+      entry.iterationClass = 'PROGRESSED';
+      entry.consecutiveStalls = 0;
+    } else {
+      entry.iterationClass = 'STALLED';
+      entry.consecutiveStalls += 1;
+    }
+    entry.lastCheckpointSize = size;
+    saveJournal();
+    if (entry.consecutiveStalls >= 2) {
+      console.log(`[run-plan] ${n.id} STALLED twice in a row (no checkpoint growth) — escalating now`);
+      break;
+    }
   }
 
   // O2.4: auto-escalate — bump one tier and retry ONCE at the stronger tier.
