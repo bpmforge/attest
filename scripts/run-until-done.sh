@@ -75,6 +75,14 @@
 #   FIX_VERIFY_LOOP.md's rule: it counts toward --max-sessions but never
 #   touches the stall counter.
 #
+# Context-limit sync (T30.8, LOCAL_CONTEXT_INTEGRITY_DESIGN P2): opencode has no
+# runtime hook to re-read `limit.*` mid-session -- static config is the only
+# mechanism it supports -- so the loop syncs the config to LM Studio's actually-
+# loaded context ONCE, before the first session, rather than trusting whatever
+# was last written. Best-effort and non-fatal: a cloud/large-tier run has no
+# local provider to sync, and an unreachable LM Studio or a sub-floor load just
+# means limits are left exactly as they were found (see sync_model_limits()).
+#
 # Usage:
 #   run-until-done.sh --prompt "<task>" [--agent sdlc-lead] [--model <m>]
 #                     [--state docs/work/STATE.md] [--root .]
@@ -353,6 +361,30 @@ run_loop() {
   return 1
 }
 
+# sync_model_limits (T30.8): reconcile opencode's believed provider `limit.*`
+# to LM Studio's actually-loaded context before this loop's first session.
+# Resolves OPENCODE_CONFIG if set, else `opencode debug paths`'s config dir.
+# Silent no-op when node/the sync script/a resolvable config aren't present
+# (self-test's stubbed RUN_CMD never needs this and never calls it, since it
+# returns before run_loop in that branch).
+sync_model_limits() {
+  local script_dir sync_script cfg cfg_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)" || return 0
+  sync_script="$script_dir/sync-model-limits.mjs"
+  [[ -f "$sync_script" ]] || return 0
+  command -v node >/dev/null 2>&1 || return 0
+  cfg="${OPENCODE_CONFIG:-}"
+  if [[ -z "$cfg" ]] && command -v opencode >/dev/null 2>&1; then
+    cfg_dir="$(opencode debug paths 2>/dev/null | awk '/^config[[:space:]]/{print $2}')"
+    [[ -n "$cfg_dir" ]] && cfg="$cfg_dir/opencode.json"
+  fi
+  [[ -n "$cfg" && -f "$cfg" ]] || return 0
+  mkdir -p "$(dirname "$LOG")"
+  if ! node "$sync_script" --config "$cfg" --write >>"$LOG" 2>&1; then
+    echo "[run-until-done] sync-model-limits found a sub-floor load or unreachable LM Studio -- see $LOG, continuing with limits as found" | tee -a "$LOG" >&2
+  fi
+}
+
 if [[ "$SELFTEST" == "1" ]]; then
   tmp="$(mktemp -d)"; trap 'rm -rf "$tmp"' EXIT
   STATE="$tmp/STATE.md"; LOG="$tmp/run.log"; PROMPT="self-test"; MAX_SESSIONS=5; ROOT="$tmp"; POLL_SECONDS=1
@@ -498,4 +530,5 @@ if ! next_work_gate_ok; then
   echo "[run-until-done] refusing to start -- see ${LOG} for which gate fired" >&2
   exit 1
 fi
+sync_model_limits
 run_loop
