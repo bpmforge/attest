@@ -87,6 +87,41 @@ Context is not a constraint. Focus on quality.
 
 ---
 
+## Escalation Ledger Integration — Hop Emission
+
+When `detect-model-context.sh` runs, it records a **hop** (model-decision event) to the escalation ledger located at `~/.claude-memory/<projectId>/memory.db`. This ledger powers M7's escalation guidance and weekly reports.
+
+**How it works:**
+1. `detect-model-context.sh` detects the model and provider (cloud or local)
+2. Before exiting, it calls the `log-hop.mjs` CLI shim with the detected model details
+3. The shim writes a `Hop` record to the SQLite ledger (same DB as the memory-MCP server)
+4. The hop includes: task fingerprint, detected model, gate result ('pass' for successful detection), lane ('proc'), and ISO timestamp
+
+**Prerequisites:**
+- Node.js must be on PATH (the shim skips gracefully if unavailable)
+- The escalation-ledger package must be built: run `npm run build` in `bpm-agent-amplifier/` to generate `packages/escalation-ledger/dist/`
+- Both repos must be sibling directories (bpm-opencode-experts and bpm-agent-amplifier)
+
+**Failure behavior:**
+- If the ledger write fails (DB locked, missing package, etc.), the shim exits silently with code 0
+- Model detection never blocks on ledger operations — failures are logged to stderr but do not break the session
+
+**Querying hops:**
+After running `bash scripts/detect-model-context.sh`, the ledger will contain a record:
+```sql
+SELECT * FROM escalation_hops 
+WHERE lane = 'proc' AND task_fp LIKE 'session/detect-model-context-%' 
+ORDER BY ts DESC LIMIT 1;
+```
+
+Periodic reports are generated via the `@bpm/escalation-ledger` package:
+```js
+import { weeklyReport } from '@bpm/escalation-ledger';
+console.log(weeklyReport()); // Markdown table of escalation trends
+```
+
+---
+
 ## KV-cache & context hygiene (all tiers; MANDATORY small)
 
 Near-free throughput wins that every 2026 harness applies:
