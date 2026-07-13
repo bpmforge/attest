@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # full history: ticket-hygiene evidence checks resolve fixture commits
+          # (e.g. 80a9df70) via `git cat-file`; the default depth-1 shallow clone
+          # makes them look "fabricated" and fails 3 tests (2026-07-12 CI fix).
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
