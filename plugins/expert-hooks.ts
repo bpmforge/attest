@@ -1,11 +1,11 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
 //
 // Ports the high-value subset of claude-experts' hooks to opencode's
-// plugin surface. Three phases:
+// plugin surface. Four phases:
 //
 //   tool.execute.before   block dangerous bash commands; block writes to
 //                         .env / credential / key files.
@@ -15,7 +15,17 @@ import { dirname, join } from "node:path";
 //                         are best-effort: failures inform the LLM via
 //                         console.warn but never block the workflow.
 //
-//   event                 telemetry (plan 4.12): on every completed
+//   event (session)       G1 session-model receipt (T30.2, M30 model-tier
+//                         guard): on the FIRST assistant message of a
+//                         session, resolve the tier of the model that's
+//                         actually running (against the project's own
+//                         models.json `tiers` registry, T30.1) and log it
+//                         to docs/work/session-receipts.jsonl + a
+//                         console.log first line — the exact "opus ran
+//                         silently and nobody knew" incident this module
+//                         exists to prevent. Disable: EXPERTS_TELEMETRY=0.
+//
+//   event (telemetry)     telemetry (plan 4.12): on every completed
 //                         assistant message, append one JSONL row of
 //                         ACTUALS (agent, model, tokens in/out/reasoning,
 //                         cache, cost, duration) to the project's
@@ -27,8 +37,6 @@ import { dirname, join } from "node:path";
 //   - commit-validator.sh  → use a git pre-commit hook in the user's repo
 //   - test-on-stop.sh      → no clean session.idle "wind down" semantic;
 //                            users invoke /test-expert when ready
-//   - session-start.sh     → opencode has no UserPromptSubmit-equivalent
-//                            today; deferred until the event API exposes it
 
 // ─── Dangerous bash command blocklist ────────────────────────────────
 const DANGEROUS_BASH: Array<[RegExp, string]> = [
@@ -190,9 +198,23 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       if (process.env.EXPERTS_TELEMETRY === "0") return;
       if (event.type !== "message.updated") return;
       const info: any = (event as any).properties?.info;
-      // Only completed assistant messages — message.updated streams many
-      // partial updates; time.completed marks the final one.
-      if (!info || info.role !== "assistant" || !info.time?.completed) return;
+      if (!info || info.role !== "assistant") return;
+
+      // G1 — session-model receipt (T30.2): fires once, on the first
+      // assistant message seen for this session. providerID/modelID are
+      // set at message creation, not just completion, so this is the
+      // earliest point a plugin can observe "the model that's actually
+      // running" — the exact fact the opus-4.8 misconfig incident showed
+      // nothing was recording.
+      if (!sessionModelLogged.has(info.sessionID)) {
+        sessionModelLogged.add(info.sessionID);
+        if (sessionModelLogged.size > 5000) sessionModelLogged.clear();
+        logSessionReceipt(info.path?.root ?? process.cwd(), info);
+      }
+
+      // Only completed assistant messages beyond this point — message.updated
+      // streams many partial updates; time.completed marks the final one.
+      if (!info.time?.completed) return;
       if (loggedMessages.has(info.id)) return;
       loggedMessages.add(info.id);
       if (loggedMessages.size > 5000) loggedMessages.clear();
@@ -217,6 +239,74 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
     },
   };
 };
+
+// ─── G1: session-model receipt (T30.2, M30 model-tier guard) ─────────
+// Self-contained on purpose: install.sh only ships `plugins/` to a target
+// project (not `scripts/`), so this plugin can't import
+// scripts/lib/model-tiers.mjs across the install boundary. The matching
+// algorithm below intentionally mirrors that module's `resolveTier` (same
+// glob-to-regex, same first-match-wins over tiers in declaration order) —
+// keep the two in sync by hand if the registry format changes.
+const sessionModelLogged = new Set<string>();
+const tierConfigCache = new Map<string, any>();
+
+export function globToRegExpForTier(glob: string): RegExp {
+  const escaped = glob
+    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
+    .replace(/\*/g, ".*");
+  return new RegExp(`^${escaped}$`, "i");
+}
+
+export function resolveTierForReceipt(
+  modelId: string,
+  config: any,
+): string | null {
+  if (!modelId || !config?.tiers) return null;
+  for (const [tierName, tier] of Object.entries<any>(config.tiers)) {
+    for (const pattern of tier?.match ?? []) {
+      if (globToRegExpForTier(pattern).test(modelId)) return tierName;
+    }
+  }
+  return null;
+}
+
+export function loadTierConfig(root: string): any {
+  if (tierConfigCache.has(root)) return tierConfigCache.get(root);
+  let config: any = null;
+  try {
+    config = JSON.parse(readFileSync(join(root, "models.json"), "utf8"));
+  } catch {
+    // No project-level models.json — tier resolves to null (unclassified),
+    // not an error; G2's gate only fires for a resolved "frontier" tier.
+  }
+  tierConfigCache.set(root, config);
+  return config;
+}
+
+export function logSessionReceipt(projectRoot: string, info: any) {
+  try {
+    const modelId = `${info.providerID}/${info.modelID}`;
+    const tier = resolveTierForReceipt(modelId, loadTierConfig(projectRoot));
+    const row = {
+      ts: new Date(info.time?.created ?? Date.now()).toISOString(),
+      source: "plugin",
+      session: info.sessionID,
+      agent: info.mode ?? null,
+      model: modelId,
+      tier,
+    };
+    const file = join(projectRoot, "docs", "work", "session-receipts.jsonl");
+    mkdirSync(dirname(file), { recursive: true });
+    appendFileSync(file, JSON.stringify(row) + "\n");
+    // The "first output line" half of G1 — surfaces the resolved model+tier
+    // immediately, not just in a file nobody tails mid-session.
+    console.log(
+      `[session-receipt] model=${modelId} tier=${tier ?? "unclassified"} session=${info.sessionID}`,
+    );
+  } catch {
+    // Receipts must never break the session — silent, same as telemetry.
+  }
+}
 
 // ─── Telemetry (plan 4.12) ───────────────────────────────────────────
 // Append-only JSONL of actuals. Counts and identifiers only — never
