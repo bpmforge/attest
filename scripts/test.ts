@@ -40,6 +40,7 @@ import { testTicketHygiene } from "./test-ticket-hygiene.ts";
 import { testFixVerify } from "./test-fix-verify.ts";
 import { testReflowAudit } from "./test-reflow-audit.ts";
 import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
+import { testModelTierLint } from "./test-model-tier-lint.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -439,6 +440,14 @@ await testReflowAudit(root, ok, fail);
 // stall-2-then-escalate, PROGRESSED extension, tier-aware ceiling (6/12).
 console.log("\n[Pass 28] Run-plan tier-aware retry budgets");
 await testRunPlanBudgets(root, ok, fail);
+
+// Pass 29: Model-tier registry + config-pin lint (T30.1, M30 model-tier
+// guard) — tier resolution for every glob pattern in models.json's tiers
+// registry, plus validate-model-pins.sh red/warn/green fixtures.
+console.log(
+  "\n[Pass 29] Model-tier registry — tier resolution + config-pin lint",
+);
+await testModelTierLint(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

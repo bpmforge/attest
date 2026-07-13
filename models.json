@@ -1,0 +1,19 @@
+{
+  "tiers": {
+    "local": {
+      "match": ["lmstudio/*", "lmstudio-remote/*"],
+      "gate": "none"
+    },
+    "cheap": {
+      "match": ["google/gemini-*-flash*", "*haiku*"],
+      "gate": "none"
+    },
+    "frontier": {
+      "match": ["*opus*", "*fable*", "*gpt-5*", "*gemini-*-pro*"],
+      "gate": "escalation-token"
+    }
+  },
+  "models": {
+    "lmstudio/qwen3.6-35b-a3b": { "max_output_real": 10000 }
+  }
+}
