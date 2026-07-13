@@ -41,6 +41,7 @@ import { testFixVerify } from "./test-fix-verify.ts";
 import { testReflowAudit } from "./test-reflow-audit.ts";
 import { testRunPlanBudgets } from "./test-run-plan-budgets.ts";
 import { testModelTierLint } from "./test-model-tier-lint.ts";
+import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -448,6 +449,12 @@ console.log(
   "\n[Pass 29] Model-tier registry — tier resolution + config-pin lint",
 );
 await testModelTierLint(root, ok, fail);
+
+// Pass 30: Session-model receipt (T30.2, M30 model-tier guard, G1) —
+// plugins/expert-hooks.ts resolves + receipts the model/tier actually
+// running at session start, mirroring scripts/lib/model-tiers.mjs.
+console.log("\n[Pass 30] Session-model receipt — G1 resolved model + tier");
+await testSessionModelReceipt(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
