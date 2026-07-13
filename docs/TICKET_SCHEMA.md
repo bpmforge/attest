@@ -157,6 +157,31 @@ Worked example against a real, external, unmodified project (not a synthetic fix
 [`docs/work/examples/repopulse-reconciliation-example.md`](work/examples/repopulse-reconciliation-example.md)
 — also documents the epic-level fallback for projects that haven't adopted `stories[]` yet.
 
+## Generated project status: built-vs-done split + freshness (T29.3)
+
+`scripts/gen-status-report.mjs` regenerates `docs/work/STATUS.md` from the same two layers
+`requirementClosure()` reads: task closure (`plan.modules[].status === 'done'`, "platform /
+foundation built") and, when `docs/USER_STORIES.md`/`stories[]` are adopted, requirement closure
+("features complete"). A phase is painted complete only when **both** layers are 100% — 100% tasks
+with any open story renders `🟡 BUILT — FEATURES INCOMPLETE`, never green (this is what closes
+C-1/H7: a hand-written STATUS.md could previously claim "done" off task closure alone, the same
+defect T29.2 closed for the phase-4→5 gate). Pure derivation lives in
+`scripts/lib/status-report.mjs` (`computeStatusReport`, `renderStatusMarkdown`,
+`checkStatusFreshness`, `lastWorkEvent`) so the generator and the freshness check share one
+source of truth.
+
+**Freshness.** Every generated `STATUS.md` embeds a `<!-- STATUS_REPORT_META {...} -->` JSON
+comment (numbers + `generatedAt` + the plan's own last work event — the latest `history[]`/
+`claimed_at` timestamp across all modules). `node scripts/gen-status-report.mjs <plan> <stories>
+<out> --check` (wrapped by `scripts/validators/validate-status-freshness.sh`) flags the artifact
+**stale** when its embedded numbers mismatch a live recompute against the current `plan.json`, or
+the plan has a work event newer than `generatedAt`. Not chained into a phase gate — STATUS.md is a
+rolling dashboard artifact, not a phase deliverable — the intended caller is the steward skill
+(`/steward audit`, see `skills/steward/SKILL.md`).
+
+CLI: `node scripts/gen-status-report.mjs [plan.json] [user-stories.md] [out.md]` · `... --check`
+(freshness only, doesn't regenerate).
+
 ## API (`scripts/lib/tickets.mjs`)
 
 ```

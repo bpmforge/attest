@@ -47,6 +47,7 @@ import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
+import { testStatusReport } from "./test-status-report.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -507,6 +508,17 @@ console.log(
 );
 await testRequirementClosure(root, ok, fail);
 
+// Pass 36: Generated-project STATUS.md derivation + freshness (T29.3, H7/C-1)
+// -- computeStatusReport()/renderStatusMarkdown()/checkStatusFreshness()
+// (status-report.mjs): status derives % from BOTH the task layer and the
+// T29.2 requirement (story) layer, never paints a phase green with an open
+// story (tasks=100%/stories=50% renders half-done, the ticket's own
+// acceptance fixture), and flags an artifact stale when its embedded
+// numbers mismatch a live recompute or predate the plan's last work event.
+console.log(
+  "\n[Pass 36] Status report — built-vs-done split + freshness check",
+);
+await testStatusReport(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
