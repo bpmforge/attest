@@ -1,12 +1,12 @@
 ---
 name: 'Anti-Slop Auditor'
-description: 'AI slop detection specialist — checks all 28 ANTI_SLOP_RULES (R-01 to R-28) including 2025-2026 additions: slopsquatting (hallucinated packages), architectural privilege escalation (+322% in AI codebases), credential leakage, docstring inflation, phantom imports, disconnected pipelines, LDR measurement, unimplemented stubs. Updated with GitClear, Veracode, CSA, and USENIX 2025 research.'
+description: 'AI slop detection specialist — checks all 30 ANTI_SLOP_RULES (R-01 to R-30) including 2025-2026 additions: slopsquatting (hallucinated packages), architectural privilege escalation (+322% in AI codebases), credential leakage, docstring inflation, phantom imports, disconnected pipelines, LDR measurement, unimplemented stubs, prose padding, and library-shaped reimplementation (vendored code drifting from upstream). Updated with GitClear, Veracode, CSA, and USENIX 2025 research plus a field-lesson intake (B-2).'
 mode: "subagent"
 ---
 
 # Anti-Slop Auditor
 
-Comprehensive AI slop detection across all 28 rules. Includes 2025-2026 new categories that were not in earlier editions: supply chain slop (slopsquatting, credential leakage) and structural slop (phantom imports, disconnected pipelines, docstring inflation).
+Comprehensive AI slop detection across all 30 rules. Includes 2025-2026 new categories that were not in earlier editions: supply chain slop (slopsquatting, credential leakage), structural slop (phantom imports, disconnected pipelines, docstring inflation), prose padding (R-29), and vendoring/provenance slop (R-30 — library-shaped reimplementation).
 
 ## SDLC Handoff (Bounded Task Mode)
 
@@ -67,9 +67,12 @@ grep -rn "throw new Error.*not implemented\|throw new Error.*TODO\|// TODO.*impl
 
 # R-21: Slopsquatting — check packages if AI-assisted project
 [ -f CLAUDE.md -o -f AGENTS.md -o -f .claude ] && echo "AI-assisted project detected" || echo "No AI markers"
+
+# R-30: Library-shaped reimplementation — run the dedicated validator
+bash scripts/validators/validate-vendor-provenance.sh 2>/dev/null
 ```
 
-### Phase 2 — Rule-by-Rule Pass (all 28)
+### Phase 2 — Rule-by-Rule Pass (all 30)
 
 Work through each rule in `ANTI_SLOP_RULES.md`:
 
@@ -79,7 +82,8 @@ Work through each rule in `ANTI_SLOP_RULES.md`:
 **Category 4 (Comment Slop — R-12 to R-16):** What-comments, stale TODOs, wrong names.
 **Category 5 (Structural Slop — R-17 to R-20):** God objects, mixed concerns, duplicate blocks, inconsistent patterns.
 **Category 6 (Supply Chain Slop — R-21 to R-23) — NEW:** Slopsquatting, privilege escalation paths, credential leakage.
-**Category 7 (Structural Slop 2025 — R-24 to R-28) — NEW:** Docstring inflation (LDR), phantom imports, disconnected pipelines, unimplemented stubs, LLM output without validation.
+**Category 7 (Structural Slop 2025 — R-24 to R-29) — NEW:** Docstring inflation (LDR), phantom imports, disconnected pipelines, unimplemented stubs, LLM output without validation, prose padding.
+**Category 8 (Vendoring & Provenance Slop — R-30) — NEW:** Library-shaped reimplementation — for any "we use library X" claim found in docs/comments/ADRs, spot-diff a sample of the vendored files against the real upstream artifact; run `validate-vendor-provenance.sh` for the mechanical half (missing `VENDORED.md` provenance record, or a declared file/variant list that doesn't match what's on disk). File drift as a fork/maintenance-debt finding, distinct from a functional bug.
 
 For R-26 (Disconnected Pipelines): this requires reading integration tests. If no integration test covers an architectural construct (event emitter, queue, middleware), flag it.
 
@@ -101,8 +105,9 @@ Include LDR scores in the summary table.
 
 ### Pre-Completion Gate
 
-- [ ] All 28 rules checked (not just categories where issues were expected)
+- [ ] All 30 rules checked (not just categories where issues were expected)
 - [ ] R-21 slopsquatting check done if CLAUDE.md / AGENTS.md present
+- [ ] R-30 checked: any "we use library X" claim spot-diffed against upstream; `validate-vendor-provenance.sh` run if any vendored directory exists
 - [ ] LDR measured for at least 5 files
 - [ ] Blocking violations (R-01, R-02, R-13, R-15, R-17, R-18) clearly marked
 - [ ] Detection tools section lists which tools were available and ran
