@@ -4,9 +4,22 @@
 // machinery: scripts/lib/tickets.mjs's enforced module lifecycle
 // (ready->claimed->in_progress->in_review->done) instead of shipwright's
 // flat todo/in_progress/blocked/done, and `opencode run` instead of
-// `claude -p`. Model routing (T28.2), breakpoints/morning-queue (T28.4) and
-// resume/drift refusal (T28.5) are explicitly out of scope here — see their
-// board entries.
+// `claude -p`. Breakpoints/morning-queue (T28.4) and resume/drift refusal
+// (T28.5) are explicitly out of scope here — see their board entries.
+//
+// T28.2 — models.json role→model routing. The coder session's --model is
+// resolved from models.json's `roles.coder` (CLI --model still wins when
+// given explicitly). Maker != verifier is enforced mechanically at startup,
+// before any ticket is claimed: if roles.reviewer or roles.challenger
+// resolve to the SAME model id as roles.coder, the run either refuses
+// (--role-gate block, the default — the never-self-judge principle from the
+// M27 audit, now checked against actual model identity instead of only the
+// ACTOR/REVIEWER_ACTOR string split land() already enforced) or logs a
+// warning and continues (--role-gate warn). land()'s accept() call remains
+// identity-enforced (a distinct REVIEWER_ACTOR) — this repo's conductor does
+// not yet spawn a live reviewer session, so roles.reviewer/challenger are a
+// routing declaration for when one exists (T28.4+), checked here for
+// distinctness now rather than left to silently drift.
 /**
  * conductor.mjs — unattended ticket executor for a target project's
  * module-contract plan.json (docs/TICKET_SCHEMA.md).
@@ -26,6 +39,7 @@
  *   node conductor.mjs --root <target-project> [--plan plan.json]
  *     [--actor conductor] [--reviewer-actor conductor-review]
  *     [--max-attempts 2] [--max-tickets N] [--model provider/model]
+ *     [--models models.json] [--role-gate warn|block]
  *     [--no-merge] [--no-push] [--dry-run]
  *
  * Stop any time: `touch STOP` in --root (checked between tickets).
@@ -36,6 +50,7 @@ import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmS
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
+import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 
 const SELF_DIR = dirname(fileURLToPath(import.meta.url)); // scripts/conductor
 const LIB_ROOT = resolve(SELF_DIR, '..');                 // scripts/ (this repo — where our own tickets.mjs/validators live)
@@ -58,6 +73,23 @@ const MODEL = opt('model', null);
 const DO_MERGE = !args.includes('--no-merge');
 const DO_PUSH = !args.includes('--no-push');
 const DRY = args.includes('--dry-run');
+
+// ---------- T28.2: models.json role→model routing ----------
+// Default registry path mirrors validate-model-pins.sh's own fallback: the
+// target project's own models.json, else this repo's (the program's real
+// tier/role definitions) — so a fixture/target with no models.json of its
+// own still routes against a real registry instead of silently no-op'ing.
+const MODELS_JSON_PATH = resolve(String(opt('models',
+  existsSync(resolve(ROOT, 'models.json')) ? resolve(ROOT, 'models.json') : resolve(LIB_ROOT, '..', 'models.json'))));
+const ROLE_GATE = String(opt('role-gate', 'block')); // 'block' (default, fail-closed) | 'warn'
+const MODELS_CONFIG = existsSync(MODELS_JSON_PATH) ? loadModelsConfig(MODELS_JSON_PATH) : null;
+const ROLE_MODELS = {
+  coder: resolveRole('coder', MODELS_CONFIG),
+  reviewer: resolveRole('reviewer', MODELS_CONFIG),
+  challenger: resolveRole('challenger', MODELS_CONFIG),
+};
+// Explicit --model always wins (interactive override); else route by role.
+const CODER_MODEL = MODEL || ROLE_MODELS.coder || null;
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode'; // overridable so tests/CI can stub it
 
 // ---------- config (target-project-specific; script itself stays repo-agnostic) ----------
@@ -122,10 +154,10 @@ async function runSession(prompt, wt) {
   let backoff = 5 * 60_000;
   for (let attempt = 1; attempt <= 6; attempt++) {
     if (existsSync(STOPFILE)) throw new Error('STOP file present');
-    log('session.start', { msg: `attempt ${attempt}`, wt });
+    log('session.start', { msg: `attempt ${attempt}`, wt, role: 'coder', model: CODER_MODEL });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
     const runArgs = ['run', prompt, '--dir', wt, '--auto'];
-    if (MODEL) runArgs.push('--model', String(MODEL));
+    if (CODER_MODEL) runArgs.push('--model', String(CODER_MODEL));
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
     });
@@ -203,7 +235,7 @@ async function executeTicket(plan, m) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
-    log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${MAX_ATTEMPTS}` });
+    log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${MAX_ATTEMPTS}`, role: 'coder', model: CODER_MODEL });
     await runSession(handoffPrompt(m, startRes.receipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
 
     if (!hasUncommittedWork(wt)) {
@@ -274,8 +306,12 @@ function pushRemotes(ticket) {
 
 function land(plan, m, branch, wt) {
   // Reviewer-only accept(): a distinct actor from the ticket owner, per
-  // don't-accept-your-own-work — the maker/reviewer split T28.2 will make
-  // mechanically enforced by model identity; here it's identity-enforced.
+  // don't-accept-your-own-work. T28.2 adds the model-identity half of that
+  // split (checkMakerVerifierDistinct, enforced at conductor.start below) —
+  // accept() itself stays identity-enforced (REVIEWER_ACTOR) since this
+  // conductor doesn't yet spawn a live reviewer session; roles.reviewer is
+  // logged here as the model that role is routed to for when one does.
+  log('ticket.accept', { ticket: m.id, msg: 'accept() gate (reviewer role, identity-enforced)', role: 'reviewer', model: ROLE_MODELS.reviewer });
   const acceptRes = accept(plan, m.id, REVIEWER_ACTOR, { cwd: wt });
   if (!acceptRes.ok) {
     log('accept.fail', { ticket: m.id, msg: acceptRes.error });
@@ -328,7 +364,26 @@ async function main() {
     process.exit(2);
   }
 
-  log('conductor.start', { msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH}` });
+  // G4 (T28.2): maker != verifier, mechanically — checked against models.json's
+  // actual role→model config, before any ticket is claimed. Fail-closed by
+  // default (same posture as G2/T30.2): a same-model coder/reviewer(or
+  // challenger) config refuses the run outright unless downgraded to
+  // --role-gate warn.
+  if (MODELS_CONFIG) {
+    const violations = checkMakerVerifierDistinct(MODELS_CONFIG);
+    for (const v of violations) {
+      log('gate.role-mismatch', { msg: `roles.${v.role} ("${v.model}") matches roles.coder — maker and verifier must differ (G4)` });
+    }
+    if (violations.length && ROLE_GATE === 'block') {
+      console.error(`models.json role routing: coder model matches roles.${violations.map((v) => v.role).join(', roles.')} — refusing to run (pass --role-gate warn to downgrade, or fix ${MODELS_JSON_PATH})`);
+      process.exit(2);
+    }
+  }
+
+  log('conductor.start', {
+    msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
+    roles: ROLE_MODELS,
+  });
 
   let landed = 0;
   // Tickets that exhausted every attempt THIS run are release()d back to
