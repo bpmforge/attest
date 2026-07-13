@@ -13,7 +13,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [Game-dev cluster (5)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
 - [Skills (40)](#skills)
-- [Shared protocols (24)](#shared-protocols)
+- [Shared protocols (27)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
 - [Commands (4)](#commands)
@@ -424,6 +424,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `BOOK_PROTOCOL.md` | Canonical rule for structuring long-form deliverables (> 300 lines) as multi-page books with index navigation (enforced by `validate-book-structure.sh`) |
 | `CODE_BOOK_PROTOCOL.md` | The book protocol applied to code: a source file over the size cap becomes a directory (index/barrel + one-concern chapter modules); enforced by `validate-file-size.sh` |
 | `BROWSER_TESTING.md` | Browser-automation / E2E primer — when and how to use `playwright-mcp` for screenshots and runtime UI verification |
+| `TUI_SESSION_HYGIENE.md` | TUI session-hygiene protocol — thin orchestrator, mandatory fresh-context (Executor A/B, never inline D) dispatch for tool-heavy specialists, scan-output-to-disk hard rule, 70%-of-truthful-context-display checkpoint-and-resume |
 
 ---
 

@@ -32,7 +32,7 @@ If `.model-context` is missing, run the detect script; if you cannot, assume
 | **A** | **Native Task tool** — dispatch the full HANDOFF block as the subagent prompt; block until the Completion Manifest returns | `has_task_tool=true` AND the specialist needs no MCP tools (or `mcp_in_subagents=true`) |
 | **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x> --dir <workcopy>` with the HANDOFF as prompt | `opencode_cli=true` and not already inside a subprocess-spawned session — whenever the CLI exists B is preferred over C because it removes the manual-paste pause. Required (not just preferred) when the specialist needs MCP tools and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access; the only programmatic path with timeout protection. **Always pass an explicit `--dir <workcopy>`** (eval-harness isolation lesson) so parallel B dispatches don't collide. |
 | **C** | **Manual HANDOFF paste** — print the HANDOFF block as text; the user opens a new session, types the skill, pastes | `has_task_tool=false` AND `opencode_cli=false` (no programmatic path), or A/B failed twice, or the user asked to run specialists interactively. **In `autonomy=auto`, C is an error** — auto mode must never emit a paste-and-wait; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
-| **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** AND `has_task_tool=false` — so A is unavailable and C is impossible (there is no slash to paste into). The skill-less security / code-review / performance / onboard micro-agents take this path in opencode. |
+| **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** AND `has_task_tool=false` AND `opencode_cli=false` — so A is unavailable, B has no CLI to spawn, and C is impossible (there is no slash to paste into). Genuinely headless/no-CLI runtimes only — **never the TUI**, where `opencode_cli=true` makes B available; see "TUI mode" below. |
 
 ## Selection order & matrix
 
@@ -51,6 +51,19 @@ the biggest structural pause, and a subprocess removes it.
 | false | false | **auto** | needs the user (NEVER-AUTO) | pause anyway (per AUTONOMY_PROTOCOL) |
 
 Key cases: **auto + no task tool + CLI → B**; **auto + nothing → D** (never a paste-and-wait).
+
+## TUI mode (T30.10)
+
+In the opencode TUI, `opencode_cli` is always true — you ARE opencode — so
+Executor B (`opencode run` subprocess) is always available as a fallback when A
+doesn't apply. That makes the general matrix's "no task tool + CLI → B" row the
+one that actually governs the TUI, not the skill-less-specialist "→ D" carve-out
+below: **D (inline) must never be used for a scan-heavy or otherwise tool-heavy
+specialist in the TUI**, even for specialists with no `/skill`. The `security/*`
+micro-agents note under Executor D's row predates subprocess dispatch parity
+(#20059, fixed v1.17.9) — read it as "headless/no-CLI runtimes only," not as
+TUI guidance. Full rationale and the companion checkpoint/scan-output rules:
+`agents/shared/TUI_SESSION_HYGIENE.md`.
 
 ## Which specialists need MCP
 
