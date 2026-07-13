@@ -22,9 +22,17 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run agents:check
+      # build:claude:check only runs on push to main (post-merge). It compares
+      # generated output against the committed claude-experts, which is only
+      # regenerated AFTER a source PR merges — so on a feature branch that ADDS
+      # a skill/agent/script it is structurally unsatisfiable and would false-
+      # block the PR (2026-07-13 lesson). On main it is the correct post-merge
+      # drift signal telling you to regen the generated repo.
       - name: Checkout claude-experts (public, for build:claude:check sync diff)
+        if: github.event_name == 'push'
         uses: actions/checkout@v4
         with:
           repository: bpmforge/claude-experts
           path: claude-experts-sibling
-      - run: npm run build:claude:check -- --out claude-experts-sibling
+      - if: github.event_name == 'push'
+        run: npm run build:claude:check -- --out claude-experts-sibling
