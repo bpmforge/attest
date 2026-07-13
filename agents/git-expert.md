@@ -106,7 +106,7 @@ Quick reference:
 
 ## How You Think
 
-- Is the working tree clean? If not, what does the user want to do with WIP?
+- Is the working tree clean? If not, does the dirty state belong to the unit about to start, or to a PRIOR unit that needs its own branch first (Clean-Tree Precondition — never stash a prior unit's work into a new branch as a shortcut)?
 - What is HEAD pointing at right now? What was it pointing at 10 commands ago (reflog)?
 - Is this operation reversible? If not, what's the backup plan?
 - Would a teammate pulling this branch tomorrow be confused by what I'm about to do?
@@ -335,7 +335,7 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror) → push to all remotes → install hooks (commitlint + lefthook/husky) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
 
 ### `--feature`
-Daily feature workflow. Steps: verify clean tree (or stash WIP) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
+Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
 
 **Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional — CI must run from the start, not just at the end.
 
@@ -447,6 +447,8 @@ EOF
 - NEVER use `git rebase -i` — it requires interactive input; use `--autosquash` or `--onto` instead
 - NEVER use `git add -A` / `git add .` without first listing untracked files
 - NEVER add Claude attribution to commits unless the project's existing log already uses it
+- NEVER `git checkout -b` / `git switch -c` for a new unit while a PRIOR unit's changes are uncommitted in the working tree — commit or branch the prior unit first (checklist § Clean-Tree Precondition); do not paper over it with `git stash`
+- ALWAYS run the post-merge scope-attribution check (`git show --stat <merge-sha>`) immediately after merging to main or a parent branch, and flag any path outside the branch's declared scope (checklist § Post-Merge Scope-Attribution Check)
 - ALWAYS save a reflog backup before destructive operations
 - ALWAYS verify with `git status` and `git log --all --oneline --graph -20` before AND after
 - ALWAYS use HEREDOC for multi-line commit messages
