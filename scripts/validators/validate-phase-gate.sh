@@ -160,6 +160,12 @@ populate_phase_artifacts() {
         "validate-api-consistency.sh"
         "validate-contract-conformance.sh"
         "validate-release-readiness.sh"
+        # T29.2 (H1/A-6.3): REQUIREMENT closure, not task closure -- a plan
+        # with every module "done" still fails here if a user story was
+        # never mapped to a module, or the mandatory reconciliation matrix
+        # is missing/incomplete/OUTSTANDING. Skips cleanly when the
+        # stories[] layer isn't adopted (additive, not retroactive).
+        "validate-requirement-closure.sh"
       )
       ;;
     onboard-deep)

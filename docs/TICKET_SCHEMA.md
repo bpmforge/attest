@@ -33,6 +33,7 @@ task-decomposer `nodes[]`. A plan with only `nodes[]` stays valid (backward comp
 | `acceptance` | string[], non-empty | yes | Jira-style checkable criteria = the module's PRODUCE contract |
 | `verify` | string (path) | recommended | The gate that closes the ticket (validator script / challenger) |
 | `nodes` | string[] (node ids) | optional | Fine-grained `plan.json` nodes implementing this module |
+| `stories` | string[] (USER_STORIES.md IDs, e.g. `US-01`, `E1.1`) | optional | **T29.2.** The requirement/user-story layer this module implements. Structurally a sibling of `nodes` — both are "what does this module carry" pointers into a different artifact (plan.json nodes vs. `docs/USER_STORIES.md` headings) — but `stories` is graded externally (against USER_STORIES.md, not plan.json), so it is NOT part of `validatePlan()`'s referential-integrity pass the way `nodes` is; see "Requirement (story) coverage & closure" below for how it's actually checked. Backward compatible: a module with no `stories` field is untouched by every check this field adds. |
 | `after_replan` | boolean | optional | Recompute this ticket after a scout/replan node returns |
 | `manifest` | string (path) | required for `close` | Path (relative to `plan.json`'s directory) to this ticket's Completion Manifest. `close()` refuses unless this file exists on disk. |
 | `history` | `{ts,actor,from,to,note}[]` | machine-managed | Append-only transition log written by the lifecycle verbs (T26.1). Never hand-edited — the audit trail the 2026-07-07 incident showed doesn't exist otherwise. |
@@ -117,6 +118,45 @@ persisted back to disk when a verb succeeds.
    moment it's written, whether or not either module has been claimed yet. (Same-lane overlap is
    fine at this level — invariant 4 catches it only once it becomes active.)
 
+## Requirement (story) coverage & closure (T29.2)
+
+The field-lesson gap this closes: before T29.2, `ModuleTicket` had no requirement/story field at
+all, so a plan could show every module `done` while a real user story was never implemented —
+**task closure** (all tickets closed) was silently standing in for **requirement closure** (all
+stories delivered), the same self-graded-honor-system defect class M26/M27 diagnosed elsewhere in
+this program (A-6.3 in the field report). `stories[]` is the structural link; two checks build on
+it, at two different points in the lifecycle:
+
+1. **Story-coverage check (`validate-tickets.sh`, chained at phase-4)** — advisory. A story that
+   exists in `docs/USER_STORIES.md` but is referenced by `stories[]` in **zero** modules is
+   printed as a `[!]` warning (`scopeCoverageWarnings`'s sibling: same "surface it, don't block on
+   it yet" posture used for scope-gap detection). **Configurable to a hard gate**: set
+   `STORY_COVERAGE_STRICT=1` in the validator's environment to promote these from `[!]` to `[x]`
+   (fails `validate-tickets.sh`/phase-4). Off by default so adopting `stories[]` on an
+   already-in-flight plan doesn't retroactively break an unrelated phase-4 gate.
+2. **Requirement-closure gate (`validate-requirement-closure.sh`, chained at phase-5)** —
+   unconditional, not configurable. A story is **closed** only when it is referenced by at least
+   one module AND every module referencing it is `status: "done"`; otherwise it is **open**
+   (covers both "orphan story, zero modules" and "some/all referencing modules not done yet"). Any
+   open story fails phase-5 — this is the mechanism behind the ticket's red fixture: **a plan
+   where every module shows `done` still fails phase-5 if a story is unmapped**, because task
+   closure and requirement closure are computed independently and phase-5 gates on the latter.
+   This validator also requires the reconciliation matrix artifact below to exist and cover every
+   story with no `OUTSTANDING` verdicts — "all modules done" is a plan.json-only signal; the
+   matrix is where a human/agent actually looks at the code, not just the ticket's self-reported
+   status.
+
+**Mandatory reconciliation HANDOFF** (Template 11, `agents/shared/HANDOFF_TEMPLATES.md`) — before
+phase-5, an agent walks `docs/USER_STORIES.md` story-by-story against the real code (not the
+ticket's status field) and writes `docs/work/REQUIREMENT_RECONCILIATION.md`: one row per story,
+verdict `DONE` / `PARTIAL` / `OUTSTANDING`, evidence (files/tests/commits). `PARTIAL` is allowed
+through phase-5 (disclosed, not silently missing); `OUTSTANDING` is not — a story a human hasn't
+even looked at yet cannot be asserted requirement-closed.
+
+Worked example against a real, external, unmodified project (not a synthetic fixture):
+[`docs/work/examples/repopulse-reconciliation-example.md`](work/examples/repopulse-reconciliation-example.md)
+— also documents the epic-level fallback for projects that haven't adopted `stories[]` yet.
+
 ## API (`scripts/lib/tickets.mjs`)
 
 ```
@@ -131,10 +171,18 @@ writeScopeCollisions(plan)    -> { a, b, scope }[]           // same-lane, activ
 crossLaneCollisions(plan)     -> { a, b, lane_a, lane_b, scope }[]   // cross-lane, any status
 openTicketFor(plan, actor, excludeId?)     -> ModuleTicket | null   // T26.3 — the query claim()'s WIP=1 is built on
 manifestHasCloseReceipt(manifestPath, id, evidence)  -> { ok, reason? }   // T26.3 — accept()'s enforcement
+storyCoverageWarnings(plan, storyIds)  -> { id, msg }[]      // T29.2 — stories in storyIds with no referencing module
+requirementClosure(plan, storyIds)     -> { stories: { id, status: 'closed'|'open', reason?, modules: string[] }[], openCount, closedCount }  // T29.2
 ```
 
-CLI: `node scripts/lib/tickets.mjs validate <plan.json>` · `... status <plan.json>` ·
-`... open-for <plan.json> <actor>` · `... check-receipt <plan.json> <id>`
+Story ids come from `scripts/lib/user-stories.mjs`'s `extractStoryIds(markdown)` — parses
+`docs/USER_STORIES.md` headings shaped like `## US-01 <title>` or `### E1.1 <title>` (an
+`##`–`####` heading whose first token contains a digit; generic headings like `## Epic E1 — ...`
+or `## Summary` are skipped since "Epic"/"Summary" have no digit immediately after the `#`s).
+
+CLI: `node scripts/lib/tickets.mjs validate <plan.json> [user-stories.md]` · `... status <plan.json>` ·
+`... open-for <plan.json> <actor>` · `... check-receipt <plan.json> <id>` ·
+`... requirement-status <plan.json> <user-stories.md>` (T29.2 — exit 0 all stories closed / 1 any open)
 
 Reference sample: `examples/tickets-plan.sample.json` (validates; every module has a `lane`;
 `status` resolves two blocked frontend modules to claimable once their `done` deps are met).
