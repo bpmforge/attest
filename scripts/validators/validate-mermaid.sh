@@ -89,7 +89,18 @@ scan_file() {
     # Match [...] where content has / but is not already "..."
     # Exclude <br/> which is intentional HTML
     local stripped_br="${line//<br\/>/BRPLACEHOLDER}"
-    if [[ "$stripped_br" =~ \[([^]["]*\/[^]["]*)\] ]]; then
+    # Pattern stored in a variable, not written inline in the [[ =~ ]] test:
+    # a bare (unescaped) " embedded directly in the pattern operand is
+    # parsed differently across bash versions. Confirmed live (T32.4,
+    # 2026-07-13): run against this repo's own real docs, the inline form
+    # NEVER matched on macOS bash 3.2 (0 findings, including the classic
+    # [/sdlc]-style case this check exists to catch) but matched correctly
+    # on GNU bash 5.x -- the same macOS-vs-Linux divergence class M012 hit
+    # (T32.1), just surfacing in a [[ =~ ]] regex operand instead of a
+    # ${var//pattern/} glob. Storing the pattern in a variable first (the
+    # style M007 below already used) removes the ambiguity on both engines.
+    local m001_pattern='\[([^]["]*\/[^]["]*)\]'
+    if [[ "$stripped_br" =~ $m001_pattern ]]; then
       local label="${BASH_REMATCH[1]}"
       # Ignore if the / appears inside a quoted edge label  -->|"text/text"|
       local arrow_label_pattern='-->\|.*".*".*\|'
@@ -116,7 +127,20 @@ scan_file() {
 
     # ── M004: unquoted | in square-bracket label (likely pipe-syntax confusion)
     # Skip database shape syntax like [a|b] which is intentional
-    if [[ "$line" =~ \[([^\[\]\"]+)[[:space:]]\|[[:space:]]([^\[\]\"]+)\] ]]; then
+    # Found broken during the T32.4 bash-divergence audit: the class was
+    # written [^\[\]\"] -- backslash has no escaping meaning inside a POSIX
+    # bracket expression, so the expression actually closes at the first
+    # bare ']' (the third class member) rather than at the trailing \] the
+    # author intended, leaving \"] as ordinary regex text afterward.
+    # Confirmed live: this NEVER matched on either macOS bash 3.2 or GNU
+    # bash 5.x, including the exact [a | b] case it exists to catch --
+    # identically dead code on both engines (not a cross-version
+    # divergence, but the same underlying mistake as M001/M012: assuming
+    # bracket-expression semantics that don't hold). Fixed the same way as
+    # M001 -- ']' as the literal first class member (the one position that
+    # never needs escaping) and the pattern stored in a variable.
+    local m004_pattern='\[([^]["]+)[[:space:]]\|[[:space:]]([^]["]+)\]'
+    if [[ "$line" =~ $m004_pattern ]]; then
       emit "warning" "$file" "$lineno" "M004" \
         "Possible unquoted | inside node label — use quoted label or check syntax"
       file_warnings=$((file_warnings + 1))
