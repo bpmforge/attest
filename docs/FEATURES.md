@@ -498,7 +498,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Sixty-six bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Sixty-seven bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -528,6 +528,7 @@ Sixty-six bash validators + gate runners in `scripts/validators/`. Each returns 
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
 | `validate-lint.sh` | Linter + typecheck exit clean |
 | `validate-migrations.sh` | Up/down migrations present and reversible |
+| `validate-model-pins.sh` | G3 config-pin lint (T30.1, M30 model-tier guard) — a frontier-tier model id hardcoded in agent frontmatter or repo config outside `models.json` is a hard gap ("pin roles, not models"); any other raw `model:`/`"model"` pin outside `models.json` warns without failing |
 | `validate-module-boundaries.sh` | Cross-module imports comply with dependency rules in MODULE_DESIGN.md |
 | `validate-module-design.sh` | MODULE_DESIGN.md: domain-aligned naming pattern present, no technical-layer names, circular dependency check passes |
 | `validate-no-ascii-art.sh` | No Unicode box-drawing characters or ASCII banners in documentation files |
