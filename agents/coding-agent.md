@@ -109,6 +109,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 | **Type safety** | No `any`, no `!` non-null assertions, no type assertions unless you can state the invariant in a comment. Trust your types — don't null-check values whose type guarantees non-null. |
 | **Pattern match** | Before writing a new function, grep for how existing functions in the same module handle the same concern. Copy the pattern, not the code. |
 | **Supply chain** | Never `npm install` or `pip install` a package you haven't verified exists on the registry. Run `npm view <pkg>` or `pip show <pkg>` first — slopsquatting attacks (R-21) target AI-generated code specifically. |
+| **Vendoring** | Never write vendored/copy-paste library code from memory. Pull it from the library's real CLI/registry/repo and record the source + version in a `VENDORED.md` at the vendor site. If you generated it from memory anyway, say so explicitly and flag the divergence — don't claim "we use library X" unqualified (R-30). |
 
 **Prevention cost = zero. Review cost = full code-reviewer pass.** Write clean once.
 
@@ -116,9 +117,9 @@ The code-review specialists catch problems after the fact. Your job is to not in
 
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
-**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 28 rules (R-01 through R-28) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28).
+**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 30 rules (R-01 through R-30) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28), prose padding (R-29), library-shaped reimplementation (R-30).
 
-Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-28 are in that file.
+Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-30 are in that file.
 
 ### Error Handling (R-01 through R-04)
 - **No catch-all swallowing** (R-01) — `catch (e) {}` or `catch (e) { log(e) }` are bugs. Catch only at system boundaries; every catch must handle specifically or re-throw.
@@ -149,6 +150,11 @@ Below is the actionable summary of R-01 through R-20; the full definitions, scor
 - **No cargo-cult patterns** (R-18) — circuit breaker, rate limiter, caching must trace to a spec requirement. "Best practice" is not a justification.
 - **No copy-paste duplication** (R-19) — any block repeated ≥2 times is an extraction candidate.
 - **Match existing codebase patterns** (R-20) — read 2-3 existing files in the same directory before writing. If the codebase uses Prisma, don't introduce raw SQL. If it uses `async/await`, don't introduce `.then()` chains.
+
+### Vendoring (R-30)
+- **Generate vendored code from the real source, never from memory** — when a task says "vendor/copy-paste library X" (e.g. a shadcn-style component pull), run the library's actual CLI/registry/repo command. Never hand-write X-flavored files from training data and call them X.
+- **Record provenance** — a vendored directory gets a `VENDORED.md` (source, tool/registry, version, exact file/variant list pulled). If you had to approximate from memory instead, state that explicitly in the same file as a declared divergence — an undeclared "we use X" claim over memory-generated code is the R-30 violation.
+- Run `bash scripts/validators/validate-vendor-provenance.sh` before finishing any task that touches a vendored directory.
 
 ---
 
@@ -191,7 +197,7 @@ Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts).
 |-----------|--------------|-------|
 | Correctness | Does the implementation do exactly what the spec says? No more, no less. | /10 |
 | Test coverage | Tests present alongside every module; all tests pass; no skipped tests | /10 |
-| Anti-slop (R-01–R-28) | Zero violations across all 28 rules (run `validate-code-health.sh` — must exit 0); R-21–R-28 checked manually | /10 |
+| Anti-slop (R-01–R-30) | Zero violations across all 30 rules (run `validate-code-health.sh` — must exit 0; run `validate-vendor-provenance.sh` if any vendored directory exists — must exit 0); R-21–R-30 checked manually | /10 |
 | Complexity | All functions ≤50 lines; cyclomatic complexity ≤10 per function; nesting depth ≤4 | /10 |
 | Pattern matching | Matches existing codebase conventions (naming, error handling, file structure, ORM usage) | /10 |
 | Tech stack compliance | No unapproved dependencies; every new library flagged as deviation if not in TECH_STACK.md or package.json | /10 |
