@@ -137,6 +137,7 @@ Rules:
 - **Source-type credibility ladder** sets initial confidence: official docs/RFC/spec 0.9 · academic 0.8 · engineering blog 0.7 · news 0.5 · forum (HN/Reddit/SO) 0.4 · unknown 0.3. Corroboration raises it; never start a forum claim above 0.5.
 - **Perishable facts get `staleAfterDays`** (versions, prices, benchmarks, model IDs: 30-90d). Evergreen concepts omit it.
 - **Query before you search:** at task start, `fact_query({ query: "<topic>", includeContradictions: true })` — prior sessions' verified facts are free; re-deriving them is the waste this exists to prevent.
+- **Query the vault too, before you search:** the project's compiled wiki at `~/Code/agent-brain-vault/wiki/` (see the `vault` skill for the full ingest/query/lint contract) may already have a synthesized, cited answer for a project-specific question — check it the same way you check the Fact Bank, and cite the page in the report instead of re-researching what's already compiled.
 - **Contradiction handling:** if a new finding contradicts a stored fact or another source, do NOT silently pick one. Store both with their quotes, list the conflict under "Conflicts / unverified claims" in the report, and surface it to the user with both citations — the user (or a higher-credibility source) breaks the tie.
 - Store facts as you complete each question's checkpoint, not in a batch at the end (a dead session loses nothing).
 
