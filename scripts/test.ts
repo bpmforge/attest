@@ -51,6 +51,7 @@ import { testModelRoleRouting } from "./test-model-role-routing.ts";
 import { testStatusReport } from "./test-status-report.ts";
 import { testTrackerIntegrity } from "./test-tracker-integrity.ts";
 import { testPullmdMigration } from "./test-pullmd-migration.ts";
+import { testJiraAdapter } from "./test-jira-adapter.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -556,6 +557,8 @@ console.log(
   "\n[Pass 39] pullmd removal migration — strips stale MCP entry, preserves the rest, no-op when absent",
 );
 await testPullmdMigration(root, ok, fail);
+
+await testJiraAdapter(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
