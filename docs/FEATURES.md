@@ -12,7 +12,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (5)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (40)](#skills)
+- [Skills (41)](#skills)
 - [Shared protocols (27)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -386,8 +386,9 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
+| `/vault` | `vault` | Query / ingest / lint the agent-brain-vault — answer a project question from compiled, cited pages instead of re-reading raw sources (T5.6) |
 
-**40 skills total** (includes `/guide` — the concierge front door).
+**41 skills total** (includes `/guide` — the concierge front door).
 
 ---
 
@@ -416,6 +417,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `EXECUTOR_SELECTION.md` | Capability-probed delegation — native Task tool / subprocess / manual paste, chosen by `has_task_tool`/`mcp_in_subagents` flags |
 | `MODEL_ADAPTER.md` | Per-tier behavior (small/medium/large), maker/verifier/PLANNER roles + plan-strong/execute-cheap routing (B5), local-model pointer |
 | `MICRO_LOOP.md` | The per-agent micro-loop: plan-shape → produce → self-verify (tool-offloaded, B3) → re-ground (B4) → revise — the produce/verify discipline every agent runs |
+| `GUIDE_CAPTURE.md` | Guide-capture protocol (T21.1): how a running expert records a reusable "guide" (playbook bullet + matched lesson) so the next run pre-briefs from captured knowledge instead of cold-starting |
 | `CHECKPOINT_REVERT.md` | Git checkpoint per gated PASS + revert-to-known-good on unrecoverable failure for multi-phase work (Lever 8 / B7) |
 | `CHECKPOINT_STATE.md` | Context checkpoint: write a compact `docs/work/STATE.md` after each step so the user can `/clear` and resume; the catch-up read-list `/sdlc resume` rehydrates from |
 | `PERSISTENCE.md` | Anti-announce-then-stop rule — never end a turn after announcing an action; perform it or print `BLOCKED:`. The prompt-side fix for the #1 accidental pause (~+20% SWE-bench) |
@@ -531,6 +533,7 @@ Seventy-one bash validators + gate runners in `scripts/validators/`. Each return
 | `validate-lint.sh` | Linter + typecheck exit clean |
 | `validate-migrations.sh` | Up/down migrations present and reversible |
 | `validate-model-pins.sh` | G3 config-pin lint (T30.1, M30 model-tier guard) — a frontier-tier model id hardcoded in agent frontmatter or repo config outside `models.json` is a hard gap ("pin roles, not models"); any other raw `model:`/`"model"` pin outside `models.json` warns without failing |
+| `validate-vendor-provenance.sh` | Anti-slop R-30 (T29.8, field lesson B-2): a vendored/copied library module must be generated from the real upstream and record its provenance (source + version), not reimplemented from memory in a library's shape; a "vendored" file with dropped/renamed variants and no provenance marker is flagged as a silent fork |
 | `validate-module-boundaries.sh` | Cross-module imports comply with dependency rules in MODULE_DESIGN.md |
 | `validate-module-design.sh` | MODULE_DESIGN.md: domain-aligned naming pattern present, no technical-layer names, circular dependency check passes |
 | `validate-no-ascii-art.sh` | No Unicode box-drawing characters or ASCII banners in documentation files |
