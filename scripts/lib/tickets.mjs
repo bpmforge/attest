@@ -53,6 +53,11 @@ export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, la
 // cross-artifact checks.
 import { extractStoryIds } from './user-stories.mjs';
 export { extractStoryIds };
+// Backend-agnostic mirror seam (docs/DESIGN_JIRA_ADAPTER.md §6). A no-op unless
+// a tracker backend is configured; carries NO tracker/Jira knowledge and no
+// network — one synchronous JSONL append after a verb's savePlan() succeeds.
+// This is the ONLY coupling the SoT engine has to any external tracker.
+import { appendOutbox } from './lifecycle-outbox.mjs';
 // Lifecycle verbs (T26.1) live in their own chapter module to keep this
 // barrel under the file-size cap — see CODE_BOOK_PROTOCOL.md. claim() itself
 // now enforces the T26.3 hygiene check (via tickets-graph.mjs), not just this
@@ -174,6 +179,7 @@ if (isMain) {
     const r = (cmd === 'claim' ? claim : start)(plan, id, actor);
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
+    appendOutbox(path, { verb: cmd, planId: id, jiraKey: (plan.modules || []).find((m) => m.id === id)?.jira_key, actor });
     if (cmd === 'start') {
       console.log(r.receipt);
     } else {
@@ -208,6 +214,7 @@ if (isMain) {
     const r = comment(plan, id, actor, note);
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
+    appendOutbox(path, { verb: 'comment', planId: id, jiraKey: (plan.modules || []).find((m) => m.id === id)?.jira_key, actor, note });
     console.log(`ok — comment appended to ${id}`);
     process.exit(0);
   } else if (cmd === 'close') {
@@ -217,6 +224,7 @@ if (isMain) {
     const r = close(plan, id, actor, { branch: flags.branch, commits: flags.commits, cwd: dirname(resolve(path)) });
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
+    appendOutbox(path, { verb: 'close', planId: id, jiraKey: (plan.modules || []).find((m) => m.id === id)?.jira_key, actor, branch: flags.branch, commits: flags.commits });
     console.log(r.receipt);
     process.exit(0);
   } else if (cmd === 'accept') {
@@ -225,6 +233,7 @@ if (isMain) {
     const r = accept(plan, id, actor, { cwd: dirname(resolve(path)) });
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
+    appendOutbox(path, { verb: 'accept', planId: id, jiraKey: (plan.modules || []).find((m) => m.id === id)?.jira_key, actor });
     console.log(`ok — ${id}: in_review -> done (accepted by ${actor})`);
     process.exit(0);
   } else if (cmd === 'release') {
@@ -234,6 +243,7 @@ if (isMain) {
     const r = release(plan, id, actor, reason);
     if (!r.ok) { console.error(`[x] ${r.error}`); process.exit(1); }
     savePlan(path, plan);
+    appendOutbox(path, { verb: 'release', planId: id, jiraKey: (plan.modules || []).find((m) => m.id === id)?.jira_key, actor, reason });
     console.log(`ok — ${id}: ${r.ok ? 'released to ready' : ''}`);
     process.exit(0);
   } else { console.error(`unknown command: ${cmd}\n${USAGE}`); process.exit(2); }

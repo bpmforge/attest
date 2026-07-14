@@ -1,6 +1,6 @@
 # Design — Jira Adapter (`scripts/jira/`)
 
-**Status:** DRAFT for approval · **Branch:** `feat/jira-adapter` · **Target:** vNext (v2.6.0)
+**Status:** BUILT & APPROVED (v2.6.0) · **Branch:** `feat/jira-adapter` · **Delivered:** `scripts/jira/{jira.mjs,jira.sh,jira.config.sample.json}`, `scripts/lib/{lifecycle-outbox,jira-hygiene}.mjs`, `scripts/validators/validate-jira-hygiene.sh`, `scripts/test-jira-adapter.ts` (10 mocked-REST cases), `references/jira-adapter.md`
 
 A canonical adapter that projects this system's **internal ticket lifecycle**
 onto a real **Jira Data Center** instance (Cloud is a follow-up behind the same
@@ -145,16 +145,33 @@ commit. Instead:
 
 1. **plan.json is written first and is authoritative.** The lifecycle verb
    succeeds or fails on the local file alone — Jira never gates local work.
-2. **The Jira mirror is an idempotent op appended to a durable outbox**
-   (`docs/work/jira-outbox.jsonl`) and attempted immediately. On success the
-   outbox entry is marked drained; on any failure (network, 5xx, auth) it stays
-   pending with the error.
-3. **`jira.sh reconcile` drains the outbox** by replaying pending ops. Every op
-   is idempotent (create = JQL-lookup-then-POST-only-if-absent; transition =
-   no-op if already in target status; link = skip if link exists), so replay is
-   safe any number of times.
+2. **A backend-agnostic event is emitted to a durable outbox**
+   (`docs/work/jira-outbox.jsonl`, append-only JSONL). This emit is the *only*
+   touch to the SoT engine (§7) — a **single synchronous `appendOutbox()` call
+   at the CLI/orchestration boundary in `scripts/lib/tickets.mjs`, after the verb's
+   `savePlan()` succeeds**. It carries **no Jira knowledge, no import of the
+   adapter, and no network** — it writes one JSONL line iff a tracker backend is
+   configured, else it is a no-op. `tickets-lifecycle.mjs` (the invariant engine)
+   is untouched, and its tests do not change.
+3. **A drainer applies the outbox to Jira.** Interactive use (`jira.sh <verb>`)
+   drains **inline immediately** → real-time mirror when Jira is healthy. When a
+   verb was performed by another path (the conductor calling the lifecycle
+   functions directly), the event sits pending until `jira.sh reconcile` drains
+   it. Either way the drain is the same idempotent code path: create =
+   JQL-lookup-then-POST-only-if-absent; transition = no-op if already in target
+   status; link = skip if it exists; assign = idempotent PUT. Replay is safe any
+   number of times.
 4. **`jira.sh reconcile --check` / `jira.sh doctor`** report drift (plan.json vs
-   Jira) and pending-outbox depth as a gate signal.
+   Jira) and pending-outbox depth as a gate signal. `doctor` additionally
+   **fetches the live workflow's status names on connect and warns if
+   `statusMap` doesn't match the instance** — so a bad transition name fails
+   loudly at setup, not silently mid-run.
+
+**Why the emit lives in `tickets.mjs`, not `tickets-lifecycle.mjs`:** the barrel
+is the single sanctioned writer and already the orchestration layer; the
+invariant engine stays backend-neutral. The outbox is also the seam for any
+future backend (Linear, GitHub Projects) — a second drainer, nothing else
+changes.
 
 This makes local truth atomic, the remote eventually-consistent, and a Jira
 outage a queued-not-lost event — the lossless answer the `pushBoardBothOrThrow`
