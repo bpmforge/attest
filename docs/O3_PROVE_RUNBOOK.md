@@ -92,6 +92,6 @@ node scripts/loop-learn.mjs \
 
 | # | Measurement | Target | Result | Date |
 |---|-------------|--------|--------|------|
-| 1 | Pause census (auto ≤ NEVER-AUTO) | auto ≤ 1, interactive unchanged | _pending live run_ | — |
-| 2 | Accidental-pause soak | manual continues = 0 / ~2h | _pending live run_ | — |
-| 3 | Eval triad no-regression + wall-time | local ≥ pre-O2; Δt ≤ 0 | _pending live run_ | — |
+| 1 | Pause census (auto ≤ NEVER-AUTO) | auto ≤ 1, interactive unchanged | ✅ **HOLDS: interactive=1, auto=1, never-auto=1** — both `/sdlc init` runs (LM Studio `qwen/qwen3-coder-next` @127.0.0.1) paused exactly once at the NEVER-AUTO Discovery interview and nowhere else; `auto` added no pauses and correctly kept the never-auto gate. **Also found+fixed a false-green in the analyzer**: its `PAUSE` regex matched only protocol-directive phrasing, not the gate text the agent actually emits ("Proceed? (yes / describe any corrections)", "answer these questions so I can proceed") — it counted the real transcripts as 0/0 and exit-0'd by luck. Added emitted-gate phrasings + a real-phrasing self-test regression. Transcripts: `docs/work/census-{interactive,auto}.log`. | 2026-07-13 |
+| 2 | Accidental-pause soak | manual continues = 0 / ~2h | _pending — ~2h local soak, dedicated window_ | — |
+| 3 | Eval triad no-regression + wall-time | local ≥ pre-O2; Δt ≤ 0 | _pending — 3 eval runs, dedicated window_ | — |
