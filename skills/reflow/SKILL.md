@@ -36,6 +36,17 @@ so the module graph exists). Then:
    If `validate` reports a **write-scope collision** involving an active module, STOP and surface it —
    do not hand off the overlapping module until the user resolves the scope overlap. Two people in the
    same files is the one thing this skill exists to prevent.
+
+   **External tracker mirror (optional).** If the project runs against Jira
+   (`TRACKER_BACKEND=jira`, or `JIRA_BASE_URL` set — see `references/jira-adapter.md`),
+   `plan.json` stays the source of truth and Jira is a mirrored ledger. Once, after the
+   backlog exists, create the Jira epics/stories/links: `scripts/jira/jira.sh sync-plan`.
+   Thereafter the lifecycle verbs mirror automatically (via `scripts/jira/jira.sh claim|
+   start|comment|close|accept|release`, which run the same `tickets.mjs` engine then
+   mirror), and `scripts/jira/jira.sh reconcile` converges any drift. When Jira is not
+   configured this whole paragraph is a no-op — the `tickets.mjs` commands above are the
+   ledger. The `validate-jira-hygiene.sh` gate flags unmirrored work, but only when a
+   backend is configured.
 3. **Refuse-to-select-next-work gate (T26.3).** Before claiming, confirm it's actually safe to hand out
    MORE work: `node scripts/lib/tickets.mjs claim docs/work/plan.json <id> <actor>` enforces this itself
    and refuses with a clear `[x]` reason if either holds —

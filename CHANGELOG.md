@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.7.0] — 2026-07-14
+
+Jira integration completed — works in the **unattended** path and on **Jira Cloud**, and is wired into the SDLC workflow + install. Builds on the v2.6.0 Data Center adapter.
+
+- **Convergence keystone (`syncState`).** `jira.sh reconcile` is now two passes: drain the outbox (real-time verb events, incl. comments), **then converge from plan-state** — read `plan.json` and make each mirrored issue's assignee + status match the module, idempotently. This is the any-writer catch-all: a writer that never emitted an outbox event (the conductor, which calls the lifecycle functions in-process; or a manual `plan.json` edit) still converges. No per-caller hooks required, and it's the architecturally correct answer over threading emit-calls through every writer.
+- **Conductor auto-mirror (unattended path).** The reference conductor (`scripts/conductor/conductor.mjs`) now runs `reconcile` after each ticket pick-up (`start` → in_progress) and each `accept` (→ done), via a best-effort `mirrorJira()` helper gated on `TRACKER_BACKEND=jira`. A Jira outage never breaks the conductor — the next reconcile catches up. Non-Jira projects are untouched (no-op).
+- **Jira Cloud backend (`JIRA_FLAVOR=cloud`).** Same interface, second flavor: `/rest/api/3`, `email + API-token` Basic auth (`JIRA_EMAIL`), ADF comment bodies, `accountId` assignment (the claim/accept guards compare the flavor-correct identity), and the native `parent` field for epic membership. DC (Bearer PAT, v2, `name` assignment, Epic-Link custom field) is unchanged.
+- **SDLC + install wiring.** The `/reflow` skill documents the optional `sync-plan`-once-then-verbs-mirror flow (no-op without a backend); `install.sh` prints the `JIRA_*` setup (DC and Cloud) + `doctor`/`sync-plan` bootstrap and points at `references/jira-adapter.md`.
+- 413 tests green (12 mocked-REST adapter cases incl. convergence idempotence + Cloud auth/ADF/accountId; no live Jira in CI).
+
 ## [2.6.0] — 2026-07-14
 
 Jira Data Center adapter — mirror the internal ticket lifecycle to a real Jira instance, with graceful fallback to `plan.json`-only.

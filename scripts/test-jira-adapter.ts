@@ -654,6 +654,120 @@ export async function testJiraAdapter(_root: string, ok: OK, fail: FAIL) {
     fail("jira-hygiene validator", e.message);
   }
 
+  // 8. syncState convergence — align Jira to plan-state without an outbox event
+  //    (the conductor / any-writer catch-all), idempotent.
+  try {
+    const modules = [
+      {
+        id: "M-a",
+        kind: "module",
+        title: "A",
+        lane: "frontend",
+        write_scope: ["src/a/"],
+        depends_on: [],
+        acceptance: ["a"],
+        status: "in_progress",
+        owner: "brad",
+        jira_key: "PROJ-200",
+      },
+      {
+        id: "M-b",
+        kind: "module",
+        title: "B",
+        lane: "backend",
+        write_scope: ["src/b/"],
+        depends_on: [],
+        acceptance: ["b"],
+        status: "done",
+        owner: "carol",
+        jira_key: "PROJ-201",
+      },
+    ];
+    // Jira is behind: PROJ-200 unassigned/To Do, PROJ-201 assigned to nobody/In Review.
+    const mock = makeMockJira({
+      "PROJ-200": {
+        key: "PROJ-200",
+        fields: { assignee: null, status: { name: "To Do" } },
+      },
+      "PROJ-201": {
+        key: "PROJ-201",
+        fields: { assignee: null, status: { name: "In Review" } },
+      },
+    });
+    const client = new JiraClient(cfg, mock.fetchImpl);
+    const plan = { modules };
+    const r1 = await (await import("./jira/jira.mjs")).syncState(client, plan);
+    const r2 = await (await import("./jira/jira.mjs")).syncState(client, plan);
+    const a200 = mock.issues["PROJ-200"].fields.assignee?.name;
+    const s200 = mock.issues["PROJ-200"].fields.status?.name;
+    const s201 = mock.issues["PROJ-201"].fields.status?.name;
+    if (
+      r1.changed.length === 4 &&
+      a200 === "brad" &&
+      s200 === "In Progress" &&
+      s201 === "Done" &&
+      r2.changed.length === 0
+    )
+      ok(
+        "syncState: converges assignee+status from plan-state (4 changes), second pass is a no-op (idempotent)",
+      );
+    else
+      fail(
+        "syncState convergence",
+        `r1=${r1.changed.length} a200=${a200} s200=${s200} s201=${s201} r2=${r2.changed.length}`,
+      );
+  } catch (e: any) {
+    fail("syncState convergence", e.message + "\n" + e.stack);
+  }
+
+  // 9. Jira Cloud flavor — Basic auth, ADF comment body, accountId assignment
+  try {
+    const cloudCfg = resolveConfig({
+      JIRA_BASE_URL: "https://x.atlassian.net",
+      JIRA_TOKEN: "tok",
+      JIRA_PROJECT: "PROJ",
+      JIRA_FLAVOR: "cloud",
+      JIRA_EMAIL: "me@x.com",
+    } as any);
+    const mock = makeMockJira({
+      "PROJ-300": {
+        key: "PROJ-300",
+        fields: {
+          assignee: null,
+          status: { name: "To Do" },
+          issuetype: { name: "Story" },
+        },
+      },
+    });
+    const client = new JiraClient(cloudCfg, mock.fetchImpl);
+    const auth = client._authHeader();
+    const expectBasic =
+      "Basic " + Buffer.from("me@x.com:tok").toString("base64");
+    await client.assign("PROJ-300", "acct-123");
+    await client.addComment("PROJ-300", "hello cloud");
+    const assignCall = mock.calls.find((c) => /\/assignee$/.test(c.path));
+    const commentCall = mock.calls.find((c) => /\/comment$/.test(c.path));
+    const adfOk =
+      commentCall?.body?.body?.type === "doc" &&
+      commentCall.body.body.content?.[0]?.content?.[0]?.text === "hello cloud";
+    if (
+      auth === expectBasic &&
+      client.api === "/rest/api/3" &&
+      assignCall?.body?.accountId === "acct-123" &&
+      adfOk
+    )
+      ok(
+        "cloud: Basic auth (email:token), /rest/api/3, accountId assignment, ADF comment body",
+      );
+    else
+      fail(
+        "cloud flavor",
+        `auth=${auth === expectBasic} api=${client.api} acct=${assignCall?.body?.accountId} adf=${adfOk}`,
+      );
+  } catch (e: any) {
+    fail("cloud flavor", e.message + "\n" + e.stack);
+  }
+
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 

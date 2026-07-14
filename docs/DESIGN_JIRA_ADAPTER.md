@@ -1,6 +1,6 @@
 # Design — Jira Adapter (`scripts/jira/`)
 
-**Status:** BUILT & APPROVED (v2.6.0) · **Branch:** `feat/jira-adapter` · **Delivered:** `scripts/jira/{jira.mjs,jira.sh,jira.config.sample.json}`, `scripts/lib/{lifecycle-outbox,jira-hygiene}.mjs`, `scripts/validators/validate-jira-hygiene.sh`, `scripts/test-jira-adapter.ts` (10 mocked-REST cases), `references/jira-adapter.md`
+**Status:** COMPLETE (v2.7.0) · v2.6.0 shipped the DC adapter + lifecycle mirror; **v2.7.0 completes the program**: convergence keystone (`syncState` — `reconcile` now drains the outbox **and** converges Jira to plan-state, the any-writer catch-all), conductor auto-mirror (unattended path gated on `TRACKER_BACKEND=jira`), **Jira Cloud** backend (`JIRA_FLAVOR=cloud`: v3/ADF/email+token/accountId/parent), and SDLC + install wiring (reflow `sync-plan` step, install.sh setup block). **Delivered:** `scripts/jira/{jira.mjs,jira.sh,jira.config.sample.json}`, `scripts/lib/{lifecycle-outbox,jira-hygiene}.mjs`, `scripts/validators/validate-jira-hygiene.sh`, `scripts/test-jira-adapter.ts` (12 mocked-REST cases), `references/jira-adapter.md`, conductor `mirrorJira()` hook
 
 A canonical adapter that projects this system's **internal ticket lifecycle**
 onto a real **Jira Data Center** instance (Cloud is a follow-up behind the same
