@@ -4,6 +4,8 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ## [Unreleased]
 
+- **Removed the external pullmd Docker dependency** (all research now runs on our own in-house pull). `playwright-search` v0.3.0 vendors a zero-dep `bpm-pull` (fetch → strip → density-scored extraction → HTML→markdown); the `web_*_pullmd` tools use it with a native Playwright fallback, so there is no `localhost:33000` service to run. Dropped the ~370-line pullmd install block + `--pullmd` flag from `install.sh`, the `pullmd` MCP from `examples/opencode.json`, and the now-defunct `pullmd_read_url`/`read_url`/`get_share` tool references from `agents/researcher.md` + `agents/shared/RESEARCH_TOOLS.md` + `agents/shared/BROWSER_TESTING.md`. Only external MCP retained by design: Context7.
+
 Per-PR entries land here; release-manager rolls them into the next tagged section. Added
 2026-07-08 (T27.2) because `validate-tracker-fresh.sh --base <base>` is a documented
 git-expert.md merge-gate condition, but this repo's actual CHANGELOG convention batches entries

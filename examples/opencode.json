@@ -6,7 +6,7 @@
     "opencode-auto-resume",
     "opencode-todo-reminder"
   ],
-  "_research_strategy_comment": "Web research goes through OUR tools \u2014 never opencode built-ins. webfetch + websearch are disabled below so the LLM is forced to use playwright-search (multi-engine search + extraction) and pullmd (Cloudflare/Reddit-aware URL\u2192markdown fallback). This eliminates the most common research-flakiness root cause: LLMs reaching for opencode's built-in webfetch and getting raw HTML or rate-limited.",
+  "_research_strategy_comment": "Web research goes through OUR tools \u2014 never opencode built-ins, no external services. webfetch + websearch are disabled below so the LLM is forced to use playwright-search: multi-engine search + extraction, with our own zero-dep pull (bpm-pull, fast no-browser fetch) falling back to Playwright for JS-heavy/Cloudflare pages. This eliminates the most common research-flakiness root cause (LLMs reaching for opencode's built-in webfetch and getting raw HTML or rate-limited) with no self-hosted Docker dependency.",
   "tools": {
     "webfetch": false,
     "websearch": false
@@ -32,19 +32,13 @@
       "enabled": true
     },
     "playwright-search": {
-      "_comment": "PRIMARY research backbone. Free local web research \u2014 multi-engine search (DDG + Brave + Bing) + page extraction (Mozilla Readability) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch. Build with `npm run build` in /Users/user/Code/playwright-search, then point command at dist/mcp.js. For dev, use tsx: ['npx','tsx','/Users/user/Code/playwright-search/src/mcp.ts'].",
+      "_comment": "PRIMARY research backbone (in-house, no external services). Free local web research \u2014 multi-engine search (DDG + Brave + Bing) + page extraction (Readability + our own zero-dep bpm-pull) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch, web_search_pullmd, web_research_pullmd (the *_pullmd names are legacy; they now use our own pull with a Playwright fallback \u2014 no external pullmd service). Build with `npm run build` in /Users/user/Code/playwright-search, then point command at dist/mcp.js.",
       "type": "local",
       "command": [
         "node",
         "/Users/user/Code/playwright-search/dist/mcp.js"
       ],
       "enabled": true
-    },
-    "pullmd": {
-      "_comment": "OPTIONAL FALLBACK \u2014 disabled by default. URL \u2192 clean markdown via 4-stage pipeline: Reddit handler \u2192 Cloudflare native MD \u2192 Readability+Trafilatura \u2192 headless Playwright. AGPL, self-hosted Docker. Use when playwright-search_web_fetch fails on JS-heavy or Cloudflare-protected pages. Tools: read_url, get_share, list_recent. To enable: install with `./install.sh --pullmd` (clones repo, `docker compose up -d`, flips this `enabled` flag to true), or manually clone https://github.com/AeternaLabsHQ/pullmd, run `docker compose up -d`, then set enabled:true here. Leaving enabled:true without a running container will cause MCP startup errors.",
-      "type": "remote",
-      "url": "http://localhost:33000/mcp",
-      "enabled": false
     }
   },
   "provider": {

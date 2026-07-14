@@ -18,7 +18,7 @@ This MCP works with any LLM — no vision required (uses accessibility tree snap
 |------|------|
 | Navigate + screenshot + click | `playwright-mcp` (this doc) |
 | Research a URL / web search | `playwright-search` |
-| Extract markdown from a JS-heavy page | `pullmd` |
+| Extract markdown from a JS-heavy page | `playwright-search_web_fetch` |
 | Run Playwright test files (`.spec.ts`) | `bash(command="npx playwright test ...")` |
 
 ---
