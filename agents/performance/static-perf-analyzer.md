@@ -93,6 +93,8 @@ Before the completion phrase, output:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: perf-synthesizer

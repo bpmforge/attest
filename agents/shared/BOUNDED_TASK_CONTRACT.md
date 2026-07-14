@@ -77,6 +77,9 @@ Before the completion phrase, output a Completion Manifest:
 ## Known issues / deferred
 - [Issue] — [why deferred, which agent should address it]
 
+## Memory written
+- memory_store: [type] — "[≤1-line durable decision / error / verified-fact + citation]"   (or "None — nothing durable")
+
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: [next agent name, or "SDLC lead resume"]
@@ -84,7 +87,9 @@ Before the completion phrase, output a Completion Manifest:
 Tracker updated: [SDLC_TRACKER.md row / PROGRESS.md / DELEGATION_LOG.md / CHANGELOG.md — where this step was recorded]
 ```
 
-All seven sections are required. "None" is a valid value for sections with nothing to report. The **`Tracker updated:` line is mandatory** (G-D, tracking-as-gate): a step that changes work files but records nothing is how work gets lost between steps and sessions — the git-based `validate-tracker-fresh.sh` proves a tracker actually changed, and `validate-completion-manifest.sh` proves the manifest declares it.
+All sections are required. "None" is a valid value for sections with nothing to report. The **`Tracker updated:` line is mandatory** (G-D, tracking-as-gate): a step that changes work files but records nothing is how work gets lost between steps and sessions — the git-based `validate-tracker-fresh.sh` proves a tracker actually changed, and `validate-completion-manifest.sh` proves the manifest declares it.
+
+**`## Memory written` (MEMORY_PRIMER M4 write-back).** You do NOT recall memory — the SDLC lead handed you a memory slice in your context packet. But you MUST **`memory_store` any durable decision, error, or verified fact you established** (with a `citation`), then record it here — otherwise your "Decisions made" evaporate at session end and the next HANDOFF re-derives them. Never store secrets/PII (redact per MEMORY_PRIMER). Nothing durable? Write "None — nothing durable".
 
 ---
 

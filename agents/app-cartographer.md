@@ -79,6 +79,8 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 ## Known issues / deferred
 - [elements or states left SKIPPED, and why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: guide-scribe (STORIES.md stories → replayable capture specs) / manual-writer (APP_MAP.md as manual structural skeleton)

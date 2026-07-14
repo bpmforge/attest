@@ -74,6 +74,8 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 ## Known issues / deferred
 - [stories/states with no gated evidence yet, named explicitly]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: validate-guide-coverage.sh (T21.4) / /user-guide skill assembly (T21.3)

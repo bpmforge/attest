@@ -115,6 +115,8 @@ Target: typically 80%+ for public APIs, 60%+ for internal libraries.
 ## Known issues / deferred
 - [Any directories or file types not scanned]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [context used: low|medium|high]
 
 ## Ready for: [user review / coding-agent to fill gaps]

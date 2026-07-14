@@ -171,6 +171,8 @@ Any gate failure returns your HANDOFF with REVISE status; re-run with the specif
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 

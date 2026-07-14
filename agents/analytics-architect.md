@@ -105,6 +105,8 @@ Reference: read `references/observability-checklist.md` at the start of every ru
 ## Known issues / deferred
 - [services with unclear traffic shape; hard rules not fully satisfiable + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: sre-engineer (stack deployment) / sdlc-lead resume

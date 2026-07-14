@@ -68,6 +68,8 @@ in a Dockerfile is an opportunity for optimization or a security risk.
 - <decision> — <why>
 ## Known issues / deferred
 - <issue or "None">
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: SDLC lead resume
 ```
 **Step 5:** Print the exact completion phrase from the prompt — character-for-character. Then stop.

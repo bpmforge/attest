@@ -86,6 +86,10 @@ require_section "Files produced"  '(files[[:space:]]+produced|files[[:space:]]+c
 require_section "Decisions"       '(decisions(\s+made)?|design[[:space:]]+decisions)'
 require_section "Known issues"    '(known[[:space:]]+issues|deferred|caveats)'
 require_section "Verify result"   '(verify[[:space:]]+result|verification|test[[:space:]]+result|tests?)'
+# MEMORY_PRIMER M4 write-back: every specialist must memory_store its durable decisions/errors/
+# verified-facts (not recall — the lead distributes memory via the packet). "None — nothing durable"
+# is a valid value; the section must be present so the write-back is a gate, not a suggestion.
+require_section "Memory written"  '(memory[[:space:]]+written|memory[[:space:]]+store)'
 
 # -- extract a heading's body: every line after the matching heading up to
 # the next heading line or EOF. Used by both the Files-produced and

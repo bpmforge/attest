@@ -125,6 +125,8 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 - [engine-side import wiring — deferred to gameplay-engineer; any sprite that
   failed pixel-snap/cleanup and was re-generated]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: gameplay-engineer (import sheet.json into engine code) / playtest-evaluator (once wired, verify in a slice)

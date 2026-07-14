@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.5.0] — 2026-07-14
+
+Expert-wiring audit + fixes (all 45 primary experts + cluster specialists validated for half-wired capabilities).
+
+- **Memory write-back is now enforced for every specialist (was missing in 44 of 45 agents).** Per `MEMORY_PRIMER.md` M4, specialists don't recall memory (the SDLC lead hands them a slice in the context packet) but they MUST `memory_store` their durable decisions/errors/verified-facts — yet only `coding-agent` did, so every other specialist's decisions evaporated at session end instead of persisting to the memory DB. Added a required **`## Memory written`** section to the canonical Completion Manifest (`BOUNDED_TASK_CONTRACT.md` Rule 6 + `HANDOFF_TEMPLATES.md`), made it a gate in `validate-completion-manifest.sh` (like "Verify result" — "None — nothing durable" is a valid value), and synced the 57 agents that inline their own manifest. Also **corrected the v2.4.0 coding-agent edit** that wrongly told it to `memory_recall` (contradicted M4) → now "use the memory slice in your packet; `memory_store` after."
+- **`reliability-engineer` Context7 gap closed** — it ships runnable k6/Locust/chaos scripts (code against a library API) with no API-verification path; added the mandatory Context7-before-writing clause its siblings carry.
+- **`migration-planner` divergent manifest fixed** — its inlined Completion Manifest had dropped `## Files modified` and the mandatory `Tracker updated:` line, so a migration that edits files wouldn't declare them or trip `validate-tracker-fresh.sh`. Restored both.
+- **Confirmed NOT gaps (audit cleared them):** research access is uniform where needed (security-auditor correctly delegates CVE currency to `dependency-auditor`'s live advisory DBs; the no-research agents genuinely don't need it); the Challenger is correctly wired into the coding wave (v2.4.0); cluster specialists' findings are properly consumed by their synthesizers.
+
+401 tests green; all structural validators + agents:check clean.
+
 ## [2.4.0] — 2026-07-14
 
 Process-integrity pass on the per-ticket loop/gate model + coding-agent hygiene (from a full audit of both against the completed upgrade plan).

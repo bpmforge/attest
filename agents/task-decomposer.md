@@ -178,6 +178,8 @@ racy — fix it, don't write it.
 ## Known issues / deferred
 - [nodes marked after_replan and what discovery could change them]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: sdlc-lead (or the user's runner) — execute nodes in topological order

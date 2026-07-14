@@ -78,6 +78,8 @@ Add a **Utilization Summary** table at the top: files scanned, exported symbols,
 ## Known issues / deferred
 - [dynamic-dispatch areas where confidence is LOW; tools unavailable]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: code-health-synthesizer

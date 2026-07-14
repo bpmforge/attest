@@ -72,6 +72,8 @@ A multi-step capture run is exactly where announce-then-stop bites: never end yo
 ## Known issues / deferred
 - [steps left BLOCKED after 3 retries, with the failing gate and evidence]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: manual-writer (specs + gated screenshots → chapters) / ui-verifier (confirm BUG_LOG rows) / coding-agent (bug tickets)
