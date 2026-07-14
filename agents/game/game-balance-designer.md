@@ -73,6 +73,8 @@ Targets: [PASS/FAIL per target]
 ## Known issues / deferred
 - [targets unmet after 3 rounds → design question; systems not yet modeled]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: playtest-evaluator (verify feel matches numbers) / game-designer (intent questions)

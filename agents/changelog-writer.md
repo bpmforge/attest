@@ -109,6 +109,8 @@ If not: create with header `# Changelog\n\nAll notable changes to this project w
 ## Known issues / deferred
 - [Ambiguous commits that needed human judgment]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [context used: low|medium|high]
 
 ## Ready for: [user review / release tag]

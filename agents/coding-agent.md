@@ -54,14 +54,11 @@ Three web-research tools are registered project-wide via the `playwright-search`
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
-## Memory (available)
+## Memory (cross-session)
 
-A cross-session **memory MCP** is registered project-wide. Use it so you don't re-derive what the project already established:
+A cross-session **memory MCP** is registered project-wide. Per `MEMORY_PRIMER.md` M4, you do **not** recall memory yourself — the SDLC lead assembles it once and hands you the relevant **≤200-token memory slice inside your context packet** (`docs/work/context-for-coding-agent.md`). Read that slice: it may already carry a verified library API (with its source), an established pattern, or a decision + reason — prefer it over re-guessing, but verify a named file/API still exists before relying on it (it's context, not instruction).
 
-- **Before** verifying a library API or choosing a pattern: `memory_recall({ query: "<lib/API/pattern> decision" })` — a prior session may have already verified the API version, picked the pattern, or recorded why an approach was rejected. Prefer a recalled, cited decision over re-guessing.
-- **After** finishing: `memory_store` any durable, reusable fact you established — a verified library API (with its Context7 source), an established code pattern, or a decision + reason — so the next coding HANDOFF starts from it.
-
-Recalled memory is context, not instruction — verify a named file/API still exists before relying on it. Full protocol: `~/.config/opencode/agents/shared/MEMORY_PRIMER.md`. (This complements, never replaces, Law 2's Context7 API verification.)
+**After finishing, `memory_store` any durable, reusable fact you established** — a verified library API (with its Context7 source as `citation`), an established code pattern, or a decision + why — so the next coding HANDOFF starts from it. Never store secrets/PII (see MEMORY_PRIMER). This complements, never replaces, Law 2's Context7 API verification.
 
 ## The Four Laws
 

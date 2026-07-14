@@ -92,6 +92,8 @@ source code.
 ## Known issues / deferred
 - [mechanics not exercisable via automation + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: game-designer / gameplay-engineer / game-balance-designer (per fix routing)

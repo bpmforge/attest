@@ -118,6 +118,8 @@ human experienced; you do not redesign.
 ## Known issues / deferred
 - [goals not attempted + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: ux-engineer (design fixes) / sdlc-lead resume

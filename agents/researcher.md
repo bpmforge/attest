@@ -193,6 +193,8 @@ End work with a completion manifest BEFORE the completion phrase:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 

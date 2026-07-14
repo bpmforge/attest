@@ -73,6 +73,8 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 ## Known issues / deferred
 - [gaps: screens/personas with no flow yet]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: design-system-lead (screen inventory → tokens/components) / ux-engineer (flows → wireframes)

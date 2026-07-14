@@ -66,6 +66,8 @@ and `module: <game system>`.
 ## Known issues / deferred
 - [feel tuning left for playtest; perf unmeasured paths]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: playtest-evaluator (slice runs) / game-balance-designer (tunables exposed)

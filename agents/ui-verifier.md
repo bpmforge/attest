@@ -249,5 +249,7 @@ Then output the Completion Manifest:
 - [any mode/scope decisions]
 ## Known issues / deferred
 - [any BLOCKED flows or incomplete coverage]
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: [SDLC lead resume | user review]
 ```

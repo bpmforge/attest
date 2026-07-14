@@ -103,6 +103,8 @@ If the schema (DATABASE.md) is missing, print `BLOCKED: missing DATABASE.md — 
 ## Known issues / deferred
 - [hard rules not fully satisfiable + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: coding-agent (rights endpoints) / security-auditor / sdlc-lead resume

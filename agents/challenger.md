@@ -159,5 +159,7 @@ If any claims are CONTRADICTED:
 ## Known issues / deferred
 - [Any claims where tool cap was hit before finding evidence]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: SDLC lead resume
 ```

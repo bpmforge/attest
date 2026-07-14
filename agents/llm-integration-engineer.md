@@ -103,6 +103,8 @@ If the feature requirement is missing, print `BLOCKED: missing feature requireme
 ## Known issues / deferred
 - [hard rules not fully satisfiable + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: coding-agent (implementation) / sdlc-lead resume

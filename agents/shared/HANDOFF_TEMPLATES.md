@@ -122,6 +122,9 @@ Include a Completion Manifest at <manifest-path> with required sections:
   backtick-quote each path so the checker can find it
 - Decisions made (decision + why)
 - Known issues / deferred (issue + which agent should address it)
+- Memory written (MEMORY_PRIMER M4) -- you `memory_store` your durable
+  decisions/errors/verified-facts and record them here (or "None -- nothing
+  durable"); you do NOT recall (the lead gave you a memory slice in this packet)
 - Verify result (what you checked, outcome) -- must cite a concrete,
   backtick-quoted artifact path (a test log, VERIFY_*.md, a receipt) that
   exists on disk; a bare claim like "tests pass" with nothing to check it

@@ -61,6 +61,8 @@ Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool fa
 ## Known issues / deferred
 - [open questions routed to balance/engineering]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: gameplay-engineer (feasibility) + game-balance-designer (numbers)

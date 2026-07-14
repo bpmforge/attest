@@ -71,6 +71,8 @@ Also read: `agents/shared/includes/anti-overengineering.md`, `agents/shared/incl
 ## Known issues / deferred
 - [gaps: screens/branches with no copy decided yet]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: ux-engineer (copy → wireframes/mockups) / end-user-simulator (post-implementation, feeds friction back here)

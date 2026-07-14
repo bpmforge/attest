@@ -10,6 +10,9 @@
 ## Known issues
 - none
 
+## Memory written
+- None — nothing durable
+
 ## Verify result
 tests pass, all good
 

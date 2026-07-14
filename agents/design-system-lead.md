@@ -83,6 +83,8 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 ## Known issues / deferred
 - [gaps: screens with no component yet]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: ux-engineer (apply tokens to wireframes → high-fi mockups) / frontend-design (implement tokens.json as real token files, --system mode)

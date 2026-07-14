@@ -9,6 +9,9 @@
 ## Known issues
 - none
 
+## Memory written
+- None — nothing durable
+
 ## Verify result
 See `docs/reviews/VERIFY_real_2026-07-08.md` — 5 passed, 0 failed
 

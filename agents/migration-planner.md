@@ -114,6 +114,9 @@ Write to `docs/migrations/MIGRATION_<from>_to_<to>_<date>.md`.
 ## Files produced
 - `docs/migrations/MIGRATION_*.md` — [N steps, forward + rollback per step] — [line count]
 
+## Files modified
+- `path/to/existing` — [what changed, why]   (or "None")
+
 ## Decisions made
 - [Ordering decisions and why]
 - [Any DANGEROUS operations that need user confirmation before running]
@@ -121,7 +124,11 @@ Write to `docs/migrations/MIGRATION_<from>_to_<to>_<date>.md`.
 ## Known issues / deferred
 - [Any ambiguous changes where intent is unclear]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [context used: low|medium|high]
 
 ## Ready for: [DBA review / user approval before running]
+
+Tracker updated: [SDLC_TRACKER.md row / DELEGATION_LOG.md — where this migration plan was recorded]
 ```

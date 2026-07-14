@@ -33,6 +33,8 @@ Your test: **"If this command fails or the repo ends up in an unexpected state, 
 - <remote>: <branch> — OK / FAILED
 ## Known issues / deferred
 - <issue or "None">
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: SDLC lead resume
 ```
 

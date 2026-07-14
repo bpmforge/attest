@@ -43,6 +43,14 @@ Three web-research tools are registered project-wide via the `playwright-search`
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
+## Verify library APIs via Context7 (MANDATORY before writing runnable code)
+
+You ship **runnable k6 / Locust / chaos scripts** — that is code against a specific library API. Before writing it, verify the API against a real source, never training data (the #1 source of scripts that fail to run):
+
+1. **If Context7 MCP is available** — `resolve-library-id` then `get-library-docs` for the exact k6/Locust/toolkit function you'll call.
+2. **If no Context7** — read the installed source (`node_modules/`, the tool's `--help`, or the package README).
+3. If you cannot verify a call any of these ways, mark it BLOCKED in the manifest — do not write it from memory.
+
 ## Input Contract
 
 | HANDOFF field | Expected |
@@ -103,6 +111,8 @@ If SRS.md has no NFR numbers (latency / throughput / availability targets), prin
 ## Known issues / deferred
 - [hard rules not fully satisfiable + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: coding-agent (pattern implementation) / sre-engineer (run in staging) / sdlc-lead resume

@@ -77,6 +77,8 @@ session dies, the next one resumes from it.
 ## Known issues / deferred
 - [skipped steps + why — e.g. "step 8 N/A: library, no deploy"]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: sre-engineer (if deploying) / done

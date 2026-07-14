@@ -117,6 +117,8 @@ Every finding row:
 ## Known issues / deferred
 - [checks not executable (no live env, no AT available) + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: coding-agent (remediation) / ux-engineer (design fixes) / sdlc-lead resume
