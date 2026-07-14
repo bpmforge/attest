@@ -50,6 +50,7 @@ import { testRequirementClosure } from "./test-requirement-closure.ts";
 import { testModelRoleRouting } from "./test-model-role-routing.ts";
 import { testStatusReport } from "./test-status-report.ts";
 import { testTrackerIntegrity } from "./test-tracker-integrity.ts";
+import { testPullmdMigration } from "./test-pullmd-migration.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -548,6 +549,13 @@ console.log(
   "\n[Pass 38] Tracker Data Model — spec-before-backlog gate + snapshot integrity + idempotent link sweep",
 );
 await testTrackerIntegrity(root, ok, fail);
+
+// Pass 39: migrate-remove-pullmd.sh (v2.2.1) — the upgrade migration must strip a stale
+// mcp.pullmd entry while preserving everything else, back it up, and no-op cleanly otherwise.
+console.log(
+  "\n[Pass 39] pullmd removal migration — strips stale MCP entry, preserves the rest, no-op when absent",
+);
+await testPullmdMigration(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

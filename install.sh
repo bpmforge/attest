@@ -471,6 +471,17 @@ fi
 
 echo ""
 
+# --- pullmd removal migration (v2.2.1) ---
+# pullmd (the external AeternaLabsHQ Docker service) was removed in v2.2.0 and replaced by our
+# own in-house pull (bpm-pull, inside playwright-search). Heal any prior `./install.sh --pullmd`
+# install: drop the now-stale pullmd MCP entry from opencode.json (else opencode errors trying to
+# reach the dead localhost:33000 service) and stop/remove the pullmd containers. No-op otherwise.
+if [ -f "$SCRIPT_DIR/scripts/migrate-remove-pullmd.sh" ]; then
+  echo "Checking for a prior external pullmd install to clean up..."
+  GLOBAL_DIR="$GLOBAL_DIR" bash "$SCRIPT_DIR/scripts/migrate-remove-pullmd.sh" --config "$CONFIG_FILE" || true
+  echo ""
+fi
+
 # --- playwright-search MCP Setup ---
 if [ "$INSTALL_PWS" = true ]; then
   echo "Setting up playwright-search MCP (multi-engine web research + page extraction)..."
