@@ -2,6 +2,10 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.2.1] — 2026-07-14
+
+- **Upgrade migration for the v2.2.0 pullmd removal.** Someone who previously ran `./install.sh --pullmd` still had the external pullmd containers, the `~/.local/share/pullmd` clone, and a now-stale `mcp.pullmd` entry in their `opencode.json` — which makes opencode throw MCP startup errors trying to reach the dead `localhost:33000` service. New `scripts/migrate-remove-pullmd.sh` heals it: removes the `mcp.pullmd` entry (with a `.pre-pullmd-removal.bak` backup), stops + removes the pullmd Docker/Podman containers, and (with `--purge`) deletes the clone. It is idempotent and a clean no-op on a fresh install. `install.sh` runs it automatically on every install/upgrade; it can also be run standalone. New Pass 39 test.
+
 ## [2.2.0] — 2026-07-14
 
 - **Removed the external pullmd Docker dependency** (all research now runs on our own in-house pull). `playwright-search` v0.3.0 vendors a zero-dep `bpm-pull` (fetch → strip → density-scored extraction → HTML→markdown); the `web_*_pullmd` tools use it with a native Playwright fallback, so there is no `localhost:33000` service to run. Dropped the ~370-line pullmd install block + `--pullmd` flag from `install.sh`, the `pullmd` MCP from `examples/opencode.json`, and the now-defunct `pullmd_read_url`/`read_url`/`get_share` tool references from `agents/researcher.md` + `agents/shared/RESEARCH_TOOLS.md` + `agents/shared/BROWSER_TESTING.md`. Retained external tooling by design: Context7 MCP (library docs), playwright-mcp (browser automation), Semgrep (security scanner). Remaining third-party MCP under review: mempalace (memory) — to be swapped for in-house bpm-memory-mcp later.
