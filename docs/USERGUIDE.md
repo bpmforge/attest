@@ -608,6 +608,14 @@ Scoped to what just changed (git diff). Faster than `/review-code` — looks for
 
 Project intelligence lifecycle. CLAUDE.md and AGENTS.md drift from the actual codebase as code evolves and decisions are made in conversation but never written down. The steward audits them for gaps, captures learnings from the current session, and updates project docs to stay aligned with reality. Use after any major session or when docs feel stale.
 
+### `/vault`
+
+```
+/vault                          # query / ingest / lint the agent-brain-vault (compiled project wiki)
+```
+
+Knowledge base for a project's compiled, cited pages. Raw material is ingested once and synthesized into pages with provenance; later questions are answered from those pages instead of re-reading the raw sources. The skill teaches any agent the three ops — **query** (answer from compiled pages), **ingest** (add material with provenance + conflict detection), and **lint** (link/contradiction/staleness checks). Use it as the pre-search fetcher for research work so a project question resolves from cited knowledge rather than a cold re-read.
+
 ---
 
 ## Tips
