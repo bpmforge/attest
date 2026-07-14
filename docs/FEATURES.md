@@ -499,7 +499,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Seventy bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Seventy-one bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -571,6 +571,7 @@ Seventy bash validators + gate runners in `scripts/validators/`. Each returns ex
 | `validate-observability.sh` | The observability spec is concrete (metrics, logs, traces, alerts) at design time |
 | `validate-resilience-patterns.sh` | Resilience patterns (retry, timeout, circuit-breaker, fallback) designed at Phase 3 |
 | `validate-tracker-fresh.sh` | Tracking-as-gate (G-D) — work changed but no tracker updated → fail; `--base` mode |
+| `validate-tracker-integrity.sh` | External Tracker Data Model (T29.6, H5/A-6): `docs/TRACKER_DATA_MODEL.md` must exist before any `docs/work/tracker-snapshot.json`; once a snapshot exists, every non-stray item has its required label, every story is structurally linked to its phase, and no untagged template/sample item pollutes scope math. No-op for projects using only `plan.json` (wraps `scripts/lib/tracker-model.mjs`) |
 | `validate-wcag-coverage.sh` | Accessibility (WCAG) evidence exists for UI-bearing components |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.

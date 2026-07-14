@@ -101,6 +101,11 @@ populate_phase_artifacts() {
         # 3 -- wired here (not just Phase 5) so the design doc is not
         # considered final while an external claim is still unverified.
         "validate-challenger-gate.sh"
+        # T29.6: spec-before-backlog -- a project generating its backlog into
+        # an external tracker must record docs/TRACKER_DATA_MODEL.md BEFORE
+        # docs/work/tracker-snapshot.json exists. No-op for projects using
+        # only this repo's own plan.json (see validate-tickets.sh, phase-4).
+        "validate-tracker-integrity.sh"
       )
       # UX gate is UNCONDITIONAL: validate-ux-spec.sh passes only when UX docs
       # exist OR ARCHITECTURE.md explicitly declares "No UI — UX branch not
@@ -136,6 +141,11 @@ populate_phase_artifacts() {
         "validate-file-size.sh"
         "validate-tickets.sh"
         "validate-ticket-hygiene.sh"
+        # T29.6: once a backlog snapshot exists, item-level integrity
+        # (unlabeled items, unlinked stories, untagged strays polluting
+        # scope math) -- the external-tracker analog of validate-tickets.sh
+        # above, which only covers the internal plan.json layer.
+        "validate-tracker-integrity.sh"
       )
       # UI-bearing: validate design system was implemented
       if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then

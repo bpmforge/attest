@@ -1,0 +1,10 @@
+{
+  "generatedAt": "2026-07-13T00:00:00Z",
+  "sourceTracker": "jira",
+  "items": [
+    { "id": "PHASE-4", "type": "phase", "title": "Phase 4: Implementation", "parentId": null, "labels": ["scope:mvp"] },
+    { "id": "PROJ-101", "type": "story", "title": "User can check out", "parentId": "PHASE-4", "labels": ["scope:mvp"] },
+    { "id": "PROJ-102", "type": "task", "title": "Implement checkout endpoint", "parentId": "PROJ-101", "labels": ["scope:mvp"] },
+    { "id": "PROJ-999", "type": "epic", "title": "Example Epic", "parentId": null, "labels": [], "stray": true }
+  ]
+}

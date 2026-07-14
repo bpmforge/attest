@@ -1,0 +1,11 @@
+{
+  "generatedAt": "2026-07-13T00:00:00Z",
+  "sourceTracker": "jira",
+  "items": [
+    { "id": "PHASE-4", "type": "phase", "title": "Phase 4: Implementation", "parentId": null, "labels": ["scope:mvp"] },
+    { "id": "PROJ-201", "type": "story", "title": "Unlabeled story", "parentId": "PHASE-4", "labels": [] },
+    { "id": "PROJ-202", "type": "story", "title": "Orphan story with no parent", "parentId": null, "labels": ["scope:mvp"] },
+    { "id": "PROJ-203", "type": "story", "title": "Dangling-link story", "parentId": "PHASE-999", "labels": ["scope:mvp"] },
+    { "id": "PROJ-999", "type": "epic", "title": "Example Epic", "parentId": null, "labels": ["scope:mvp"] }
+  ]
+}
