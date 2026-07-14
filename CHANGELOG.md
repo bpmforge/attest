@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.6.0] — 2026-07-14
+
+Jira Data Center adapter — mirror the internal ticket lifecycle to a real Jira instance, with graceful fallback to `plan.json`-only.
+
+- **New `scripts/jira/jira.mjs` (+ `jira.sh` wrapper).** Projects the six internal lifecycle verbs (claim/start/comment/close/accept/release) onto Jira DC REST v2 (Personal Access Token, `Authorization: Bearer`), plus `sync-plan` (idempotent epic/story/task creation with Epic-Link + "is blocked by" links from `depends_on`, and `lane`→Component mapping — "proper user spaces like ui"), `close-epic` (refused unless every Epic-Link child is Done), `pull` (normalized `TrackerItem` snapshot feeding the existing `tracker-model.mjs`), `reconcile` and `doctor`.
+- **`plan.json` stays source of truth; Jira is a mirrored ledger.** SDLC hygiene is enforced on both surfaces: grab **issues not epics** (`claim` refuses an Epic), **epic closes only when children are done**, **no double-grab** (WIP=1 on plan.json + `claim` refused if the Jira issue is already assigned to someone else), **maker≠verifier** (`accept` refused if the Jira assignee equals the acceptor), comment-on-update / close-on-done via Jira transitions + evidence comments.
+- **Graceful degradation is lossless, not best-effort.** The one coupling to the source-of-truth engine is a single synchronous, Jira-free `appendOutbox()` call in `scripts/lib/tickets.mjs` after each verb's `savePlan()` — it writes one JSONL line to a durable outbox (`docs/work/jira-outbox.jsonl`) iff a backend is configured, else a no-op (byte-for-byte the pre-adapter behavior). The new backend-agnostic `scripts/lib/lifecycle-outbox.mjs` holds the outbox (no circular import, invariant engine untouched). A Jira outage never blocks local work; `jira.sh reconcile` idempotently replays pending ops. This is the lossless answer to the repo's own flagged non-atomic dual-write problem (`docs/work/LESSONS.md:29`).
+- **New gate `validate-jira-hygiene.sh`** (offline-safe; skips clean unless `TRACKER_BACKEND=jira`): flags unmirrored outbox ops and modules that advanced without a Jira sync. Live drift is reported by `jira.sh doctor` (which also verifies the workflow's status names on connect).
+- Config seam: `JIRA_BASE_URL`/`JIRA_TOKEN`/`JIRA_PROJECT` + optional `jira.config.json` (issue types, Epic-Link field id, status map, lane→component). `TRACKER_BACKEND=auto|jira|none`. Jira **Cloud** (v3/ADF/email+token) is a follow-up behind the same interface.
+- Design: `docs/DESIGN_JIRA_ADAPTER.md`. Reference: `references/jira-adapter.md`. 10 mocked-REST test cases (`scripts/test-jira-adapter.ts`, no live Jira in CI). 411 tests green.
+
 ## [2.5.0] — 2026-07-14
 
 Expert-wiring audit + fixes (all 45 primary experts + cluster specialists validated for half-wired capabilities).

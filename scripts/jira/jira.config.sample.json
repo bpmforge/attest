@@ -1,0 +1,21 @@
+{
+  "_comment": "Optional per-project overrides for scripts/jira/jira.mjs. Copy to your project as jira.config.json and point JIRA_CONFIG at it. Every field has a built-in default; you only override what your Jira instance names differently. project can also come from $JIRA_PROJECT.",
+  "project": "PROJ",
+  "flavor": "datacenter",
+  "issuetypes": { "epic": "Epic", "story": "Story", "task": "Task" },
+  "blocksLinkType": "Blocks",
+  "epicLinkFieldId": "customfield_10014",
+  "statusMap": {
+    "ready": "To Do",
+    "claimed": "Selected for Development",
+    "in_progress": "In Progress",
+    "in_review": "In Review",
+    "done": "Done"
+  },
+  "laneToComponent": {
+    "frontend": "ui",
+    "backend": "api",
+    "infra": "platform",
+    "docs": "documentation"
+  }
+}

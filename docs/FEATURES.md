@@ -575,6 +575,7 @@ Seventy-one bash validators + gate runners in `scripts/validators/`. Each return
 | `validate-resilience-patterns.sh` | Resilience patterns (retry, timeout, circuit-breaker, fallback) designed at Phase 3 |
 | `validate-tracker-fresh.sh` | Tracking-as-gate (G-D) — work changed but no tracker updated → fail; `--base` mode |
 | `validate-tracker-integrity.sh` | External Tracker Data Model (T29.6, H5/A-6): `docs/TRACKER_DATA_MODEL.md` must exist before any `docs/work/tracker-snapshot.json`; once a snapshot exists, every non-stray item has its required label, every story is structurally linked to its phase, and no untagged template/sample item pollutes scope math. No-op for projects using only `plan.json` (wraps `scripts/lib/tracker-model.mjs`) |
+| `validate-jira-hygiene.sh` | Jira mirror hygiene (offline-safe; active only when `TRACKER_BACKEND=jira`): flags lifecycle ops queued in the durable outbox but not mirrored to Jira, and modules that advanced (claimed/in_progress/in_review/done) without a Jira sync. No-op for the `plan.json`-only path (wraps `scripts/lib/jira-hygiene.mjs`; see `references/jira-adapter.md`) |
 | `validate-wcag-coverage.sh` | Accessibility (WCAG) evidence exists for UI-bearing components |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
@@ -643,6 +644,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `report-template.md` | all agents | Common report header + confidence footer |
 | `context7-mcp.md` | all agents | Live library docs via Context7 MCP |
 | `parallel-worktree-agent-playbook.md` | orchestrating session | Gotchas for briefing multiple agents on separate tickets concurrently: worktree isolation, git-stash cross-worktree collision, `--base origin/main`, `build-target-claude.mjs --out`, awk/bash portability traps, fixture/CHANGELOG/merge-gate conventions |
+| `jira-adapter.md` | orchestrating session, sdlc-lead | Mirror the ticket lifecycle to Jira Data Center: setup, verbs, SDLC hygiene mapping (grab-issues-not-epics, epic-closes-when-children-done, maker≠verifier, blocking links, lane→component), and graceful fallback to `plan.json`-only. Wraps `scripts/jira/jira.mjs`; see `docs/DESIGN_JIRA_ADAPTER.md` |
 
 ---
 

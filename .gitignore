@@ -60,3 +60,8 @@ docs/db/
 *.log
 logs/
 .opencode-loops/
+
+# Executor worktrees + validator/test scratch dirs (never committed)
+.worktrees/
+.tmp-wd-*/
+.tmp-*/
