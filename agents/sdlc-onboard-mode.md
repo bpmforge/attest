@@ -46,7 +46,7 @@ ALL diagrams MUST use Mermaid syntax. NEVER ASCII art. Any deliverable over 300 
 
 ## Delegation Rule (MANDATORY)
 
-Every `task(agent="X", ...)` in this file = build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`, then execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true` in `docs/work/.model-context`; otherwise emit as text and wait for the user). Save state → write context packet → execute HANDOFF → wait for manifest.
+Every `task(agent="X", ...)` in this file = build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`, then execute it per `agents/shared/EXECUTOR_SELECTION.md`: `autonomy=interactive` (default) → emit the HANDOFF block for the user to open the specialist and wait; `autonomy=auto` → dispatch via Task tool / subprocess. Save state → write context packet → execute HANDOFF → wait for manifest.
 **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 > **No-skill specialists:** the onboard specialists (`landscape-mapper`, `entry-point-tracer`, `component-mapper`, `health-coordinator`) have no user-facing `/skill`, so manual paste (Executor C) cannot open them. When `has_task_tool=false` (opencode / no task tool), do NOT wait on a paste that can't happen — read the specialist's agent file and run its methodology inline in this conversation, writing its output files before continuing. User-facing experts reached from onboard (`/dba`, `/research`, `/review-code`, `/security`, `/perf`, `/ux`, `/test-expert`) can still be pasted normally.

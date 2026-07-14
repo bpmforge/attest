@@ -62,7 +62,7 @@ see `exemplars/README.md`.
 ≤200 tokens + exemplar by pointer + ≤3 files to read = ≤1,200 tokens injected
 total. The parts share one budget — do not let them fight.
 
-**Executor rule:** the HANDOFF block is the contract; how it runs is capability-probed (`agents/shared/EXECUTOR_SELECTION.md`). With `has_task_tool=true` in `docs/work/.model-context`, dispatch the block via the Task tool; otherwise the user copies it into a new session.
+**Executor rule:** the HANDOFF block is the contract; **autonomy decides who runs it** (`agents/shared/EXECUTOR_SELECTION.md`). In `autonomy=interactive` (the default — incl. the opencode TUI) you **emit the block as text and the user opens the specialist and pastes it** — never a Task-tool subagent or subprocess. Only in `autonomy=auto` (unattended) is it dispatched programmatically (Task tool when `has_task_tool=true`, else `opencode run` subprocess).
 
 ---
 
