@@ -76,6 +76,7 @@ export function resolveConfig(env = process.env, configPath = null) {
     enabled: true,
     baseUrl,
     token: env.JIRA_TOKEN || '',
+    email: env.JIRA_EMAIL || fileCfg.email || '',   // Cloud Basic auth (email:token)
     project: env.JIRA_PROJECT || fileCfg.project || '',
     flavor: (env.JIRA_FLAVOR || fileCfg.flavor || DEFAULT_CONFIG.flavor).toLowerCase(),
     issuetypes: { ...DEFAULT_CONFIG.issuetypes, ...(fileCfg.issuetypes || {}) },
@@ -93,8 +94,18 @@ export class JiraClient {
   constructor(cfg, fetchImpl = globalThis.fetch) {
     if (!cfg || !cfg.enabled) throw new Error('JiraClient constructed with a disabled config');
     this.cfg = cfg;
-    this.api = cfg.flavor === 'cloud' ? '/rest/api/3' : '/rest/api/2';
+    this.cloud = cfg.flavor === 'cloud';
+    this.api = this.cloud ? '/rest/api/3' : '/rest/api/2';
     this._fetch = fetchImpl;
+  }
+
+  // DC/Server: PAT as Bearer. Cloud: email + API-token as Basic.
+  _authHeader() {
+    if (this.cloud) {
+      const basic = Buffer.from(`${this.cfg.email}:${this.cfg.token}`).toString('base64');
+      return `Basic ${basic}`;
+    }
+    return `Bearer ${this.cfg.token}`;
   }
 
   async _req(method, path, body) {
@@ -102,7 +113,7 @@ export class JiraClient {
     const res = await this._fetch(url, {
       method,
       headers: {
-        'Authorization': `Bearer ${this.cfg.token}`,
+        'Authorization': this._authHeader(),
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
@@ -127,8 +138,26 @@ export class JiraClient {
   }
   createIssue(fields) { return this._req('POST', '/issue', { fields }); }
   updateIssue(key, fields) { return this._req('PUT', `/issue/${key}`, { fields }); }
-  assign(key, name) { return this._req('PUT', `/issue/${key}/assignee`, name ? { name } : { name: null }); }
-  addComment(key, body) { return this._req('POST', `/issue/${key}/comment`, { body }); }
+  // Cloud identifies users by accountId; DC/Server by username. `actor` is
+  // interpreted accordingly, so a cloud project passes accountIds as actors.
+  assign(key, actor) {
+    const payload = this.cloud ? { accountId: actor || null } : { name: actor || null };
+    return this._req('PUT', `/issue/${key}/assignee`, payload);
+  }
+  // The current assignee's identity in the flavor's own terms (accountId on
+  // Cloud, username on DC) — what the claim/accept guards compare against.
+  assigneeOf(issue) {
+    const a = issue.fields?.assignee;
+    if (!a) return null;
+    return this.cloud ? (a.accountId || null) : (a.name || null);
+  }
+  // Cloud v3 comment bodies must be Atlassian Document Format; DC v2 is plain text.
+  addComment(key, text) {
+    const body = this.cloud
+      ? { type: 'doc', version: 1, content: [{ type: 'paragraph', content: [{ type: 'text', text: String(text) }] }] }
+      : String(text);
+    return this._req('POST', `/issue/${key}/comment`, { body });
+  }
   listTransitions(key) { return this._req('GET', `/issue/${key}/transitions`); }
   doTransition(key, transitionId) { return this._req('POST', `/issue/${key}/transitions`, { transition: { id: transitionId } }); }
   createLink(inwardKey, outwardKey, typeName) {
@@ -209,9 +238,12 @@ export async function syncPlan(plan, client, { write = true } = {}) {
   // Pass 2: epic links + blocking links (idempotent).
   for (const m of modules) {
     const key = keyByPlanId[m.id];
-    // Epic membership: if this module declares an epic parent.
-    if (m.epic_parent && keyByPlanId[m.epic_parent] && epicField) {
-      await client.updateIssue(key, { [epicField]: keyByPlanId[m.epic_parent] }).catch(() => {});
+    // Epic membership: if this module declares an epic parent. Cloud v3 uses the
+    // native `parent` field; DC/Server uses the "Epic Link" custom field.
+    if (m.epic_parent && keyByPlanId[m.epic_parent]) {
+      const parentKey = keyByPlanId[m.epic_parent];
+      const fields = client.cloud ? { parent: { key: parentKey } } : (epicField ? { [epicField]: parentKey } : null);
+      if (fields) await client.updateIssue(key, fields).catch(() => {});
     }
     // depends_on → "is blocked by": THIS issue is blocked by the dep's issue.
     for (const dep of m.depends_on || []) {
@@ -360,7 +392,7 @@ export const verbs = {
         const issue = await client.getIssue(m.jira_key, ['assignee', 'issuetype']);
         if (issue.fields?.issuetype?.name === client.cfg.issuetypes.epic)
           return { ok: false, error: `${m.jira_key} is an Epic — claim a child issue, not the epic` };
-        const cur = issue.fields?.assignee?.name;
+        const cur = client.assigneeOf(issue);
         if (cur && cur !== actor)
           return { ok: false, error: `${m.jira_key} already assigned to '${cur}' in Jira — refusing cross-surface double-grab` };
         return { ok: true };
@@ -378,7 +410,7 @@ export const verbs = {
       { client: opts.client, preGuard: async (client, m) => {
         if (!m.jira_key) return { ok: true };
         const issue = await client.getIssue(m.jira_key, ['assignee']);
-        const assignee = issue.fields?.assignee?.name;
+        const assignee = client.assigneeOf(issue);
         if (assignee && assignee === actor)
           return { ok: false, error: `${m.jira_key} is assigned to '${actor}' — a verifier must differ from the maker (maker≠verifier)` };
         return { ok: true };
@@ -400,6 +432,37 @@ export async function closeEpic(client, epicKey) {
     return { ok: false, error: `${epicKey}: ${open.length} child issue(s) not ${target} — epic closes only when all children are done`, openKeys: open.map((c) => c.key) };
   await transitionTo(client, epicKey, 'done');
   return { ok: true, closed: children.length };
+}
+
+// ── syncState: convergence — align Jira to plan.json (any-writer catch-all) ──
+//
+// The keystone of the unattended path. Instead of relying on every writer to
+// emit an outbox event, syncState reads plan.json (the source of truth) and
+// makes each mirrored issue's assignee + status MATCH the module, idempotently.
+// This is what makes the conductor (which calls the lifecycle functions
+// in-process, not the CLI) mirror correctly with no per-caller hooks: run
+// syncState after its transitions and Jira converges. Safe to run any number of
+// times — a converged board changes nothing on the next pass.
+export async function syncState(client, plan) {
+  const changed = [];
+  const missing = [];
+  for (const m of plan.modules || []) {
+    let key = m.jira_key;
+    if (!key) { const iss = await findIssueByPlanId(client, m.id); key = iss?.key; }
+    if (!key) { missing.push(m.id); continue; }         // never synced — sync-plan first
+    const issue = await client.getIssue(key, ['assignee', 'status']);
+    const desiredAssignee = m.owner || null;
+    if (client.assigneeOf(issue) !== desiredAssignee) {
+      await client.assign(key, desiredAssignee);
+      changed.push(`${m.id} (${key}) assignee → ${desiredAssignee || '(none)'}`);
+    }
+    const desiredStatus = client.cfg.statusMap[m.status];
+    if (desiredStatus && issue.fields?.status?.name !== desiredStatus) {
+      const t = await transitionTo(client, key, m.status);
+      if (t.ok && !t.noop) changed.push(`${m.id} (${key}) status → ${desiredStatus}`);
+    }
+  }
+  return { changed, missing };
 }
 
 // ── pull: normalized TrackerItem snapshot (feeds tracker-model.mjs) ──────────
@@ -521,8 +584,15 @@ async function main(argv) {
         console.log(p.length ? `drift — ${p.length} pending mirror op(s)` : 'ok — outbox drained, no pending ops');
         process.exit(p.length ? 1 : 0);
       }
+      // Two passes: (1) drain the outbox — replays real-time verb events
+      // (incl. comments, which convergence can't reconstruct); (2) converge
+      // from plan-state — the any-writer catch-all that fixes assignee/status
+      // drift left by callers that never emitted (e.g. the conductor).
       const r = await drainOutbox(client, plan, planPath);
-      console.log(`ok — reconcile: ${r.drained.length} drained, ${r.failed.length} still pending`);
+      const s = await syncState(client, loadPlanAt(planPath));
+      const missing = s.missing.length ? ` (${s.missing.length} module(s) never synced — run 'jira.sh sync-plan')` : '';
+      console.log(`ok — reconcile: ${r.drained.length} drained, ${r.failed.length} still pending; ${s.changed.length} converged${missing}`);
+      for (const c of s.changed) console.log(`  · ${c}`);
       process.exit(r.failed.length ? 1 : 0); break;
     }
     case 'pull': {

@@ -42,7 +42,7 @@ jira.sh close   <issue|id> <actor> --branch <b> --commits <c1,c2>
 jira.sh accept  <issue|id> <actor>    # maker≠verifier: refuses if Jira assignee == acceptor
 jira.sh release <issue|id> <actor> <reason>
 jira.sh close-epic <EPIC-KEY>         # refused unless every Epic-Link child is Done
-jira.sh reconcile [--check]           # drain the outbox / report pending drift
+jira.sh reconcile [--check]           # drain outbox + converge Jira to plan-state; --check reports drift
 jira.sh pull                          # normalized TrackerItem snapshot → stdout
 jira.sh doctor                        # config + connectivity + status-name + drift check
 ```
@@ -71,6 +71,15 @@ applied immediately when Jira is healthy. On any failure (network, 5xx, auth)
 the op stays pending and `jira.sh reconcile` replays it — every REST mutation is
 idempotent, so replay is always safe.
 
+**`reconcile` is two passes:** (1) drain the outbox (replays queued verb events,
+including comments), then (2) **converge from plan-state** — `syncState` reads
+`plan.json` and makes each issue's assignee + status match the module,
+idempotently. Pass 2 is the any-writer catch-all: a writer that never emitted an
+outbox event (the **conductor**, which calls the lifecycle functions in-process;
+or a manual `plan.json` edit) still converges. The conductor runs `reconcile`
+automatically after each pick-up and each accept (gated on `TRACKER_BACKEND=jira`),
+so unattended runs mirror without any per-caller hooks.
+
 | Condition | Behavior |
 |---|---|
 | `JIRA_BASE_URL` unset | adapter disabled; verbs run `plan.json`-only; no mirror. |
@@ -85,6 +94,16 @@ in-progress issue with no assignee, plan-done-but-Jira-not) is reported by
 
 ## Jira Cloud
 
-A follow-up behind the same interface (`JIRA_FLAVOR=cloud`): `/rest/api/3`, ADF
-comment bodies, `email + API-token` auth, Cloud parent field. Not built in this
-pass.
+Set `JIRA_FLAVOR=cloud` (same interface, different backend): `/rest/api/3`,
+`email + API-token` Basic auth (`JIRA_EMAIL` + `JIRA_TOKEN`), ADF comment bodies,
+`accountId` assignment, and the native `parent` field for epic membership. In a
+Cloud project the **actor** is a Jira `accountId` (that's how Cloud identifies
+users), so pass accountIds as actors to `claim`/`accept`/`release`.
+
+```bash
+export JIRA_BASE_URL=https://your-site.atlassian.net
+export JIRA_FLAVOR=cloud
+export JIRA_EMAIL=you@company.com
+export JIRA_TOKEN=<api-token>          # https://id.atlassian.com/manage/api-tokens
+export JIRA_PROJECT=PROJ
+```
