@@ -66,20 +66,20 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **emit the HANDOFF block as text, tell the user which agent to open (`/skill`) and what to submit back, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent or subprocess. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -95,7 +95,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 | 6 | Re-verify fixes | code-reviewer / specialist (targeted) | VERIFY_*.md |
 | 7 | Ship | git-expert | PR to main |
 
-**Audit fan-out in Step 2 is always parallel. Emit all audit HANDOFFs in one message.**
+**Audit fan-out in Step 2 is always parallel. Write each audit HANDOFF doc and point the user at the N specialists in one message.**
 
 ---
 
@@ -192,7 +192,7 @@ Next after resume: Step 2 — scoped specialist audits
 ---
   HANDOFF → test-engineer   [or /ux if UI-scoped]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -224,14 +224,17 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 **Only run this if** the user specified a feature scope like `/sdlc improve "feature:payments"`.
 
-Before running broad audits, trace the specific feature end-to-end using the `/explore` pattern:
+Before running broad audits, the specific feature must be traced end-to-end. **This is a HANDOFF —
+you do NOT trace call chains or read source yourself** (strict-delegation rule, `sdlc-lead.md`;
+mirrors Step 1.5's "Do NOT navigate the app yourself"). Write a HANDOFF to
+`docs/work/HANDOFF_app-cartographer.md` and point the user at `/explore` (app-cartographer). Its task:
 1. Find all entry points for this feature (routes, UI handlers, event listeners)
 2. Trace call chains from entry to data layer
 3. Map the data flow and blast radius
-4. Write to `docs/improve/EXPLORE_[feature].md`
+4. Produce `docs/improve/EXPLORE_[feature].md`
 
-This scopes ALL subsequent audits to just the files in the blast radius — specialists
-don't waste time on unrelated code. Pass the exploration file as context to every HANDOFF.
+**You then READ that map** and use it to scope ALL subsequent audit HANDOFFs to just the files in
+the blast radius — pass the exploration file as context to every audit HANDOFF.
 
 ## Step 2: Run Audits
 
@@ -288,7 +291,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → ux-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 
@@ -335,7 +338,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → code-reviewer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 
@@ -386,7 +389,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → performance-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
+Write this block to `docs/work/HANDOFF_performance-engineer.md`, then tell the user: open `/perf` and have it read `docs/work/HANDOFF_performance-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for performance-engineer:
 
@@ -433,7 +436,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -480,7 +483,7 @@ Next after resume: Step 3 — Synthesize Findings
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -538,7 +541,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -728,7 +731,7 @@ After the user confirms done, run a targeted verification HANDOFF to the special
 ---
   HANDOFF → [specialist who found the issue]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /[skill]:
+Write this block to `docs/work/HANDOFF_<agent>.md`, then tell the user: open `/[skill]` and have it read `docs/work/HANDOFF_<agent>.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for [specialist]:
 
@@ -791,7 +794,7 @@ Then HANDOFF to coding-agent for implementation:
 ---
   HANDOFF → coding-agent
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /code:
+Write this block to `docs/work/HANDOFF_coding-agent.md`, then tell the user: open `/code` and have it read `docs/work/HANDOFF_coding-agent.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for coding-agent:
 

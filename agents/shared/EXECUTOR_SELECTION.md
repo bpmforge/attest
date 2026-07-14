@@ -31,14 +31,14 @@ If `.model-context` is missing, run the detect script; if you cannot, assume
 |---|---|---|
 | **A** | **Native Task tool** — dispatch the full HANDOFF block as the subagent prompt; block until the Completion Manifest returns | `has_task_tool=true` AND the specialist needs no MCP tools (or `mcp_in_subagents=true`) |
 | **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x> --dir <workcopy>` with the HANDOFF as prompt | **`autonomy=auto` only.** `opencode_cli=true` and not already inside a subprocess-spawned session. Required when a specialist needs MCP tools and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access and the only programmatic path with timeout protection. **Always pass an explicit `--dir <workcopy>`** (eval-harness isolation lesson) so parallel B dispatches don't collide. **Never used in `interactive`** — there the human opens the specialist (C). |
-| **C** | **HANDOFF block for the user** — print the HANDOFF block as text and tell the user which agent to open, what to paste, and the completion phrase to submit back | **The default in `interactive` for any specialist with a `/skill`** — the user drives every handoff and the specialist runs as a first-class conversation they open. Also the fallback if A/B fail twice in auto. **In `autonomy=auto`, C is an error** — auto has no human to paste; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
+| **C** | **HANDOFF document for the user** — write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, then print a short pointer telling the user which agent to open (`/skill`), that it should read that doc and follow it, and which report to submit back | **The default in `interactive` for any specialist with a `/skill`** — the user drives every handoff and the specialist runs as a first-class conversation they open. Also the fallback if A/B fail twice in auto. **In `autonomy=auto`, C is an error** — auto has no human to paste; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
 | **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** (so it cannot be handed off — there is no slash to open) — in either mode. Also the `auto` fallback when `opencode_cli=false` (no CLI to spawn B). A skill-less specialist that later gains a `/skill` should move to C in interactive. |
 
 ## Selection order & matrix
 
 **Autonomy is the primary discriminator.** In `interactive` (a human is at the session — the
-default in the opencode TUI), a specialist that has a `/skill` is **ALWAYS Executor C**: emit the
-HANDOFF block and tell the user which agent to open, what to paste, and what to submit back. You do
+default in the opencode TUI), a specialist that has a `/skill` is **ALWAYS Executor C**: write the HANDOFF to
+`docs/work/HANDOFF_<agent>.md` and tell the user which agent to open (`/skill`), to have it read that doc, and what report to submit back. You do
 **not** run the specialist for them via a hidden Task-tool subagent (A) or an `opencode run`
 subprocess (B). The user drives every handoff and each specialist runs as a first-class conversation
 they open. Only in `auto` (unattended/headless — e.g. the conductor) is dispatch programmatic:
@@ -47,7 +47,7 @@ slash to open, so they cannot be pasted) fall to **D** (inline) in either mode.
 
 | autonomy | specialist | runtime | → executor |
 |---|---|---|---|
-| **interactive** | has a `/skill` | any (`opencode_cli`/`has_task_tool` irrelevant) | **C** — emit HANDOFF block; the user opens the specialist, pastes it, submits the completion phrase back |
+| **interactive** | has a `/skill` | any (`opencode_cli`/`has_task_tool` irrelevant) | **C** — write `docs/work/HANDOFF_<agent>.md`; the user opens the specialist, has it READ that doc, and submits the report back |
 | **interactive** | skill-less (no slash to open) | any | **D** (inline) — cannot be handed off; run its methodology in-conversation |
 | **auto** | native-tools only | `has_task_tool=true` | **A** (native Task tool) |
 | **auto** | needs MCP, or `has_task_tool=false` | `opencode_cli=true` | **B** (subprocess `opencode run`) |
@@ -61,8 +61,9 @@ probes only matter in `auto`; in `interactive` the human is the executor.
 ## TUI mode
 
 The opencode TUI is an **interactive** session — a human is present. Per the matrix, every
-specialist that has a `/skill` is **Executor C**: you print the HANDOFF block and tell the user
-which agent to open, what to paste, and what completion phrase to submit back. You do **NOT** spawn
+specialist that has a `/skill` is **Executor C**: you write the HANDOFF to
+`docs/work/HANDOFF_<agent>.md` and tell the user which agent to open, to have it read that doc and
+follow it, and what report to submit back. You do **NOT** spawn
 an `opencode run` subprocess (B) or a Task-tool subagent (A) to run a specialist behind the user's
 back — that is the exact behavior this rule forbids. Executor B (subprocess) is for **auto/headless**
 runs (the unattended conductor), not the interactive TUI.

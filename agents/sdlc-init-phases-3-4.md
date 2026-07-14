@@ -80,7 +80,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -147,7 +147,7 @@ Next after resume: api-designer handoff
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -198,7 +198,7 @@ Next after resume: UX branch (if UI-bearing) or security-auditor handoff
 ---
   HANDOFF → api-designer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
+Write this block to `docs/work/HANDOFF_api-designer.md`, then tell the user: open `/api-design` and have it read `docs/work/HANDOFF_api-designer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for api-designer:
 
@@ -268,7 +268,7 @@ Next after resume: SECURITY_CONTROLS HANDOFF, then security reconciliation, then
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -422,7 +422,7 @@ Next after resume: security-auditor handoff
 ---
   HANDOFF → ux-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 
@@ -481,7 +481,7 @@ the visual design is specified but not implemented. Hand off to frontend-design:
 ---
   HANDOFF → frontend-design
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
+Write this block to `docs/work/HANDOFF_frontend-design.md`, then tell the user: open `/frontend` and have it read `docs/work/HANDOFF_frontend-design.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for frontend-design:
 
@@ -1146,7 +1146,7 @@ Next after resume: db-architect migrations handoff
 ---
   HANDOFF → test-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -1283,7 +1283,7 @@ Next after resume: discovery audit, then expert reviews
 ---
   HANDOFF → test-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -1363,7 +1363,7 @@ Next after resume: DB migrations, then expert reviews
 ---
   HANDOFF → test-engineer   [or /ux if UI-bearing]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -1412,7 +1412,7 @@ Next after resume: api-designer contract verification
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -1442,7 +1442,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → api-designer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
+Write this block to `docs/work/HANDOFF_api-designer.md`, then tell the user: open `/api-design` and have it read `docs/work/HANDOFF_api-designer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for api-designer:
 
@@ -1472,7 +1472,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → container-ops
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /containers:
+Write this block to `docs/work/HANDOFF_container-ops.md`, then tell the user: open `/containers` and have it read `docs/work/HANDOFF_container-ops.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for container-ops:
 
@@ -1528,7 +1528,7 @@ Next after resume: CI/CD pipeline
 ---
   HANDOFF → sre-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+Write this block to `docs/work/HANDOFF_sre-engineer.md`, then tell the user: open `/devops` and have it read `docs/work/HANDOFF_sre-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for sre-engineer:
 
@@ -1572,7 +1572,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → sre-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+Write this block to `docs/work/HANDOFF_sre-engineer.md`, then tell the user: open `/devops` and have it read `docs/work/HANDOFF_sre-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for sre-engineer:
 
@@ -1603,7 +1603,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -1640,7 +1640,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → code-reviewer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 
@@ -1689,7 +1689,7 @@ task(agent="git-expert", prompt="--feature mode (merge phase): verify docs/revie
 ---
   HANDOFF → performance-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
+Write this block to `docs/work/HANDOFF_performance-engineer.md`, then tell the user: open `/perf` and have it read `docs/work/HANDOFF_performance-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for performance-engineer:
 

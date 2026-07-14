@@ -64,20 +64,20 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **emit the HANDOFF block as text, tell the user which agent to open (`/skill`) and what to submit back, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent or subprocess. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -107,19 +107,23 @@ Glob docs/sdlc/SDLC_TRACKER.md
 - If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
 - If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 3 template from SDLC_TRACKER section above — fill in feature name and date]")`
 
-## Step 1: Impact Analysis (Use `/explore` Pattern)
+## Step 1: Impact Analysis (HANDOFF to app-cartographer / `/explore`)
 
-After the Feature Discovery Interview confirms scope, run a codebase exploration
-to trace the affected feature end-to-end. Follow the `/explore` skill pattern:
+After the Feature Discovery Interview confirms scope, the affected feature must be traced
+end-to-end. **This is a HANDOFF — you do NOT grep/read source and trace call chains yourself**
+(that violates the strict-delegation rule in `sdlc-lead.md`). Write a HANDOFF to
+`docs/work/HANDOFF_app-cartographer.md` (per `agents/shared/HANDOFF_TEMPLATES.md`) and point the
+user at `/explore` (app-cartographer). Its task:
 
-1. **Find entry points** — Grep for the feature name, routes, components
-2. **Trace call chains** — For each entry point, follow handler → service → repository → DB
-3. **Map data flow** — What data enters, transforms, stores, and is read downstream
-4. **Identify blast radius** — Every file, table, endpoint, and test that would change
-5. **Assess risk** — What could break? What depends on the same code?
+1. **Find entry points** — grep the feature name, routes, components
+2. **Trace call chains** — handler → service → repository → DB, per entry point
+3. **Map data flow** — what data enters, transforms, stores, is read downstream
+4. **Identify blast radius** — every file, table, endpoint, test that would change
+5. **Assess risk** — what could break; what depends on the same code
 
-Produce: `docs/explore/EXPLORE_[feature].md` — file:line map of everything involved.
-Also produce: Impact analysis summary listing every file, table, and endpoint affected.
+It produces: `docs/explore/EXPLORE_[feature].md` — a file:line map of everything involved, plus an
+impact summary listing every file, table, and endpoint affected. **You then READ that map** and
+scope the build/audit HANDOFFs from it — you never trace the code yourself.
 
 ### Impact Analysis Confidence Loop
 
@@ -226,7 +230,7 @@ Next after resume: api-designer handoff (if API changes needed)
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -256,7 +260,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
   HANDOFF → migration-planner
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /migration-planner:
+Write this block to `docs/work/HANDOFF_migration-planner.md`, then tell the user: open `/migration-planner` and have it read `docs/work/HANDOFF_migration-planner.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for migration-planner:
 
@@ -284,7 +288,7 @@ If API changes needed:
 ---
   HANDOFF → api-designer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
+Write this block to `docs/work/HANDOFF_api-designer.md`, then tell the user: open `/api-design` and have it read `docs/work/HANDOFF_api-designer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for api-designer:
 
@@ -314,7 +318,7 @@ If the feature touches auth, data access, or user input:
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -390,7 +394,7 @@ Next after resume: implementation checkpoint
 ---
   HANDOFF → test-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -482,7 +486,7 @@ Before emitting, evaluate the auto-trigger rules against the impact analysis:
 - **performance-engineer** — runs if the impact touches a path with an NFR target in SRS.md, DB queries (new or modified), loops over collections, caching, or background jobs.
 - **ux-engineer** — runs if any UI file is in the impact.
 
-Emit ONE message containing every triggered HANDOFF as separate blocks. User opens N OpenCode sessions concurrently. Report back with all N completion phrases before synthesis.
+**These are HANDOFFs — you never read the source and review/scan it yourself.** Write each `docs/work/HANDOFF_<agent>.md`, point the user at the N specialists (`/review-code`, `/security`, …), and read only their produced reports (`FIX_BACKLOG_*` / `SECURITY_FINAL_*`) before synthesis. Report back with all N completion phrases before synthesis.
 
 ```
 ---

@@ -20,8 +20,7 @@ Every HANDOFF block MUST use the standard delimiter format below. This format wo
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #N → [agent-name]  |  open: /[skill-command]
-USER: copy EVERYTHING between the ════ lines into a new session
+HANDOFF → [agent-name]   (open /[skill-command] and read this file)
 ════════════════════════════════════════════════════════════
 [HANDOFF BODY — do not modify anything inside these lines]
 ════════════════════════════════════════════════════════════
@@ -29,23 +28,38 @@ END HANDOFF #N
 ════════════════════════════════════════════════════════════
 ```
 
-**Why delimiters matter:** Local LLMs (qwen, gemma, etc.) have smaller context windows and sometimes confuse which text is the HANDOFF body vs. the surrounding orchestrator commentary. The `════` border makes the copy region unambiguous regardless of the model. Online models (Claude, GPT-4) do fine without it, but the format is cheap and the consistency helps all models.
+**Why delimiters matter:** Local LLMs (qwen, gemma, etc.) have smaller context windows and sometimes confuse which text is the HANDOFF body vs. the surrounding orchestrator commentary. The `════` border makes the task region in `docs/work/HANDOFF_<agent>.md` unambiguous regardless of the model. Online models (Claude, GPT-4) do fine without it, but the format is cheap and the consistency helps all models.
 
-**sdlc-lead output rule:** When emitting a HANDOFF block, print the delimiter header first, then the HANDOFF body, then the delimiter footer. Never add commentary or instructions inside the delimited region. Explanation to the user goes ABOVE the opening delimiter.
+**sdlc-lead output rule:** Write the delimiter header, HANDOFF body, and delimiter footer to `docs/work/HANDOFF_<agent>.md`. Never add commentary or instructions inside the delimited region. Explanation to the user goes ABOVE the opening delimiter.
 
 **Receiving agent rule:** When your prompt starts with `SDLC-TASK for` — you are inside a HANDOFF block. Follow the six rules in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Do not look for or process the delimiter lines.
 
 ---
 
-## Rules for every HANDOFF
+## How a HANDOFF is delivered (interactive — the default)
 
-1. Open a new OpenCode session, type `/[skill-command]`, paste the full HANDOFF body
-2. Start with `SDLC-TASK for <agent-name>:` — this triggers the agent's Bounded Task Mode
-3. List the exact files to READ for context (name them — do not say "look at the project")
-4. Describe the task in 2-4 sentences (what to produce, not which internal mode to run)
-5. List the exact files to PRODUCE with a one-line description of each
-6. End with the exact completion phrase the agent should print
-7. Say "Then stop" — explicitly tell the agent not to continue
+**The handoff is a DOCUMENT the specialist reads, not a block the user pastes.** For each handoff:
+
+1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.
+2. **Print a short pointer to the user** — which agent to open, which handoff doc to read, and which report they'll submit back:
+   ```
+   ── NEXT HANDOFF ──────────────────────────────
+   Open agent:   /<skill>            (<agent-name>)
+   It reads:     docs/work/HANDOFF_<agent>.md   ← its full task is in this file
+   It produces:  <docs/reviews/REPORT_*.md>     ← come back when done
+   I will read that report and continue. I do NOT run this check myself.
+   ──────────────────────────────────────────────
+   ```
+3. **STOP and wait.** When the user returns with the completion phrase / report path, read the REPORT and continue. Never open the specialist for them, and never do the check yourself.
+
+## Contents of the handoff document
+
+1. Start with `SDLC-TASK for <agent-name>:` — this triggers the agent's Bounded Task Mode
+2. List the exact files to READ for context (name them — do not say "look at the project")
+3. Describe the task in 2-4 sentences (what to produce, not which internal mode to run)
+4. List the exact files to PRODUCE with a one-line description of each
+5. End with the exact completion phrase the agent should print
+6. Say "Then stop" — explicitly tell the agent not to continue
 
 Never say "Run --design mode" or "Run --review mode" — describe the TASK, not the agent's internal flags.
 
@@ -62,18 +76,17 @@ see `exemplars/README.md`.
 ≤200 tokens + exemplar by pointer + ≤3 files to read = ≤1,200 tokens injected
 total. The parts share one budget — do not let them fight.
 
-**Executor rule:** the HANDOFF block is the contract; **autonomy decides who runs it** (`agents/shared/EXECUTOR_SELECTION.md`). In `autonomy=interactive` (the default — incl. the opencode TUI) you **emit the block as text and the user opens the specialist and pastes it** — never a Task-tool subagent or subprocess. Only in `autonomy=auto` (unattended) is it dispatched programmatically (Task tool when `has_task_tool=true`, else `opencode run` subprocess).
+**Executor rule:** the HANDOFF document is the contract; **autonomy decides who runs it** (`agents/shared/EXECUTOR_SELECTION.md`). In `autonomy=interactive` (the default — incl. the opencode TUI) you **write it to `docs/work/HANDOFF_<agent>.md` and print the pointer above for the user to open the specialist and read the doc** — you never open a Task-tool subagent or subprocess, and you never run the specialist's check yourself. Only in `autonomy=auto` (unattended) is it dispatched programmatically (Task tool when `has_task_tool=true`, else `opencode run` subprocess), still writing the same `HANDOFF_<agent>.md`.
 
 ---
 
 ## Template 1: Standard HANDOFF (most common)
 
-Emit this block verbatim. The `════` delimiters tell the user exactly what to copy.
+**Write this block to `docs/work/HANDOFF_<agent>.md`**, then print the NEXT HANDOFF pointer (above) to the user. The block below IS the document the specialist reads — the `════` delimiters frame the task.
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #N → <agent-name>  |  open new session → /<skill>
-USER: open a new OpenCode session, type /<skill>, then paste EVERYTHING below this line
+HANDOFF → <agent-name>   (open /<skill> and read this file)
 ════════════════════════════════════════════════════════════
 SDLC-TASK for <agent-name>:
 
@@ -205,7 +218,7 @@ Emit N HANDOFF blocks in ONE message -- one per module. User opens N concurrent 
 ---
   PARALLEL WAVE -- ROUND 1 (CODE) -- N concurrent HANDOFFs
 ---
-Open N OpenCode sessions concurrently. Paste each block into one session.
+Write each block to its own `docs/work/HANDOFF_<agent>.md`, then tell the user to open the N agents (`/<skill>` each) and have each read its handoff doc. The docs are read — nothing is pasted.
 
 --- HANDOFF #1 (<module-A>) -> /code ---
 SDLC-TASK for coding-agent:
@@ -280,7 +293,7 @@ Use BEFORE any feature coding waves start. The design system must exist before c
 ---
   HANDOFF -> /frontend (frontend-design) — DESIGN SYSTEM (Wave 0)
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
+Write this block to `docs/work/HANDOFF_frontend-design.md`, then tell the user: open `/frontend` and have it read `docs/work/HANDOFF_frontend-design.md` and follow it. It reads the doc — nothing is pasted.
 
 TASK for frontend-design:
 
@@ -347,7 +360,7 @@ Use after TECH_STACK.md is complete. architecture-designer produces MODULE_DESIG
 ---
   HANDOFF -> /architect (architecture-designer) — MODULE DESIGN + INFRASTRUCTURE
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /architect:
+Write this block to `docs/work/HANDOFF_architecture-designer.md`, then tell the user: open `/architect` and have it read `docs/work/HANDOFF_architecture-designer.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for architecture-designer:
 
@@ -401,7 +414,7 @@ Use after security controls are applied to DATABASE.md and API_DESIGN.md. Confir
 ---
   HANDOFF -> /devops (sre-engineer) — INFRASTRUCTURE TOPOLOGY REVIEW
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+Write this block to `docs/work/HANDOFF_sre-engineer.md`, then tell the user: open `/devops` and have it read `docs/work/HANDOFF_sre-engineer.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for sre-engineer:
 
@@ -450,7 +463,7 @@ Use after container config is complete. IaC scaffolding is its own wave — para
 ---
   HANDOFF -> /devops (sre-engineer) — IaC SCAFFOLDING
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /devops:
+Write this block to `docs/work/HANDOFF_sre-engineer.md`, then tell the user: open `/devops` and have it read `docs/work/HANDOFF_sre-engineer.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for sre-engineer:
 
@@ -501,7 +514,7 @@ Use after THREAT_MODEL.md is complete. Produces SECURITY_CONTROLS.md and issues 
 ---
   HANDOFF -> /security (security-auditor) — SECURITY CONTROLS
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for security-auditor:
 
@@ -552,7 +565,7 @@ Use after Phase 3 gate passes and Human Approval Gate A is confirmed. Produces T
 ---
   HANDOFF -> /test-expert (test-engineer) — TEST DESIGN
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for test-engineer:
 
@@ -621,7 +634,7 @@ requirement closure (this matrix) is built to.
 ---
   HANDOFF -> /code (coding-agent) — REQUIREMENT RECONCILIATION
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /code:
+Write this block to `docs/work/HANDOFF_coding-agent.md`, then tell the user: open `/code` and have it read `docs/work/HANDOFF_coding-agent.md` and follow it. It reads the doc — nothing is pasted.
 
 SDLC-TASK for coding-agent:
 

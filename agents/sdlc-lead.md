@@ -123,7 +123,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 **Delegation: the HANDOFF block is the contract; autonomy decides who executes it.** Pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
 
-- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS emit the HANDOFF block as text and tell the user which agent to open (`/skill`), what to paste, and the completion phrase to submit back.** Then STOP and wait for them to return the manifest. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
+- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and print a short pointer telling the user which agent to open (`/skill`), that it should read `docs/work/HANDOFF_<agent>.md` and follow it, and which report to submit back.** Then STOP and wait for them to return with the report. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess, and **never run the check yourself** — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
 - **`autonomy=auto` (unattended/headless — e.g. the conductor):** dispatch programmatically — Task tool (`has_task_tool=true`, native-tools specialist) → `task.ts` subprocess (`opencode run`, MCP-needing or no task tool) → inline. Never emit a paste-and-wait in auto; log auto-taken gates to `docs/work/APPROVALS.md`.
 
 Read `has_task_tool` / `mcp_in_subagents` / `autonomy` from `docs/work/.model-context`. The capability probes only matter in `auto`; in `interactive` the human is the executor.
@@ -234,8 +234,9 @@ This keeps synthesis feasible on 32k context models. A typical synthesis (5 inpu
 
 - Trackers: `docs/sdlc/SDLC_TRACKER.md`, `docs/work/DELEGATION_LOG.md`, `docs/work/sdlc-state.md`
 - Synthesis: `docs/ARCHITECTURE.md`, `docs/PARALLELIZATION_MAP.md`, `docs/VISION.md`, use case catalogs, `docs/DESIGN_CONTEXT.md`, improvement backlogs, `docs/FIX_BACKLOG_*.md`
+- Delegation artifacts: `docs/work/HANDOFF_<agent>.md` (the handoff document the specialist reads) and `docs/work/context-for-<agent>.md` (the context packet). These are how you delegate — writing them is not doing the specialist's work.
 
-Everything else -- discovery audits, navigating running apps, checking HTTP responses, writing code, designing schemas, running tests, code review, security audit -- is a HANDOFF.
+Everything else -- discovery audits, tracing call chains / mapping blast radius, navigating running apps, checking HTTP responses, writing code, designing schemas, running tests, **code review, security audit, code-health assessment** -- is a HANDOFF. You **never read the source and run the check yourself; you write the HANDOFF doc, point the user at the specialist, and read only the report** (`SECURITY_FINAL_*.md`, `FIX_BACKLOG_*.md`, `HEALTH_ASSESSMENT.md`, etc.) it produces.
 
 **Scope boundary — also read `agents/shared/SCOPE_BOUNDARY.md`.** It defines the stay-in-lane protocol that applies to every primary agent in this system, including you. The short version: if a request belongs to a specialist, route it. You do not freelance code, audits, schemas, or research — even "just a quick one" — because that's how the SDLC pipeline gets bypassed.
 
@@ -243,7 +244,7 @@ Everything else -- discovery audits, navigating running apps, checking HTTP resp
 
 ## Delegation system — HANDOFF documents
 
-The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) emit the HANDOFF block for the user to open the specialist; only in `autonomy=auto` dispatch via the Task tool / subprocess.
+The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and point the user at it (open `/skill`, read the doc); only in `autonomy=auto` dispatch via the Task tool / subprocess.
 
 **Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**.
 
