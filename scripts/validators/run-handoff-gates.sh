@@ -134,6 +134,18 @@ else
   validator_exit
 fi
 
+# ── Gate 2b: tech-stack (Law 4) ────────────────────────────────────────────
+# Every direct dependency the manifest declares must appear in docs/TECH_STACK.md.
+# Skips cleanly (exit 0) when no TECH_STACK.md exists yet (early-phase projects).
+printf '\n%s== GATE: TECH-STACK ==%s\n' "$_BOLD" "$_RESET" >&2
+if bash "$VALIDATORS_DIR/validate-tech-stack.sh" "$MANIFEST" "$ROOT" > /dev/null 2>&1; then
+  pass "tech-stack gate clean"
+else
+  bash "$VALIDATORS_DIR/validate-tech-stack.sh" "$MANIFEST" "$ROOT" 2>&1 | tail -20 >&2 || true
+  gap "tech-stack" "manifest declares a dependency not in docs/TECH_STACK.md (Law 4) -- add it to the stack doc or remove the dep"
+  validator_exit
+fi
+
 # ── Gate 3: coverage (optional) ────────────────────────────────────────────
 if [[ -n "$COVERAGE" ]]; then
   printf '\n%s== GATE: COVERAGE (%s) ==%s\n' "$_BOLD" "$COVERAGE" "$_RESET" >&2

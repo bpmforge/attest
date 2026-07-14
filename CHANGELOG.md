@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.4.0] — 2026-07-14
+
+Process-integrity pass on the per-ticket loop/gate model + coding-agent hygiene (from a full audit of both against the completed upgrade plan).
+
+- **Challenger is now wired into the coding wave (was the headline gap).** It previously ran only at the design gate (phase-3) and release gate (phase-5) — a phase-4/feature FIX_BACKLOG with HIGH/CRITICAL findings was remediated with NO adversarial veracity check. Added a mandatory **Challenge step** (Round 2b) in `sdlc-init-phase-4.md` and `sdlc-feature-mode.md`: on any HIGH/CRITICAL row, a `challenger` HANDOFF adjudicates CONFIRMED/CONTRADICTED before remediation (CONTRADICTED dropped, CONFIRMED remediated), and `validate-challenger-gate.sh` is now chained into the **phase-4 gate** so the module gate fails without a matching challenge report.
+- **Fixed the `fix-verify.mjs` iteration classifier (a real code bug).** It keyed off raw finding-count and never received the `regressed` set, so a healthy deeper-review pass (count rising while all prior rows closed) was mislabeled `OSCILLATING` and a true regression (`REGRESSED`, flat count) was mislabeled `STALLED` — the class the whole budget table keys off of was wrong. Rewrote `classifyIteration` to match `FIX_VERIFY_LOOP.md` (movement-based: OSCILLATING iff a previously-CLOSED row returns; PROGRESSED iff all prior closed + new opened; STALLED iff a prior row survives; CLEARED iff none open/new), fixed the self-testing copy in `test-fix-verify.ts` that encoded the bug, and added the 2→9→15 PROGRESSED and regressed-flat-count OSCILLATING cases.
+- **Loop is now tier-aware and class-driven, not a flat "3 iterations."** The coding-wave prose in phase-4/feature + `FIX_VERIFY_LOOP.md` now drive off `fix-verify.mjs` and the `.model-context` ceiling (6 metered / 12 local): STALLED escalates after 2 same-tier attempts, PROGRESSED may extend to the ceiling, OSCILLATING escalates immediately. Added `validate-contract-conformance.sh` to the FIX_VERIFY re-verify snapshot set (O2.5 — interface drift a fix introduces is caught in-loop, not only at the phase-5 gate).
+- **Coding-agent hygiene:** now told about the **memory MCP** (`memory_recall` prior decisions/verified-APIs before coding, `memory_store` durable facts after); `validate-tech-stack.sh` (Law 4) is now an enforced gate in `run-handoff-gates.sh`, not just a self-score — a dependency not in `docs/TECH_STACK.md` fails the handoff gate; the Phase-2 API verification is anchored by name as the `pre-code` check. (Context7, anti-slop R-01..R-30, research-web access, tests-alongside, and strict-handoff-both-directions were already present and confirmed.)
+
+401 tests green.
+
 ## [2.3.0] — 2026-07-14
 
 - **HANDOFF delivery is now a document the specialist reads, not a block the user pastes.** In interactive mode the SDLC lead **writes the full handoff to `docs/work/HANDOFF_<agent>.md`** and prints a short pointer — *"open `/<skill>`, have it read `docs/work/HANDOFF_<agent>.md`, submit `<report>` back"* — then stops and reads only the returned report. No more pasting large blocks. Reworked `HANDOFF_TEMPLATES.md` (delivery rules, all templates, delimiter spec), `EXECUTOR_SELECTION.md` (Executor C), `sdlc-lead.md`, and converted 59 per-handoff "paste this to /X" headers + the delegation-rule blocks across every mode/phase file.

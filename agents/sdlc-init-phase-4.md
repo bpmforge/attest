@@ -87,7 +87,11 @@ Emit ALL triggered review HANDOFFs in ONE message:
 [performance-engineer HANDOFF — if DB queries/loops/caching touched]
 [ux-engineer HANDOFF — if any UI file touched]
 ```
-Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<date>.md`. Run Fix-Verify Loop (see `agents/shared/FIX_VERIFY_LOOP.md`) — up to 3 iterations, escalate if still failing.
+Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<date>.md`.
+
+**Round 2b — Challenge (MANDATORY when any FIX_BACKLOG row is HIGH/CRITICAL):** before remediating, emit a **`challenger` HANDOFF** on the review artifact per `agents/shared/CHALLENGER_PROTOCOL.md` (write `docs/work/HANDOFF_challenger.md`, point the user at `/challenge`). The challenger adversarially re-checks each HIGH/CRITICAL finding and produces `docs/reviews/CHALLENGE_REPORT_<module>_<date>.md` with per-finding CONFIRMED / CONTRADICTED verdicts. **CONTRADICTED findings are dropped from the backlog; CONFIRMED ones (and any new issue the challenge surfaces) feed the remediation as REVISE rows.** This is the per-ticket adversarial check — never skip it on a HIGH/CRITICAL backlog, and never do it yourself.
+
+**Round 2c — Fix-Verify Loop:** run the loop (`agents/shared/FIX_VERIFY_LOOP.md`) on the CONFIRMED backlog. Iteration count is **tier-aware and class-driven, not a flat 3** — `scripts/fix-verify.mjs` classifies each pass (CLEARED / PROGRESSED / STALLED / OSCILLATING) and reads the ceiling from `docs/work/.model-context` (6 metered / 12 local): a STALLED row escalates after 2 same-tier attempts; a PROGRESSED loop may extend to the ceiling; an OSCILLATING (regressed) row escalates immediately, stops on the second.
 
 **Round 3 — Runtime:**
 Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
