@@ -17,9 +17,15 @@ Single source of truth. Mode files reference this file instead of duplicating th
 ```
 1. PARALLEL FAN-OUT  -- emit every triggered review HANDOFF in ONE message
 2. SYNTHESIZE        -- merge findings into a unified FIX_BACKLOG
-3. REMEDIATE         -- single coding-agent HANDOFF applies CRITICAL+HIGH fixes
+2b. CHALLENGE        -- if any row is HIGH/CRITICAL, challenger HANDOFF adjudicates
+                        CONFIRMED/CONTRADICTED before remediation (CHALLENGER_PROTOCOL)
+3. REMEDIATE         -- single coding-agent HANDOFF applies CONFIRMED CRITICAL+HIGH fixes
 4. RE-VERIFY         -- targeted verification of backlog rows only (not full re-scan)
-5. GATE              -- repeat steps 3-4 up to 3 iterations; escalate if still FAIL
+5. GATE              -- repeat steps 3-4 by iteration CLASS, not a flat count:
+                        fix-verify.mjs reads the ceiling from docs/work/.model-context
+                        (6 metered / 12 local); STALLED escalates after 2 same-tier
+                        attempts, PROGRESSED may extend to the ceiling, OSCILLATING
+                        (regressed) escalates immediately and stops on the 2nd.
 ```
 
 ---
@@ -98,6 +104,7 @@ verdict that can't be faked:
 node scripts/fix-verify.mjs snapshot semgrep                 # SAST findings
 node scripts/fix-verify.mjs snapshot validate-dead-code.sh   # dead/stub code
 node scripts/fix-verify.mjs snapshot validate-deps.sh        # dependency CVEs
+node scripts/fix-verify.mjs snapshot validate-contract-conformance.sh  # O2.5: interface drift a fix may introduce (caught in-loop, not only at phase-5)
 
 # AFTER the fix:
 node scripts/fix-verify.mjs verify semgrep --floor ERROR

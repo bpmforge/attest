@@ -542,10 +542,14 @@ bash(command="./scripts/validators/run-coverage-loop.sh feature 2>/dev/null || b
 
 If the FIX_BACKLOG "Merge-blocking" section is empty AND the coverage loop exits 0 → reviews gate passes. Skip to block 7.
 
+**5.5. Challenge (MANDATORY when any FIX_BACKLOG row is HIGH/CRITICAL):**
+
+Before remediating, emit a **`challenger` HANDOFF** on the review artifact per `agents/shared/CHALLENGER_PROTOCOL.md` (write `docs/work/HANDOFF_challenger.md`, point the user at `/challenge`). It produces `docs/reviews/CHALLENGE_REPORT_<feature>_<date>.md` with per-finding CONFIRMED / CONTRADICTED verdicts. **CONTRADICTED rows are dropped; CONFIRMED rows (+ anything the challenge surfaces) are the backlog the fix-verify loop remediates.** Never skip this on a HIGH/CRITICAL backlog, and never adjudicate the findings yourself. `validate-challenger-gate.sh` fails the phase-4 gate if this report is missing.
+
 **6. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
 
-Iterate up to 3 times:
-- Emit the Remediation HANDOFF (coding-agent given FIX_BACKLOG) → wait for "fix done".
+Iterate — **tier-aware and class-driven, not a flat 3.** `scripts/fix-verify.mjs` classifies each pass (CLEARED / PROGRESSED / STALLED / OSCILLATING) and reads the ceiling from `docs/work/.model-context` (6 metered / 12 local): STALLED escalates after 2 same-tier attempts; PROGRESSED may extend to the ceiling; OSCILLATING (regressed) escalates immediately, stops on the second.
+- Emit the Remediation HANDOFF (coding-agent given the CONFIRMED FIX_BACKLOG) → wait for "fix done".
 - Emit the targeted Re-verification HANDOFF (code-reviewer — or original specialist for domain-specific checks) → wait for "verify done".
 - If all PASS → reviews gate passes, proceed to block 7.
 - If any FAIL → update FIX_BACKLOG with remaining rows, iterate.

@@ -146,6 +146,11 @@ populate_phase_artifacts() {
         # scope math) -- the external-tracker analog of validate-tickets.sh
         # above, which only covers the internal plan.json layer.
         "validate-tracker-integrity.sh"
+        # Per-ticket adversarial check: a FIX_BACKLOG with HIGH/CRITICAL findings
+        # must have a matching CHALLENGE_REPORT with no unresolved CONTRADICTED
+        # verdicts before the module gate passes (G1 — was only at phase-3/phase-5,
+        # so a coding-wave backlog got remediated with no veracity check).
+        "validate-challenger-gate.sh"
       )
       # UI-bearing: validate design system was implemented
       if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then

@@ -14,17 +14,22 @@ export async function testFixVerify(
   ok: (label: string) => void,
   fail: (label: string, reason: string) => void,
 ): Promise<void> {
-  // Helper: classify iteration based on finding trends and ceiling
-  const classifyIteration = (
-    prevCount: number,
-    currentCount: number,
-    attemptNum: number,
-    ceiling: number,
-  ): string => {
-    if (attemptNum >= ceiling) return "STALLED";
-    if (currentCount < prevCount) return "PROGRESSED";
-    if (currentCount === prevCount) return "STALLED";
-    return "OSCILLATING";
+  // Helper: MUST stay in sync with classifyIteration in scripts/fix-verify.mjs.
+  // Classifies by row MOVEMENT (still-open / fresh / regressed) per FIX_VERIFY_LOOP.md,
+  // NOT by raw count — a rising count is PROGRESSED (deeper review) when all prior rows
+  // closed, STALLED when a prior row survives, OSCILLATING when a closed row returns.
+  const classifyIteration = (a: {
+    openCount: number;
+    freshCount: number;
+    regressedCount: number;
+    attemptNum: number;
+    ceiling: number;
+  }): string => {
+    if (a.regressedCount > 0) return "OSCILLATING";
+    if (a.openCount === 0 && a.freshCount === 0) return "CLEARED";
+    if (a.attemptNum >= a.ceiling) return "STALLED";
+    if (a.openCount === 0 && a.freshCount > 0) return "PROGRESSED";
+    return "STALLED";
   };
 
   // Helper: get ceiling based on tier
@@ -34,35 +39,57 @@ export async function testFixVerify(
     return 6;
   };
 
-  // Test 1: PROGRESSED classification
+  // Test 1: PROGRESSED — all prior rows CLOSED (open=0) but a deeper pass opened NEW rows.
+  // This is the "findings 2→9→15 while converging on completeness" case (FIX_VERIFY_LOOP.md);
+  // the RISING count must NOT be OSCILLATING — that was the pre-fix bug.
   try {
-    const result = classifyIteration(5, 3, 2, 12);
+    const result = classifyIteration({
+      openCount: 0,
+      freshCount: 7,
+      regressedCount: 0,
+      attemptNum: 2,
+      ceiling: 12,
+    });
     if (result === "PROGRESSED") {
-      ok("fix-verify: iteration class PROGRESSED (finding count decreased)");
+      ok(
+        "fix-verify: PROGRESSED — all prior CLOSED + new rows opened (rising count is healthy, not OSCILLATING)",
+      );
     } else {
-      fail("fix-verify", `Expected PROGRESSED, got ${result}`);
+      fail("fix-verify", `Expected PROGRESSED (2→9→15 case), got ${result}`);
     }
   } catch (e) {
     fail("fix-verify", `PROGRESSED test failed: ${e}`);
   }
 
-  // Test 2: STALLED classification — same finding count
+  // Test 2: STALLED — a prior row is STILL-OPEN after a targeted iteration (same gap survives).
   try {
-    const result = classifyIteration(5, 5, 3, 12);
+    const result = classifyIteration({
+      openCount: 2,
+      freshCount: 0,
+      regressedCount: 0,
+      attemptNum: 3,
+      ceiling: 12,
+    });
     if (result === "STALLED") {
-      ok("fix-verify: iteration class STALLED (same finding count)");
+      ok("fix-verify: STALLED — a prior row survives the targeted fix");
     } else {
-      fail("fix-verify", `Expected STALLED, got ${result}`);
+      fail("fix-verify", `Expected STALLED (open survives), got ${result}`);
     }
   } catch (e) {
     fail("fix-verify", `STALLED test failed: ${e}`);
   }
 
-  // Test 3: STALLED classification — at ceiling
+  // Test 3: STALLED — hit the tier-aware attempt ceiling without clearing.
   try {
-    const result = classifyIteration(5, 5, 12, 12);
+    const result = classifyIteration({
+      openCount: 1,
+      freshCount: 0,
+      regressedCount: 0,
+      attemptNum: 12,
+      ceiling: 12,
+    });
     if (result === "STALLED") {
-      ok("fix-verify: iteration class STALLED (at attempt ceiling)");
+      ok("fix-verify: STALLED — hit the attempt ceiling without clearing");
     } else {
       fail("fix-verify", `Expected STALLED at ceiling, got ${result}`);
     }
@@ -70,16 +97,43 @@ export async function testFixVerify(
     fail("fix-verify", `Ceiling test failed: ${e}`);
   }
 
-  // Test 4: OSCILLATING classification
+  // Test 4: OSCILLATING — a previously-CLOSED row comes back (REGRESSED), even with a flat count.
+  // Pre-fix this was labeled STALLED because `regressed` was never passed to the classifier.
   try {
-    const result = classifyIteration(5, 6, 3, 12);
+    const result = classifyIteration({
+      openCount: 0,
+      freshCount: 0,
+      regressedCount: 1,
+      attemptNum: 3,
+      ceiling: 12,
+    });
     if (result === "OSCILLATING") {
-      ok("fix-verify: iteration class OSCILLATING (finding count increased)");
+      ok(
+        "fix-verify: OSCILLATING — a previously-CLOSED row reappeared (REGRESSED), regardless of count",
+      );
     } else {
-      fail("fix-verify", `Expected OSCILLATING, got ${result}`);
+      fail("fix-verify", `Expected OSCILLATING (regressed), got ${result}`);
     }
   } catch (e) {
     fail("fix-verify", `OSCILLATING test failed: ${e}`);
+  }
+
+  // Test 4b: CLEARED — nothing open and nothing new: the loop is done.
+  try {
+    const result = classifyIteration({
+      openCount: 0,
+      freshCount: 0,
+      regressedCount: 0,
+      attemptNum: 2,
+      ceiling: 12,
+    });
+    if (result === "CLEARED") {
+      ok("fix-verify: CLEARED — no open + no fresh rows = done");
+    } else {
+      fail("fix-verify", `Expected CLEARED, got ${result}`);
+    }
+  } catch (e) {
+    fail("fix-verify", `CLEARED test failed: ${e}`);
   }
 
   // Test 5: Local tier ceiling (12)
