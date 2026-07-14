@@ -10,7 +10,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here for Phase 3 or 3.5.
 > Mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md.
-> **task() → HANDOFF reminder:** Any `task(agent="X", ...)` = build a HANDOFF block, save state, execute per `agents/shared/EXECUTOR_SELECTION.md`: `autonomy=interactive` (default) → emit the HANDOFF block for the user and wait; `autonomy=auto` → Task tool / subprocess.
+> **task() → HANDOFF reminder:** Any `task(agent="X", ...)` = build a HANDOFF block, save state, execute per `agents/shared/EXECUTOR_SELECTION.md`: `autonomy=interactive` (default) → write `docs/work/HANDOFF_<agent>.md`, point the user at it (open /skill, read the doc), wait; `autonomy=auto` → Task tool / subprocess.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## Phase 3: Design — HOW do we build it?
@@ -72,7 +72,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -139,7 +139,7 @@ Next after resume: api-designer handoff
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -190,7 +190,7 @@ Next after resume: UX branch (if UI-bearing) or security-auditor handoff
 ---
   HANDOFF → api-designer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
+Write this block to `docs/work/HANDOFF_api-designer.md`, then tell the user: open `/api-design` and have it read `docs/work/HANDOFF_api-designer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for api-designer:
 
@@ -260,7 +260,7 @@ Next after resume: SECURITY_CONTROLS HANDOFF, then security reconciliation, then
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -414,7 +414,7 @@ Next after resume: security-auditor handoff
 ---
   HANDOFF → ux-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 
@@ -473,7 +473,7 @@ the visual design is specified but not implemented. Hand off to frontend-design:
 ---
   HANDOFF → frontend-design
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /frontend:
+Write this block to `docs/work/HANDOFF_frontend-design.md`, then tell the user: open `/frontend` and have it read `docs/work/HANDOFF_frontend-design.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for frontend-design:
 

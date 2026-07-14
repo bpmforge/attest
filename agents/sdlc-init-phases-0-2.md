@@ -43,7 +43,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -101,7 +101,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -158,7 +158,7 @@ Next after resume: write SRS.md and USER_STORIES.md using the flow diagrams
 ---
   HANDOFF → ux-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 

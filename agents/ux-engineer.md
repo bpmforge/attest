@@ -244,7 +244,7 @@ Real UX engineers don't just tick boxes:
 
 Default entry point when `/ux` is invoked with a plain-language request and no explicit `--design`/`--review`/`--audit`/`--flows` flag. You act as design-manager: classify the request's scope, then activate only the roles that scope needs — never run the full four-role chain for a one-component change, and never skip a role a genuine feature actually needs.
 
-> **task() → HANDOFF reminder:** Any `task(agent="X", ...)` = build a HANDOFF block, save state, execute per `agents/shared/EXECUTOR_SELECTION.md`: `autonomy=interactive` (default) → emit the HANDOFF block for the user and wait; `autonomy=auto` → Task tool / subprocess.
+> **task() → HANDOFF reminder:** Any `task(agent="X", ...)` = build a HANDOFF block, save state, execute per `agents/shared/EXECUTOR_SELECTION.md`: `autonomy=interactive` (default) → write `docs/work/HANDOFF_<agent>.md`, point the user at it (open /skill, read the doc), wait; `autonomy=auto` → Task tool / subprocess.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ### Step 1 — Escape Hatches (Narrow Asks Bypass Classification)

@@ -77,7 +77,7 @@ Write `docs/work/HANDOFF_MANIFEST.md` before emitting:
 
 **HANDOFF 1 — code-reviewer (full health):**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
@@ -88,7 +88,7 @@ Print exactly: "review done — [overall verdict and worst dimension]" then stop
 
 **HANDOFF 2 — code-reviewer (tech debt):**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
@@ -99,7 +99,7 @@ Print exactly: "debt done — [item count and top leverage item]" then stop.
 
 **HANDOFF 3 — code-reviewer (pattern drift):**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
@@ -110,7 +110,7 @@ Print exactly: "patterns done — [patterns identified and worst drift area]" th
 
 **HANDOFF 4 — security-auditor:**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 CONTEXT: The entire codebase (src/ directory). Focus: auth handlers, access control, input validation, secret storage.
@@ -121,7 +121,7 @@ Print exactly: "security done — [finding counts by severity]" then stop.
 
 **HANDOFF 5 — test-engineer (coverage analysis):**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 CONTEXT: test/ or __tests__/ directory; source codebase
@@ -132,7 +132,7 @@ Print exactly: "test done — [overall coverage % and biggest gap]" then stop.
 
 **HANDOFF 6 — performance-engineer:**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
+Write this block to `docs/work/HANDOFF_performance-engineer.md`, then tell the user: open `/perf` and have it read `docs/work/HANDOFF_performance-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for performance-engineer:
 CONTEXT: The entire codebase (src/ directory); DB query files and ORM usage.
@@ -143,7 +143,7 @@ Print exactly: "perf done — [finding count and most impactful issue]" then sto
 
 **HANDOFF 7 — ux-engineer (only if UI-bearing: YES):**
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 CONTEXT: UI source files (components/, pages/, views/ directory)
@@ -176,7 +176,7 @@ One use case per major route/feature found. Cover all the entry points documente
 When "test done" returns and `docs/reviews/COVERAGE_<date>.md` exists, dispatch:
 
 ```
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 CONTEXT:

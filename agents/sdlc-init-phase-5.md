@@ -63,6 +63,7 @@ Next after resume: synthesize FIX_BACKLOG_RELEASE_<date>.md
   Open N sessions concurrently. All must complete before Round 2.
 ---
 
+<!-- HANDOFF — never run the security audit yourself; write docs/work/HANDOFF_security-auditor.md, point the user at /security, read only SECURITY_FINAL_<date>.md -->
 ───── HANDOFF #1 → /security (security-auditor) ─────
 SDLC-TASK for security-auditor:
 CONTEXT: entire codebase (src/) + docs/THREAT_MODEL.md + docs/API_DESIGN.md
