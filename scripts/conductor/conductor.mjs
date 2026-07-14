@@ -131,6 +131,26 @@ const git = (...a) => sh('git', a, { cwd: ROOT }).trim();       // runs in ROOT 
 const gitIn = (dir, ...a) => sh('git', a, { cwd: dir }).trim();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Mirror the board to an external tracker (Jira) after a transition. The
+// conductor calls the lifecycle functions IN-PROCESS (not the tickets.mjs CLI),
+// so it never emits an outbox event; instead it runs the adapter's `reconcile`,
+// whose convergence pass (syncState) aligns Jira to plan.json regardless of
+// which writer changed it. No-op unless a Jira backend is configured
+// (TRACKER_BACKEND=jira / JIRA_BASE_URL set). Best-effort: a Jira failure never
+// breaks the conductor — the next reconcile catches up (lossless outbox).
+function mirrorJira(reason) {
+  const backend = (process.env.TRACKER_BACKEND || 'auto').toLowerCase();
+  const on = backend === 'jira' || (backend === 'auto' && process.env.JIRA_BASE_URL);
+  if (!on) return;
+  const jira = resolve(import.meta.dirname, '../jira/jira.mjs');
+  try {
+    const out = sh('node', [jira, 'reconcile'], { cwd: ROOT, env: { ...process.env, PLAN_JSON: PLAN_PATH } });
+    log('jira.mirror', { msg: `${reason}: ${out.trim().split('\n')[0]}` });
+  } catch (e) {
+    log('jira.mirror.deferred', { msg: `${reason}: ${String(e.message).split('\n')[0]} — next reconcile catches up` });
+  }
+}
+
 function loadFreshPlan() { return loadPlan(PLAN_PATH); }
 function persistPlan(plan, message) {
   savePlan(PLAN_PATH, plan);
@@ -251,6 +271,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       return { ok: false, exhausted: true, gaps: [`start() refused: ${startRes.error}`] };
     }
     persistPlan(plan, `chore(${m.id}): conductor starts ticket`);
+    mirrorJira(`ticket ${m.id} in_progress`);   // converge Jira to the picked-up state
     startReceipt = startRes.receipt;
   }
 
@@ -350,6 +371,7 @@ function land(plan, m, branch, wt) {
   removeWorktree(wt);
   if (DO_MERGE) { try { git('branch', '-d', branch); } catch {} }
   pushRemotes(m.id);
+  mirrorJira(`ticket ${m.id} done`);   // converge Jira to the accepted board state
   return true;
 }
 
