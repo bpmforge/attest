@@ -49,4 +49,5 @@ tag `v2.1.0` both → push `origin`+`github` `--tags` both → `gh release creat
 re-run Shipwright `scripts/import-content.mjs` (SW-R1) so the product ships the same library.
 
 ## Status log
+- **2026-07-13 — v2.1.0 RELEASED** (both repos: tags `v2.1.0` ancestors of main, GitHub releases live). Driven via the supervised sonnet auto-loop (13 waves, ~35 clean PRs, zero garbage) from 36%→43/45. Five of six modules complete (M26/M27/M28/M29/M30); **M31 partial**: T31.2 **waived** (Jarvis-dependency, deferred v2.1.x), T31.8 **O3 step-1 pause-census proven live** on LM Studio qwen3-coder-next @127.0.0.1 (interactive=1/auto=1/never-auto=1; also found+fixed a false-green in `pause-census.mjs`), O3 steps 2 (2h soak) + 3 (eval triad) deferred v2.1.x. User docs re-synced (41 skills / 71 validators, `/vault` documented, catalog +vendor-provenance/+GUIDE_CAPTURE). 398 tests green. **Remaining release step (deferred): SW-R1 Shipwright `import-content.mjs` resync — belongs to Shipwright's resume flow (paused repo has uncommitted work; don't resync into it prematurely).**
 - 2026-07-12 — v2.0.0 released; amplifier auto-conductor launched on R1; tracker created.
