@@ -79,7 +79,7 @@ Context is not a constraint. Focus on quality.
 | Phase files | Load the full phase file or multiple phase files. No need for phase splitting. |
 | Research | Use all passes. No hard cap pressure — quality over token savings. |
 | Security --deep | Always supported. OWASP_METHODOLOGY.md loads freely. |
-| Specialist sessions | HANDOFF blocks — executor per `EXECUTOR_SELECTION.md` (Task tool if `has_task_tool=true`). |
+| Specialist sessions | HANDOFF blocks — executor per `EXECUTOR_SELECTION.md` (interactive → emit for the user; auto → Task tool / subprocess). |
 | HANDOFF_TEMPLATES | Read full templates for richest HANDOFF format. |
 | Session length | Sessions can run indefinitely — no context pressure restart. |
 | LOCAL_LLM_PRIMER | Not needed. Skip it. |

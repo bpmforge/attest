@@ -30,40 +30,50 @@ If `.model-context` is missing, run the detect script; if you cannot, assume
 | | Executor | When |
 |---|---|---|
 | **A** | **Native Task tool** — dispatch the full HANDOFF block as the subagent prompt; block until the Completion Manifest returns | `has_task_tool=true` AND the specialist needs no MCP tools (or `mcp_in_subagents=true`) |
-| **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x> --dir <workcopy>` with the HANDOFF as prompt | `opencode_cli=true` and not already inside a subprocess-spawned session — whenever the CLI exists B is preferred over C because it removes the manual-paste pause. Required (not just preferred) when the specialist needs MCP tools and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access; the only programmatic path with timeout protection. **Always pass an explicit `--dir <workcopy>`** (eval-harness isolation lesson) so parallel B dispatches don't collide. |
-| **C** | **Manual HANDOFF paste** — print the HANDOFF block as text; the user opens a new session, types the skill, pastes | `has_task_tool=false` AND `opencode_cli=false` (no programmatic path), or A/B failed twice, or the user asked to run specialists interactively. **In `autonomy=auto`, C is an error** — auto mode must never emit a paste-and-wait; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
-| **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** AND `has_task_tool=false` AND `opencode_cli=false` — so A is unavailable, B has no CLI to spawn, and C is impossible (there is no slash to paste into). Genuinely headless/no-CLI runtimes only — **never the TUI**, where `opencode_cli=true` makes B available; see "TUI mode" below. |
+| **B** | **Subprocess** — `tools/task.ts` spawns `opencode run --agent <x> --dir <workcopy>` with the HANDOFF as prompt | **`autonomy=auto` only.** `opencode_cli=true` and not already inside a subprocess-spawned session. Required when a specialist needs MCP tools and `mcp_in_subagents=false`. A fresh process is a primary session with full MCP access and the only programmatic path with timeout protection. **Always pass an explicit `--dir <workcopy>`** (eval-harness isolation lesson) so parallel B dispatches don't collide. **Never used in `interactive`** — there the human opens the specialist (C). |
+| **C** | **HANDOFF block for the user** — print the HANDOFF block as text and tell the user which agent to open, what to paste, and the completion phrase to submit back | **The default in `interactive` for any specialist with a `/skill`** — the user drives every handoff and the specialist runs as a first-class conversation they open. Also the fallback if A/B fail twice in auto. **In `autonomy=auto`, C is an error** — auto has no human to paste; degrade to D (inline) and log to `docs/work/APPROVALS.md`. |
+| **D** | **Inline** — the coordinator reads the specialist's own agent file and runs its methodology in the same conversation, writing the specialist's output files before continuing | the specialist has **no user-facing `/skill`** (so it cannot be handed off — there is no slash to open) — in either mode. Also the `auto` fallback when `opencode_cli=false` (no CLI to spawn B). A skill-less specialist that later gains a `/skill` should move to C in interactive. |
 
 ## Selection order & matrix
 
-Pick the **first** viable executor: **A → B → C**, and **→ D** for skill-less specialists that
-can't be pasted. B is now preferred over C whenever `opencode_cli=true` — the manual paste is
-the biggest structural pause, and a subprocess removes it.
+**Autonomy is the primary discriminator.** In `interactive` (a human is at the session — the
+default in the opencode TUI), a specialist that has a `/skill` is **ALWAYS Executor C**: emit the
+HANDOFF block and tell the user which agent to open, what to paste, and what to submit back. You do
+**not** run the specialist for them via a hidden Task-tool subagent (A) or an `opencode run`
+subprocess (B). The user drives every handoff and each specialist runs as a first-class conversation
+they open. Only in `auto` (unattended/headless — e.g. the conductor) is dispatch programmatic:
+**A → B → D** (C is forbidden in `auto` — there is no human to paste). Skill-less specialists (no
+slash to open, so they cannot be pasted) fall to **D** (inline) in either mode.
 
-| has_task_tool | opencode_cli | autonomy | specialist | → executor |
-|---|---|---|---|---|
-| true | any | any | native-tools only | **A** |
-| true | true | any | needs MCP (`mcp_in_subagents=false`) | **B** |
-| false | true | any | any | **B** (subprocess) |
-| false | false | interactive | has a `/skill` | **C** (paste) |
-| false | false | interactive | skill-less | **D** (inline) |
-| false | false | **auto** | any | **D** (inline) — C is forbidden in auto; log to APPROVALS.md |
-| false | false | **auto** | needs the user (NEVER-AUTO) | pause anyway (per AUTONOMY_PROTOCOL) |
+| autonomy | specialist | runtime | → executor |
+|---|---|---|---|
+| **interactive** | has a `/skill` | any (`opencode_cli`/`has_task_tool` irrelevant) | **C** — emit HANDOFF block; the user opens the specialist, pastes it, submits the completion phrase back |
+| **interactive** | skill-less (no slash to open) | any | **D** (inline) — cannot be handed off; run its methodology in-conversation |
+| **auto** | native-tools only | `has_task_tool=true` | **A** (native Task tool) |
+| **auto** | needs MCP, or `has_task_tool=false` | `opencode_cli=true` | **B** (subprocess `opencode run`) |
+| **auto** | any | `opencode_cli=false` | **D** (inline) — C is forbidden in auto; log to `docs/work/APPROVALS.md` |
+| **auto** | needs the user (NEVER-AUTO) | — | pause per AUTONOMY_PROTOCOL |
 
-Key cases: **auto + no task tool + CLI → B**; **auto + nothing → D** (never a paste-and-wait).
+Key: **interactive → always the visible HANDOFF (C)** for skilled specialists — never a hidden A/B
+dispatch. **auto → programmatic (A/B/D), never a paste-and-wait.** The `opencode_cli`/`has_task_tool`
+probes only matter in `auto`; in `interactive` the human is the executor.
 
-## TUI mode (T30.10)
+## TUI mode
 
-In the opencode TUI, `opencode_cli` is always true — you ARE opencode — so
-Executor B (`opencode run` subprocess) is always available as a fallback when A
-doesn't apply. That makes the general matrix's "no task tool + CLI → B" row the
-one that actually governs the TUI, not the skill-less-specialist "→ D" carve-out
-below: **D (inline) must never be used for a scan-heavy or otherwise tool-heavy
-specialist in the TUI**, even for specialists with no `/skill`. The `security/*`
-micro-agents note under Executor D's row predates subprocess dispatch parity
-(#20059, fixed v1.17.9) — read it as "headless/no-CLI runtimes only," not as
-TUI guidance. Full rationale and the companion checkpoint/scan-output rules:
-`agents/shared/TUI_SESSION_HYGIENE.md`.
+The opencode TUI is an **interactive** session — a human is present. Per the matrix, every
+specialist that has a `/skill` is **Executor C**: you print the HANDOFF block and tell the user
+which agent to open, what to paste, and what completion phrase to submit back. You do **NOT** spawn
+an `opencode run` subprocess (B) or a Task-tool subagent (A) to run a specialist behind the user's
+back — that is the exact behavior this rule forbids. Executor B (subprocess) is for **auto/headless**
+runs (the unattended conductor), not the interactive TUI.
+
+> This supersedes the earlier T30.10 guidance that preferred B in the TUI "to remove the manual-paste
+> pause." The visible, user-driven handoff is the opencode requirement: subagents can't use MCP
+> (#16491) and the user must see each specialist as a first-class conversation they open. The
+> manual-paste "pause" is the intended interaction, not a defect.
+
+Skill-less specialists (no slash to open) are the only interactive exception — they fall to **D**
+(inline). Companion checkpoint/scan-output rules: `agents/shared/TUI_SESSION_HYGIENE.md`.
 
 ## Which specialists need MCP
 

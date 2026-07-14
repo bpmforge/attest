@@ -90,7 +90,7 @@ All seven sections are required. "None" is a valid value for sections with nothi
 
 ## Why these rules exist
 
-Cross-agent coordination is via explicit HANDOFF documents — dispatched by the Task tool where the runtime supports it (`has_task_tool=true` in `docs/work/.model-context`), pasted into a new session otherwise. Either way the specialist runs in an isolated context. This means:
+Cross-agent coordination is via explicit HANDOFF documents — in `autonomy=interactive` (default) emitted as a HANDOFF block the user pastes into a new session; in `autonomy=auto` dispatched programmatically (Task tool / subprocess). Either way the specialist runs in an isolated context. This means:
 
 - The orchestrator (sdlc-lead) cannot see what a specialist is doing while it runs
 - There is no shared context between sessions — every specialist starts fresh

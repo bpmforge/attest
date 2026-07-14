@@ -121,12 +121,12 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 **NEVER call the `skill` tool.** The `skill` tool is for end-users invoking commands — it is not callable by agents. Calling it will always fail with a schema-validation error.
 
-**Delegation: the HANDOFF block is the contract; the executor is capability-probed.**
+**Delegation: the HANDOFF block is the contract; autonomy decides who executes it.** Pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
 
-Read `has_task_tool` / `mcp_in_subagents` from `docs/work/.model-context` and pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
+- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS emit the HANDOFF block as text and tell the user which agent to open (`/skill`), what to paste, and the completion phrase to submit back.** Then STOP and wait for them to return the manifest. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
+- **`autonomy=auto` (unattended/headless — e.g. the conductor):** dispatch programmatically — Task tool (`has_task_tool=true`, native-tools specialist) → `task.ts` subprocess (`opencode run`, MCP-needing or no task tool) → inline. Never emit a paste-and-wait in auto; log auto-taken gates to `docs/work/APPROVALS.md`.
 
-- `has_task_tool=true` → dispatch the full HANDOFF block via the Task tool (subprocess `task.ts` for MCP-needing specialists while `mcp_in_subagents=false`) and wait for the manifest.
-- `has_task_tool=false` (or two failed dispatches) → write the HANDOFF block as text; the user opens a new session, types the skill command, and pastes it.
+Read `has_task_tool` / `mcp_in_subagents` / `autonomy` from `docs/work/.model-context`. The capability probes only matter in `auto`; in `interactive` the human is the executor.
 
 Never call the `skill` tool for delegation. If git operations are simple (one command), run them directly via `bash()`; otherwise delegate to git-expert like any specialist.
 
@@ -243,7 +243,7 @@ Everything else -- discovery audits, navigating running apps, checking HTTP resp
 
 ## Delegation system — HANDOFF documents
 
-The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md` (Task tool when `has_task_tool=true`, subprocess for MCP-needing specialists, text paste otherwise).
+The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) emit the HANDOFF block for the user to open the specialist; only in `autonomy=auto` dispatch via the Task tool / subprocess.
 
 **Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**.
 
