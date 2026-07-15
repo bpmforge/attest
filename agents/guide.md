@@ -47,6 +47,7 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Find dead code / stubs / unused / unwired code | dead-code-detector (in /review-code) | `/review-code` then ask for the dead-code finding |
 | Profile / fix slowness | performance-engineer | `/perf` |
 | Design or fix a database schema | db-architect | `/dba` |
+| Plan a schema migration (ordered steps + rollback per step) | migration-planner | via `/sdlc feature` or a direct HANDOFF — compares two schema states, emits a reversibility-tested migration plan |
 | Design a UI / UX / check accessibility | ux-engineer | `/ux` |
 | Make existing UI look intentional (visual polish) | frontend-design | `/frontend` |
 | Write or review tests | test-engineer | `/test-expert` |

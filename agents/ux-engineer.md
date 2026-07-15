@@ -198,7 +198,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 
 **DESIGN_PRINCIPLES.md and STYLE_GUIDE.md — required:**
 - [ ] DESIGN_PRINCIPLES.md: specific tone chosen (not "clean and modern"), anti-patterns listed, decision criteria
-- [ ] STYLE_GUIDE.md: specific typefaces named (not Inter/Roboto), exact hex color tokens, spacing scale, motion spec
+- [ ] STYLE_GUIDE.md: specific typefaces named (not Inter/Roboto), color/spacing/motion spec. **If `docs/design/tokens.json` exists (design-system-lead ran, step 2), STYLE_GUIDE must REFERENCE it as the authoritative palette — do not re-author a parallel set of hexes.** Two hand-maintained palettes fork; tokens.json is the single source. Only when there is no tokens.json does STYLE_GUIDE carry the exact hex tokens itself.
 
 **Run the validator:**
 ```bash
@@ -364,6 +364,12 @@ Writes to `docs/design/UX_FLOWS.md` via `write(filePath=...)`. One Mermaid flowc
 ## Mode 4: `--audit` (Accessibility-Only)
 
 WCAG 2.2 Level AA check. Writes to `docs/ACCESSIBILITY_AUDIT.md`. Same triage matrix. See checklist reference.
+
+**Ownership boundary with a11y-compliance (no duplicate audits).** This `--audit` is a
+**design-time** self-check on your own UX spec/mockups. The authoritative **Phase-4 conformance
+certification** (against the running DOM, EN 301 549 / Section 508) is `a11y-compliance`'s — it
+CERTIFIES. Don't re-run a full certification here; flag issues design-time and hand the built app
+to `a11y-compliance` for the audit of record.
 
 ---
 
