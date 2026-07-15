@@ -97,6 +97,29 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 **Audit fan-out in Step 2 is always parallel. Write each audit HANDOFF doc and point the user at the N specialists in one message.**
 
+## Improve ≠ Redesign (MANDATORY — the contract for this whole mode)
+
+The single most common Mode-4 failure is sliding into fresh design because
+generating new designs is easier than auditing existing ones. This mode's
+contract:
+
+1. **The existing system is the BASELINE, not a draft to replace.** Every
+   finding is expressed as a delta from what exists ("change X at file:line
+   because Y"), never as a fresh design that happens to overlap.
+2. **Deliverables are findings → backlog → targeted fixes.** NOT new
+   ARCHITECTURE.md, NOT a rewritten GDD/SRS, NOT a new design doc set.
+3. **Regenerating an existing doc is forbidden** unless (a) an audit finding
+   explicitly marks it stale/contradicted with evidence, AND (b) the user
+   approves the regeneration in Step 4. Otherwise docs get **additive edits**
+   tied to specific backlog rows.
+4. **Rewrites are a backlog item, not a reflex.** If the honest finding is
+   "this subsystem should be rebuilt", that's an L-effort backlog row with a
+   design-options step (Step 2.5) — it competes for priority like everything
+   else; it does not silently become the plan.
+5. If you catch yourself producing a document that could have been written
+   without reading the existing code — stop; that's design, not improvement.
+   Re-anchor on audit evidence (file:line findings).
+
 ---
 
 ## Output Verification Protocol (Mode 4)
