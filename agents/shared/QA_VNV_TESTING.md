@@ -442,6 +442,31 @@ is actually broken), a swallowed **HTTP 4xx** or `console.error` = S2–S3, a
 benign-but-unallowlisted warning = S4-or-allowlist. The trace already captured
 console + network, so the error's full context is one click away in the trace viewer.
 
+**Perf-during-interaction (lightweight).** A flow can be error-clean yet feel
+broken — jank, layout shift, a frozen tab. Capture the two user-visible signals
+cheaply in the same run (deep profiling is `performance-engineer`'s job, not
+yours):
+```ts
+// Cumulative Layout Shift + long tasks (>50ms block the main thread = visible jank)
+const perf = await page.evaluate(() => new Promise((resolve) => {
+  let cls = 0; const long: number[] = [];
+  new PerformanceObserver((l) => { for (const e of l.getEntries())
+    if (!(e as any).hadRecentInput) cls += (e as any).value; }).observe({ type: 'layout-shift', buffered: true });
+  new PerformanceObserver((l) => { for (const e of l.getEntries()) long.push(Math.round(e.duration)); })
+    .observe({ type: 'longtask', buffered: true });
+  setTimeout(() => resolve({ cls: +cls.toFixed(3), longTasks: long }), 1500);
+}));
+// CLS > 0.1 = "needs improvement", > 0.25 = "poor" (Core Web Vitals thresholds)
+```
+Report CLS and the count/duration of long tasks per key screen; flag CLS > 0.1
+and any long task > 200ms as findings, escalate sustained jank to `performance-engineer`.
+
+**Entry criteria (don't validate an empty app).** Before any of this, the app
+must be in a testable state: reachable URL, auth/`storageState` available, and
+**seed data present** (an empty list/table hides most layout and journey
+defects). If a precondition is unmet, print `BLOCKED: <what's missing>` — a green
+run against an empty app is a false pass, not a validation.
+
 ---
 
 ## 5. Evidence & reporting ("show me proof")
