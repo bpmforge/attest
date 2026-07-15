@@ -293,9 +293,10 @@ bash -c "command -v gitleaks && gitleaks detect --source . --report-format json 
 **Dependency audit — osv-scanner (primary) + language-native (fallback):**
 ```
 bash -c "command -v osv-scanner && osv-scanner --recursive . --format json -o docs/security/osv.json 2>/dev/null || echo 'osv-scanner not installed — falling back to language-native'"
-bash -c "[ -f package.json ] && npm audit --json > docs/security/npm-audit.json 2>/dev/null || true"
-bash -c "[ -f Cargo.toml ] && cargo audit --json > docs/security/cargo-audit.json 2>/dev/null || true"
-bash -c "[ -f requirements.txt ] && pip-audit --format json > docs/security/pip-audit.json 2>/dev/null || true"
+# gate on BOTH the manifest and the tool; a failed audit must surface, not read clean (see TOOL_PREFLIGHT.md)
+bash -c '[ -f package.json ] || exit 0; command -v npm >/dev/null || { echo "SKIPPED: npm not installed"; exit 0; }; npm audit --json > docs/security/npm-audit.json 2>/dev/null || echo "npm audit FAILED — investigate, not clean"'
+bash -c '[ -f Cargo.toml ] || exit 0; command -v cargo-audit >/dev/null || { echo "SKIPPED: cargo-audit not installed"; exit 0; }; cargo audit --json > docs/security/cargo-audit.json 2>/dev/null || echo "cargo audit FAILED — investigate"'
+bash -c '[ -f requirements.txt ] || exit 0; command -v pip-audit >/dev/null || { echo "SKIPPED: pip-audit not installed"; exit 0; }; pip-audit --format json > docs/security/pip-audit.json 2>/dev/null || echo "pip-audit FAILED — investigate"'
 ```
 
 osv-scanner has the widest ecosystem coverage and freshest CVE data (uses OSV.dev). If it's not installed, suggest `brew install osv-scanner`. Fall back to language-native tools if needed.

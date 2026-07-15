@@ -40,19 +40,21 @@ Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** befo
 ### Phase 1 — CVE Audit (per language)
 
 ```bash
+# Preflight (see TOOL_PREFLIGHT.md): gate on BOTH manifest AND tool — a present
+# manifest with an ABSENT auditor is SKIPPED, not a clean pass; a failed audit surfaces.
 # Node.js / Bun
-[ -f package-lock.json ] && npm audit --json > docs/security/npm-audit.json 2>&1
-[ -f bun.lockb ] && bunx audit 2>&1 | head -50
+[ -f package-lock.json ] && { command -v npm >/dev/null 2>&1 && npm audit --json > docs/security/npm-audit.json 2>&1 || echo "SKIPPED: npm not installed"; }
+[ -f bun.lockb ] && { command -v bun >/dev/null 2>&1 && bunx audit 2>&1 | head -50 || echo "SKIPPED: bun not installed"; }
 
 # Python
-[ -f requirements.txt ] && pip-audit -r requirements.txt -f json 2>&1
-[ -f pyproject.toml ] && pip-audit -f json 2>&1
+[ -f requirements.txt ] && { command -v pip-audit >/dev/null 2>&1 && pip-audit -r requirements.txt -f json 2>&1 || echo "SKIPPED: pip-audit not installed (pip install pip-audit)"; }
+[ -f pyproject.toml ] && { command -v pip-audit >/dev/null 2>&1 && pip-audit -f json 2>&1 || echo "SKIPPED: pip-audit not installed"; }
 
 # Rust
-[ -f Cargo.lock ] && cargo audit --json 2>&1
+[ -f Cargo.lock ] && { command -v cargo-audit >/dev/null 2>&1 && cargo audit --json 2>&1 || echo "SKIPPED: cargo-audit not installed (cargo install cargo-audit)"; }
 
 # Go
-[ -f go.sum ] && govulncheck ./... 2>&1 | head -100
+[ -f go.sum ] && { command -v govulncheck >/dev/null 2>&1 && govulncheck ./... 2>&1 | head -100 || echo "SKIPPED: govulncheck not installed"; }
 
 # Ruby
 [ -f Gemfile.lock ] && bundle audit check --update 2>&1 | head -50

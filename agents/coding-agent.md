@@ -368,8 +368,8 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 **Code deliverables:**
 - [ ] Module directory structure matches ARCHITECTURE.md § Implementation View (feature-sliced, not layered)
 - [ ] Every module implemented has a test file alongside it (`service.ts` → `service.test.ts`)
-- [ ] Build passes: run `npm run build` (or equivalent from TECH_STACK.md) — must exit 0
-- [ ] Tests pass: run `npm test` (or equivalent) — must exit 0 with ≥1 passing test
+- [ ] Build passes: run `$PM run build` (detect `$PM` from the lockfile below; or the TECH_STACK.md build command) — must exit 0
+- [ ] Tests pass: run `$PM test` (or the stack's test command: `go test ./...`, `pytest`, `cargo test`) — must exit 0 with ≥1 passing test
 - [ ] No imports from another module's internal files (only from their public index)
 - [ ] No hardcoded credentials, API keys, or secrets in source files
 - [ ] No unlisted dependencies introduced (check against TECH_STACK.md)
@@ -379,8 +379,16 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 
 **Run build + tests + code health now (do not skip):**
 ```bash
-npm run build && npm test
-# or the equivalent commands from docs/TECH_STACK.md
+# Detect the package manager from the lockfile — don't assume npm and loop when
+# the repo uses pnpm/yarn/bun (their resolvers/scripts differ). For non-JS stacks
+# use the TECH_STACK.md commands (cargo/go test/pytest/etc.).
+if   [ -f pnpm-lock.yaml ]; then PM=pnpm
+elif [ -f yarn.lock ];      then PM=yarn
+elif [ -f bun.lockb ];      then PM=bun
+elif [ -f package-lock.json ] || [ -f package.json ]; then PM=npm
+fi
+$PM run build && $PM test        # e.g. pnpm run build && pnpm test
+# or the equivalent commands from docs/TECH_STACK.md (go test ./..., pytest, cargo test)
 
 bash scripts/validators/validate-code-health.sh .
 ```
