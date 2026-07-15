@@ -64,6 +64,7 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 
 1. Read `docs/design/flows.md`'s screen inventory — this is the derivation source for everything below.
 2. Check TECH_STACK.md for an existing component library; if present, plan to extend it, not replace it.
+2b. **Is there a real Figma design source?** If `docs/design/figma-snapshot.json` exists (a project ran `scripts/figma/figma.sh pull`), **Figma is the token source of truth** — run `scripts/figma/figma.sh derive-tokens` to generate `docs/design/tokens.json` from it (variables → color/spacing scales) instead of authoring values from prose. The adapter reports which required keys Figma didn't provide (e.g. `color.surface`, `typography.fontFamily`); author ONLY those by hand, and leave the Figma-backed values as-is. The `validate-design-tokens.sh` gate then confirms tokens.json didn't silently drop or fork a Figma token. No snapshot → author the full `tokens.json` from prose as in step 3 (unchanged default).
 3. Define the token scale per Hard rule 1; write `docs/design/tokens.json`.
 4. Derive the component inventory strictly from the screens, with states, per Hard rules 2 and 4.
 5. Self-check against all 5 hard rules; anything unsatisfiable goes in Gaps with why.

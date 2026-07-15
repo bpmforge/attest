@@ -381,15 +381,19 @@ library." The claim was never checked against upstream.
   any component set — it flags missing `VENDORED.md` provenance and
   mismatches between the declared file/variant list and what's on disk.
 
-### Token Generation & Sync (when Figma/design tooling exists)
+### Token Generation & Sync (Figma design source)
 
-- If the team designs in Figma with Tokens Studio (or variables), the token
-  source of truth is the EXPORT (tokens.json) — the CSS/Tailwind layer is
-  GENERATED from it (Style Dictionary or equivalent). Never hand-edit both.
-- No design tooling → the token file IS the source of truth; say so in
-  DESIGN_SYSTEM.md so a future Figma adoption knows which direction syncs.
-- Either way: one direction, stated explicitly. Two-way "sync" is how tokens
-  fork.
+- **If the project uses Figma**, the token source of truth is the design file.
+  Pull it with `scripts/figma/figma.sh pull` → `docs/design/figma-snapshot.json`,
+  then `figma.sh derive-tokens` → `docs/design/tokens.json` (design-system-lead
+  owns this step; see `references/jira-adapter.md`'s sibling `references/figma-adapter.md`).
+  Your `--system` mode then GENERATES the CSS/Tailwind layer FROM `tokens.json`
+  (Style Dictionary or equivalent). Never hand-edit both — `validate-design-tokens.sh`
+  gates tokens.json against the Figma snapshot.
+- No Figma configured → `tokens.json` IS the source of truth (authored from prose);
+  say so in DESIGN_SYSTEM.md so a future Figma adoption knows which direction syncs.
+- Either way: one direction (Figma → tokens.json → code), stated explicitly.
+  Two-way "sync" is how tokens fork.
 
 ---
 

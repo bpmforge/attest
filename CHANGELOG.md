@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.9.0] — 2026-07-14
+
+Figma adapter — bring a real Figma design into the design pipeline (staged plan, part 2 of 3). Figma is to the design pipeline what the Jira adapter is to the ticket pipeline: an external source consumed via a normalized snapshot, internal artifact stays authoritative, graceful fallback when absent.
+
+- **New `scripts/figma/figma.mjs` (+ `figma.sh`).** `pull` a Figma file (`X-Figma-Token` auth) → normalized `docs/design/figma-snapshot.json` (variables → tokens as hex, the `components` map → inventory, top-level `FRAME` nodes → screen inventory). `derive-tokens` maps the snapshot into `design-system-lead`'s required `tokens.json` shape by naming convention, and **reports the required keys Figma didn't provide** so `tokens.json` is *derived, not invented*. `doctor` checks config + connectivity.
+- **Closes the prose-only gap.** `design-system-lead` authored `tokens.json` from personas, and `frontend-design.md` declared "the token source of truth is the Figma export" but **no importer existed**. Now `design-system-lead` runs `derive-tokens` when a snapshot exists (Figma is the token source of truth) and hand-authors only what Figma didn't supply; `frontend-design`'s Token-Sync section points at the real adapter. One direction only — Figma → `tokens.json` → code — matching the "two-way sync is how tokens fork" rule.
+- **`tokens.json` stays the source of truth for the build.** Figma is the design source it's derived from; graceful fallback = no `FIGMA_TOKEN` → the whole prose-authored path is unchanged. The Figma Variables API needs a paid plan; on a free plan `pull` captures components + screens with zero tokens (never an error).
+- **New gate `validate-design-tokens.sh`** (offline-safe; skips clean unless `figma-snapshot.json` exists): **dropped-token** (a Figma color missing from `tokens.json`), **snapshot-without-tokens** (pulled but never derived), **value-drift** (advisory).
+- Optional live path: the official Figma Dev Mode MCP can be wired like `playwright-mcp` (interactive select-frame→code); the REST adapter is the portable, CI-testable default.
+- Design: `docs/DESIGN_FIGMA_ADAPTER.md`. Reference: `references/figma-adapter.md`. 6 mocked-REST test cases (`scripts/test-figma-adapter.ts`, Pass 42; no live Figma in CI). 421 tests green. (Tiers 2–3 verification loops + gates follow as v2.10.)
+
 ## [2.8.0] — 2026-07-14
 
 Agent-wiring audit, Tier 1 (correctness). A two-agent audit of the full expert set found cross-agent handoff gaps and — notably — that the v2.5.0 "memory write-back on every specialist" sweep was **incomplete**: it swept the inline-manifest agents but missed 7 producer specialists because agent-file coverage was never gated.
