@@ -86,11 +86,12 @@ For every claim, attempt to **refute** it. Use this tool priority:
 
 | Priority | Tool | Use when |
 |----------|------|---------|
-| 1 | `grep` | Claim references a function, pattern, or string — check it exists |
+| 1 | `code_references` / `code_symbols` | Claim is about a symbol — "X is unused", "Y calls Z", "this is defined here" — the reference graph beats grep for existence/usage claims (run `code_index()` first; grep-fallback if no index) |
 | 2 | `read` | Claim references a specific file or line — read it directly |
 | 3 | `code_search` | Claim references behaviour across multiple files — semantic search |
-| 4 | `bash` (validator) | Claim is about a gate condition — run the validator script |
-| 5 | `web_research` | Claim is about a library or framework — check current docs |
+| 4 | `grep` | Claim is about a literal string, comment, or config value — text match |
+| 5 | `bash` (validator) | Claim is about a gate condition — run the validator script |
+| 6 | `web_research` | Claim is about a library or framework — check current docs |
 
 **Hard cap: 4 tool calls per claim.** Stop at 4 regardless of confidence.
 

@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.11.0] — 2026-07-14
+
+Code-search wiring (memory + code-search program, part 1 of 2). An audit found the `code-search` MCP was **effectively unused** — its three structural tools (`code_symbols`/`code_references`/`code_outline`) appeared in **zero** agents, `code_index` was never built by any flow, and ~51 agents hand-reimplemented the index with `grep`. This wires it in.
+
+- **New shared `## Code search` block** (`agents/shared/blocks/code-search.md` + `.compact`, registered in `build-agents.mjs`) backed by `agents/shared/CODE_SEARCH.md` — mirrors the proven `research-tools` block plumbing (canonical text, small-tier compact variant, CI drift gate). Content: prefer `code_symbols`/`code_references`/`code_outline`/`code_search` over grep for symbol/reference/structure questions, with a **mandatory `code_index()`-then-grep-fallback freshness contract** (the index is mtime-gated so refreshing is cheap; a missing index means "use grep," never "stop").
+- **Inlined into the code-heavy agents**: `coding-agent`, `dead-code-detector`, `entry-point-tracer`, `component-mapper`, `pattern-consistency-checker`. The highest-value swap: `dead-code-detector` now uses `code_references("X")` (the real reference graph) for "zero non-test uses" instead of a grep count that a substring/comment match inflates. The `explore` skill traces call-chains via `code_references`.
+- **Onboard now builds the index once** (`sdlc-onboard-mode` Step 0: `code_index()` + `code_index_status()`) so downstream specialists (entry-point-tracer routes, component-mapper dependency edges) query a fresh symbol/reference graph rather than approximating with regex. Skips silently if the MCP is absent.
+- **Challenger evidence table** now ranks `code_references`/`code_symbols` above grep for symbol/existence claims. **`examples/opencode.json`** now carries the `code-search` MCP entry (was only patched into the user config live by `install.sh`, so the reference config didn't match).
+- Engine verified capable (bpm-code-search-mcp is mtime-gated, falls back to FTS when unindexed, self-guides reindexing) — so the wiring is real, not cosmetic. 421 tests green; wiring-ledger + agents:check clean. (Memory read-loop + lifecycle follows as v2.12.)
+
 ## [2.10.0] — 2026-07-14
 
 Agent-wiring audit, Tiers 2–3 (verification loops + gates + consistency) — the final part of the staged plan.
