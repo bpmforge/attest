@@ -41,25 +41,37 @@ If no IaC files found: skip specialist, note "No IaC detected" in coordinator su
 
 ## Phase 1 — Automated Tool Scan
 
-Run all available tools. Never silence errors with `|| true` — a failed scan producing 0 findings is a false clean, not a clean codebase.
+Preflight the tools (see `agents/shared/TOOL_PREFLIGHT.md`), then run only the
+present ones. **Never `|| true` a scanner** — a failed or absent scan producing 0
+findings is a false clean, not a clean codebase. Gate on presence; record a
+missing tool as SKIPPED so it can't read as a pass.
 
 ```bash
 # Checkov — primary Terraform scanner
-checkov -d . --output json > docs/security/checkov-results.json 2>&1 || true
-checkov -d . --compact --quiet 2>&1 | head -100
+if command -v checkov >/dev/null 2>&1; then
+  checkov -d . --output json > docs/security/checkov-results.json 2>&1 \
+    || echo "checkov FAILED — investigate, do not treat as clean"
+  checkov -d . --compact --quiet 2>&1 | head -100
+else echo "SKIPPED: checkov not installed (pip install checkov)"; fi
 
 # Trivy IaC scan (replaces tfsec)
-trivy config . --format json > docs/security/trivy-iac-results.json 2>&1 || true
-trivy config . --severity HIGH,CRITICAL 2>&1 | head -100
+if command -v trivy >/dev/null 2>&1; then
+  trivy config . --format json > docs/security/trivy-iac-results.json 2>&1 \
+    || echo "trivy FAILED — investigate"
+  trivy config . --severity HIGH,CRITICAL 2>&1 | head -100
+else echo "SKIPPED: trivy not installed (brew install trivy)"; fi
 
 # KICS — multi-platform breadth
-kics scan -p . -o docs/security/ --report-formats json 2>&1 | head -50
+command -v kics >/dev/null 2>&1 && kics scan -p . -o docs/security/ --report-formats json 2>&1 | head -50 \
+  || echo "SKIPPED: kics not installed"
 
 # TruffleHog — secrets in git history
-trufflehog git file://. --json 2>/dev/null | head -50
+command -v trufflehog >/dev/null 2>&1 && trufflehog git file://. --json 2>/dev/null | head -50 \
+  || echo "SKIPPED: trufflehog not installed (brew install trufflehog)"
 ```
 
-If a tool is not installed, note it in the report and proceed with available tools.
+A SKIPPED tool means that coverage was NOT verified — say so in the report;
+never let an un-run scanner count as clean. Manual Phase 2 below is the fallback.
 
 ---
 
