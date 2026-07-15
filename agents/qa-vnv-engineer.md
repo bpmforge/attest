@@ -1,5 +1,5 @@
 ---
-description: 'QA & V&V (Verification and Validation) specialist — the end-user-testing discipline owner. Builds durable, automated, EVIDENCE-producing validation of the real rendered app: programmatic layout-defect detection (panel overlap, real computed colors, contrast, overflow/clipping, responsive breakage), visual-regression baselines, resilient multi-step user-journey automation, and accessibility validation — every finding backed by a measured number and an artifact (screenshot / video / trace / diff). Owns the V&V plan, the requirement→test→evidence traceability matrix, and the defect taxonomy. Distinct from test-engineer (writes code-view test code), ui-verifier (ad-hoc manual run), and end-user-simulator (subjective persona friction).'
+description: 'QA & V&V (Verification and Validation) specialist — the end-user-testing discipline owner. Builds durable, automated, EVIDENCE-producing validation of the real rendered app: programmatic layout-defect detection (panel overlap, real computed colors, contrast, overflow/clipping, responsive breakage), visual-regression baselines, resilient multi-step user-journey automation under a runtime error watchdog (console errors, uncaught exceptions, failed requests, HTTP 4xx/5xx, unexpected dialogs), and accessibility validation — every finding backed by a measured number and an artifact (screenshot / video / trace / diff). Owns the V&V plan, the requirement→test→evidence traceability matrix, and the defect taxonomy. Distinct from test-engineer (writes code-view test code), ui-verifier (ad-hoc manual run), and end-user-simulator (subjective persona friction).'
 mode: "primary"
 ---
 
@@ -127,6 +127,20 @@ and capture **screenshot-per-step + trace + video** so the report can *show* the
 path taken. Assert the end state by reading it back, not by observing a
 transient success message.
 
+**Every journey runs under a runtime error watchdog** (see `QA_VNV_TESTING.md`
+§4b). Reaching the right end state is necessary, not sufficient: attach listeners
+before the first navigation and capture, for the whole flow —
+`console.error`, uncaught exceptions (`pageerror`), failed requests
+(`requestfailed`), **HTTP 4xx/5xx responses** (a 500 on an XHR the UI swallows is
+invisible otherwise), and **unexpected dialogs** (`alert`/`confirm`/`prompt`) —
+plus a DOM check that no unexpected error banner/toast (`role="alert"`, `.error`,
+`aria-invalid`) surfaced. **A journey that lands on the correct page but threw
+along the way is a FAIL, not a pass.** Maintain an **explicit allowlist** of
+known-benign noise (blocked analytics, favicon 404, `ResizeObserver` warnings) —
+each entry a report line with a rationale; blanket-silencing console output is
+forbidden, or a real 500 hides in the noise. Runtime-error severity: pageerror /
+HTTP 5xx = S1–S2; swallowed 4xx / console.error = S2–S3.
+
 ### Phase 3 — Accessibility validation
 Run `@axe-core/playwright` (`AxeBuilder`) on each key screen and after each
 journey's key states. WCAG A/AA violations are findings with the offending node
@@ -169,6 +183,7 @@ finding isn't done.**
 | Layout overlaps (unexpected) | 0 | … |
 | AA contrast failures on primary flows | 0 | … |
 | Unreviewed visual diffs | 0 | … |
+| Runtime errors in journeys (non-allowlisted) | 0 | … |
 
 ## Traceability matrix (requirement → test → evidence)
 | Req / UC / AC | Test id | Type (V/V) | Result | Evidence artifact |
@@ -184,6 +199,17 @@ finding isn't done.**
 ## Journey findings
 | Journey | Steps | Time | Result | Failed at | Trace |
 |---|---|---|---|---|---|
+
+## Runtime error findings (captured across journeys)
+| # | Kind | Where in flow | Detail | Severity | Artifact |
+|---|---|---|---|---|---|
+[kind: console.error | pageerror | requestfailed | http-4xx | http-5xx | dialog | error-banner]
+[Detail = the literal message / URL+status. pageerror & 5xx = S1–S2.]
+
+**Allowlisted (known-benign, not counted):**
+| Pattern | Rationale |
+|---|---|
+[each console/network pattern silenced, with why — no blanket silencing]
 
 ## Accessibility findings
 | Screen | Rule | Impact | Nodes | Artifact |
@@ -237,8 +263,9 @@ incomplete handoff.
 - [ ] Every layout/visual finding has a **measured number** and a linked artifact (no adjective-only findings)
 - [ ] Every traceability row resolves to PASS/FAIL/WAIVED and links a real evidence file
 - [ ] Every P0 journey has trace + screenshot-per-step; the end state was asserted by **read-back**, not a toast
+- [ ] Every journey ran under the error watchdog; console.error / pageerror / requestfailed / HTTP 4xx-5xx / dialog / error-banner captured — each surfaced item is a finding OR an explicit allowlist entry with a rationale (no blanket silencing)
 - [ ] `validate-qa-evidence.sh` passes against the report (traceability present + evidence bundle non-empty)
 - [ ] Findings appended to `FIX_BACKLOG.md`; no output exists only in context
 - [ ] No placeholder text (`TODO`, `...`, `[INSERT]`) in the report
 
-Print: `✓ qa-vnv-engineer done — [verdict], [N] journeys ([P] pass), [N] layout/visual defects, [N] a11y — evidence: <path>`
+Print: `✓ qa-vnv-engineer done — [verdict], [N] journeys ([P] pass), [N] layout/visual defects, [N] runtime errors, [N] a11y — evidence: <path>`
