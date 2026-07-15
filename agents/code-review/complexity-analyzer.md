@@ -47,11 +47,12 @@ read(filePath="agents/code-review/METHODOLOGY.md")
 ### Phase 1 — Automated Scan
 
 ```bash
-# Cyclomatic complexity (lizard — all languages)
-lizard src/ --CCN 10 --length 50 --modified 2>/dev/null | head -80
+# Cyclomatic complexity (lizard — all languages). Preflight: see TOOL_PREFLIGHT.md
+command -v lizard >/dev/null 2>&1 && lizard src/ --CCN 10 --length 50 --modified 2>/dev/null | head -80 \
+  || echo "SKIPPED: lizard not installed (pip install lizard) — using manual/wc proxy below"
 
 # Python radon
-which radon && radon cc src/ -s -n C 2>/dev/null | head -40
+command -v radon >/dev/null 2>&1 && radon cc src/ -s -n C 2>/dev/null | head -40
 
 # TypeScript/JavaScript — rough proxy via wc
 find src/ -name "*.ts" -o -name "*.js" | xargs wc -l 2>/dev/null | sort -rn | head -20

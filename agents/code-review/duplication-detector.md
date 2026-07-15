@@ -49,14 +49,18 @@ read(filePath="agents/shared/ANTI_SLOP_RULES.md")
 ### Phase 1 — Automated Scan
 
 ```bash
+# Preflight: see TOOL_PREFLIGHT.md — absent tool → SKIP loudly, fall back to the manual pass below
 # jscpd — JS/TS copy-paste detection
-jscpd src/ --min-tokens 50 --reporters console 2>/dev/null | head -80
+command -v jscpd >/dev/null 2>&1 && jscpd src/ --min-tokens 50 --reporters console 2>/dev/null | head -80 \
+  || echo "SKIPPED: jscpd not installed (npx jscpd) — manual near-dup scan below"
 
 # Python — pylint duplicate code check
-pylint src/ --disable=all --enable=R0801 2>/dev/null | head -40
+command -v pylint >/dev/null 2>&1 && pylint src/ --disable=all --enable=R0801 2>/dev/null | head -40 \
+  || echo "SKIPPED: pylint not installed"
 
 # Generic file-level duplicates
-fdupes -r src/ 2>/dev/null | head -20
+command -v fdupes >/dev/null 2>&1 && fdupes -r src/ 2>/dev/null | head -20 \
+  || echo "SKIPPED: fdupes not installed"
 ```
 
 ### Phase 2 — Manual Analysis (Pass 2)

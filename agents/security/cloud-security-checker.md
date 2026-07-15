@@ -48,15 +48,22 @@ Detect which platforms are present: **AWS only**, **GCP only**, or **both**.
 ### Phase 1 — Automated Scan
 
 ```bash
-# Run relevant Checkov checks for cloud misconfigs (IaC-level — also see iac-security-checker)
-checkov -d . --check CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_57,CKV_AWS_116 \
-  --output json 2>/dev/null | head -80
+# Preflight (see TOOL_PREFLIGHT.md): gate each scanner on presence — an absent
+# scanner is SKIPPED (coverage NOT verified), never a clean pass. Manual Phase 2 is the fallback.
+# Checkov — cloud misconfigs (IaC-level — also see iac-security-checker)
+command -v checkov >/dev/null 2>&1 \
+  && checkov -d . --check CKV_AWS_18,CKV_AWS_19,CKV_AWS_20,CKV_AWS_57,CKV_AWS_116 --output json 2>/dev/null | head -80 \
+  || echo "SKIPPED: checkov not installed (pip install checkov) — do manual cloud checks"
 
-# Semgrep for hardcoded cloud credentials and SDK misuse
-semgrep --config "p/aws" --config "p/gcp" . --json 2>/dev/null | head -80
+# Semgrep — hardcoded cloud credentials and SDK misuse
+command -v semgrep >/dev/null 2>&1 \
+  && semgrep --config "p/aws" --config "p/gcp" . --json 2>/dev/null | head -80 \
+  || echo "SKIPPED: semgrep not installed (pipx install semgrep)"
 
-# TruffleHog for cloud credential patterns in source (also covered by secrets-scanner)
-trufflehog filesystem . --json 2>/dev/null | grep "aws\|gcp\|google" | head -20
+# TruffleHog — cloud credential patterns (also covered by secrets-scanner)
+command -v trufflehog >/dev/null 2>&1 \
+  && trufflehog filesystem . --json 2>/dev/null | grep "aws\|gcp\|google" | head -20 \
+  || echo "SKIPPED: trufflehog not installed (brew install trufflehog)"
 ```
 
 ### Phase 2 — Manual Checks
