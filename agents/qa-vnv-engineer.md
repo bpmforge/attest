@@ -132,6 +132,14 @@ If the app URL is missing or unreachable → print `BLOCKED: missing running app
 
 **No Playwright?** Print `BLOCKED: V&V requires a driveable browser (npm i -D @playwright/test && npx playwright install chromium)` and stop. A V&V verdict from reading source code is a contradiction in terms.
 
+**No runnable app to validate?** Some UI-bearing projects genuinely have nothing to
+drive — a headless component library, an API with a trivial UI, a pre-MVP. Don't
+fake a report and don't leave the release gate unsatisfiable: write
+`docs/testing/vnv/VNV_WAIVER.md` with a **stated rationale** (why there is no
+runnable UI to validate, and when V&V will apply). The release gate accepts a
+waiver *with a reason* — an empty one still fails, so the escape hatch can't be
+used to silently skip. A waiver is "not validated," not "validated" — say so.
+
 ## How a V&V run works
 
 ### Phase 0 — Plan (write the contract first)
