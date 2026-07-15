@@ -32,7 +32,22 @@ if [[ -d "$VNV_DIR" ]]; then
 fi
 
 if [[ -z "$REPORT" ]]; then
-  note "no V&V report (docs/testing/vnv/VNV_REPORT_*.md) -- nothing to validate"
+  # No report. For a UI-bearing project this is a GAP, not a clean skip -- the
+  # end-user V&V run was never done, and the expert must not be silently skipped.
+  # For a non-UI project there is nothing to validate.
+  UI_BEARING=0
+  for sig in \
+    "$ROOT/docs/design/UX_SPEC.md" \
+    "$ROOT/docs/UX_SPEC.md" \
+    "$ROOT/docs/design/tokens.json" \
+    "$ROOT/docs/design/STYLE_GUIDE.md"; do
+    [[ -f "$sig" ]] && UI_BEARING=1 && break
+  done
+  if [[ "$UI_BEARING" -eq 1 ]]; then
+    gap "missing-vnv-report" "UI-bearing project has no end-user V&V report (docs/testing/vnv/VNV_REPORT_*.md) -- qa-vnv-engineer never ran"
+  else
+    note "no V&V report and no UI signal -- non-UI project, nothing to validate"
+  fi
   validator_exit
 fi
 
@@ -79,6 +94,23 @@ if grep -qiE '[0-9]+ ?px|[0-9]+(\.[0-9]+)? ?: ?1|[0-9]+(\.[0-9]+)? ?%|scrollwidt
   pass "report contains measured findings (numbers, not adjectives)"
 else
   warn "no measured value (px / ratio / % ) found -- verify findings are quantified, not 'looks fine'"
+fi
+
+# -- 6. Substance: a report that CLAIMS journeys must SHOW them -------------
+# Anti-hollowing: if the report has a Journey-findings section with a verdict,
+# the evidence bundle must contain a trace (*.zip) and a screenshot (*.png) --
+# otherwise "3 journeys PASS" is an unbacked assertion, exactly what this gate
+# exists to prevent.
+if [[ -d "$EVIDENCE_ROOT" ]] && grep -qiE '^#+.*journey' "$REPORT" && grep -qiE 'PASS|FAIL|✅|❌' "$REPORT"; then
+  TRACES="$(find "$EVIDENCE_ROOT" -type f -iname '*.zip' 2>/dev/null | wc -l | tr -d ' ' || true)"
+  SHOTS="$(find "$EVIDENCE_ROOT" -type f -iname '*.png' 2>/dev/null | wc -l | tr -d ' ' || true)"
+  if [[ "${TRACES:-0}" -eq 0 ]]; then
+    gap "journey-no-trace" "report claims journeys with verdicts but the evidence bundle has no trace (*.zip) -- a passing journey must be replayable"
+  elif [[ "${SHOTS:-0}" -eq 0 ]]; then
+    gap "journey-no-screenshot" "report claims journeys but the evidence bundle has no screenshot (*.png)"
+  else
+    pass "journey claims backed by evidence ($TRACES trace(s), $SHOTS screenshot(s))"
+  fi
 fi
 
 validator_exit

@@ -38,6 +38,18 @@ takes seven clicks through a hidden avatar menu. **Those are your findings.**
 replace. Screenshots are *evidence*, never the *check*. The check is code that
 reads the DOM geometry, computed styles, and pixel diffs and returns a verdict.
 
+## Independence — validate, don't self-certify (IEEE 1012)
+
+V&V is only meaningful when it's **independent**: the context that implemented a
+screen must not be the one that validates it — a builder grading their own
+homework rediscovers only the bugs they already thought of. When you run as an
+SDLC handoff you are independent by construction. When invoked ad-hoc, if you
+were the same session that just wrote these screens, **say so in the report** and
+recommend an independent re-run; a self-certified V&V verdict is a weaker claim
+and must be labeled as one. Validate against the spec/acceptance criteria and
+what's actually on screen — never against your own memory of what you intended
+to build.
+
 ## Loop prevention (MANDATORY)
 
 Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
@@ -86,6 +98,27 @@ Driver: **Playwright** (see `agents/shared/BROWSER_TESTING.md` for the
 playwright-mcp surface for interactive runs). Durable suites are `.spec.ts`
 files under `e2e/`; see `agents/test/E2E_INFRASTRUCTURE.md` for the canonical
 config/fixtures this builds on.
+
+## Coverage checklist — the ways a rendered app fails a user
+
+A run is **complete only when every row is addressed or explicitly disclosed as
+not-covered.** Silent omission is the failure mode a completeness pass exists to
+prevent — if you skip a row, say so in the report's Known-gaps, don't just leave
+it out. Scale the depth to the app, but *decide* on each row.
+
+| Failure mode | How | Status |
+|---|---|---|
+| Broken layout (overlap / overflow / offscreen) | §2a, §2c | automated |
+| Unreadable (contrast / color drift from tokens) | §2b | automated |
+| Responsive breakage | §2d viewport matrix | automated |
+| Unintended visual change | §3 visual regression | automated (baselines committed, **never** blind `--update-snapshots`) |
+| Task can't be completed (journey) | §4 Page-Object journeys | automated |
+| Errors along the way (console / exception / failed request / 5xx / dialog) | §4b watchdog | automated |
+| App not in a testable state (auth / seed data / empty DB) | entry criteria (Phase 0) | **required precondition** — if unmet, `BLOCKED`, don't fake it |
+| Accessibility (contrast handled above; **keyboard nav, focus order, ARIA** are not) | §6 axe = automated portion; keyboard/focus = **manual** | partial — disclose the manual gap or hand to `a11y-compliance` |
+| Sluggish / janky interaction (layout shift, long tasks) | perf-during-interaction (CLS + long-task capture, §4b note) | lightweight here; deep profiling → `performance-engineer` |
+| Cross-browser / real device | Playwright `projects[]` (chromium default) | disclose which engines/devices were and were **not** run |
+| Empty / error / loading states | drive them deliberately as journeys | manual — cover the P0 ones, disclose the rest |
 
 ## Input Contract
 
