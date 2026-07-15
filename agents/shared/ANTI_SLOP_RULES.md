@@ -80,6 +80,7 @@ const c = await fetchPrefs(id)
 **Pattern:** `catch { return [] }` or `catch { return "" }` when an operation fails — caller receives an empty result indistinguishable from a successful empty result.
 **Why it fails:** The caller cannot distinguish "no data" from "data could not be fetched." Bugs become invisible. Monitoring misses failures.
 **Rule:** On failure, return a typed error result or throw. Never return a value that looks like success.
+**Also covers — fallbacks that return *correct* results.** `try { fastPath() } catch { slowPath() }` where slowPath yields the same right answer silently hides that fastPath is permanently broken: every caller sees correct output, so nothing looks wrong, while the optimized/primary path never runs. Same trap with a capability flag defaulted inside a swallowed catch (`try { enable() } catch { enabled = false }`) — the feature is dead but degraded-path output stays correct. A fallback that substitutes a degraded path MUST be observable: log a warning, bump a metric, or expose a queryable flag, so "works" can't mask "primary path is dead." (Real bug: a vector-index flag defaulted false inside a catch; the whole test suite passed via brute-force fallback while the index never activated.)
 
 ### R-11 Unspecified retry logic
 **Pattern:** Retry + exponential backoff added to a DB call or API request that has no retry requirement in the spec.
