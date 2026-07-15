@@ -2,6 +2,24 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.10.0] — 2026-07-14
+
+Agent-wiring audit, Tiers 2–3 (verification loops + gates + consistency) — the final part of the staged plan.
+
+**Verification loops (agents that shipped artifacts they never tested):**
+- **`migration-planner`** — was the thinnest infra agent: it wrote forward+rollback SQL but never ran it, and lacked an Input Contract, DDL-dialect verification, and any adversarial check. Added: an Input Contract; **Context7/engine-docs verification** before writing dialect-specific DDL; **Step 5 — prove reversibility on a scratch/shadow DB** (apply forward → verify → apply rollback → verify back to the OLD state → re-apply), with "ASSERTED-not-TESTED" required in the manifest if no scratch DB is reachable; and a Challenger Gate for destructive DDL. Also routed from the `guide` concierge (was semi-orphaned).
+- **`reliability-engineer`** — reported a "measured breaking point" it never measured. Added a step to **run a real smoke load and paste actual req/s / P95 / error-rate**, or mark §5 `NOT MEASURED — <why>` (never a measured-looking figure it didn't observe).
+
+**Challenger-gate parity** — 6 of 7 high-stakes design producers triggered no adversarial check. Added tailored Challenger Gates to **db-architect** (destructive/cascade/denormalization decisions), **api-designer** (breaking or new public contracts), **data-steward** (PII classification / retention), **reliability-engineer** (breaking-point / degradation claims), and **migration-planner** (destructive DDL) — matching the gate architecture-designer/synthesizers already had.
+
+**Root & consistency gates:**
+- **New `validate-flows.sh`** — `docs/design/flows.md` (ux-researcher's output) is the root of the design chain but was the only root with no validator; now structurally gated (Mermaid flow + screen inventory + no placeholders), wired into the Phase-3 design gate with red/green fixtures. `validate-design-tokens.sh` joined the same gate.
+- **STYLE_GUIDE ↔ tokens.json reconciliation** — `ux-engineer` now references `tokens.json` as the authoritative palette when it exists instead of re-authoring a parallel set of hexes (killed the fork).
+- **a11y ownership boundary** — `ux-engineer --audit` is design-time; `a11y-compliance` owns the Phase-4 certification of record (no more duplicate audits).
+- **`gameplay-engineer`** now names the API-verification mechanism explicitly (Context7 / installed engine source) instead of only citing "the Four Laws".
+
+- 421 tests green. Completes the v2.8→v2.10 agent-wiring program (Tier 1 correctness → Figma adapter → Tier 2–3 verification/gates).
+
 ## [2.9.0] — 2026-07-14
 
 Figma adapter — bring a real Figma design into the design pipeline (staged plan, part 2 of 3). Figma is to the design pipeline what the Jira adapter is to the ticket pipeline: an external source consumed via a normalized snapshot, internal artifact stays authoritative, graceful fallback when absent.

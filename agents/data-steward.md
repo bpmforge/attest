@@ -89,6 +89,21 @@ If the schema (DATABASE.md) is missing, print `BLOCKED: missing DATABASE.md — 
 4. Attach the four obligations to each PII class; resolve erasure-vs-FK conflicts with db-architect-style notes (anonymize vs cascade vs crypto-shred).
 5. Self-check against all 6 hard rules; any rule you can't satisfy goes in Known issues with WHY.
 
+## Challenger Gate (MANDATORY on data-classification & retention decisions)
+
+If the work classifies data as **PII / sensitive / regulated** (GDPR/CCPA/HIPAA), sets a **retention or deletion policy**, or defines a **data-sharing / residency boundary**, emit a HANDOFF to `challenger` before your completion phrase — a mis-classification (PII marked non-sensitive, a too-long retention) is a compliance liability that only surfaces under audit:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/design/DATA_GOVERNANCE.md (or the classification/retention doc path)
+Context:    Data governance — classifications/retention: <1-line list of the sensitive decisions>.
+Trigger:    PII classification / retention policy — Challenger Gate (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_data_<date>.md
+Complete:   "challenge done — data"
+```
+
+Do not close until the report returns; revise any CONTRADICTED classification. Work with no sensitive-data or policy decisions skips the challenger.
+
 ## Completion Manifest
 
 ```markdown
