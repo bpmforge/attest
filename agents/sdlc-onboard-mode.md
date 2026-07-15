@@ -84,6 +84,14 @@ task(agent="git-expert", prompt="Create and checkout 'docs/onboard' branch from 
 task(agent="git-expert", prompt="Run --inspect mode. Answer: (1) How long active, main contributors? (2) Hot files (most changed)? (3) Recent commit themes? (4) Large refactors or incidents? (5) Reverts or hotfix patterns? Write to docs/git/HISTORY_INSPECTION_<date>.md.", timeout=120)
 ```
 
+**4. Build the code index (if the `code-search` MCP is available):** run `code_index()` ONCE
+here, then `code_index_status()` to confirm. Onboarding is the reference-heavy phase —
+`entry-point-tracer` (routes/handlers), `component-mapper` (dependency edges), and any code
+review that follows all query this index instead of grepping, so building it up front means the
+downstream specialists trace a real symbol/reference graph rather than approximating with regex.
+The build is mtime-gated (fast) and `.code-search/` is gitignored. If the MCP isn't available,
+skip silently — the specialists fall back to grep per `agents/shared/CODE_SEARCH.md`.
+
 Tracker row 0 → `✅ DONE | branch=docs/onboard`
 
 ---

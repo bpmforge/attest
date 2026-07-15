@@ -39,6 +39,15 @@
         "/Users/user/Code/playwright-search/dist/mcp.js"
       ],
       "enabled": true
+    },
+    "code-search": {
+      "_comment": "In-house symbol/reference-aware code index (bpm-code-search-mcp) \u2014 per-project .code-search/index.db (gitignored). Tools: code_symbols (definitions), code_references (all uses \u2014 dead-code/refactor/call-chains), code_outline (file structure), code_search (semantic), code_index/code_index_status (mtime-gated refresh). Agents prefer it over grep for structure/reference questions with a grep fallback; see agents/shared/CODE_SEARCH.md. Auto-installed by install.sh; build with `npm run build` in the repo, then point command at dist/index.js.",
+      "type": "local",
+      "command": [
+        "node",
+        "/Users/user/Code/bpm-code-search-mcp/dist/index.js"
+      ],
+      "enabled": true
     }
   },
   "provider": {
