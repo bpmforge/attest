@@ -212,6 +212,21 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
 
+## Challenger Gate (MANDATORY on breaking or public contract changes)
+
+If the design introduces a **breaking change** (removed/renamed field, changed type or nullability, changed status codes, auth/authz change) or defines a **new public contract** consumers will depend on, emit a HANDOFF to `challenger` before your completion phrase — a contract others build against is exactly the claim that must survive an adversarial read:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/design/API_CONTRACT.md (or the OpenAPI/GraphQL schema path)
+Context:    API design — <new public contract | breaking change: 1-line list>.
+Trigger:    Breaking/public contract — Challenger Gate (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_api_<date>.md
+Complete:   "challenge done — api"
+```
+
+Do not close until the report returns; revise any CONTRADICTED decision (a missed breaking change, an unversioned removal). A purely additive, backward-compatible change skips the challenger.
+
 ## Completion Manifest (Mandatory for SDLC Handoffs)
 
 When running in Bounded Task Mode (SDLC-TASK), end your work with a completion

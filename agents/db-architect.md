@@ -205,6 +205,21 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
 
+## Challenger Gate (MANDATORY on high-stakes schema decisions)
+
+If the design includes a **destructive change** (DROP/RENAME/type-narrow on an existing table), an **`ON DELETE CASCADE`** foreign key, a **denormalization** trade-off, or a **partitioning/sharding** decision, emit a HANDOFF to `challenger` before your completion phrase — these are the schema choices whose blast radius shows up only in production:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/design/DATABASE.md
+Context:    Schema design — high-stakes decisions: <1-line list (cascades, denormalization, destructive change)>.
+Trigger:    High-stakes schema decision — Challenger Gate (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_database_<date>.md
+Complete:   "challenge done — database"
+```
+
+Do not close until the report returns; revise any CONTRADICTED decision. A schema with only additive, non-cascading changes skips the challenger.
+
 ## Completion Manifest (Mandatory for SDLC Handoffs)
 
 When running in Bounded Task Mode (SDLC-TASK), end your work with a completion
