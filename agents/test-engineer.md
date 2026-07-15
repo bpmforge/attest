@@ -375,6 +375,8 @@ When invoked, follow this workflow in order:
 Real test engineers don't just verify happy paths:
 - When you see a validation rule, test both sides of the boundary
 - When you see error handling, verify the error is actually thrown (not swallowed)
+- When a feature has a fast-path/slow-path, a **capability flag**, or optional acceleration (index, cache, native ext), **assert the flag/path is actually active** — don't infer it from correct output, because the fallback produces correct output too. A green suite over a dead fast-path is the most expensive kind of false pass.
+- Test the constructor/init path against a **truly empty/fresh resource**, not a pre-populated fixture — ordering bugs (reading a table before schema creation, using config before load) only surface on first run.
 - When you see async code, test race conditions and timeout behavior
 - When you see a database operation, test what happens with concurrent writes
 - If a function has 3 parameters, test the combinations (especially null/undefined/empty)
