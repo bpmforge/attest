@@ -20,7 +20,11 @@ before you touch anything.
 ```
 ▶ Phase 1: Finding entry points for [topic]...
 ```
-- Grep for the feature name, function name, route path, or component name
+- Find the feature/function/route/component. Prefer the **code-search MCP** when available:
+  `code_symbols("<name>")` to locate definitions and `code_search("<what it does>")` for the
+  semantic entry — then `code_references("<symbol>")` to walk the call chain below (it IS the
+  reference graph you're hand-tracing). Run `code_index()` once first; **fall back to grep** if
+  the index is unavailable (see `agents/shared/CODE_SEARCH.md`).
 - Identify ALL entry points: HTTP routes, UI event handlers, CLI commands, cron triggers
 - List each with file:line
 
