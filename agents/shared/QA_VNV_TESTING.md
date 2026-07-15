@@ -368,6 +368,82 @@ journeys don't re-login (see `E2E_INFRASTRUCTURE.md`).
 
 ---
 
+## 4b. Runtime error surveillance during journeys ("no errors may pop up")
+
+Reaching the right end state is **necessary, not sufficient.** A flow that lands
+on the correct page but threw a `console.error`, an uncaught exception, a failed
+request, an HTTP 4xx/5xx, or popped an unexpected `alert()` *along the way* is a
+**FAIL** — those are exactly the runtime defects a user hits and unit tests never
+see. So **every journey runs under an error watchdog** that listens to the page
+for the whole flow, not just at the assertion.
+
+Attach the listeners **before** the first navigation:
+```ts
+type RuntimeError = { kind: string; where?: string; text: string };
+
+function watchErrors(page, allow: RegExp[] = []): RuntimeError[] {
+  const errors: RuntimeError[] = [];
+  const ok = (t: string) => allow.some((rx) => rx.test(t));
+  // console.error (console.warn is usually noise — allowlist warns explicitly if you track them)
+  page.on('console', (m) => {
+    if (m.type() === 'error' && !ok(m.text()))
+      errors.push({ kind: 'console.error', text: m.text() });
+  });
+  // uncaught JS exception in page code — ALWAYS a defect
+  page.on('pageerror', (e) => { if (!ok(e.message)) errors.push({ kind: 'pageerror', text: e.message }); });
+  // network request that never completed (blocked, DNS, CORS, aborted)
+  page.on('requestfailed', (r) => {
+    const t = `${r.method()} ${r.url()} — ${r.failure()?.errorText}`;
+    if (!ok(t)) errors.push({ kind: 'requestfailed', text: t });
+  });
+  // HTTP 4xx/5xx responses (a 500 on an XHR the UI swallows is invisible otherwise)
+  page.on('response', (r) => {
+    if (r.status() >= 400 && !ok(`${r.status()} ${r.url()}`))
+      errors.push({ kind: `http-${r.status()}`, text: `${r.status()} ${r.request().method()} ${r.url()}` });
+  });
+  // unexpected browser dialog (alert/confirm/prompt) — dismiss so the run doesn't hang, and record it
+  page.on('dialog', async (d) => { errors.push({ kind: `dialog-${d.type()}`, text: d.message() }); await d.dismiss(); });
+  return errors;
+}
+```
+Use it across the journey and assert **clean at the end** (and, for long flows,
+after each `test.step`), tagging each error with where in the flow it happened:
+```ts
+test('journey stays error-clean', async ({ page }, testInfo) => {
+  const ALLOW = [/favicon\.ico/, /google-analytics|googletagmanager|doubleclick/, /ResizeObserver loop/];
+  const errors = watchErrors(page, ALLOW);
+  await page.goto('/');
+  await new AppHeader(page).openSettings();  errors.forEach(e => e.where ??= 'open-settings');
+  // ... rest of the flow ...
+  await testInfo.attach('runtime-errors', { body: JSON.stringify(errors, null, 2), contentType: 'application/json' });
+  expect(errors, JSON.stringify(errors, null, 2)).toEqual([]);
+});
+```
+
+**Allowlist discipline (mandatory).** Real apps emit benign noise: blocked
+third-party analytics, `favicon.ico` 404, `ResizeObserver loop` warnings, opted-out
+telemetry. Maintain an **explicit allowlist of known-benign patterns** — everything
+else is a finding. Blanket-silencing all console output is forbidden: silence must
+be *justified per pattern*, or a real 500 hides in the noise. Every allowlist entry
+is a line item in the report with a one-line rationale.
+
+**Also assert no error UI surfaced.** A caught exception may render an error
+banner/toast instead of throwing. During and after the flow, check the DOM for
+unexpected error indicators:
+```ts
+const errorUI = await page.evaluate(() => [...document.querySelectorAll('[role="alert"], .error, .toast-error, [aria-invalid="true"]')]
+  .filter(el => (el as HTMLElement).offsetParent !== null)          // visible only
+  .map(el => (el.textContent || '').trim()).filter(Boolean));
+expect(errorUI, JSON.stringify(errorUI)).toEqual([]);
+```
+
+Runtime errors get their own severity: **pageerror / HTTP 5xx = S1–S2** (the app
+is actually broken), a swallowed **HTTP 4xx** or `console.error` = S2–S3, a
+benign-but-unallowlisted warning = S4-or-allowlist. The trace already captured
+console + network, so the error's full context is one click away in the trace viewer.
+
+---
+
 ## 5. Evidence & reporting ("show me proof")
 
 Attach, per failing (and often passing) step: **trace** (DOM snapshots + action
