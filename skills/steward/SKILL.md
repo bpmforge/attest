@@ -125,6 +125,20 @@ failure patterns become rubric rules. Run once per release (release-manager
 step 9 reminds you), on a cloud-tier model.
 
 ```
+▶ Phase 0: Memory DB hygiene (execute M5 — the one place it actually runs)
+```
+0. If the memory MCP is available, run the consolidation M5/MEMORY_PRIMER prescribes
+   but nothing else executes (82 stores accumulate with 0 cleanup otherwise):
+   a. `memory_consolidate({ dryRun: true, decayAfterDays: 30 })` — preview the merges
+      (duplicates), decays (unused >30d), and clusters to summarize. Sanity-check the
+      preview; if it proposes decaying something load-bearing, stop and inspect.
+   b. `memory_consolidate({ dryRun: false, decayAfterDays: 30 })` — apply it.
+   c. `memory_forget(...)` any memory the report or your review shows is wrong/superseded
+      and not just stale (feedback-flagged `wrong`/`duplicate` entries are the candidates).
+   This is DISTINCT from the prompt-corpus distillation below (that compresses agent
+   prompts; this prunes the runtime memory DB). Skip silently if no memory MCP.
+
+```
 ▶ Phase 1: Gather the evidence
 ```
 1. `npm run telemetry:report` (or `node scripts/telemetry-report.mjs --days 30`) —
