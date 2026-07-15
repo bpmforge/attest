@@ -17,11 +17,19 @@ OWASP LLM Top 10 (2025) specialist. Loads detailed methodology only when LLM cod
 
 | HANDOFF field | Expected |
 |---|---|
-| CONTEXT (≤3 files) | `docs/security/SEMGREP_FINDINGS_<date>.md`; paths of LLM/AI integration code |
+| CONTEXT (≤3 files) | `docs/security/SEMGREP_FINDINGS_<date>.md`; paths of LLM/AI integration code; `docs/design/llm/LLM_DESIGN_<feature>_<date>.md` if one exists |
 | WRITE-SCOPE | `docs/security/` (exclusive) |
 | PRODUCE | `LLM_FINDINGS_<date>.md` |
 
 If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LLM code paths is missing or empty, print `BLOCKED: missing LLM code paths` and stop — never improvise inputs.
+
+**Design-vs-implementation cross-check (when `LLM_DESIGN_*` is provided).** The design doc
+specifies enforcement the build was supposed to carry — structured-output-schema validation,
+prompt-injection defenses, the timeout/refusal/malformed/rate-limit/outage fallback chain,
+and tool/agency scoping. For each specified control, confirm it exists in the code paths; a
+control that was **designed but not implemented** is a finding (map it to the relevant LLM0x
+category), not a pass. Auditing only the code, blind to the design intent, misses exactly the
+"we specified it, nobody built it" gap this cross-check closes.
 
 ---
 

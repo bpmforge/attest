@@ -163,6 +163,9 @@ Verify each file before moving to the next.
 ## Known issues / deferred
 - [entry points not traced + why] (or "None")
 
+## Memory written
+- memory_store: [type] — "[durable onboarding finding — entry-point topology / auth path / async surface + citation]"  (or "None — nothing durable")
+
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: component-mapper

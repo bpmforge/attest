@@ -380,6 +380,45 @@ Complete:   "challenge done — design"
 
 ---
 
+## Completion Manifest (Bounded Task Mode — step 11)
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `docs/design/MODULE_DESIGN.md` — [N modules, dependency graph, feature recipe]
+- `docs/design/INFRASTRUCTURE.md` — [deployment topology] (if produced)
+- [enforcement config path] — [linter rules for the tech stack]
+
+## Files modified
+- `path/to/existing` — [what changed, why]   (or "None")
+
+## Decisions made
+- [architectural decision + why, alternatives considered — this is the ADR-dense content]
+
+## Known issues / deferred
+- [open architectural question + which agent should resolve it]   (or "None")
+
+## Memory written
+- memory_store: [type] — "[durable architectural decision / pattern choice / boundary rule + citation]"  (or "None — nothing durable")
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+Challenger review required: [YES/NO]
+
+## Ready for: [db-architect / api-designer / coding-agent, or "sdlc-lead resume"]
+
+Tracker updated: [SDLC_TRACKER.md row / DELEGATION_LOG.md — where this design step was recorded]
+```
+
+All sections required. **`## Memory written` (MEMORY_PRIMER M4):** you are the most
+decision-dense producer in the pipeline (ADRs, pattern and boundary choices) — `memory_store`
+those durable decisions with a citation so the next design pass and the downstream specialists
+start from them, and record it here. You do NOT recall (the lead handed you your slice). Nothing
+durable → "None".
+
+---
+
 ### Pre-Completion Gate (MANDATORY)
 
 Before printing a completion phrase or marking done:

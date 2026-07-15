@@ -179,4 +179,9 @@ For each major service if multiple services exist, produce a separate C3 diagram
 - [ ] `docs/diagrams/c3-components.md` exists, > 50 lines, contains `graph` block showing internal module dependencies with clear direction
 - [ ] No ASCII art used — all diagrams are Mermaid
 
+**Memory written (MEMORY_PRIMER M4):** before the completion phrase, `memory_store` the durable
+onboarding finding you established (deployment topology, service→module dependency map) with a
+citation, and record it in the Completion Manifest — you do NOT recall (the coordinator handed you
+your slice). Nothing durable → "None".
+
 Print: `✓ component-mapper done — [N] deployable components, [N] internal modules mapped`
