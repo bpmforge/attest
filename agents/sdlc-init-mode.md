@@ -137,9 +137,21 @@ these substitutions everywhere the phase files name the standard artifact:
 | SRS.md | `docs/design/game/GDD.md` (Game Design Document) | game/game-designer |
 | USER_STORIES.md | Player stories ("As a [player type], I want [verb] so that [feeling/goal]") | game/game-designer |
 | USER_PERSONAS.md | Player personas (skill, session length, motivation per Bartle/engagement type) | sdlc-lead interview |
+| Project plan | PLUS `docs/design/game/PRODUCTION.md` (mode indie/AAA, gate ladder, milestones, scope ledger, GTM checkpoint) | game/game-producer |
 | Phase 3 design docs | ARCHITECTURE.md as usual PLUS `docs/design/game/TECH_NOTES.md` (engine choice, timestep, determinism) | game/gameplay-engineer |
 | Phase 3 numbers | `docs/design/game/balance/` models with simulation scripts | game/game-balance-designer |
+| Phase 3 [if story-bearing] | `docs/design/game/NARRATIVE.md` (delivery mix, quest/dialogue structure, barks) | game/narrative-designer |
+| Phase 3 [if leveled] | `docs/design/game/levels/LEVEL_<slice>.md` (metrics, flow, beat chart) for the slice level | game/level-designer |
+| Phase 3 [if audio serves a pillar] | `docs/design/game/AUDIO.md` (middleware, event list, mix rules, budgets) | game/game-audio-designer |
 | test-engineer reviews | PLUS `docs/testing/playtest/PLAYTEST_<date>.md` per slice build | game/playtest-evaluator |
+
+**Prototype gate (pre-production — BEFORE finalizing the GDD, when the core
+loop is unproven; per `agents/shared/GAME_PRODUCTION.md` §4):** the first build
+is a time-boxed **2-4 week prototype with success AND kill criteria written
+before building** (game-designer states them, game-producer holds them). Pass =
+the loop playtests well with someone who's never seen it → finalize the GDD.
+Hit the kill criteria = kill or pivot cheaply and re-enter discovery — that is
+the process *working*, record it. No production work before this gate.
 
 **Vertical-slice gate (replaces nothing — INSERTED between Phase 3 and full Phase 4):**
 The first Phase 4 wave builds ONLY the vertical slice defined in GDD.md § 7.
@@ -151,6 +163,14 @@ The gate to continue into content production:
 
 A game that fails the slice gate iterates on the slice — it never proceeds to
 content production on the theory that more levels will fix the core loop.
+
+**Production gates after the slice (labels from GAME_PRODUCTION.md §1, held by
+game-producer):** **alpha = feature lock** (every system in; no new mechanics
+after — new-mechanic requests become post-1.0 rows) and **beta = content lock**
+(all content in; bugs/balance/perf only). If targeting console, PRODUCTION.md
+carries the cert plan (2-3 submission rounds, 6-10 weeks per platform ⚠) —
+functional QA, fun playtests, and cert compliance are three different
+disciplines; don't let one report claim the others.
 
 **Discovery interview (--game additions):** ask also — target platform(s) and
 input model? session length (3-min mobile / 30-min desktop)? singleplayer or

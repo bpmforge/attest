@@ -36,6 +36,10 @@ Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool fa
 4. **SIMULATE (mandatory).** Write `simulate_<system>.py` (or .mjs): 1000 simulated player-sessions with skill variance, run it via bash, paste the distribution summary into the report. The simulation script is a deliverable — playtest tuning re-runs it.
 5. **Check the targets.** Each intent target: PASS/FAIL against simulation output. FAIL → adjust constants, re-run, max 3 tuning rounds; still failing → the formula shape is wrong, flag for design discussion instead of brute-forcing constants.
 6. **Write the tunables as data** in the game's config format (gameplay-engineer exposed them — if not, that's a gap to flag, not a reason to hardcode).
+7. **Tune from telemetry when it exists** (`agents/shared/GAME_PRODUCTION.md` §4):
+   real playtest/live data (death heatmaps, funnel drop-off, session lengths —
+   GameAnalytics MCP if wired) outranks simulation; simulation outranks anecdote.
+   State which evidence tier each tuning decision used.
 
 ## BALANCE report format
 
