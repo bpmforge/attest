@@ -123,4 +123,9 @@ Write `docs/LANDSCAPE.md` with these exact sections:
 - [ ] Contains all 5 sections: Tech Stack, Project Metrics, Directory Structure, Hot Files, Recent Focus
 - [ ] UI-bearing result recorded
 
+**Memory written (MEMORY_PRIMER M4):** before the completion phrase, `memory_store` the durable
+onboarding finding you established (tech stack, project size, hot files, UI-bearing verdict) with a
+citation, and record it in the Completion Manifest — you do NOT recall (the coordinator handed you
+your slice). Nothing durable → "None".
+
 Print: `✓ landscape-mapper done — [tech stack], [file count] source files, UI-bearing: [YES/NO]`

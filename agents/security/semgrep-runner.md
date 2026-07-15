@@ -104,3 +104,8 @@ Category: `semgrep`. Dependency findings use category `dependency`.
 - [ ] Every REAL finding has a verbatim code snippet as evidence
 - [ ] Output file written and > 20 lines
 - [ ] Completion Manifest includes: N REAL, N FP, N UNVERIFIED findings
+
+**Memory written (MEMORY_PRIMER M4):** before your completion phrase, `memory_store` any durable
+finding worth carrying across sessions (a confirmed REAL vulnerability class in this codebase, a
+recurring FP pattern to pre-suppress) with a `citation`, and note it in the Completion Manifest — you
+do NOT recall (the audit coordinator handed you your slice). Nothing durable → "None".

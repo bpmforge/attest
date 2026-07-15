@@ -173,7 +173,15 @@ This is a bounded task from the SDLC lead. Run these phases in order:
 **Phase 1 — Read** (do not write anything yet)
 1. Read the context packet (`docs/work/context-for-coding-agent.md`) if it exists
 2. Read every design doc listed in the CONTEXT section of the task prompt
-3. Read 2–3 existing files in the same directories as the output files — note their patterns
+3. **Building an LLM/AI feature?** `docs/design/llm/LLM_DESIGN_<feature>_*.md` (from
+   `llm-integration-engineer`) is a REQUIRED read even if the HANDOFF forgot to list it —
+   it is the contract: the prompt architecture, the **structured-output schema you must
+   enforce**, the **fallback chain** (timeout/refusal/malformed/rate-limit/outage), model
+   routing, and the eval set your work is graded against. Grep `docs/design/llm/` before
+   coding; if a design doc exists and you did not implement its enforcement/fallback, the
+   `owasp-llm-checker` gate will flag the gap. If an LLM feature has NO design doc, print
+   `BLOCKED: LLM feature with no LLM_DESIGN — send back to llm-integration-engineer` and stop.
+4. Read 2–3 existing files in the same directories as the output files — note their patterns
 
 **Phase 2 — Verify APIs (the pre-code check)**
 This is the **pre-code check** (`/pre-code`): verify every library API against a real source BEFORE the first import — never write an external API from training-data memory. For every external library or framework referenced in the task:

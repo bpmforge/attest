@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.8.0] — 2026-07-14
+
+Agent-wiring audit, Tier 1 (correctness). A two-agent audit of the full expert set found cross-agent handoff gaps and — notably — that the v2.5.0 "memory write-back on every specialist" sweep was **incomplete**: it swept the inline-manifest agents but missed 7 producer specialists because agent-file coverage was never gated.
+
+- **Fixed the broken AI handoff.** `llm-integration-engineer` designs the LLM feature (prompt architecture, structured-output schema, fallback chain, eval set) and hands to `coding-agent` — but `coding-agent`'s input contract had **zero** reference to `docs/design/llm/`, so the design was stranded. Now: coding-agent treats `LLM_DESIGN_*` as a required read for any LLM feature (BLOCKED if an LLM feature has none); llm-integration-engineer's manifest states the HANDOFF must carry it; and `owasp-llm-checker` cross-checks the design's specified enforcement (output-schema validation, injection defenses, fallback chain) against the built code — a control **designed but not implemented** is now a finding, not a silent pass.
+- **Completed the memory-write-back audit** on the 7 missed producers: `architecture-designer` (also upgraded from a stub "write manifest" line to a full Completion Manifest block — it's the most decision-dense producer), `security-auditor`, `security/semgrep-runner`, and all four `sdlc/onboard/*` specialists (`landscape-mapper`, `entry-point-tracer`, `component-mapper`, `health-coordinator`).
+- **Shipped a regression gate** (`scripts/test-memory-writeback.ts`, Pass 41): every producer agent must document M4 write-back (`memory_store` / `## Memory written`); orchestrators/concierge that delegate are exempt (list guarded against staleness). This is why the 7 were missed — coverage was never gated. Proven to bite (66 producers checked).
+- **Closed two dead-end handoffs.** `content-designer` microcopy now hands to `coding-agent` (strings wired into components / i18n, not re-invented at code time); `end-user-simulator` friction/abandonment findings now land in `docs/reviews/FIX_BACKLOG.md` (tracked work with an owner) instead of dying in a UAT doc.
+- 415 tests green. (Tiers 2–3 — verification loops, root design validators, challenger-gate parity — and the Figma adapter follow as v2.9/v2.10.)
+
 ## [2.7.0] — 2026-07-14
 
 Jira integration completed — works in the **unattended** path and on **Jira Cloud**, and is wired into the SDLC workflow + install. Builds on the v2.6.0 Data Center adapter.

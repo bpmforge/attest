@@ -52,6 +52,7 @@ import { testStatusReport } from "./test-status-report.ts";
 import { testTrackerIntegrity } from "./test-tracker-integrity.ts";
 import { testPullmdMigration } from "./test-pullmd-migration.ts";
 import { testJiraAdapter } from "./test-jira-adapter.ts";
+import { testMemoryWriteback } from "./test-memory-writeback.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -559,6 +560,8 @@ console.log(
 await testPullmdMigration(root, ok, fail);
 
 await testJiraAdapter(root, ok, fail);
+
+testMemoryWriteback(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

@@ -249,4 +249,9 @@ Write `docs/HEALTH_ASSESSMENT.md`:
 - [ ] `docs/testing/USE_CASES.md` exists, covers all major entry points
 - [ ] `docs/testing/TEST_PLAN.md` exists, maps use cases to test files
 
+**Memory written (MEMORY_PRIMER M4):** before the completion phrase, `memory_store` the durable
+onboarding finding you established (overall health verdict, top critical issues, coverage gaps) with
+a citation, and record it in the Completion Manifest — you do NOT recall (the coordinator handed you
+your slice). Nothing durable → "None".
+
 Print: `✓ health-coordinator done — overall health [N]/10, [N] CRITICAL, [N] HIGH, [N] test coverage gaps`
