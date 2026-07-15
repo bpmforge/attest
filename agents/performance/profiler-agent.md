@@ -61,21 +61,35 @@ ls -la *.cpuprofile *.heapprofile isolate-* 2>/dev/null
 
 ### Phase 2 — Profile
 
-Per METHODOLOGY.md Phase 2:
+**Preflight first (see `agents/shared/TOOL_PREFLIGHT.md`).** Your whole job is a
+profiler, and the usual ones are absent-by-default or privileged — `py-spy` needs
+`pip install` + ptrace, `perf` is Linux-only and needs `perf_event_paranoid`.
+Pick the profiler that is actually present for the target language; if none is,
+print `BLOCKED: no profiler available (<install cmd>)` and stop — do **not** run a
+missing profiler and retry. "Never skip profiling" means *get a real profile*,
+not *loop on a tool that isn't there*.
 
 ```bash
-# Node.js CPU profile
-node --prof --prof-process src/index.js 2>&1
-node --prof-process isolate-*.log > processed-profile.txt 2>&1
-
-# Python
-py-spy record -o profile.svg -d 30 -- python app.py 2>&1
-
-# Linux perf (if available)
-perf record -g -- node src/index.js && perf report 2>&1 | head -50
+for t in node py-spy perf; do command -v "$t" >/dev/null 2>&1 && echo "have: $t" || echo "MISSING: $t"; done
 ```
 
-Read profiler output carefully. The hot functions list is the ground truth.
+Then run only the available profiler:
+```bash
+# Node.js CPU profile (needs `node`)
+command -v node >/dev/null 2>&1 && { node --prof --prof-process src/index.js 2>&1; \
+  node --prof-process isolate-*.log > processed-profile.txt 2>&1; }
+
+# Python (needs py-spy + ptrace privilege)
+command -v py-spy >/dev/null 2>&1 && py-spy record -o profile.svg -d 30 -- python app.py 2>&1 \
+  || echo "SKIPPED: py-spy not installed (pip install py-spy) — fall back to cProfile / timing logs"
+
+# Linux perf (Linux only, needs privilege)
+command -v perf >/dev/null 2>&1 && perf record -g -- node src/index.js && perf report 2>&1 | head -50 \
+  || echo "SKIPPED: perf unavailable (Linux linux-tools) — use py-spy / language profiler"
+```
+
+Read profiler output carefully. The hot functions list is the ground truth. A
+profiler that couldn't run is a `BLOCKED`/`SKIPPED` note, never a "no hotspots" pass.
 
 ### Phase 3 — Identify Hotspot
 
