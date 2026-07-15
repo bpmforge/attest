@@ -44,7 +44,21 @@ if [[ -z "$REPORT" ]]; then
     [[ -f "$sig" ]] && UI_BEARING=1 && break
   done
   if [[ "$UI_BEARING" -eq 1 ]]; then
-    gap "missing-vnv-report" "UI-bearing project has no end-user V&V report (docs/testing/vnv/VNV_REPORT_*.md) -- qa-vnv-engineer never ran"
+    # Escape hatch: a UI-bearing project may legitimately have no runnable app to
+    # validate (component library, API-with-trivial-UI, pre-MVP). Rather than
+    # hard-block release -- which pushes teams to rip the gate out -- accept a
+    # DOCUMENTED waiver: a VNV_WAIVER.md with a stated reason, or an ARCHITECTURE
+    # declaration that there is no runnable UI. A bare/empty waiver does NOT count
+    # (must carry a rationale), so the escape hatch can't be used to silently skip.
+    WAIVER_FILE="$VNV_DIR/VNV_WAIVER.md"
+    ARCH="$ROOT/docs/ARCHITECTURE.md"
+    if [[ -f "$WAIVER_FILE" ]] && grep -qiE 'reason|because|not applicable|no runnable ui|deferred to' "$WAIVER_FILE"; then
+      warn "end-user V&V waived via docs/testing/vnv/VNV_WAIVER.md (rationale present) -- not a validated release"
+    elif [[ -f "$ARCH" ]] && grep -qiE 'no runnable ui|v&v not applicable|no ui to validate' "$ARCH"; then
+      warn "end-user V&V waived: ARCHITECTURE.md declares no runnable UI"
+    else
+      gap "missing-vnv-report" "UI-bearing project has no end-user V&V report (docs/testing/vnv/VNV_REPORT_*.md) and no waiver -- qa-vnv-engineer never ran. Add the report, or docs/testing/vnv/VNV_WAIVER.md with a rationale if there is no runnable app to validate"
+    fi
   else
     note "no V&V report and no UI signal -- non-UI project, nothing to validate"
   fi
