@@ -108,6 +108,13 @@ If the feature requirement is missing, print `BLOCKED: missing feature requireme
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: coding-agent (implementation) / sdlc-lead resume
+
+The HANDOFF to coding-agent MUST list this `LLM_DESIGN_<feature>_<date>.md` under CONTEXT
+— it is the implementation contract (prompt architecture, structured-output schema to
+enforce, fallback chain, model routing, eval set). The eval plan is the acceptance gate:
+the built feature is not done until it passes the ≥20-case eval. `owasp-llm-checker` reads
+this same doc to verify the specified enforcement (output-schema validation, injection
+defenses) was actually implemented, not just designed.
 ```
 
 ## Pre-Completion Gate

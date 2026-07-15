@@ -196,7 +196,15 @@ Deliverables:
   docs/security/ATTACK_CHAINS_<date>.md
   docs/security/final-report.md
   docs/reviews/CHALLENGE_REPORT_security_<date>.md
+
+Memory written (MEMORY_PRIMER M4): [memory_store the durable audit verdict —
+CRITICAL/HIGH count, the top confirmed attack chain, any systemic weakness class — with a
+citation; or "None — nothing durable"]
 ```
+
+As the audit coordinator you synthesize the specialists' findings; `memory_store` the durable
+top-level verdict here so the next security pass starts from it. You do NOT recall — you dispatch
+specialists, each of whom stores its own slice.
 
 ---
 
