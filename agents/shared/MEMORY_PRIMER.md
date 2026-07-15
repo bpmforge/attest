@@ -116,6 +116,28 @@ of inconsistent context. Instead:
 - Specialists still `memory_store` their own decisions/errors — storing is
   cheap and write-once; recall is the budgeted side.
 
+## M4b — Close the loop: feedback is what makes recall improve
+
+Storing without feedback is a write-only loop: the engine never learns which
+memories helped, so relevance can't improve and a wrong memory keeps
+resurfacing (the observed "memory made coverage *worse*" failure). After you
+USE recalled memories, tell the engine how they did:
+
+- `memory_feedback({ id, feedback: "helpful" })` — it informed the work; reinforce it.
+- `memory_feedback({ id, feedback: "outdated" | "wrong" })` — its citation no longer
+  holds (you spot-checked per Verify-on-recall). Consolidation decays/removes it.
+- `memory_feedback({ id, feedback: "duplicate" })` — redundant; consolidation merges it.
+
+The orchestrator does this after consuming the assembled packet (sdlc-lead Step 2b);
+a specialist that did its one targeted lookup feeds back on that result too. Feedback
+is the signal `memory_consolidate` (M5) acts on — no feedback, no useful consolidation.
+`goal_anchor({ objective })` at session start makes drift detectable over a long run.
+
+When a new decision **supersedes** an older one (or an error's fix relates to a prior
+error), `memory_link({ from, to, type })` records the edge instead of leaving two
+unrelated blobs — so a later "what replaced this?" query resolves. Prefer linking +
+`memory_feedback(outdated)` on the superseded memory over silently storing a contradiction.
+
 ---
 
 ## M5 — Consolidation and promotion (steward cadence)
@@ -202,7 +224,7 @@ session_save({
 
 - **No transcripts, no process** — store conclusions, 1–2 sentences, with citation. A 500-token memory is a bug.
 - **No auto-extract by default** — `memory_auto_extract` on every session stores noise, and noise is re-injected on every future recall. Extract deliberately at phase boundaries.
-- **Verify on recall** — a memory citing `file.ts:88` should be spot-checked before acting (the file may have changed). The citation makes re-verification a 1-file read instead of a re-derivation.
+- **Verify on recall** — a memory citing `file.ts:88` should be spot-checked before acting (the file may have changed). The citation makes re-verification a 1-file read instead of a re-derivation. When the spot-check shows the memory moved or is stale, **`memory_update({ id, ... })` in place** (or `memory_feedback({ id, feedback: "outdated" })`) — do NOT `memory_store` a fresh copy alongside the stale one, which just accumulates contradictions. Update or flag; never duplicate.
 - **Cap the flat-file fallback** — `SESSION_NOTES.md` is append-only; reading it costs linearly more every session. Keep the last 5 entries verbatim; consolidate older entries into a 10-line summary block at the top.
 
 ---
