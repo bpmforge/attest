@@ -406,6 +406,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
 | `LOOP_PREVENTION.md` | Tool-selection cheat-sheet + three loop classes (failure / schema-validation / success) + BLOCKED-template |
 | `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP) |
+| `CODE_SEARCH.md` | The `code-search` MCP surface (symbol/reference index): `code_symbols`/`code_references`/`code_outline`/`code_search` + `code_index`, when to prefer it over grep, and the mandatory `code_index()`-then-grep-fallback freshness contract. Inlined as the `## Code search` block into code-heavy agents |
 | `ANTI_SLOP_RULES.md` | 28-rule AI slop catalog (R-01..R-28) — over-engineering, defensive bloat, hallucinated patterns, slopsquatting, credential leakage |
 | `CHALLENGER_PROTOCOL.md` | Full Challenger adversarial review protocol — challenge categories, severity grades, rebuttal cycle, output format |
 | `GATE_SCORING_PROTOCOL.md` | HANDOFF resume scoring (1–10 scale, asymmetric threshold ≥7 pass / 5–6 revise / <5 auto-fail) + coverage validator table |

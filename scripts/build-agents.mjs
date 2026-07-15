@@ -25,6 +25,7 @@ const BLOCKS = [
   { name: 'loop-prevention', heading: '## Loop prevention (MANDATORY)' },
   { name: 'context-budget', heading: '## Context Budget (MANDATORY for local models)' },
   { name: 'research-tools', heading: '## Research tools (available, optional)' },
+  { name: 'code-search', heading: '## Code search (available, optional)' },
 ];
 
 // (file, block) pairs allowed to keep custom text — orchestrator mode files own
