@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [2.12.0] — 2026-07-14
+
+Memory read-loop + lifecycle (memory + code-search program, part 2 of 2). An audit found memory was **write-heavy but effectively read-only**: 82 `memory_store` vs 2 `memory_recall`, one generic `memory_context_assemble` at session start as the only real reader, and the M5 hygiene layer (consolidate/forget/decay) documented but **never executed**. The rich engine surface (`memory_feedback`, `memory_consolidate`, `goal_anchor`, `memory_update`, `memory_link`) was 0-wired. Engine verified capable first (bpm-memory-mcp implements `memory_feedback` helpful/wrong/outdated/duplicate and `memory_consolidate` merge-duplicates + decay->30d), so this wiring is real, not cosmetic.
+
+- **Close the feedback loop (the highest-leverage fix).** `sdlc-lead` Step 2b now calls `memory_feedback({id, feedback})` after consuming the assembled packet — `helpful` reinforces, `outdated`/`wrong` (spot-checked) lets consolidation prune, `duplicate` merges. This is the signal the engine needs to *improve* recall and stop resurfacing a wrong memory — the direct fix for the observed "memory made coverage worse" failure, where nothing could down-weight a bad memory. Documented as `MEMORY_PRIMER` **M4b**.
+- **Precise recall, not coarse.** `sdlc-lead`'s `memory_context_assemble` now seeds the query with the real goal phrase **and `files:`** (the phase's target files), instead of a bare phase label — the engine ranks on what you pass, so this turns coarse recall into precise recall.
+- **M5 hygiene actually runs.** `/steward distill` gains a **Phase 0** that executes `memory_consolidate({dryRun}→apply, decayAfterDays:30)` + `memory_forget` for wrong/superseded entries — the DB-pruning M5 prescribes but nothing ran, closing the 82-store / 0-cleanup bloat. Distinct from the prompt-corpus distillation that follows.
+- **No more duplicate-on-staleness.** The Verify-on-recall rule now says: when a spot-check shows a memory moved/stale, `memory_update` in place (or `memory_feedback(outdated)`) — never `memory_store` a fresh copy alongside the stale one. `memory_link` records supersession/error-fix edges so "what replaced this?" resolves. `goal_anchor` at session start makes drift detectable.
+- Consciously deferred: per-specialist *broad* recall (would reopen the M4 slice-vs-recall model that v2.5.0 settled). 421 tests green; completes the memory + code-search program (v2.11 code-search → v2.12 memory).
+
 ## [2.11.0] — 2026-07-14
 
 Code-search wiring (memory + code-search program, part 1 of 2). An audit found the `code-search` MCP was **effectively unused** — its three structural tools (`code_symbols`/`code_references`/`code_outline`) appeared in **zero** agents, `code_index` was never built by any flow, and ~51 agents hand-reimplemented the index with `grep`. This wires it in.
