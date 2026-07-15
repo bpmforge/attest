@@ -57,6 +57,7 @@ import { testFigmaAdapter } from "./test-figma-adapter.ts";
 import { testQaVnvStructure } from "./test-qa-vnv-structure.ts";
 import { testAgentReachability } from "./test-agent-reachability.ts";
 import { testToolPreflight } from "./test-tool-preflight.ts";
+import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -572,6 +573,8 @@ testQaVnvStructure(root, ok, fail);
 testAgentReachability(root, ok, fail);
 
 testToolPreflight(root, ok, fail);
+
+testSdlcModeClarity(root, ok, fail);
 
 await testFigmaAdapter(root, ok, fail);
 
