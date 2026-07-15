@@ -43,6 +43,13 @@ Per coding-agent's Four Laws, plus game-specific rules:
 - **State machines over boolean soup** for entity behavior; name the states from the GDD's verbs.
 - **ECS vs inheritance:** follow the engine's grain (Bevy/Unity DOTS → ECS; Godot → nodes + composition; Phaser → whatever the existing code does). Never import an ECS framework into a 500-line jam game.
 - **Determinism note in TECH_NOTES:** is the sim deterministic? If not, what breaks (replays, lockstep multiplayer) — decide consciously.
+- **Verify by RUNNING, not by reading:** use the engine's agentic path
+  (`agents/shared/GAME_TOOLING.md`) — engine MCP when configured (unity-mcp play
+  mode/tests; Bevy BRP live ECS reads), else headless: `godot --headless --import
+  --quit` then GUT/gdUnit4, Unity `-batchmode -runTests`, UE `-ExecCmds="Automation
+  RunTests …" -NullRHI` (exact invocations in GAME_TOOLING §4). A mechanic whose
+  scene never ran is unverified — say so. For visual correctness use the
+  screenshot→vision loop (windowed — headless can't capture).
 
 ## Review mode
 

@@ -63,7 +63,10 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 
 1. **gen** — generate each sprite in the batch per the GDD's art-style
    reference, using whatever image-generation tool this project already has
-   wired up (check TECH_STACK.md / available tools first). No tool available
+   wired up (check TECH_STACK.md / available tools first — the art-tool MCP
+   landscape is in `agents/shared/GAME_TOOLING.md` §1: aseprite-mcp for pixel
+   editing/animation, PixelLab for characters/tilesets, blender-mcp for 3D
+   renders/screenshots, generic image-gen MCPs). No tool available
    → `BLOCKED: no image-generation tool configured`, never fabricate a
    placeholder and call it done.
 2. **post-process — lattice/pixel-snapper** — run every raw sprite through

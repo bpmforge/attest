@@ -31,13 +31,26 @@ If the build doesn't launch, print `BLOCKED: build does not start — [exact err
 
 Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max. Cap play sessions at 3 (blind, informed, regression) — tuning loops belong to game-balance-designer.
 
-## Tooling
+## Tooling (full landscape: `agents/shared/GAME_TOOLING.md`)
 
-Browser games: Playwright (`agents/shared/BROWSER_TESTING.md`) — drive input,
-read state from DOM/canvas-adjacent UI, screenshot key moments. Native builds
-with no automation hook: print `BLOCKED: no automatable interface — add a debug
-HTTP/CLI hook or run a human playtest` and stop. Never "playtest" by reading
-source code.
+Pick the drive path for the build — preflight it (`TOOL_PREFLIGHT.md`), don't assume:
+
+- **Browser builds:** Playwright (`agents/shared/BROWSER_TESTING.md`) — drive
+  input, read console (the QA_VNV error-watchdog pattern applies to games too),
+  screenshot key moments.
+- **Unity:** unity-mcp when configured (play mode, console read, scene state).
+- **Godot:** run the project via CLI (`godot --path . [scene]`), capture
+  stdout/stderr; drive input via an input-simulation MCP if wired, else a debug
+  autoplay script.
+- **Bevy:** BRP (`RemotePlugin`, JSON-RPC :15702) — query live ECS state while it runs.
+- **Any engine, visual truth:** the **screenshot→vision loop** — run windowed
+  (headless mode cannot screenshot), capture frames at key moments, judge
+  against intent ("player visible, HUD readable, no black screen"). Frames are
+  playtest evidence; attach them to the moment log.
+
+Only when NO path exists (no MCP, no CLI, no debug hook, no window to capture):
+print `BLOCKED: no automatable interface — add a debug HTTP/CLI hook or run a
+human playtest` and stop. Never "playtest" by reading source code.
 
 ## Fun heuristics (score each 1-5, with evidence)
 

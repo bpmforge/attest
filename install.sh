@@ -133,6 +133,7 @@ INSTALL_PWS=true
 INSTALL_MEMORY=false
 INSTALL_PLAYWRIGHT_MCP=true
 INSTALL_CODE_SEARCH=true
+INSTALL_GAME=true   # game-dev expert cluster (agents/game/* + game skill) — optional; default on for upgrade compatibility
 
 for arg in "$@"; do
   case $arg in
@@ -146,6 +147,8 @@ for arg in "$@"; do
     --no-playwright-mcp)    INSTALL_PLAYWRIGHT_MCP=false ;;
     --no-code-search)       INSTALL_CODE_SEARCH=false ;;
     --memory)               INSTALL_MEMORY=true ;;
+    --no-game)              INSTALL_GAME=false ;;
+    --game-experts)         INSTALL_GAME=true ;;
     --yes|-y)               : ;;  # non-interactive, accept all current defaults
     --help|-h)
       echo "BPM OpenCode Experts — Installation"
@@ -158,7 +161,9 @@ for arg in "$@"; do
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
       echo "  ./install.sh --no-playwright-mcp   Skip the playwright-mcp install"
       echo "  ./install.sh --memory              Also install bpm-memory-mcp MCP (cross-session memory)"
-      echo "                                     Requires LM Studio for vector embeddings (BM25 fallback if absent)"
+      echo "                                     Vector search needs an embedder (ollama or LM Studio) — the"
+      echo "                                     installer detects/offers setup; BM25 keyword fallback if absent"
+      echo "  ./install.sh --no-game             Skip the game-dev expert cluster (agents/game/*, 9 agents + game skill)"
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
       echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
       echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
@@ -196,7 +201,11 @@ if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   prompt_yn "Install bpm-code-search-mcp (semantic code search + symbol index)?" "Y" INSTALL_CODE_SEARCH
   prompt_yn "Install playwright-mcp (browser automation + screenshots)?" "Y" INSTALL_PLAYWRIGHT_MCP
   prompt_yn "Install playwright-search (web research MCP)?" "Y" INSTALL_PWS
-  prompt_yn "Install bpm-memory-mcp (cross-session project memory, needs LM Studio)?" "N" INSTALL_MEMORY
+  prompt_yn "Install bpm-memory-mcp (cross-session project memory; embedder setup offered next)?" "N" INSTALL_MEMORY
+  echo ""
+  echo "Optional expert clusters:"
+  echo ""
+  prompt_yn "Install the game-dev expert cluster (9 agents: design/engineering/balance/playtest/audio/narrative/level/producer/assets)?" "Y" INSTALL_GAME
   echo ""
 fi
 
@@ -259,6 +268,22 @@ for dir in $DIRS; do
     echo "  Copied $dir/ ($count files) → $DEST/$dir/"
   fi
 done
+
+# --- Optional game-dev expert cluster (agents/game/* + game skill) ---
+if [ "$INSTALL_GAME" = false ]; then
+  if [ "$METHOD" = "link" ]; then
+    # NEVER delete through a symlink — that would remove files from the source repo.
+    echo "  ⚠️  --no-game ignored in --link mode (agents/ is a symlink to the repo; removing game/ would delete source files)"
+  else
+    removed=0
+    if [ -d "$DEST/agents/game" ]; then
+      removed=$(find "$DEST/agents/game" -name "*.md" | wc -l | tr -d ' ')
+      rm -rf "$DEST/agents/game"
+    fi
+    [ -d "$DEST/skills/game-asset-pipeline" ] && rm -rf "$DEST/skills/game-asset-pipeline"
+    echo "  Skipped game-dev expert cluster ($removed agents + game-asset-pipeline skill) — re-run with --game-experts to add it"
+  fi
+fi
 
 # --- Compact agent overlay (tier=small installs) ---
 if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
@@ -749,13 +774,49 @@ if [ "$INSTALL_MEMORY" = true ]; then
           jq --argjson cfg "$MEM_CFG" '.mcp = (.mcp // {}) + {"memory": $cfg}' \
             "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
           echo "  Added memory MCP to $CONFIG_FILE"
-          echo "  Note: vector search requires LM Studio running nomic-embed-text on port 1234."
-          echo "  BM25 keyword search works without it."
         fi
       else
         echo "  ⚠️  jq not installed — add this to $CONFIG_FILE under \"mcp\":"
         echo '    "memory": {"type":"local","command":["node","'"$MEMORY_SERVER"'"],"enabled":true}'
       fi
+    fi
+
+    # --- Embedding-provider setup (semantic recall needs an embedder) --------
+    # Without one, memory silently degrades to keyword-only BM25 — recall works
+    # but misses paraphrased matches. The server self-heals (retries the
+    # provider periodically), so setting it up later also works.
+    echo ""
+    echo "  Memory embedder check (semantic vector recall):"
+    EMBEDDER_OK=false
+    if curl -sf --max-time 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
+      if curl -sf --max-time 2 http://localhost:11434/api/tags | grep -q "nomic-embed-text"; then
+        echo "    ✓ ollama detected with nomic-embed-text — vector recall active"
+        EMBEDDER_OK=true
+      else
+        echo "    ollama detected but nomic-embed-text model missing"
+        if [ -t 0 ]; then
+          printf "    Pull it now (~270MB)? [Y/n]: "; read -r yn </dev/tty
+          case "${yn:-Y}" in [Yy]*)
+            ollama pull nomic-embed-text && EMBEDDER_OK=true || echo "    ⚠️  pull failed — run: ollama pull nomic-embed-text" ;;
+          esac
+        else
+          echo "    → run: ollama pull nomic-embed-text"
+        fi
+      fi
+    elif curl -sf --max-time 2 http://localhost:1234/v1/models >/dev/null 2>&1; then
+      if curl -sf --max-time 2 http://localhost:1234/v1/models | grep -qi "embed"; then
+        echo "    ✓ LM Studio detected with an embedding model — vector recall active"
+        EMBEDDER_OK=true
+      else
+        echo "    LM Studio detected but no embedding model loaded"
+        echo "    → in LM Studio, load: text-embedding-nomic-embed-text-v1.5"
+      fi
+    fi
+    if [ "$EMBEDDER_OK" = false ]; then
+      echo "    No embedder active — memory works now in keyword-only (BM25) mode."
+      echo "    To enable semantic recall later (server picks it up automatically):"
+      echo "      option A: install ollama (https://ollama.com) then: ollama pull nomic-embed-text"
+      echo "      option B: run LM Studio with text-embedding-nomic-embed-text-v1.5 on port 1234"
     fi
   fi
 fi
