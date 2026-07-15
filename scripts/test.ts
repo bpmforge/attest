@@ -55,6 +55,7 @@ import { testJiraAdapter } from "./test-jira-adapter.ts";
 import { testMemoryWriteback } from "./test-memory-writeback.ts";
 import { testFigmaAdapter } from "./test-figma-adapter.ts";
 import { testQaVnvStructure } from "./test-qa-vnv-structure.ts";
+import { testAgentReachability } from "./test-agent-reachability.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -566,6 +567,8 @@ await testJiraAdapter(root, ok, fail);
 testMemoryWriteback(root, ok, fail);
 
 testQaVnvStructure(root, ok, fail);
+
+testAgentReachability(root, ok, fail);
 
 await testFigmaAdapter(root, ok, fail);
 
