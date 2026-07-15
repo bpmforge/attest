@@ -110,6 +110,22 @@ PRODUCE: docs/reviews/UX_AUDIT_<date>.md — findings by severity (CRITICAL firs
   summary counts, verdict (RELEASE-READY / BLOCKED).
 Print exactly: "ux done — [CRITICAL/HIGH count and release verdict]"
 
+───── HANDOFF #5 → /qa-vnv (qa-vnv-engineer — end-user V&V) [if UI-bearing] ─────
+SDLC-TASK for qa-vnv-engineer:
+CONTEXT: the RUNNING app URL (+ creds) + docs/testing/USE_CASES.md + docs/design/tokens.json (if present).
+YOUR TASK: Validate the rendered app from the end user's side, with evidence — this is
+  end-user validation, NOT the ux-engineer's static WCAG audit and NOT test-engineer's
+  code-view coverage. Run the objective layout/visual checks (overlap, real computed
+  color + WCAG contrast, overflow, responsive matrix), visual-regression, and each P0
+  user journey UNDER the runtime error watchdog (console.error / pageerror /
+  requestfailed / HTTP 4xx-5xx / dialog / error-banner). Every finding = a measured
+  number + an artifact. INDEPENDENCE (IEEE 1012): you must be a different context than
+  the coding-agent that implemented these screens — validate, do not self-certify.
+PRODUCE: docs/testing/vnv/VNV_REPORT_<date>.md + docs/testing/vnv/evidence/<date>/
+  (trace/video/screenshots/diffs). Findings → FIX_BACKLOG. Then run
+  validate-qa-evidence.sh against the report before printing done.
+Print exactly: "qa-vnv done — [verdict, N journeys, N layout/visual, N runtime errors]"
+
 ---
 ```
 
@@ -117,7 +133,7 @@ After all completion phrases return → proceed to Round 2.
 
 **Git checkpoint — commit Round 1 review documents:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 1 (CODE_REVIEW_*_<date>.md, SECURITY_*_<date>.md, PERF_*_<date>.md, UX_*_<date>.md) to the current feature branch. Conventional commit: 'docs(reviews): add round 1 review findings'. Push to origin. Only stage docs/reviews/ files.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/reviews/ files from Round 1 (CODE_REVIEW_*_<date>.md, SECURITY_*_<date>.md, PERF_*_<date>.md, UX_*_<date>.md) plus docs/testing/vnv/ (VNV_REPORT + evidence) to the current feature branch. Conventional commit: 'docs(reviews): add round 1 review findings'. Push to origin. Only stage docs/reviews/ and docs/testing/vnv/ files.", timeout=60)
 ```
 
 ---
