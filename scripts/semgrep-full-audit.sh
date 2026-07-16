@@ -1,30 +1,32 @@
 #!/bin/bash
 #
-# semgrep-full-audit.sh — Deep security audit runner
+# semgrep-full-audit.sh — Deep security audit runner (Opengrep-first)
 #
-# Executes the two-tier Semgrep audit strategy used by the security-auditor
-# agent. Auto-detects project language and framework, composes the right
-# rule packs, applies community rules, emits JSON + SARIF output.
+# Runs the SAST audit used by the security-auditor agent. Engine is Opengrep
+# (LGPL fork, preferred) with a Semgrep fallback. Default rule source is our
+# in-house bpm-rulepacks + local custom rules — client-safe (no registry-license
+# restriction). Auto-detects languages, emits JSON + SARIF.
 #
 # Usage:
-#   ./semgrep-full-audit.sh                Deep audit (default)
-#   ./semgrep-full-audit.sh --fast         Fast CI-tier scan (p/ci + secrets)
+#   ./semgrep-full-audit.sh                Deep audit (bpm-rulepacks + local rules)
+#   ./semgrep-full-audit.sh --fast         Fast tier
 #   ./semgrep-full-audit.sh --autofix      Deep audit with AUTOFIX (opt-in, LOW/MEDIUM only)
 #   ./semgrep-full-audit.sh --baseline REF Only report findings new since REF (git ref)
-#   ./semgrep-full-audit.sh --offline      Use cached registry packs only (no network)
+#   ./semgrep-full-audit.sh --dev-registry INTERNAL DEV ONLY — also load Semgrep
+#                                          registry packs + AGPL community caches.
+#                                          NEVER use for client audits / SaaS scans.
 #   ./semgrep-full-audit.sh --help         Show this help
+#
+# ENGINE + RULES:
+#   Opengrep preferred (SAST_ENGINE=opengrep|semgrep to override). Rules come
+#   from bpm-rulepacks (RULEPACKS_DIR, auto-detected). The Semgrep registry rules
+#   are internal-use-only and the community caches include AGPL sets, so both are
+#   gated behind --dev-registry and excluded from the default client path.
 #
 # AUTOFIX WARNING:
 #   Autofix is OPT-IN only. Even with the flag, this script refuses to autofix
 #   HIGH/CRITICAL findings — those require human review. Autofix applies only
-#   to LOW and WARNING severity rules (unused imports, deprecated API calls,
-#   missing types). Run with --autofix-dryrun first to preview changes.
-#
-# REGISTRY PACK PROBING:
-#   Semgrep's registry packs (p/express, p/nextjs, etc.) can return HTTP 404
-#   if a pack was renamed, deprecated, or moved behind a login tier. This
-#   script probes each non-core registry pack in isolation before adding it
-#   to the final config list, so a 404 on one pack never silences all results.
+#   to LOW and WARNING severity rules. Run with --autofix-dryrun first.
 #
 
 set -euo pipefail
@@ -34,6 +36,10 @@ AUTOFIX=false
 AUTOFIX_DRYRUN=false
 OFFLINE=false
 BASELINE=""
+# Registry + community (AGPL) rules are DEV-ONLY and off by default. The default
+# client-safe path uses our own bpm-rulepacks + local custom rules. Opt in with
+# --dev-registry (internal use only — never for client audits / SaaS scans).
+DEV_REGISTRY=false
 
 for arg in "$@"; do
   case $arg in
@@ -41,6 +47,7 @@ for arg in "$@"; do
     --autofix)         AUTOFIX=true ;;
     --autofix-dryrun)  AUTOFIX_DRYRUN=true ;;
     --offline)         OFFLINE=true ;;
+    --dev-registry)    DEV_REGISTRY=true ;;
     --baseline)        shift; BASELINE="${1:-}"; break ;;
     --help|-h)
       sed -n '3,21p' "$0" | sed 's/^# //'
@@ -49,12 +56,33 @@ for arg in "$@"; do
   esac
 done
 
-# ── Preflight ──────────────────────────────────────────────────────────
-if ! command -v semgrep &> /dev/null; then
-  echo "❌ semgrep not installed."
-  echo "   brew install semgrep   (macOS)"
-  echo "   pip install semgrep    (any platform)"
+# ── Preflight: resolve SAST engine (Opengrep preferred, Semgrep fallback) ──
+# Opengrep (LGPL fork) is preferred because the Semgrep-maintained registry
+# rules are internal-use-only; client-facing scans must run our own rulepacks
+# on the unrestricted engine. Override with SAST_ENGINE=opengrep|semgrep.
+if [ "${SAST_ENGINE:-}" = "opengrep" ] || [ "${SAST_ENGINE:-}" = "semgrep" ]; then
+  ENGINE="$SAST_ENGINE"
+  command -v "$ENGINE" &> /dev/null || { echo "❌ SAST_ENGINE=$ENGINE not installed."; exit 1; }
+elif command -v opengrep &> /dev/null; then
+  ENGINE="opengrep"
+elif command -v semgrep &> /dev/null; then
+  ENGINE="semgrep"
+else
+  echo "❌ No SAST engine installed. Install Opengrep (preferred):"
+  echo "   see references/semgrep-guide.md"
   exit 1
+fi
+
+# In-house rulepacks — the client-safe default rule source.
+# Override with RULEPACKS_DIR; auto-detected from common clone locations.
+if [ -n "${RULEPACKS_DIR:-}" ]; then
+  RULEPACKS="$RULEPACKS_DIR"
+elif [ -d "$HOME/Code/bpm-rulepacks/packs" ]; then
+  RULEPACKS="$HOME/Code/bpm-rulepacks/packs"
+elif [ -d "$HOME/.local/share/bpm-rulepacks/packs" ]; then
+  RULEPACKS="$HOME/.local/share/bpm-rulepacks/packs"
+else
+  RULEPACKS=""
 fi
 
 PROJECT_ROOT="${PWD}"
@@ -142,7 +170,7 @@ probe_registry_pack() {
   local tmpdir
   tmpdir=$(mktemp -d)
   echo "// probe" > "$tmpdir/probe.js"
-  semgrep scan --config "$config" --metrics=off --json -o /dev/null "$tmpdir" \
+  "$ENGINE" scan --config "$config" --metrics=off --json -o /dev/null "$tmpdir" \
     2>/dev/null
   local rc=$?
   rm -rf "$tmpdir"
@@ -158,6 +186,11 @@ probe_registry_pack() {
 #   3. --offline mode: only option 1, fail silently if missing
 add_registry_pack() {
   local pack="$1"
+  # DEV-ONLY: Semgrep registry packs are internal-use-only. In the default
+  # client-safe path they are not loaded — bpm-rulepacks covers this instead.
+  if [ "$DEV_REGISTRY" != "true" ]; then
+    return 0
+  fi
   local config
   config=$(resolve_registry_pack "$pack") || {
     if [ "$OFFLINE" = "true" ]; then
@@ -194,7 +227,7 @@ add_community_dir() {
   local tmpdir
   tmpdir=$(mktemp -d)
   echo "// probe" > "$tmpdir/probe.js"
-  semgrep scan --config "$dir" --metrics=off --json -o /dev/null "$tmpdir" 2>/dev/null
+  "$ENGINE" scan --config "$dir" --metrics=off --json -o /dev/null "$tmpdir" 2>/dev/null
   local rc=$?
   rm -rf "$tmpdir"
   if [ "$rc" -eq 7 ]; then
@@ -209,6 +242,15 @@ add_community_dir() {
 # ── Build config list ──────────────────────────────────────────────────
 CONFIGS=()
 SKIPPED_PACKS=()
+
+# In-house bpm-rulepacks — the primary, client-safe rule source (proprietary,
+# no registry-license restriction). Always loaded when available.
+if [ -n "$RULEPACKS" ] && [ -d "$RULEPACKS" ]; then
+  CONFIGS+=(--config "$RULEPACKS")
+else
+  echo "  ⚠️  bpm-rulepacks not found (set RULEPACKS_DIR). Relying on local custom rules only."
+  echo "     Clone: https://github.com/bpmforge/bpm-rulepacks.git"
+fi
 
 if [ "$MODE" = "fast" ]; then
   # Fast tier — high signal, < 60s on most codebases.
@@ -517,7 +559,9 @@ add_community_rules_for_lang() {
   esac
 }
 
-if [ "$MODE" = "deep" ]; then
+if [ "$MODE" = "deep" ] && [ "$DEV_REGISTRY" = "true" ]; then
+  # DEV-ONLY: community caches include AGPL rule sets (trailofbits is AGPL-3.0)
+  # that must NOT enter a client-facing scan. Only loaded under --dev-registry.
   if [ -d "$CACHE_DIR/trailofbits" ] || [ -d "$CACHE_DIR/elttam" ] || [ -d "$CACHE_DIR/gitlab" ]; then
     # Add community rules for EVERY detected language (polyglot support)
     for detected_lang in "${LANGS[@]+"${LANGS[@]}"}"; do
@@ -648,12 +692,13 @@ fi
 if [ ${#CONFIGS[@]} -eq 0 ]; then
   echo ""
   echo "❌ No rule sources resolved. Cannot run scan."
-  echo "   All registry packs returned HTTP 404 and no community rules are cached."
+  echo "   No bpm-rulepacks and no local custom rules were found."
   echo ""
-  echo "   Immediate fallback: run the safe baseline scan:"
-  echo "     semgrep scan --config auto --json -o docs/security/semgrep-results.json ."
+  echo "   Fix: clone the in-house rulepacks and set RULEPACKS_DIR:"
+  echo "     git clone https://github.com/bpmforge/bpm-rulepacks.git"
+  echo "     RULEPACKS_DIR=\$PWD/bpm-rulepacks/packs scripts/semgrep-full-audit.sh"
   echo ""
-  echo "   For community rules: scripts/update-semgrep-rules.sh"
+  echo "   (Dev-only, internal use: --dev-registry adds Semgrep registry packs.)"
   exit 1
 fi
 
@@ -699,7 +744,7 @@ echo ""
 # Run semgrep — all probed configs are known to work, no || true needed.
 # If semgrep returns exit 1 (findings exist) or 0 (no findings), both are fine.
 # Exit 7 (config error) should not happen here since configs were pre-probed.
-semgrep scan "${CONFIGS[@]}" "${FLAGS[@]}" 2>&1 | tee "$LOG_OUT"
+"$ENGINE" scan "${CONFIGS[@]}" "${FLAGS[@]}" 2>&1 | tee "$LOG_OUT"
 EXIT_CODE=${PIPESTATUS[0]}
 
 echo ""

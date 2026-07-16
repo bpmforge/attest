@@ -1,9 +1,16 @@
 #!/bin/bash
 #
-# update-semgrep-rules.sh — Manage community Semgrep rule sources
+# update-semgrep-rules.sh — Manage community Semgrep rule sources  [DEV-ONLY]
+#
+# ⚠ INTERNAL DEVELOPMENT USE ONLY. This clones third-party community rule
+#   repos, SOME OF WHICH ARE AGPL-3.0 (e.g. trailofbits) or otherwise
+#   license-restricted. These rules must NOT enter a client audit or SaaS
+#   scan. The client-safe default path uses in-house bpm-rulepacks only; these
+#   community sources are loaded exclusively behind `semgrep-full-audit.sh
+#   --dev-registry` for local research/comparison.
 #
 # Clones, updates, verifies, and tests the community rule repositories used
-# by the security-auditor agent's deep audit tier.
+# only under the deep audit tier's --dev-registry opt-in.
 #
 # Rules are cloned to ~/.semgrep/rules/<name>/ by default.
 # Override with: export SEMGREP_COMMUNITY_CACHE=/your/path
