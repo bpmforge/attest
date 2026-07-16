@@ -31,8 +31,14 @@ Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool fa
 
 Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first; any model self-verify runs on `verifier_model`, not your own session), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
-**CRITICAL semgrep rules (from OWASP_METHODOLOGY.md):**
-- NEVER invoke `semgrep` directly — always use `scripts/semgrep-full-audit.sh`
+**Engine + rules:** the audit runs on **Opengrep** (LGPL fork, preferred; Semgrep
+fallback) against our in-house **bpm-rulepacks** — never the Semgrep registry rules,
+which are internal-use-only and unsafe for client audits. `scripts/semgrep-full-audit.sh`
+resolves the engine and rulepacks for you; registry/AGPL-community rules load only
+under its `--dev-registry` opt-in (never for client work).
+
+**CRITICAL scan rules (from OWASP_METHODOLOGY.md):**
+- NEVER invoke `semgrep`/`opengrep` directly — always use `scripts/semgrep-full-audit.sh`
 - NEVER append `|| true` to scan commands — a silent error is a false clean
 - NEVER write ad-hoc Python to process results — `scripts/semgrep-to-report-skeleton.py` already exists
 - NEVER stream raw scan output back into the tool result (`| tee`, `| cat`, an
@@ -46,13 +52,13 @@ Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** befo
 ### Phase 0 — Preflight
 
 ```bash
-bash -c "which semgrep && semgrep --version" || echo "SEMGREP_NOT_INSTALLED"
-bash -c "[ -d ~/.semgrep/rules/trailofbits ] && echo 'community-rules-ok' || echo 'community-rules-missing'"
+bash -c "command -v opengrep && opengrep --version || (command -v semgrep && semgrep --version)" || echo "SAST_ENGINE_NOT_INSTALLED"
+bash -c "[ -d ~/Code/bpm-rulepacks/packs ] || [ -n \"$RULEPACKS_DIR\" ] && echo 'rulepacks-ok' || echo 'rulepacks-missing'"
 bash -c "[ -f scripts/semgrep-full-audit.sh ] && echo 'audit-script-ok' || echo 'audit-script-missing'"
 ```
 
-If semgrep not installed: note in report, skip to dependency audit section below.
-If community rules missing: run `scripts/update-semgrep-rules.sh`.
+If no SAST engine installed: note in report, skip to dependency audit section below.
+If bpm-rulepacks missing: clone `https://github.com/bpmforge/bpm-rulepacks.git` and set `RULEPACKS_DIR` (do NOT fall back to registry packs for client work).
 
 ### Phase 1 — Full Scan
 
