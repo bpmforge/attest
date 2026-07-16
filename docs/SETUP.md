@@ -15,7 +15,7 @@ Step-by-step setup for a new machine. Covers prerequisites, installation, MCP co
 
 Optional but recommended:
 - **LM Studio** — for vector embeddings (semantic search). Without it, BM25 keyword search still works.
-- **Semgrep** — for security audits (`pip install semgrep` or `brew install semgrep`)
+- **Opengrep** — preferred SAST engine for security audits (`./install.sh --opengrep`, or see §2a below). Falls back to Semgrep if unavailable.
 
 ---
 
@@ -37,6 +37,47 @@ cd ~/Code/bpm-opencode-experts
 - `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP
 - `playwright-mcp` → registered via `npx -y @playwright/mcp@latest`
 - `playwright-search` → `~/.local/share/playwright-search/` + registers with Claude Code
+
+---
+
+## 2a. SAST engine (Opengrep, preferred)
+
+The `/security` agent needs a static-analysis engine. **Opengrep is the preferred and
+default engine** — it's an LGPL-2.1 fork of Semgrep, so it's safe to run against
+client/customer code. Semgrep's own hosted registry rules (`--config auto`, `p/*`
+packs) are **internal-use-only** and must never be run in a client-facing scan;
+client scans use Opengrep + our own rules in `bpm-rulepacks` instead. Semgrep the
+binary remains a documented fallback if Opengrep can't be installed on a given
+machine — see `references/semgrep-guide.md` for full command-by-command detail.
+
+**Install Opengrep:**
+
+```bash
+./install.sh --opengrep   # auto-installs via the official Opengrep installer
+```
+
+This runs Opengrep's own installer (`curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash`),
+which places the binary at `~/.opengrep/cli/<version>` (with a `latest` symlink) and
+links it into `~/.local/bin/opengrep` if that directory exists on your `PATH`. If the
+installer can't reach GitHub, `install.sh` prints the same command plus a link to
+https://github.com/opengrep/opengrep so you can install manually, and falls back to
+offering a Semgrep install (`brew install semgrep` / `pip install semgrep`) instead.
+
+`--semgrep` is kept as an alias of `--opengrep` for backward compatibility — it tries
+Opengrep first and only installs Semgrep if the Opengrep installer fails.
+
+**Verify:**
+
+```bash
+opengrep --version
+~/.config/opencode/scripts/doctor.sh   # reports "opengrep (preferred SAST engine): ..."
+```
+
+**CI:** `.github/workflows/ci.yml` currently runs the meta/process test suite
+(`npm test`) only — it does not invoke `semgrep-full-audit.sh` or the `/security`
+agent, so no SAST engine is required in CI today. If a workflow that actually runs
+SAST scans is added later, it should install Opengrep the same way (`--opengrep` /
+the official installer above) rather than falling back to Semgrep.
 
 ---
 
