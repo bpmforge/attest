@@ -6,10 +6,13 @@ set -e
 #   ./install.sh              Install globally to ~/.config/opencode/
 #   ./install.sh --project    Install to current project's .opencode/
 #   ./install.sh --link       Symlink instead of copy (for development)
-#   ./install.sh --semgrep    Also install a SAST engine (prefer Opengrep) — see
-#                             references/semgrep-guide.md. NOTE: Semgrep registry
-#                             rules are internal-use-only; client scans use
-#                             Opengrep + in-house bpm-rulepacks.
+#   ./install.sh --opengrep   Install the preferred SAST engine (Opengrep, via its
+#                             official installer) — see references/semgrep-guide.md.
+#   ./install.sh --semgrep    Alias for --opengrep (kept for back-compat). Falls back
+#                             to installing Semgrep only if the Opengrep installer
+#                             fails/is unreachable. NOTE: Semgrep registry rules are
+#                             internal-use-only; client scans use Opengrep + in-house
+#                             bpm-rulepacks.
 #   ./install.sh --uninstall  Remove installed files
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -146,6 +149,7 @@ for arg in "$@"; do
     --link)                 METHOD="link" ;;
     --uninstall)            MODE="uninstall" ;;
     --semgrep)              INSTALL_SEMGREP=true ;;
+    --opengrep)             INSTALL_SEMGREP=true ;;  # alias — Opengrep is the preferred engine
     --no-playwright-search) INSTALL_PWS=false ;;
     --no-playwright-mcp)    INSTALL_PLAYWRIGHT_MCP=false ;;
     --no-code-search)       INSTALL_CODE_SEARCH=false ;;
@@ -160,7 +164,8 @@ for arg in "$@"; do
       echo "  ./install.sh                       Install globally to ~/.config/opencode/"
       echo "  ./install.sh --project             Install to .opencode/ in current directory"
       echo "  ./install.sh --link                Symlink instead of copy (for development)"
-      echo "  ./install.sh --semgrep             Also install Semgrep + community rule repos"
+      echo "  ./install.sh --opengrep            Also install Opengrep (preferred SAST engine) + community rule repos"
+      echo "  ./install.sh --semgrep             Alias for --opengrep; falls back to Semgrep if the Opengrep installer fails"
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
       echo "  ./install.sh --no-playwright-mcp   Skip the playwright-mcp install"
       echo "  ./install.sh --memory              Also install bpm-memory-mcp MCP (cross-session memory)"
@@ -583,8 +588,70 @@ echo ""
 
 echo ""
 
-# --- Semgrep Setup ---
-echo "Checking for Semgrep (security scanning)..."
+# --- Opengrep Setup (preferred SAST engine — LGPL, client-safe) ---
+echo "Checking for Opengrep (preferred SAST engine)..."
+
+OPENGREP_OK=false
+OPENGREP_VERSION=""
+OPENGREP_INSTALL_URL="https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh"
+OPENGREP_INSTALL_CMD="curl -fsSL $OPENGREP_INSTALL_URL | bash"
+
+install_opengrep() {
+  echo "  Running official installer: $OPENGREP_INSTALL_CMD"
+  if curl -fsSL "$OPENGREP_INSTALL_URL" | bash; then
+    export PATH="$HOME/.local/bin:$PATH"
+    if command -v opengrep &>/dev/null; then
+      OPENGREP_VERSION=$(opengrep --version 2>/dev/null | head -1)
+      OPENGREP_OK=true
+      echo "  Opengrep $OPENGREP_VERSION — installed ✓"
+    elif [ -x "$HOME/.opengrep/cli/latest/opengrep" ]; then
+      OPENGREP_VERSION=$("$HOME/.opengrep/cli/latest/opengrep" --version 2>/dev/null | head -1)
+      OPENGREP_OK=true
+      echo "  Opengrep $OPENGREP_VERSION — installed ✓ (add \$HOME/.opengrep/cli/latest to PATH)"
+    else
+      echo "  ⚠️ Opengrep installer ran but the binary wasn't found on PATH — check output above."
+    fi
+  else
+    echo "  ⚠️ Opengrep installer failed (network unreachable, or install script changed)."
+    echo "     Install manually — see https://github.com/opengrep/opengrep (INSTALL.md), or retry:"
+    echo "       $OPENGREP_INSTALL_CMD"
+  fi
+}
+
+if command -v opengrep &>/dev/null; then
+  OPENGREP_VERSION=$(opengrep --version 2>/dev/null | head -1)
+  echo "  Opengrep $OPENGREP_VERSION — installed ✓"
+  OPENGREP_OK=true
+else
+  echo "  Opengrep not found."
+  if [ "$INSTALL_SEMGREP" = true ]; then
+    # --opengrep / --semgrep flag: auto-install without prompting
+    echo "  Installing Opengrep (--opengrep/--semgrep flag set)..."
+    install_opengrep
+  elif [ -t 0 ] && [ -t 1 ]; then
+    # No flag, interactive TTY — prompt
+    echo ""
+    echo "  The /security agent prefers Opengrep (LGPL fork of Semgrep, client-safe)."
+    echo "  Semgrep's registry rules are internal-use-only — see references/semgrep-guide.md."
+    printf "  Install Opengrep now? [Y/n] "
+    read -r opengrep_confirm </dev/tty
+    if [[ ! "$opengrep_confirm" =~ ^[Nn] ]]; then
+      install_opengrep
+    else
+      echo "  Skipped. Install later: $OPENGREP_INSTALL_CMD"
+    fi
+  else
+    # Non-interactive (piped install), no flag — print instructions, don't install
+    echo "  ℹ️  Opengrep not installed. The /security agent works best with Opengrep."
+    echo "     Install: $OPENGREP_INSTALL_CMD"
+    echo "     Repo:    https://github.com/opengrep/opengrep"
+    echo "     Or re-run: ./install.sh --opengrep  (auto-installs)"
+  fi
+fi
+
+# --- Semgrep Setup (documented fallback — see references/semgrep-guide.md) ---
+echo ""
+echo "Checking for Semgrep (SAST fallback if Opengrep is unavailable)..."
 
 SEMGREP_OK=false
 SEMGREP_VERSION=""
@@ -595,9 +662,13 @@ if command -v semgrep &>/dev/null; then
   SEMGREP_OK=true
 else
   echo "  Semgrep not found."
-  if [ "$INSTALL_SEMGREP" = true ]; then
-    # --semgrep flag: auto-install without prompting
-    echo "  Installing Semgrep (--semgrep flag set)..."
+  if [ "$OPENGREP_OK" = true ]; then
+    echo "  Opengrep is installed (preferred engine) — skipping Semgrep auto-install."
+    echo "  Semgrep remains a documented fallback; install later if needed: brew install semgrep"
+  elif [ "$INSTALL_SEMGREP" = true ]; then
+    # --semgrep/--opengrep flag, but the Opengrep installer failed/was unreachable above:
+    # fall back to installing Semgrep so users who only have this path still get a SAST engine.
+    echo "  Installing Semgrep (--semgrep flag set, Opengrep unavailable)..."
     if command -v brew &>/dev/null; then
       brew install semgrep && SEMGREP_OK=true && SEMGREP_VERSION=$(semgrep --version 2>/dev/null | head -1) \
         && echo "  Semgrep $SEMGREP_VERSION — installed ✓" \
@@ -616,10 +687,11 @@ else
       echo "       pip install semgrep     (any platform)"
     fi
   else
-    # No flag — detect if interactive TTY and prompt
+    # No flag, Opengrep unavailable — detect if interactive TTY and prompt
     if [ -t 0 ] && [ -t 1 ]; then
       echo ""
-      echo "  The /security agent requires Semgrep for automated scanning."
+      echo "  The /security agent needs a SAST engine. Opengrep is preferred (re-run with"
+      echo "  --opengrep) but Semgrep works as a fallback for automated scanning."
       printf "  Install Semgrep now? [Y/n] "
       read -r semgrep_confirm </dev/tty
       if [[ ! "$semgrep_confirm" =~ ^[Nn] ]]; then
@@ -643,10 +715,9 @@ else
       fi
     else
       # Non-interactive (piped install) — print instructions, don't prompt
-      echo "  ⚠️ Semgrep not installed. The /security agent works best with Semgrep."
-      echo "     Install: brew install semgrep  (macOS)"
-      echo "              pip install semgrep   (any platform)"
-      echo "     Or re-run: ./install.sh --semgrep  (auto-installs)"
+      echo "  ⚠️ No SAST engine installed. Opengrep is preferred; Semgrep is a fallback."
+      echo "     Install Opengrep: ./install.sh --opengrep  (auto-installs, recommended)"
+      echo "     Install Semgrep:  brew install semgrep  (macOS) / pip install semgrep"
     fi
   fi
 fi
@@ -681,9 +752,13 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
 fi
 
 if [ ${#missing_sources[@]} -gt 0 ]; then
-  if [ "$INSTALL_SEMGREP" = true ] && [ "$SEMGREP_OK" = true ]; then
-    # --semgrep flag + semgrep is installed: clone missing sources automatically
-    echo "  Cloning missing community rule sources (--semgrep flag set)..."
+  # Opengrep is a drop-in reader of these Semgrep-format rule YAMLs, so either
+  # engine being present is enough to make use of the community rule cache.
+  SAST_ENGINE_OK=false
+  { [ "$OPENGREP_OK" = true ] || [ "$SEMGREP_OK" = true ]; } && SAST_ENGINE_OK=true
+  if [ "$INSTALL_SEMGREP" = true ] && [ "$SAST_ENGINE_OK" = true ]; then
+    # --opengrep/--semgrep flag + a SAST engine is installed: clone missing sources automatically
+    echo "  Cloning missing community rule sources (--opengrep/--semgrep flag set)..."
     if [ -f "$DEST/scripts/update-semgrep-rules.sh" ]; then
       bash "$DEST/scripts/update-semgrep-rules.sh" \
         && echo "  Community rules cloned ✓" \
@@ -699,8 +774,8 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
       echo "     git clone --depth 1 https://gitlab.com/gitlab-org/security-products/sast-rules $SEMGREP_CACHE/gitlab"
       echo "     git clone --depth 1 https://github.com/0xdea/semgrep-rules        $SEMGREP_CACHE/0xdea"
     fi
-  elif [ -t 0 ] && [ -t 1 ] && [ "$SEMGREP_OK" = true ]; then
-    # Interactive + semgrep installed: prompt
+  elif [ -t 0 ] && [ -t 1 ] && [ "$SAST_ENGINE_OK" = true ]; then
+    # Interactive + a SAST engine installed: prompt
     echo ""
     echo "  Community rules (Trail of Bits, elttam, GitLab, 0xdea) give the"
     echo "  /security agent highest-signal coverage. Each repo is ~10-50 MB."
@@ -720,12 +795,12 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
       echo "  Skipped. Run later:  $DEST/scripts/update-semgrep-rules.sh"
     fi
   else
-    # Non-interactive or semgrep not installed: print instructions
-    if [ "$SEMGREP_OK" = false ]; then
-      echo "  ℹ️  Install Semgrep first, then run:  $DEST/scripts/update-semgrep-rules.sh"
+    # Non-interactive or no SAST engine installed: print instructions
+    if [ "$SAST_ENGINE_OK" = false ]; then
+      echo "  ℹ️  Install Opengrep or Semgrep first, then run:  $DEST/scripts/update-semgrep-rules.sh"
     else
       echo "  ℹ️  Run later:  $DEST/scripts/update-semgrep-rules.sh"
-      echo "      Or re-run:  ./install.sh --semgrep  (auto-clones everything)"
+      echo "      Or re-run:  ./install.sh --opengrep  (auto-clones everything)"
     fi
   fi
 else
@@ -972,9 +1047,18 @@ else
 fi
 
 
-# Semgrep binary
+# Opengrep binary (preferred SAST engine)
+if [ "$OPENGREP_OK" = true ]; then
+  echo "  ✓  Opengrep: $OPENGREP_VERSION"
+else
+  echo "  ⚠️  Opengrep: not installed — run: ./install.sh --opengrep"
+fi
+
+# Semgrep binary (documented fallback)
 if [ "$SEMGREP_OK" = true ]; then
   echo "  ✓  Semgrep: $SEMGREP_VERSION"
+elif [ "$OPENGREP_OK" = true ]; then
+  echo "  ℹ️  Semgrep: not installed (Opengrep covers SAST scanning)"
 else
   echo "  ⚠️  Semgrep: not installed — run: brew install semgrep"
 fi
