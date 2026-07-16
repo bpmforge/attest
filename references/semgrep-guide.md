@@ -1,70 +1,93 @@
-# Semgrep Security Scanning Guide
+# SAST Scanning Guide (Opengrep-first)
 
-**Last updated:** 2026-04-06
-**Semgrep version:** OSS (open-source, Apache 2.0)
-**Repo:** https://github.com/semgrep/semgrep
+**Last updated:** 2026-07-16
+**Preferred engine:** Opengrep (LGPL-2.1 fork of Semgrep) — https://github.com/opengrep/opengrep
+**Fallback engine:** Semgrep CE (LGPL-2.1) — dev machines only
+**Rules:** in-house `bpm-rulepacks` (proprietary) — NOT the Semgrep registry
 
-## What is Semgrep
+> ## ⚠ Licensing — read before you scan for anyone but yourself
+> The Semgrep **engine** is fine to run commercially. The Semgrep **registry rules**
+> (`--config auto`, `--config p/owasp-top-ten`, `p/security-audit`, `p/secrets`,
+> `p/default`) are under the Semgrep Rules License v1.0 (Dec 2024): usable only for
+> "your own internal business purposes" — **making them available to others as a
+> service is prohibited.** Any scan run on behalf of a client (a CodeReckon audit, a
+> RepoPulse SaaS scan) driven through these experts must therefore use **Opengrep +
+> our own `bpm-rulepacks`**, never the registry packs. Third-party registry packs
+> inherit their own licenses (Trail of Bits rules are AGPL — excluded). When in
+> doubt, run only `bpm-rulepacks` rules on the LGPL engine.
 
-Semgrep is an AST-based (Abstract Syntax Tree) static analysis tool. Unlike grep/regex scanning which matches text, Semgrep understands code structure — it knows what's a function call, a variable assignment, a string literal. This means it catches vulnerabilities that regex would miss and produces far fewer false positives.
+## What it is
 
-**Key advantage over grep:** `hashlib.md5(...)` matches ANY call to `hashlib.md5()` regardless of whitespace, line breaks, or argument formatting. Grep would need multiple regex patterns to catch the same variants.
+Opengrep is an AST-based static analysis tool — a maintained LGPL fork of Semgrep
+governed by a 10+ vendor consortium, created so scanning vendors could keep using it.
+It is CLI- and rule-format-compatible with Semgrep, restores fingerprints/LOC/SARIF
+metadata that Semgrep CE gated, and adds **free intra-file cross-function taint**
+(`--taint-intrafile`) that Semgrep CE never had.
+
+Unlike grep/regex, it understands code structure — `hashlib.md5(...)` matches ANY call
+regardless of whitespace or argument formatting, with far fewer false positives.
+
+The tools in this repo (`semgrep-scan`, `semgrep-rule`) auto-resolve the engine:
+Opengrep if installed, else Semgrep. Override with `SAST_ENGINE=opengrep|semgrep`.
+Point them at the in-house packs with `RULEPACKS_DIR=/path/to/bpm-rulepacks/packs`.
 
 ## Installation
 
 ```bash
-# macOS
-brew install semgrep
+# Opengrep (preferred) — see https://github.com/opengrep/opengrep for current installer
+brew install opengrep   # or the official install script
 
-# pip (any platform)
-pip install semgrep
-
-# Docker
-docker run -v $(pwd):/src returntocorp/semgrep semgrep scan --config auto
+# Semgrep (fallback, dev only)
+brew install semgrep     # or: pip install semgrep
 ```
 
 ## Core CLI Commands
 
+`opengrep` is a drop-in for `semgrep` in all commands below (swap the binary name).
+
 ### Full Security Scan (recommended starting point)
 ```bash
-# Auto-detect language and apply recommended security rules
-semgrep scan --config auto
+# In-house rulepacks — the licensing-safe default for client work
+opengrep scan --config /path/to/bpm-rulepacks/packs
 
-# Use specific OWASP rules
-semgrep scan --config p/owasp-top-ten
+# Add intra-file cross-function taint
+opengrep scan --config /path/to/bpm-rulepacks/packs --taint-intrafile
 
-# Multiple rule packs
-semgrep scan --config p/owasp-top-ten --config p/security-audit --config p/secrets
-
-# Scan specific directory
-semgrep scan --config auto src/
+# Scan a specific directory
+opengrep scan --config /path/to/bpm-rulepacks/packs src/
 
 # JSON output for report generation
-semgrep scan --config auto --json -o semgrep-results.json
+opengrep scan --config /path/to/bpm-rulepacks/packs --json -o sast-results.json
 
-# SARIF output (for GitHub Security tab, etc.)
-semgrep scan --config auto --sarif -o semgrep-results.sarif
+# SARIF output (for GitHub Security tab, report generator, RepoPulse findings store)
+opengrep scan --config /path/to/bpm-rulepacks/packs --sarif -o sast-results.sarif
 
 # Only scan changed files (CI optimization)
-semgrep scan --config auto --diff-depth 1
+opengrep scan --config /path/to/bpm-rulepacks/packs --diff-depth 1
 ```
 
 ### Comprehensive Security Audit Command
 ```bash
-# The full security audit command — run ALL security-relevant rule packs
-semgrep scan \
-  --config p/owasp-top-ten \
-  --config p/security-audit \
-  --config p/secrets \
-  --config p/default \
+# Run the full in-house pack set. NEVER substitute registry packs (p/…) for client work.
+opengrep scan \
+  --config /path/to/bpm-rulepacks/packs \
+  --taint-intrafile \
   --json \
-  -o docs/security/semgrep-results.json \
-  2>&1 | tee docs/security/semgrep-scan.log
+  -o docs/security/sast-results.json \
+  2>&1 | tee docs/security/sast-scan.log
 ```
 
-## Rule Packs (Registry)
+## Local dev-only exception
 
-Rules are hosted at https://semgrep.dev/explore. Use `--config p/<pack-name>`.
+For scanning **your own** projects on your own machine, the Semgrep registry packs
+(`--config auto`, `p/…`) remain licensed for internal use and can still be handy for
+breadth. They must never enter a client audit or the SaaS scan path — those run
+`bpm-rulepacks` only. See `bpm-rulepacks/docs/AUTHORING.md` to add coverage.
+
+## (Legacy) Semgrep registry packs — internal use only
+
+Historically these experts pointed at `https://semgrep.dev/explore` via `--config p/<pack>`.
+Retained here only for local dev breadth under the internal-use license.
 
 ### Security-Focused Rule Packs
 
