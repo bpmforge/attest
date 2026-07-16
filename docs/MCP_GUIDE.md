@@ -100,7 +100,7 @@ PLAYWRIGHT_MCP_HEADED=true claude
 **Install (handled by `install.sh` — clones and builds automatically):**
 ```bash
 # Manual install
-git clone https://github.com/bpmforge/playwright-search.git ~/.local/share/playwright-search
+git clone https://github.com/bpmforge/quarry.git ~/.local/share/playwright-search
 cd ~/.local/share/playwright-search && npm install && npm run build
 
 # Claude Code — register
