@@ -515,7 +515,7 @@ if [ "$INSTALL_PWS" = true ]; then
   echo "Setting up playwright-search MCP (multi-engine web research + page extraction)..."
 
   PWS_DIR="${PLAYWRIGHT_SEARCH_DIR:-$HOME/.local/share/playwright-search}"
-  PWS_REPO="https://github.com/bpmforge/playwright-search.git"
+  PWS_REPO="https://github.com/bpmforge/quarry.git"
 
   if ! command -v node &>/dev/null; then
     echo "  ⚠️  node not found — skipping playwright-search MCP install"
