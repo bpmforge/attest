@@ -1,6 +1,6 @@
 ---
 name: security
-description: 'OWASP audit, threat modeling, CVE/dependency scanning. Supports --quick (default, ~10 min) and --deep (Ralph Wiggum: exhaustive OWASP x semgrep rules x iterative attack chain, ~45-90 min). Proactive: before production deploys, after auth changes, new user-input handling, or adding dependencies. NOT for code quality — use /review-code.'
+description: 'OWASP audit, threat modeling, CVE/dependency scanning. Supports --quick (default, ~10 min) and --deep (Ralph Wiggum: exhaustive OWASP x SAST rules x iterative attack chain, ~45-90 min). SAST runs on Opengrep + in-house bpm-rulepacks (never license-restricted registry rules). Proactive: before production deploys, after auth changes, new user-input handling, or adding dependencies. NOT for code quality — use /review-code.'
 ---
 
 # Security Audit
@@ -14,7 +14,7 @@ Performs a professional security assessment following OWASP, NIST, and industry-
 | Flag | Scope | Time |
 |------|-------|------|
 | `/security` / `/security --quick` | Phases 1-3: understand, automated scan, one-pass OWASP | ~10 min |
-| `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom semgrep rule file walked, iterative attack-chain until stable. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
+| `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom SAST rule file walked (Opengrep + bpm-rulepacks), iterative attack-chain until stable. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
 
 ## Fix mode
 
@@ -32,7 +32,7 @@ Combine flags: `/security --deep --owasp` runs deep mode on OWASP surface only.
 
 Understand → Research → Plan → Execute → Verify → Report
 
-In `--deep` mode, the Plan-Execute-Verify loop iterates per Ralph Wiggum until every row of the inventory (OWASP category, semgrep rule file, attack-chain pattern) is covered.
+In `--deep` mode, the Plan-Execute-Verify loop iterates per Ralph Wiggum until every row of the inventory (OWASP category, SAST rule file, attack-chain pattern) is covered.
 
 ## Output
 

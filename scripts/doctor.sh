@@ -53,7 +53,13 @@ fi
 command -v node >/dev/null 2>&1 && ok "node: $(node --version)" || bad "node missing (custom tools need it)"
 command -v jq   >/dev/null 2>&1 && ok "jq present" || warn "jq missing — install.sh cannot safely merge opencode.json (brew install jq)"
 command -v git  >/dev/null 2>&1 && ok "git present" || bad "git missing"
-command -v semgrep >/dev/null 2>&1 && ok "semgrep: $(semgrep --version 2>/dev/null | head -1)" || warn "semgrep missing — security scans degraded (brew install semgrep / pipx install semgrep)"
+if command -v opengrep >/dev/null 2>&1; then
+  ok "opengrep (preferred SAST engine): $(opengrep --version 2>/dev/null | head -1)"
+elif command -v semgrep >/dev/null 2>&1; then
+  warn "opengrep missing, using semgrep fallback: $(semgrep --version 2>/dev/null | head -1) — install opengrep for client-safe scans (registry rules are internal-use-only)"
+else
+  warn "no SAST engine — security scans degraded. Install Opengrep (preferred): see references/semgrep-guide.md"
+fi
 
 # ── 3. Config ───────────────────────────────────────────────────────────
 echo ""
@@ -134,7 +140,7 @@ fi
 echo ""
 echo "Code-analysis tools (optional — agents fall back to grep):"
 TOOLS_PRESENT=0; TOOLS_TOTAL=0
-for tool in semgrep knip ts-prune jscpd vulture radon lizard staticcheck trufflehog; do
+for tool in opengrep ast-grep semgrep knip ts-prune jscpd vulture radon lizard staticcheck gitleaks; do
   TOOLS_TOTAL=$((TOOLS_TOTAL+1))
   if command -v "$tool" >/dev/null 2>&1; then ok "$tool present"; TOOLS_PRESENT=$((TOOLS_PRESENT+1)); fi
 done
