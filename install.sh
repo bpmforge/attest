@@ -6,7 +6,10 @@ set -e
 #   ./install.sh              Install globally to ~/.config/opencode/
 #   ./install.sh --project    Install to current project's .opencode/
 #   ./install.sh --link       Symlink instead of copy (for development)
-#   ./install.sh --semgrep    Also install Semgrep binary + community rules
+#   ./install.sh --semgrep    Also install a SAST engine (prefer Opengrep) — see
+#                             references/semgrep-guide.md. NOTE: Semgrep registry
+#                             rules are internal-use-only; client scans use
+#                             Opengrep + in-house bpm-rulepacks.
 #   ./install.sh --uninstall  Remove installed files
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -1,10 +1,30 @@
 import { tool } from "@opencode-ai/plugin";
 
+// Prefer Opengrep (LGPL fork) over Semgrep for the same licensing reason as
+// semgrep-scan: client-facing rule authoring runs on the unrestricted engine.
+function resolveSastEngine(): "opengrep" | "semgrep" | null {
+  const { execSync } = require("child_process");
+  const has = (b: string) => {
+    try {
+      execSync(`command -v ${b}`, { stdio: "ignore" });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const forced = process.env.SAST_ENGINE;
+  if (forced === "opengrep" || forced === "semgrep")
+    return has(forced) ? forced : null;
+  if (has("opengrep")) return "opengrep";
+  if (has("semgrep")) return "semgrep";
+  return null;
+}
+
 export default tool({
   description:
-    "Write and test a single Semgrep pattern against code paths. Useful when authoring custom security rules — provide the pattern expression, the language, and the paths to scan. NOT for full ruleset audits — use semgrep-scan for that. Returns matches with file:line locations and surrounding code.",
+    "Write and test a single SAST pattern (Opengrep preferred, Semgrep fallback) against code paths. Useful when authoring custom rules for the in-house rulepacks — provide the pattern expression, the language, and the paths to scan. NOT for full ruleset audits — use semgrep-scan for that. Returns matches with file:line locations and surrounding code.",
   args: {
-    expression: tool.schema.string().describe("Semgrep pattern to test"),
+    expression: tool.schema.string().describe("Pattern expression to test"),
     language: tool.schema
       .string()
       .optional()
@@ -17,7 +37,11 @@ export default tool({
     timeout: tool.schema.number().default(60).describe("Timeout in seconds"),
   },
   async execute(args, context) {
-    let cmd = `semgrep -e "${args.expression}" --lang=${args.language}`;
+    const engine = resolveSastEngine();
+    if (!engine) {
+      return "No SAST engine found. Install Opengrep (preferred): see references/semgrep-guide.md.";
+    }
+    let cmd = `${engine} -e "${args.expression}" --lang=${args.language}`;
 
     if (args.paths) {
       const paths = args.paths.split(",").map((p) => p.trim());
