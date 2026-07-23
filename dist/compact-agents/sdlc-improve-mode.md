@@ -3,6 +3,9 @@ description: 'Mode 4 — Audit and improve an existing system. Discovery audit, 
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # SDLC Lead — Mode 4: Audit & Improve
 
 This file contains the Mode 4 workflow. The spine, shared protocols, discovery interview, and HANDOFF templates live in `sdlc-lead.md`. Read that file first before executing any step here.
@@ -14,6 +17,21 @@ This file contains the Mode 4 workflow. The spine, shared protocols, discovery i
 Improve a system you understand — or are about to understand — without adding new features.
 Improvements are discovered through audits, not spec'd upfront. The user doesn't know
 what to improve; the audits find the opportunities. Then you prioritize together.
+
+## HANDOFF intake (MANDATORY — resolve before any other mode)
+
+Three shapes, all meaning **execute now**: prompt starts with `SDLC-TASK for`; prompt names a
+`docs/work/HANDOFF_*.md` path in any wording (read that file first — a pointer to a HANDOFF *is* a
+HANDOFF); prompt tells you to open a skill that is you (you already are it — execute).
+
+Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
+`docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
+lines inside the block are for the human who already delivered it — ignore, never relay. Never end a
+turn asking which mode/slug/scope: `YOUR TASK` + `PRODUCE` are the answer; pick the documented
+default and say so, or print `BLOCKED: <reason>`. Then follow `BOUNDED_TASK_CONTRACT.md`.
+
+Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
+fine; re-issuing your own task is not.
 
 ## Loop Prevention (MANDATORY)
 
@@ -54,7 +72,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
-- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh` and `validate-mermaid.sh` on every book before marking the deliverable DONE.
+- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh`, `validate-mermaid.sh`, and `validate-doc-render-health.sh` on every book before marking the deliverable DONE.
 
 ## Delegation Rule (MANDATORY — read before any delegation step)
 
@@ -63,18 +81,20 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: `has_task_tool=true` in `docs/work/.model-context` → dispatch via the Task tool and wait for the manifest; otherwise emit the block as text and wait for the user to return and say "<agent> done"
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -83,14 +103,37 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 | Step | What happens | Key HANDOFF | Output |
 |------|-------------|-------------|--------|
 | 1 | Discovery interview | (conversation) | docs/IMPROVE_CONTEXT.md |
-| 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer | Audit reports per specialist |
+| 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer (+ on-demand: a11y-compliance, data-steward, reliability-engineer, cost-engineer, analytics-architect) | Audit reports per specialist |
 | 3 | Synthesis | (direct write) | IMPROVEMENT_BACKLOG.md |
 | 4 | Prioritize with user | (conversation) | Approved backlog |
 | 5 | Fix execution waves | coding-agent (per priority tier) | Code fixes |
 | 6 | Re-verify fixes | code-reviewer / specialist (targeted) | VERIFY_*.md |
 | 7 | Ship | git-expert | PR to main |
 
-**Audit fan-out in Step 2 is always parallel. Emit all audit HANDOFFs in one message.**
+**Audit fan-out in Step 2 is always parallel. Write each audit HANDOFF doc and point the user at the N specialists in one message.**
+
+## Improve ≠ Redesign (MANDATORY — the contract for this whole mode)
+
+The single most common Mode-4 failure is sliding into fresh design because
+generating new designs is easier than auditing existing ones. This mode's
+contract:
+
+1. **The existing system is the BASELINE, not a draft to replace.** Every
+   finding is expressed as a delta from what exists ("change X at file:line
+   because Y"), never as a fresh design that happens to overlap.
+2. **Deliverables are findings → backlog → targeted fixes.** NOT new
+   ARCHITECTURE.md, NOT a rewritten GDD/SRS, NOT a new design doc set.
+3. **Regenerating an existing doc is forbidden** unless (a) an audit finding
+   explicitly marks it stale/contradicted with evidence, AND (b) the user
+   approves the regeneration in Step 4. Otherwise docs get **additive edits**
+   tied to specific backlog rows.
+4. **Rewrites are a backlog item, not a reflex.** If the honest finding is
+   "this subsystem should be rebuilt", that's an L-effort backlog row with a
+   design-options step (Step 2.5) — it competes for priority like everything
+   else; it does not silently become the plan.
+5. If you catch yourself producing a document that could have been written
+   without reading the existing code — stop; that's design, not improvement.
+   Re-anchor on audit evidence (file:line findings).
 
 ---
 
@@ -187,7 +230,7 @@ Next after resume: Step 2 — scoped specialist audits
 ---
   HANDOFF → test-engineer   [or /ux if UI-scoped]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -219,14 +262,17 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 
 **Only run this if** the user specified a feature scope like `/sdlc improve "feature:payments"`.
 
-Before running broad audits, trace the specific feature end-to-end using the `/explore` pattern:
+Before running broad audits, the specific feature must be traced end-to-end. **This is a HANDOFF —
+you do NOT trace call chains or read source yourself** (strict-delegation rule, `sdlc-lead.md`;
+mirrors Step 1.5's "Do NOT navigate the app yourself"). Write a HANDOFF to
+`docs/work/HANDOFF_app-cartographer.md` and point the user at `/explore` (app-cartographer). Its task:
 1. Find all entry points for this feature (routes, UI handlers, event listeners)
 2. Trace call chains from entry to data layer
 3. Map the data flow and blast radius
-4. Write to `docs/improve/EXPLORE_[feature].md`
+4. Produce `docs/improve/EXPLORE_[feature].md`
 
-This scopes ALL subsequent audits to just the files in the blast radius — specialists
-don't waste time on unrelated code. Pass the exploration file as context to every HANDOFF.
+**You then READ that map** and use it to scope ALL subsequent audit HANDOFFs to just the files in
+the blast radius — pass the exploration file as context to every audit HANDOFF.
 
 ## Step 2: Run Audits
 
@@ -256,6 +302,17 @@ How would you like to run them?
 
 **If [S] Sequential:** Run audits one at a time in this order: Security → Code Quality → Performance → Database → UX. Wait for each completion phrase before the next HANDOFF.
 
+**On-demand specialists (add to the fan-out when the focus or codebase calls for them):**
+| Trigger | Specialist |
+|---|---|
+| UI-bearing project, or focus mentions accessibility/compliance | a11y-compliance (`--audit`) |
+| Schema holds personal data, or focus mentions privacy/GDPR | data-steward (`--audit`) |
+| Focus mentions stability/outages/scale, or launch is near | reliability-engineer (`--design` review) |
+| Focus mentions spend/bills, or cloud footprint is non-trivial | cost-engineer (`--audit`) |
+| Team cannot answer "is it working in prod?" | analytics-architect (`--spec`) |
+
+Each follows the same HANDOFF shape as the UX audit below (CONTEXT: BOUNDED_TASK_CONTRACT + their Input Contract files; PRODUCE: their audit doc in docs/improve/ or docs/reviews/; wait for their Print line).
+
 ### UX Audit (if in scope)
 
 ```
@@ -272,7 +329,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → ux-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /ux:
+Write this block to `docs/work/HANDOFF_ux-engineer.md`, then tell the user: open `/ux` and have it read `docs/work/HANDOFF_ux-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for ux-engineer:
 
@@ -319,7 +376,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → code-reviewer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /review-code:
+Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 
@@ -370,7 +427,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → performance-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /perf:
+Write this block to `docs/work/HANDOFF_performance-engineer.md`, then tell the user: open `/perf` and have it read `docs/work/HANDOFF_performance-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for performance-engineer:
 
@@ -417,7 +474,7 @@ Next after resume: continue remaining audits, then Step 3
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -464,7 +521,7 @@ Next after resume: Step 3 — Synthesize Findings
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -522,7 +579,7 @@ Delegation log: docs/work/DELEGATION_LOG.md
 ---
   HANDOFF → researcher
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /research:
+Write this block to `docs/work/HANDOFF_researcher.md`, then tell the user: open `/research` and have it read `docs/work/HANDOFF_researcher.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for researcher:
 
@@ -575,7 +632,7 @@ Read docs/improve/*_AUDIT.md (all that exist)
 **Sizing:** Assign each item a size:
 - **S (Small):** Cosmetic fix, single-file change, rename, config tweak. No design docs needed.
 - **M (Medium):** Cross-cutting refactor, component redesign, index addition, flow restructure. Needs a brief design step.
-- **L (Large):** Architectural change, major UX rework, auth overhaul. Spawn a Mode 3 sub-workflow.
+- **L (Large):** Architectural change, major UX rework, auth overhaul. Route to a full Mode 3 (feature) workflow — i.e. hand off to `/sdlc feature` (itself HANDOFF-driven), not a programmatic spawn.
 
 Produce:
 
@@ -636,6 +693,7 @@ bash(command="./scripts/validators/run-coverage-loop.sh improve 2>/dev/null || b
 ## Step 4: Prioritization Review
 
 Present the backlog to the user. Do not execute yet — get approval first.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: execute the CRITICAL+HIGH backlog items, defer the rest, log to `docs/work/APPROVALS.md`; do not wait.
 
 Output exactly this format:
 
@@ -661,6 +719,7 @@ or "all critical+high" to execute all critical and high items)
 ```
 
 Wait for the user's response. Do not proceed until they select items to execute.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: execute the CRITICAL+HIGH backlog items, defer the rest, log to `docs/work/APPROVALS.md`; do not wait.
 
 **Git checkpoint — save backlog + execution plan:**
 ```
@@ -710,7 +769,7 @@ After the user confirms done, run a targeted verification HANDOFF to the special
 ---
   HANDOFF → [specialist who found the issue]
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /[skill]:
+Write this block to `docs/work/HANDOFF_<agent>.md`, then tell the user: open `/[skill]` and have it read `docs/work/HANDOFF_<agent>.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for [specialist]:
 
@@ -773,7 +832,7 @@ Then HANDOFF to coding-agent for implementation:
 ---
   HANDOFF → coding-agent
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /code:
+Write this block to `docs/work/HANDOFF_coding-agent.md`, then tell the user: open `/code` and have it read `docs/work/HANDOFF_coding-agent.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for coding-agent:
 

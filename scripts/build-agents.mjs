@@ -22,6 +22,7 @@ const BLOCKS_DIR = join(AGENTS_DIR, 'shared', 'blocks');
 const COMPACT_DIR = join(ROOT, 'dist', 'compact-agents');
 
 const BLOCKS = [
+  { name: 'handoff-intake', heading: '## HANDOFF intake (MANDATORY — resolve before any other mode)' },
   { name: 'loop-prevention', heading: '## Loop prevention (MANDATORY)' },
   { name: 'context-budget', heading: '## Context Budget (MANDATORY for local models)' },
   { name: 'research-tools', heading: '## Research tools (available, optional)' },
