@@ -36,7 +36,9 @@ is caught even if the coding-agent self-audit and the phase gate were skipped. A
 
 Three shapes, all meaning **execute now**: prompt starts with `SDLC-TASK for`; prompt names a
 `docs/work/HANDOFF_*.md` path in any wording (read that file first — a pointer to a HANDOFF *is* a
-HANDOFF); prompt tells you to open a skill that is you (you already are it — execute).
+HANDOFF); prompt tells you to open a skill that is you (you already are it — execute). HANDOFF paths
+are project-relative: read `docs/work/...`, never `/docs/work/...` (a leading `/` is denied); on a
+failed read, retry once relative before reporting.
 
 Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 `docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
