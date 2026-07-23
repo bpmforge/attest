@@ -59,6 +59,17 @@ echo "Running check-tools.sh --install on a bare non-root Ubuntu 24.04..."
 out=$($RT run --rm -v "$ROOT/scripts:/scripts:ro,Z" "$IMAGE" \
         bash /scripts/check-tools.sh --install 2>&1)
 echo "$out"
+
+# Second run in the SAME container image but a fresh instance where the npm tools
+# are ALREADY installed to ~/.npm-global (off the default PATH). This reproduces
+# the zsh-box bug: a re-run must REPORT them installed, not "missing"/"FAILED".
+echo ""
+echo "Re-run after install (tools present but off PATH)..."
+rerun=$($RT run --rm -v "$ROOT/scripts:/scripts:ro,Z" "$IMAGE" bash -c '
+  npm i -g --prefix "$HOME/.npm-global" knip >/dev/null 2>&1
+  # knip is now in ~/.npm-global/bin but NOT on PATH. Report mode must still see it.
+  bash /scripts/check-tools.sh 2>&1
+')
 echo ""
 
 fails=0
@@ -93,6 +104,20 @@ assert "mmdc prerequisites explained"     'unzip'
 # Regressions we must never reintroduce.
 refute "no bare FAILED without a reason"  'FAILED (knip|ts-prune|jscpd)'
 refute "no brew hint on Linux"            'brew install'
+
+# The zsh-box bug: an installed-but-off-PATH tool must REPORT as present, not
+# missing, and the PATH hint must point at its bin.
+rassert() {
+  if printf '%s' "$rerun" | grep -qE "$2"; then printf '  \033[32m✓\033[0m %s\n' "$1"
+  else printf '  \033[31m✗\033[0m %s\n' "$1"; fails=$((fails + 1)); fi
+}
+rrefute() {
+  if printf '%s' "$rerun" | grep -qE "$2"; then printf '  \033[31m✗\033[0m %s\n' "$1"; fails=$((fails + 1))
+  else printf '  \033[32m✓\033[0m %s\n' "$1"; fi
+}
+rassert "re-run: off-PATH knip reported INSTALLED, not missing" 'knip.*installed at .*\.npm-global/bin'
+rrefute "re-run: off-PATH knip NOT shown as missing"           '○ knip'
+rassert "re-run: PATH hint points at the npm-global bin"       'export PATH=.*\.npm-global/bin'
 
 echo ""
 if [[ $fails -eq 0 ]]; then
