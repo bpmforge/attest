@@ -34,6 +34,27 @@ import type { Plugin } from "@opencode-ai/plugin";
 //
 // Costs nothing on projects with no SDLC state: if none of the source files
 // exist, the anchor is omitted entirely. Disable with EXPERTS_RESUME_ANCHOR=0.
+//
+// ── What is actually proven (2026-07) ─────────────────────────────────────────
+// Be precise here, because the headline claim is only partly measured:
+//   PROVEN  chat.system.transform fires and the anchor reaches the model. On
+//           github-copilot/gpt-5-mini, asked with tools forbidden, it named the
+//           MISSING PRODUCE file and the exact completion phrase — which appear
+//           nowhere but the anchor — in a fresh session and again at the end of
+//           an 8-turn accumulated one.
+//   PROVEN  hook bodies, incl. the parallel fan-out guard (scripts/
+//           test-resume-anchor.ts, Pass 33d).
+//   UNPROVEN  behaviour across a real autocompaction, and whether
+//           session.compacting fires at all. opencode exposes no manual compact
+//           command, and autocompaction would not trigger in 8 turns with
+//           prune:false + reserved=40000. "Survives compaction" therefore rests
+//           on the ARCHITECTURE — the anchor is rebuilt from disk every request
+//           and never depended on history — not on a measurement.
+// If you can trigger a compaction, the check is: post-compaction, ask with tools
+// forbidden for the completion phrase. Correct answer ⇒ measured, not inferred.
+// Both hooks are `experimental.`-prefixed on a fast-moving API; a rename would
+// make this a silent no-op that Pass 33d would NOT catch (it calls the bodies
+// directly). Re-run the live check after an opencode upgrade.
 
 const MAX_ANCHOR_CHARS = 1400; // hard cap — this rides on every request
 const MAX_LIST = 8;
