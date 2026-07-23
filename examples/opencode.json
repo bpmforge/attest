@@ -99,5 +99,11 @@
     "external_directory": {
       "~/.config/opencode/**": "allow"
     }
+  },
+  "_compaction_comment": "AUTOCOMPACTION (long review/coding runs). When the window fills, opencode replaces history with a summary; small models then lose the thread \u2014 redoing finished work, forgetting owed PRODUCE files. The durable fix is the resume-anchor plugin (plugins/resume-anchor.ts, auto-loaded from ~/.config/opencode/plugins/), which re-injects position from DISK on every request, so a compacted turn is no worse off than an uncompacted one. Tuning notes: 'prune' drops OLD TOOL OUTPUTS \u2014 it keeps context low (good) but silently discards earlier file reads, so never rely on 'I read that file 20 turns ago'; write findings to disk as you go. 'tail_turns' (default 2) is how many recent user turns survive compaction verbatim \u2014 raise it to 4 for long multi-step work. WARNING: setting 'reserved' close to the model's INPUT limit hangs the session (observed on github-copilot/gpt-5-mini, input 128k: reserved 118000-250000 wedged it) \u2014 leave it unset unless you have measured a reason.",
+  "compaction": {
+    "auto": true,
+    "prune": true,
+    "tail_turns": 4
   }
 }
