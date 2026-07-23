@@ -75,8 +75,7 @@ assume a spawn). The claimed module's contract becomes the HANDOFF contract:
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF → <owner/agent>  |  open new session → /<skill>   (default /code)
-USER: open a new session, type /<skill>, paste everything below
+HANDOFF → <owner/agent>  |  run by: /<skill>   (default /code)
 ════════════════════════════════════════════════════════════
 SDLC-TASK for <agent>:
 
@@ -105,6 +104,25 @@ and a self-asserted "<id> done" with no receipt is exactly the gap this closes (
 END HANDOFF
 ════════════════════════════════════════════════════════════
 ```
+
+Write that block to `docs/work/HANDOFF_<agent>.md`, then print the pointer for the user — nothing
+addressed to the user goes *inside* the `════` delimiters, since the specialist reads that body as
+its task and will relay any `USER:` line back at you:
+
+```
+── NEXT HANDOFF ──────────────────────────────
+Open agent:  /<skill>   (default /code)
+Paste this one line into it:
+
+    SDLC-TASK for <agent>: read docs/work/HANDOFF_<agent>.md and execute it.
+
+Come back with the close receipt.
+──────────────────────────────────────────────
+```
+
+The paste line **must start with `SDLC-TASK for`** — that prefix is the trigger for Bounded Task
+Mode. A bare "open /code, it reads …" pointer lets smaller models fall through to their default mode
+and hand the ticket straight back instead of working it.
 
 Because each module's `write_scope` is exclusive and collisions were checked in step 2, multiple
 claimed modules can be worked **in parallel** in separate sessions without clobbering each other.
