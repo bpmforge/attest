@@ -200,6 +200,41 @@ cat ~/.config/opencode/opencode.json | python3 -m json.tool
 ~/.config/opencode/scripts/check-tools.sh   # which optional analysis tools are present (add --install)
 ```
 
+### Optional analysis tools on a bare Linux box
+
+Every analysis tool is optional — the agents fall back to `grep` — so a partial
+install is a supported state, not a broken one.
+
+`check-tools.sh --install` **never runs sudo** and never calls a package manager.
+It installs what it can (npm and pipx tools), prints the *real* error for
+anything that fails, and lists the remaining system prerequisites as commands for
+you to run. On a fresh non-root Linux box you will typically see:
+
+- **`npm i -g` hits EACCES** when the global prefix is root-owned (both the
+  nodesource and distro Node packages do this). The script retries scoped into
+  `~/.npm-global` — without rewriting your `~/.npmrc` — then tells you to add
+  `~/.npm-global/bin` to `PATH`. Nothing to do but the `PATH` line.
+- **`pipx` is missing**, which blocks semgrep/vulture/radon/lizard. On Ubuntu
+  24.04 and other PEP 668 "externally-managed" distros `pip install --user pipx`
+  is refused, so the package manager is the only route:
+  `sudo apt install -y pipx && pipx ensurepath`.
+- **`mmdc` is never auto-installed.** `@mermaid-js/mermaid-cli` pulls puppeteer,
+  which downloads Chromium and needs `unzip` plus browser libs. Installing it
+  with `PUPPETEER_SKIP_DOWNLOAD` produces a *broken* renderer, which is worse
+  than not having it: `validate-mermaid.sh` cleanly skips a missing `mmdc` and
+  still runs every static Mermaid check. Install it deliberately or not at all.
+  If an earlier attempt half-finished, clear `~/.cache/puppeteer` first — a
+  partial download makes every retry fail differently.
+
+To verify the bare-Linux path yourself (needs podman or docker):
+
+```bash
+./scripts/test-check-tools-container.sh   # builds a bare ubuntu:24.04, runs the installer as a non-root user
+```
+
+CI cannot cover this: GitHub's `ubuntu-latest` ships a writable npm prefix and
+`unzip`, so none of the above reproduces there.
+
 Then start an OpenCode session and test each MCP:
 ```
 code_index_status()        # should show provider + file/chunk counts
