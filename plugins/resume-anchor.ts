@@ -54,7 +54,9 @@ import type { Plugin } from "@opencode-ai/plugin";
 // make this a silent no-op that Pass 33d would NOT catch (it calls the bodies
 // directly). Re-check against a TUI trace after an opencode upgrade.
 
-const MAX_ANCHOR_CHARS = 1400; // hard cap — this rides on every request
+const MAX_ANCHOR_CHARS = 1900; // hard cap — this rides on every request. Raised from
+// 1400 when the post-compaction continuation directive was added: truncation cuts the
+// TAIL, and the tail is now the directive that stops the "Say 'Proceed'" stall.
 const MAX_LIST = 8;
 
 const enabled = () => process.env.EXPERTS_RESUME_ANCHOR !== "0";
@@ -285,6 +287,18 @@ function buildAnchor(root: string): string | null {
     : "\nDo not redo work whose output already exists. If a PRODUCE file is MISSING, that " +
       "work is still owed. Re-read the files named above before acting — do not ask the user where you were.";
 
+  // Second observed post-compaction failure (2026-07, round-2 field trace): the
+  // model kept a PERFECT summary — every step, the exact next command — and then
+  // ended its turn with "Say 'Proceed' to let me start". Permission-seeking after
+  // a compaction is the ask-variant of announce-then-stop, and it stalls an
+  // unattended pipeline exactly like the menu did. The handoff's authorization
+  // survives compaction; asking again is never correct.
+  const continuation =
+    "\nIf a compaction summary precedes this turn: the HANDOFF's authorization still " +
+    "stands — execute the summary's next step NOW. Do not ask 'should I proceed', do not " +
+    "present your plan for approval, do not wait for confirmation. Asking permission to " +
+    "continue an already-authorized task is a contract violation (BOUNDED_TASK_CONTRACT).";
+
   const anchor =
     "## RESUME ANCHOR (regenerated from disk every turn — authoritative)\n" +
     "Your conversation history may have been summarized by autocompaction. The\n" +
@@ -292,7 +306,8 @@ function buildAnchor(root: string): string | null {
     "your recollection is not. Trust them over memory.\n" +
     "- " +
     body +
-    directive;
+    directive +
+    continuation;
 
   return anchor.length > MAX_ANCHOR_CHARS
     ? anchor.slice(0, MAX_ANCHOR_CHARS) + "…"
@@ -327,7 +342,10 @@ export const ResumeAnchor: Plugin = async () => {
             "(c) the exact completion phrase to print, (d) which numbered phases/steps are already finished. " +
             "Prefer dropping narrative over dropping any of those four. " +
             "If any PRODUCE file is still missing, the summary MUST state that work is IN FLIGHT and name the next action — " +
-            "do NOT conclude 'nothing outstanding' or offer the user a menu of options; the correct post-summary move is to resume the handoff." +
+            "do NOT conclude 'nothing outstanding' or offer the user a menu of options; the correct post-summary move is to resume the handoff. " +
+            "End the summary with this literal final line, filled in: " +
+            "'RESUME NOW: <the single most specific next command or edit>. Authorization from the HANDOFF still stands — " +
+            "execute this immediately; do not ask for confirmation or present a plan for approval.'" +
             (anchor ? "\n\nCurrent on-disk state:\n" + anchor : ""),
         );
       } catch {
