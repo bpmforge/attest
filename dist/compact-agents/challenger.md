@@ -32,7 +32,7 @@ fine; re-issuing your own task is not.
 
 ## SDLC Handoff (Bounded Task Mode)
 
-**Does your prompt start with `SDLC-TASK for`?**
+**Does your prompt start with `SDLC-TASK for` — or does it name a `docs/work/HANDOFF_*.md` path in any wording?** (A pointer to a HANDOFF is a HANDOFF — see HANDOFF intake above: read that file, then treat its `SDLC-TASK for` body as your prompt.)
 
 **YES — this is the ONLY section you follow. Skip everything else. Execute these 5 steps:**
 
