@@ -23,6 +23,7 @@ HANDOFF #1 → code-reviewer  |  open new session → /review-code
 USER: open a new session, type /review-code, paste everything below this line
 ════════════════════════════════════════════════════════════
 SDLC-TASK for code-reviewer:
+USER: when this finishes, paste the report back into the sdlc-lead session
 
 YOUR TASK: Review src/ and write findings.
 PRODUCE exactly: docs/reviews/CODE_REVIEW.md

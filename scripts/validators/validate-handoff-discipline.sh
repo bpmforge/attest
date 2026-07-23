@@ -132,11 +132,17 @@ while IFS= read -r f; do
   rel="${f#"$ROOT"/}"
   grep -q '════' "$f" || continue
   handoff_bodies=$((handoff_bodies + 1))
-  # awk: track whether we are between an opening and closing ════ line, and
-  # report any USER:-addressed line found inside.
+  # The invariant is positional and simple: delivery text goes ABOVE the opening
+  # delimiter, so any USER: line at or below the FIRST ════ is misplaced. Do NOT
+  # toggle in/out on each delimiter -- a canonical block has four (header open,
+  # header close, footer open, footer close), so toggling marks the header and
+  # footer as "inside" and the TASK BODY between them as "outside", which is
+  # backwards: the body is precisely the region the specialist reads as its task.
+  # A single "seen the first delimiter yet?" latch catches header, body, and
+  # footer placements uniformly.
   hits=$(awk '
-    /════/ { inblock = !inblock; next }
-    inblock && /^[[:space:]]*USER:/ { print NR ": " $0 }
+    /════/ { seen = 1 }
+    seen && /^[[:space:]]*USER:/ { print NR ": " $0 }
   ' "$f")
   if [[ -n "$hits" ]]; then
     while IFS= read -r h; do
