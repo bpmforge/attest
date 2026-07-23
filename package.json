@@ -21,5 +21,5 @@
     "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
   },
-  "version": "2.21.0"
+  "version": "2.23.0"
 }
