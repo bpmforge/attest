@@ -124,10 +124,13 @@ export async function testResumeAnchor(
       );
     }
 
-    // -- 3b/5. Parallel fan-out must NOT assert one agent's phrase. --------
-    // /review writes three HANDOFFs into one docs/work/. Newest-by-mtime would
-    // hand a /security session the performance-engineer's completion phrase,
-    // stated confidently — worse than no anchor at all.
+    // -- 3b/7. Multiple HANDOFFs, one already producing → name it, but HEDGE.
+    // The 2026-07 field trace showed a real project with 5 handoff files; the
+    // old blanket punt ("cannot identify agent") left a mid-task session with no
+    // anchor and it drifted to a menu. Now: recency picks the handoff with the
+    // freshest output (code-reviewer produced alpha; security-auditor produced
+    // nothing) and names it with an override hedge, so a genuinely-different
+    // session can still read its own.
     fs.writeFileSync(
       path.join(fixture, "docs/work/HANDOFF_security-auditor.md"),
       [
@@ -141,22 +144,68 @@ export async function testResumeAnchor(
       ].join("\n"),
     );
     const multi = await anchorFor(fixture);
-    const listsBoth =
-      /HANDOFF_code-reviewer\.md/.test(multi) &&
-      /HANDOFF_security-auditor\.md/.test(multi);
-    const assertsNoPhrase =
-      !multi.includes("ZEBRA-77") && !multi.includes("OTTER-99");
-    if (listsBoth && assertsNoPhrase) {
+    const namesActive =
+      /Most-recently-active HANDOFF: docs\/work\/HANDOFF_code-reviewer\.md/.test(
+        multi,
+      );
+    const hedges = /unless you know you were executing another/.test(multi);
+    const listsSibling = /HANDOFF_security-auditor\.md/.test(multi);
+    // It names code-reviewer's phrase (the active one) but NOT the untouched
+    // sibling's — so it never hands security-auditor's session ZEBRA... wait,
+    // rather: it never asserts the sibling's OTTER phrase as this session's.
+    const noSiblingPhrase = !multi.includes("OTTER-99");
+    if (namesActive && hedges && listsSibling && noSiblingPhrase) {
       ok(
-        "resume-anchor -- with multiple HANDOFFs it lists them and asserts NO phrase/PRODUCE (never hands one agent another's contract)",
+        "resume-anchor -- multiple HANDOFFs: names the recency-active one with an override hedge, lists the sibling, never asserts the untouched sibling's phrase",
       );
     } else {
       fail(
-        "resume-anchor -- parallel fan-out",
-        `listsBoth=${listsBoth} assertsNoPhrase=${assertsNoPhrase} in:\n${multi}`,
+        "resume-anchor -- multi-handoff recency",
+        `namesActive=${namesActive} hedges=${hedges} listsSibling=${listsSibling} noSiblingPhrase=${noSiblingPhrase} in:\n${multi}`,
       );
     }
+
+    // -- 3c/7. Genuinely ambiguous: multiple handoffs, NONE produced yet. ----
+    // Fresh /review fan-out — no output anywhere, so no recency winner. Must
+    // punt to "read YOURS", never assert a phrase.
+    const beforeAlpha = path.join(fixture, "docs/reviews/CODE_REVIEW_alpha.md");
+    const alphaBody = fs.readFileSync(beforeAlpha);
+    fs.rmSync(beforeAlpha); // remove the only produced file
+    const ambiguous = await anchorFor(fixture);
+    const punts = /none started yet — read YOURS/.test(ambiguous);
+    const noPhrase =
+      !ambiguous.includes("ZEBRA-77") && !ambiguous.includes("OTTER-99");
+    if (punts && noPhrase) {
+      ok(
+        "resume-anchor -- multiple HANDOFFs with nothing produced yet punts to 'read YOURS' and asserts no phrase",
+      );
+    } else {
+      fail(
+        "resume-anchor -- ambiguous fan-out",
+        `punts=${punts} noPhrase=${noPhrase} in:\n${ambiguous}`,
+      );
+    }
+    fs.writeFileSync(beforeAlpha, alphaBody); // restore
     fs.rmSync(path.join(fixture, "docs/work/HANDOFF_security-auditor.md"));
+
+    // -- 3d/7. Owed work → the anti-menu-drift directive fires. --------------
+    // The observed failure was a post-compaction menu ("Which should I do now?").
+    // With a MISSING PRODUCE file, the anchor must forbid that explicitly.
+    const withOwed = await anchorFor(fixture); // beta still missing
+    const forbidsMenu =
+      /do NOT present a menu/i.test(withOwed) &&
+      /MID-TASK/.test(withOwed) &&
+      /CONTINUE it to its completion phrase/.test(withOwed);
+    if (forbidsMenu) {
+      ok(
+        "resume-anchor -- with an owed PRODUCE file, the anchor forbids the menu/ask-user drift and orders a resume",
+      );
+    } else {
+      fail(
+        "resume-anchor -- anti-drift directive",
+        `expected MID-TASK + 'do NOT present a menu' + resume order, got:\n${withOwed}`,
+      );
+    }
 
     // -- 4/5. Silent on projects with no SDLC state. ------------------------
     // This rides on every request, so it must cost nothing when irrelevant.
