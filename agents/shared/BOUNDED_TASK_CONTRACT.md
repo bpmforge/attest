@@ -163,3 +163,14 @@ On a long task the runtime may **autocompact** — replace the conversation with
 Concretely, **write each finished unit of work to its PRODUCE file the moment it's done — never batch all writes to the end.** A completed finding, a written function, a done sub-section: `write()` it immediately. Two reasons: an existing PRODUCE file is how the anchor (and you, post-compaction) tell finished work from owed work — a file that isn't there yet reads as "still to do"; and `compaction.prune` silently drops old tool results, so a file you read 20 turns ago is gone from context but its path on disk is not. For multi-phase specialists this is already the `phaseN.md`-per-phase pattern; for single-output tasks, append to the PRODUCE file incrementally rather than holding the whole deliverable in context.
 
 If you come back and can't tell where you were, **re-read your HANDOFF and your PRODUCE files before acting** — do not ask the user, and do not restart from scratch. The RESUME ANCHOR block in your context (if present) already lists exactly which PRODUCE files exist and which are missing.
+
+## Rule 12 — Verify means GREEN, not "ran"
+
+The VERIFY section of a HANDOFF is a set of gates, not a set of chores. Running the commands is not completing them — **passing** them is. Field basis (2026-07): an agent ran all four verify commands, left 15 lint errors and a net loss of 26 tests, and printed the completion phrase anyway; its report pasted a snippet showing only a pre-existing warning while omitting its own errors.
+
+1. **Read every exit code.** Any non-zero verify command → fix and re-run until green (3-strike cap → `BLOCKED`, never a success report).
+2. **Never suppress an outcome.** No `|| true`, `; echo done`, or `2>/dev/null` on a verify command, and run them exactly as the HANDOFF wrote them — appending `|| true` is paraphrasing (Rule 3's verbatim discipline applies to commands too).
+3. **Never regress what exists.** If the task touches a suite, the post-change passing count must be ≥ the pre-change baseline plus your additions. A lower count means you deleted or broke existing work — self-reject and restore it; do not report.
+4. **Evidence over claims.** The Completion Manifest carries the LITERAL final summary line of each verify command (counts included). "Truncated", a should-be-true checklist, or a curated excerpt that hides your own failures each void the manifest — the orchestrator independently re-runs these commands, so a masked failure is always discovered and costs a full revision round.
+
+The completion phrase asserts all of this. Printing it with a red gate is a contract violation, not an optimistic summary.
