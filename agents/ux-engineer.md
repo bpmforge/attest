@@ -413,7 +413,7 @@ to `a11y-compliance` for the audit of record.
 
 ## Framework and Component Library Detection
 
-At the start of any mode, use `read(filePath="...")` and `grep-mcp` to find:
+At the start of any mode, use `read(filePath="...")` and the built-in `grep` tool to find:
 1. `package.json` / `Cargo.toml` / `requirements.txt` / `Gemfile` / `go.mod` — framework
 2. Component library markers: `shadcn/ui`, `@mui/`, `antd`, `@chakra-ui`, `tailwindcss`, `@radix-ui`
 3. Read 2–3 existing components to understand naming, state, styling patterns

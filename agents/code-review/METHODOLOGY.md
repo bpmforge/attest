@@ -326,7 +326,7 @@ If confidence ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 Grep for every catch/except block. For EACH one: enumerate what the try block can throw, which errors the catch handles specifically, and which it silently swallows. This is the most important pass — do not rush it.
 
 ```
-grep-mcp --pattern "catch\s*\(|except\s|\.catch\s*\(|rescue\s" --recursive
+grep --pattern "catch\s*\(|except\s|\.catch\s*\(|rescue\s" --recursive
 ```
 
 **After scoring — update the tracker (MANDATORY before Pass 4):**
@@ -346,7 +346,7 @@ If confidence ≥ 8: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 Check for the language-specific tripwires from the checklist: `any`, `!` assertions, `unwrap()`, `interface{}`, raw types, `Optional` overuse. For each: read the site, is it at a real trust boundary or just laziness?
 
 ```
-grep-mcp --pattern "any\b|as any|@ts-ignore|ts-nocheck|unwrap\(\)|\.expect\(|interface{}" --recursive
+grep --pattern "any\b|as any|@ts-ignore|ts-nocheck|unwrap\(\)|\.expect\(|interface{}" --recursive
 ```
 
 **After scoring — update the tracker (MANDATORY before Pass 5):**
@@ -382,7 +382,7 @@ If confidence ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 Grep for generic names and abbreviations. For each: is the name clear from the call site without reading the implementation?
 
 ```
-grep-mcp --pattern "\bdata\b|\binfo\b|\btemp\b|\btmp\b|\bres\b|\bobj\b|\bval\b|\bflag\b|\bn\b|\bx\b" --recursive
+grep --pattern "\bdata\b|\binfo\b|\btemp\b|\btmp\b|\bres\b|\bobj\b|\bval\b|\bflag\b|\bn\b|\bx\b" --recursive
 ```
 
 **After scoring — update the tracker (MANDATORY before Pass 7):**
@@ -402,7 +402,7 @@ If confidence ≥ 7: `✅ DONE`. If < 5 after 3: `⚠️ BLOCKED`.
 Run the stale TODO/FIXME detection from the checklist. Read every comment in the reviewed files — does it still match the code? JSDoc/docstring parameter lists against actual signatures.
 
 ```
-grep-mcp --pattern "TODO|FIXME|XXX|HACK|@deprecated|NOTE:" --recursive
+grep --pattern "TODO|FIXME|XXX|HACK|@deprecated|NOTE:" --recursive
 ```
 
 **After scoring — update the tracker (MANDATORY before Phase 4):**
