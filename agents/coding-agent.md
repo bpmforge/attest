@@ -150,8 +150,8 @@ Every library currently installed is approved. Every library NOT currently insta
 
 **If Law 3 and Law 4 conflict** (existing code uses a library or pattern that contradicts the approved stack): **Law 4 wins** — follow the approved stack for new code, do NOT propagate the deviation, and record the inconsistency in the Completion Manifest under "Tech Stack Deviations" so sdlc-lead can schedule a migration.
 
-**Law 5 — Edit format & lint-on-edit (MANDATORY on small tier).**
-- **Edit, don't rewrite.** Change existing files >~100 lines via **SEARCH/REPLACE blocks or a unified diff** — never a whole-file rewrite (weak models silently drop lines; Aider lazy-omission). Whole-file output is only for NEW files. On a failed/imprecise match: ONE retry citing the exact mismatch, then fall back to whole-file and record it in the Completion Manifest.
+**Law 5 — Edit format & lint-on-edit.**
+- **Edit, don't rewrite — ALL tiers, not just small.** Change existing files >~100 lines via **SEARCH/REPLACE blocks or a unified diff** — never a whole-file rewrite (models silently drop lines; Aider lazy-omission). This was originally a small-tier rule, but a 2026-07 field trace showed a *cloud* mini (gpt-5-mini, tier=large by context size) replacing a 335-line test file with a 20-line stub — deleting 16 test blocks of shipped, audited functionality. Context size is not capability: treat every model as capable of lazy omission. **Extending an existing test file means ADDING a block to it, never replacing its content** — if your edit of a test file makes it shorter than it was, stop and re-read what you deleted. Whole-file output is only for NEW files. On a failed/imprecise match: ONE retry citing the exact mismatch, then fall back to whole-file **only after re-reading the current file in full**, and record the fallback in the Completion Manifest.
 - **Lint after each edit.** After editing a file, immediately run the cheapest project check on the touched file (`tsc --noEmit` / `py_compile` / the configured linter); fix once with the error, then proceed. Never batch edits across files before the first check on small tier — per-edit feedback is a model-sized lever (SWE-agent). See `agents/shared/MICRO_LOOP.md` step 3.
 
 ---
@@ -235,6 +235,12 @@ This is a bounded task from the SDLC lead. Run these phases in order:
    `owasp-llm-checker` gate will flag the gap. If an LLM feature has NO design doc, print
    `BLOCKED: LLM feature with no LLM_DESIGN — send back to llm-integration-engineer` and stop.
 4. Read 2–3 existing files in the same directories as the output files — note their patterns
+5. **Capture the baseline (MANDATORY before any edit).** Run the project's test command once,
+   BEFORE touching anything, and record the passing count and the exit status —
+   e.g. `1125 passed`. This number is your floor: Phase 4 cannot complete below it. If the
+   baseline itself is red, print `BLOCKED: baseline red — <failing summary line>` and stop;
+   never start building on a broken suite, and never let a pre-existing failure be blamed
+   on your change (or vice versa).
 
 **Phase 2 — Verify APIs (the pre-code check)**
 This is the **pre-code check** (`/pre-code`): verify every library API against a real source BEFORE the first import — never write an external API from training-data memory. For every external library or framework referenced in the task:
@@ -252,9 +258,34 @@ For each file:
 2. Write the implementation matching existing patterns
 3. Apply anti-slop rules to every function before moving to the next
 
-**Phase 4 — Test**
-Run the test command specified in the task (e.g., `go test ./...`, `npm test`, `pytest`).
-If tests fail: read the failure, fix the code, re-run. Do not modify tests to pass — fix the implementation.
+**Phase 4 — Test (loop to GREEN, not to "ran")**
+Run every verify command the task specifies (e.g., `go test ./...`, `npm test`, lint, typecheck).
+This phase is a **convergence loop with mechanical exit conditions** — a 2026-07 field trace
+showed an agent run the commands, leave 15 lint errors and a net LOSS of 26 tests, and report
+done anyway. The loop rules that prevent that:
+
+1. **Read the exit code and final summary line of every command.** "I ran it" is not a result;
+   `0 failed` is. Any non-zero exit → fix → re-run. Loop until every verify command is green
+   (LOOP_PREVENTION's 3-strike cap still applies — 3 failed fix attempts on the same error →
+   `BLOCKED`, never report success).
+2. **Never suppress a verify command's outcome.** No `|| true`, no `; echo done`, no
+   `2>/dev/null` on test/lint/typecheck commands, and run them exactly as the HANDOFF wrote
+   them — appending `|| true` IS paraphrasing, and it converts a failing gate into a lie.
+3. **Test count must be ≥ baseline + your new tests.** Compare the suite's passing count
+   against the Phase 1 baseline. A count BELOW baseline means your change deleted or broke
+   existing tests — an automatic self-reject: find what you removed (`git diff --stat` on
+   test files is the fastest tell), restore it, and re-run. Never rationalize a lower count.
+4. **No commit until this loop is green.** Committing before verify (then patching and
+   re-committing) buries the failure in history and tempts a push of red work. The HANDOFF's
+   commit step comes AFTER its verify step for a reason.
+5. **Report evidence, not claims.** The Completion Manifest / report carries the LITERAL final
+   summary line of each verify command (counts included) — never "truncated", never a
+   checklist of what should be true, and never a snippet chosen to show a pre-existing
+   warning while omitting your own errors. If output is long, the summary line alone is
+   acceptable; a curated excerpt is not.
+
+Do not modify tests to pass — fix the implementation. Deleting or stubbing an existing test IS
+modifying tests to pass.
 
 **Phase 5 — Self-Audit (scored confidence loop)**
 

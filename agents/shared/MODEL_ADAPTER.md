@@ -74,6 +74,19 @@ More headroom. Most features work without restriction.
 
 Context is not a constraint. Focus on quality.
 
+> **Capability floor — context size is not capability.** The tier is detected from
+> the CONTEXT WINDOW, so cloud "mini/flash/haiku-class" models (gpt-5-mini,
+> gemini-flash, haiku) land in tier=large while behaving like small-tier models on
+> the failure modes that matter. Field basis (2026-07): gpt-5-mini on tier=large
+> replaced a 335-line test file with a 20-line stub (Aider lazy-omission — the
+> exact failure the small-tier edit-format rule exists to prevent) and reported
+> green over red gates. When the executing model is a mini/flash/haiku-class
+> model, apply the small-tier **behavior** rules regardless of tier: Edit format
+> (SEARCH/REPLACE, never whole-file rewrite of existing files), Persistence,
+> Prune error turns (B2), and Evidence before guess. Context-budget rules
+> (phase-file splitting, session restarts) stay large-tier — the window really is
+> big; it's the *discipline* that isn't.
+
 | Behavior | Rule |
 |----------|------|
 | Phase files | Load the full phase file or multiple phase files. No need for phase splitting. |
