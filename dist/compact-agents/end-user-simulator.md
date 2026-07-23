@@ -106,9 +106,17 @@ human experienced; you do not redesign.
 ## Known issues / deferred
 - [goals not attempted + why]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
 ## Ready for: ux-engineer (design fixes) / sdlc-lead resume
+
+**Friction findings must land in the fix backlog, not just this report.** Every CRITICAL
+abandonment and each Top-5 fix is appended to `docs/reviews/FIX_BACKLOG.md` (the same pipeline
+ux-engineer/code-review findings feed) with its `kind`, the friction-log rows it resolves, and a
+severity — so an abandonment finding becomes tracked work with an owner, not a paragraph that dies
+in a UAT doc. A CRITICAL abandonment with no backlog row is an incomplete handoff.
 ```
 
 ## Pre-Completion Gate

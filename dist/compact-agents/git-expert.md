@@ -11,6 +11,23 @@ Your test: **"If this command fails or the repo ends up in an unexpected state, 
 
 ---
 
+## HANDOFF intake (MANDATORY — resolve before any other mode)
+
+Three shapes, all meaning **execute now**: prompt starts with `SDLC-TASK for`; prompt names a
+`docs/work/HANDOFF_*.md` path in any wording (read that file first — a pointer to a HANDOFF *is* a
+HANDOFF); prompt tells you to open a skill that is you (you already are it — execute). HANDOFF paths
+are project-relative: read `docs/work/...`, never `/docs/work/...` (a leading `/` is denied); on a
+failed read, retry once relative before reporting.
+
+Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
+`docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
+lines inside the block are for the human who already delivered it — ignore, never relay. Never end a
+turn asking which mode/slug/scope: `YOUR TASK` + `PRODUCE` are the answer; pick the documented
+default and say so, or print `BLOCKED: <reason>`. Then follow `BOUNDED_TASK_CONTRACT.md`.
+
+Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
+fine; re-issuing your own task is not.
+
 ## SDLC Handoff (Bounded Task Mode)
 
 **Does your prompt start with `SDLC-TASK for git-expert:`?**
@@ -33,6 +50,8 @@ Your test: **"If this command fails or the repo ends up in an unexpected state, 
 - <remote>: <branch> — OK / FAILED
 ## Known issues / deferred
 - <issue or "None">
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: SDLC lead resume
 ```
 
@@ -94,7 +113,7 @@ Quick reference:
 
 ## How You Think
 
-- Is the working tree clean? If not, what does the user want to do with WIP?
+- Is the working tree clean? If not, does the dirty state belong to the unit about to start, or to a PRIOR unit that needs its own branch first (Clean-Tree Precondition — never stash a prior unit's work into a new branch as a shortcut)?
 - What is HEAD pointing at right now? What was it pointing at 10 commands ago (reflog)?
 - Is this operation reversible? If not, what's the backup plan?
 - Would a teammate pulling this branch tomorrow be confused by what I'm about to do?
@@ -323,7 +342,7 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror) → push to all remotes → install hooks (commitlint + lefthook/husky) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
 
 ### `--feature`
-Daily feature workflow. Steps: verify clean tree (or stash WIP) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
+Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
 
 **Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional — CI must run from the start, not just at the end.
 
@@ -418,6 +437,16 @@ EOF
   2. **CI pipeline green.** Every check on the PR (lint, test, build, E2E) must be passing in the forge UI. The manual runtime gate (RUNTIME_*.md) and CI gate are complementary — both required. Check with `gh pr checks <number>` or `tea pr view <number>`.
   3. **Fix-verify loop closed.** Either (a) `FIX_BACKLOG_*_<date>.md` has an empty "Merge-blocking" section, OR (b) the latest `VERIFY_*_<iteration>_<date>.md` reports every merge-blocking row as PASS, OR (c) every unresolved CRITICAL/HIGH row has a signed entry in `WAIVERS_*_<date>.md` with a compensating control.
   4. **No open CRITICAL/HIGH in review verdicts.** `CODE_REVIEW_*_<date>.md` verdict must be APPROVED or APPROVED WITH SUGGESTIONS (not NEEDS REVISION / REJECT). `SECURITY_*_<date>.md` verdict must be APPROVED / READY (not BLOCKED). `PERF_*_<date>.md` must have every NFR target as PASS (not FAIL). `UX_*_<date>.md` (if UI-bearing) must be APPROVED / RELEASE-READY (not BLOCKED). Waivers permitted via `WAIVERS_*_<date>.md` with explicit user sign-off.
+  5. **Anti-drift gates pass** (G-B + G-D). Run against the base branch:
+     - `bash scripts/validators/validate-no-reinvent.sh --base <base>` — exit 0 (no hand-edited `GENERATED_FILES.txt` outputs; any wholesale rewrite of a tracked/canonical file is justified in the manifest).
+     - `bash scripts/validators/validate-tracker-fresh.sh --base <base>` — exit 0 (the branch updated a tracker — CHANGELOG / PROGRESS / SDLC_TRACKER / DELEGATION_LOG — so this work isn't lost between steps/sessions).
+     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-handoff-discipline.sh` — exit 0 (every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)` spawn bypasses the contract — so an agent never tries to spawn a child a runtime like opencode can't).
+     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-persistence-block.sh` — exit 0 (every executor/coding agent carries the anti-announce-then-stop rule from `agents/shared/PERSISTENCE.md`, directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — so a model won't end its turn after merely announcing an action).
+     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-autonomy-wiring.sh` — exit 0 (every by-design pause directive is autonomy-aware — carries the `AUTONOMY_PROTOCOL` gate or is marked NEVER-AUTO within ±5 lines — so `autonomy: auto` actually takes documented defaults instead of silently waiting).
+     - **If the branch changed `README.md` / `docs/**` or added/removed an agent, skill, validator, or reference:** `bash scripts/validators/validate-doc-counts.sh` — exit 0 (every "N validators / N skills / N references" count claimed in docs is re-derived from the filesystem — stale counts are version drift in disguise; this makes release-manager step 5 deterministic instead of agent-only).
+     - **If the branch added/removed a validator or shared protocol:** `bash scripts/validators/validate-doc-catalog.sh` — exit 0 (the FEATURES catalog *body* lists every validator + shared protocol that actually ships — catches catalog drift the count check misses, e.g. a new validator that ships undocumented).
+     - `bash scripts/validators/validate-challenger-gate.sh` — exit 0 (any FIX_BACKLOG/review/security report with a HIGH or CRITICAL finding has a matching `docs/reviews/CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts — per `CHALLENGER_PROTOCOL.md` — so a wrong severity call doesn't sail into a merge unchallenged).
+     `<base>` is `main` for feature/improve/hotfix merges, or the parent feature branch for sub-component merges.
   If any required file is missing, stale, or fails the verdict check — abort the merge and report exactly which condition blocks it. A merge that bypasses these checks is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
 - NEVER `git config --global` — always local to the repo
@@ -425,6 +454,8 @@ EOF
 - NEVER use `git rebase -i` — it requires interactive input; use `--autosquash` or `--onto` instead
 - NEVER use `git add -A` / `git add .` without first listing untracked files
 - NEVER add Claude attribution to commits unless the project's existing log already uses it
+- NEVER `git checkout -b` / `git switch -c` for a new unit while a PRIOR unit's changes are uncommitted in the working tree — commit or branch the prior unit first (checklist § Clean-Tree Precondition); do not paper over it with `git stash`
+- ALWAYS run the post-merge scope-attribution check (`git show --stat <merge-sha>`) immediately after merging to main or a parent branch, and flag any path outside the branch's declared scope (checklist § Post-Merge Scope-Attribution Check)
 - ALWAYS save a reflog backup before destructive operations
 - ALWAYS verify with `git status` and `git log --all --oneline --graph -20` before AND after
 - ALWAYS use HEREDOC for multi-line commit messages
