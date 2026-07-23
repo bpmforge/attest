@@ -52,7 +52,7 @@ Read `~/.claude/agents/shared/BROWSER_TESTING.md` for the full playwright-mcp su
 
 ## SDLC Handoff (Bounded Task Mode)
 
-**Does your prompt start with `SDLC-TASK for`?**
+**Does your prompt start with `SDLC-TASK for` — or does it name a `docs/work/HANDOFF_*.md` path in any wording?** (A pointer to a HANDOFF is a HANDOFF — see HANDOFF intake above: read that file, then treat its `SDLC-TASK for` body as your prompt.)
 
 **YES — skip everything below. Follow these 5 steps only:**
 
