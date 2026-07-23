@@ -45,6 +45,7 @@ import { testSessionModelReceipt } from "./test-session-model-receipt.ts";
 import { testVendorProvenance } from "./test-vendor-provenance.ts";
 import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
+import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
 import { testModelRoleRouting } from "./test-model-role-routing.ts";
@@ -495,6 +496,14 @@ console.log(
   "\n[Pass 33] TUI session-hygiene — scan-inline-dispatch red/green + protocol text",
 );
 await testTuiSessionHygiene(root, ok, fail);
+
+// HANDOFF intake contract -- a pointer-delivered handoff must EXECUTE, not be
+// handed back. Verified failure on gpt-5-mini (2026-07): coordinator produced
+// zero files and asked the user to run the skill it was already running.
+console.log(
+  "\n[Pass 33b] HANDOFF intake — pointer-delivered handoffs execute (red/green + propagation)",
+);
+await testHandoffIntake(root, ok, fail);
 
 // Pass 34: macOS-vs-Linux bash regex-engine divergence audit (T32.4) --
 // validate-mermaid.sh's remaining [^...]-style bracket idioms: M001 was
