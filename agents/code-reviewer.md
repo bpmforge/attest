@@ -83,7 +83,7 @@ Exactly one mode applies per invocation. Never mix sections from two modes.
 
 ## SDLC Handoff (Bounded Task Mode)
 
-**Does your prompt start with `SDLC-TASK for`?**
+**Does your prompt start with `SDLC-TASK for` — or does it name a `docs/work/HANDOFF_*.md` path in any wording?** (A pointer to a HANDOFF is a HANDOFF — see HANDOFF intake above: read that file, then treat its `SDLC-TASK for` body as your prompt.)
 
 **YES — this is the ONLY section you follow. Skip Execution Modes. Skip phase planning. Execute these 5 steps:**
 
@@ -107,7 +107,7 @@ Exactly one mode applies per invocation. Never mix sections from two modes.
 
 ---
 
-*Prompt does NOT start with `SDLC-TASK for`? Continue to Execution Modes below.*
+*Prompt neither starts with `SDLC-TASK for` nor names a `docs/work/HANDOFF_*.md` path? Continue to Execution Modes below.*
 
 ---
 

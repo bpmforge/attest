@@ -167,5 +167,29 @@ while IFS= read -r f; do
   gap "missing-handoff-intake" "$rel can receive a HANDOFF (references SDLC-TASK for) but has no '${INTAKE_HEADING}…)' block -- a pointer-delivered handoff will fall through to its default mode and be handed back. Run: node scripts/build-agents.mjs --fix"
 done < <(find "$AGENTS_DIR" -name '*.md' -type f)
 
-note "checked $checked task()-shorthand file(s), $dispatchers concurrent-dispatch coordinator(s), $scan_dispatchers scan-specialist inline-dispatch site(s), $handoff_bodies file(s) with HANDOFF delimiters, and intake-block presence ($missing_intake missing)"
+# ── Prefix-only mode gates that contradict the intake block ────────────────
+# Several agents also carry a per-agent Bounded-Task gate ("Does your prompt
+# start with SDLC-TASK for?" / "Prompt does NOT start with SDLC-TASK for?
+# Continue to Execution Modes"). If that gate keys ONLY on the literal prefix, it
+# contradicts the intake block above it: a pointer-delivered handoff does not
+# start with SDLC-TASK for, so the gate routes it to the default/orchestrator
+# mode — the exact re-emit failure the block exists to prevent. The block wins in
+# practice (verified on gpt-5-mini), but the contradiction is a latent landmine on
+# a weaker model or a reworded pointer. A compliant gate must also mention the
+# HANDOFF pointer near the SDLC-TASK-for check.
+prefix_gates=0
+while IFS= read -r f; do
+  rel="${f#"$ROOT"/}"
+  case "$rel" in agents/shared/*) continue ;; esac
+  # Only the fall-through phrasing that actively routes elsewhere is the hazard.
+  grep -qE 'does NOT start with `SDLC-TASK for|Prompt (does NOT|neither)' "$f" || continue
+  # Compliant if the same gate line also references a HANDOFF_*.md pointer.
+  if grep -qE 'Prompt (does NOT start with `SDLC-TASK|neither starts with)' "$f" \
+     && ! grep -qE 'nor names a `docs/work/HANDOFF|names a `docs/work/HANDOFF' "$f"; then
+    prefix_gates=$((prefix_gates + 1))
+    gap "prefix-only-mode-gate" "$rel has a Bounded-Task gate that keys only on the literal 'SDLC-TASK for' prefix and routes everything else to its default mode -- a pointer-delivered handoff falls through, contradicting the HANDOFF intake block. Make the gate also recognise a docs/work/HANDOFF_*.md pointer."
+  fi
+done < <(find "$AGENTS_DIR" -name '*.md' -type f)
+
+note "checked $checked task()-shorthand file(s), $dispatchers concurrent-dispatch coordinator(s), $scan_dispatchers scan-specialist inline-dispatch site(s), $handoff_bodies file(s) with HANDOFF delimiters, intake-block presence ($missing_intake missing), and prefix-only gates ($prefix_gates)"
 validator_exit
