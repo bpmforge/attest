@@ -49,7 +49,6 @@ See `agents/shared/RESEARCH_TOOLS.md` for per-agent guidance on when to reach fo
 
 | Tool | Purpose |
 |------|---------|
-| `grep-mcp.ts` | Enhanced grep: regex, case-insensitive, context lines, line numbers, recursive |
 | `log-parser.ts` | Parse logs by level/date/pattern; generates error summary + hourly distribution |
 | `semgrep-scan.ts` | Full Semgrep security scan with config selection and path filtering (120s timeout) |
 | `semgrep-rule.ts` | Write and test individual Semgrep rules against code |
@@ -100,7 +99,6 @@ file-info --path /large/data.csv
 // → 1.2GB, 50000 lines, csv extension
 
 // Enhanced grep with regex and context
-grep-mcp --pattern "function.*test" --path ./src --flags "-i -n -C 2"
 
 // Run tests and get a summary
 test-runner --command "npm test"
