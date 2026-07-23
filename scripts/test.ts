@@ -46,6 +46,7 @@ import { testVendorProvenance } from "./test-vendor-provenance.ts";
 import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testHandoffIntake } from "./test-handoff-intake.ts";
+import { testCheckTools } from "./test-check-tools.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
 import { testModelRoleRouting } from "./test-model-role-routing.ts";
@@ -504,6 +505,14 @@ console.log(
   "\n[Pass 33b] HANDOFF intake — pointer-delivered handoffs execute (red/green + propagation)",
 );
 await testHandoffIntake(root, ok, fail);
+
+// check-tools.sh bare-Linux install path (2026-07 field report). Static
+// invariants only — CI cannot reproduce the bug (ubuntu-latest has a writable
+// npm prefix + unzip). Behavioural proof: test-check-tools-container.sh.
+console.log(
+  "\n[Pass 33c] check-tools.sh — bare-Linux install path (never-sudo, real errors, OS-correct hints)",
+);
+await testCheckTools(root, ok, fail);
 
 // Pass 34: macOS-vs-Linux bash regex-engine divergence audit (T32.4) --
 // validate-mermaid.sh's remaining [^...]-style bracket idioms: M001 was

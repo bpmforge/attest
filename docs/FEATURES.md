@@ -596,7 +596,7 @@ Deterministic scaffolding in `scripts/` — these own control flow and verificat
 | `mermaid-fix.mjs` | Mechanical Mermaid autofixer (`--write`) — smart quotes→ASCII, em-dash→hyphen, unicode arrows→`-->`, quote labels with specials, `//`→`%%` |
 | `build-agents.mjs` | Single-source boilerplate — `--check`/`--fix`/`--compact` (generates `dist/compact-agents/` tier=small variants) |
 | `build-target-claude.mjs` | Generates the claude-experts copies from this canonical repo (`npm run build:claude[:check]`) |
-| `check-tools.sh` | Detects (and `--install`s) the optional analysis tools: semgrep, knip, ts-prune, jscpd, vulture, radon, lizard, staticcheck, trufflehog, mmdc |
+| `check-tools.sh` | Detects (and `--install`s) the optional analysis tools: semgrep, knip, ts-prune, jscpd, vulture, radon, lizard, staticcheck, trufflehog, mmdc. Never sudo: installs npm/pipx tools (retrying into `~/.npm-global` on EACCES), prints the real error for failures, and lists remaining system prerequisites as commands for you to run. `mmdc` is report-only — see SETUP.md |
 | `doctor.sh` | Post-install self-check — structure, deps, config permission, model backend, tier detection, agent discovery, tool presence |
 | `detect-model-context.sh` | Writes `docs/work/.model-context` (type/provider/model/context/tier + `has_task_tool`/`mcp_in_subagents` flags) |
 
