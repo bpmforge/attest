@@ -200,6 +200,43 @@ cat ~/.config/opencode/opencode.json | python3 -m json.tool
 ~/.config/opencode/scripts/check-tools.sh   # which optional analysis tools are present (add --install)
 ```
 
+### Long runs and autocompaction
+
+When the context window fills, opencode replaces conversation history with a
+summary. On smaller models (reported on `gpt-5-mini`) a long review or coding run
+then loses the thread — redoing finished work, forgetting which PRODUCE files it
+still owes, or dropping the completion phrase.
+
+The durable fix ships as a plugin: **`plugins/resume-anchor.ts`**, installed to
+`~/.config/opencode/plugins/` and auto-loaded (no config entry needed). It works
+on one principle — **disk state survives compaction; conversation history does
+not** — so instead of trying to make the summary better, it recomputes a short
+"where am I" anchor from the filesystem and re-injects it on *every* request:
+
+- the active `docs/work/HANDOFF_*.md`,
+- each `PRODUCE` file marked `[done]` or `[MISSING]` by an actual `existsSync`,
+- the exact completion phrase,
+- `STATE.md`'s single `Next` step, and any `phaseN.md` files already written.
+
+Because it never depended on history, a compacted turn gets exactly the same
+anchor as an uncompacted one. It also appends must-survive pointers to the
+compaction prompt (best-effort), and emits nothing at all on projects with no
+HANDOFF/STATE, so it costs nothing when irrelevant. Disable with
+`EXPERTS_RESUME_ANCHOR=0`.
+
+This does **not** remove the need to write findings to disk as you go — see the
+`prune` note below.
+
+**Compaction tuning** (`compaction` in `opencode.json`; see `examples/opencode.json`):
+
+| Key | Guidance |
+|---|---|
+| `prune` | Drops **old tool outputs**. Keeps context low, but silently discards earlier file reads — never rely on "I read that file 20 turns ago". Write results to disk as you go. |
+| `tail_turns` | Recent user turns kept verbatim through a compact (default `2`). Raise to `4` for long multi-step work. |
+| `reserved` | Token buffer left for compaction. **Leave unset.** Setting it near the model's *input* limit wedges the session — observed on `gpt-5-mini` (input 128k): values from 118000 to 250000 hung it outright. |
+
+---
+
 ### Optional analysis tools on a bare Linux box
 
 Every analysis tool is optional — the agents fall back to `grep` — so a partial
