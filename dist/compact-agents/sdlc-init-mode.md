@@ -3,6 +3,9 @@ description: 'Mode 1 — New Project. Phases 0-5: ideation, planning, requiremen
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # SDLC Lead — Mode 1: New Project
 
 This file contains the Mode 1 workflow. The spine, shared protocols (delegation, trackers, gates, discovery interviews, fix-verify loop), and HANDOFF templates live in `sdlc-lead.md`. Read that file first before executing any step here.
@@ -52,7 +55,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
-- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh` and `validate-mermaid.sh` on every book before marking the deliverable DONE.
+- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh`, `validate-mermaid.sh`, and `validate-doc-render-health.sh` on every book before marking the deliverable DONE.
 
 ## Delegation Rule (MANDATORY — read before any delegation step)
 
@@ -61,18 +64,20 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: `has_task_tool=true` in `docs/work/.model-context` → dispatch via the Task tool and wait for the manifest; otherwise emit the block as text and wait for the user to return and say "<agent> done"
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -132,9 +137,21 @@ these substitutions everywhere the phase files name the standard artifact:
 | SRS.md | `docs/design/game/GDD.md` (Game Design Document) | game/game-designer |
 | USER_STORIES.md | Player stories ("As a [player type], I want [verb] so that [feeling/goal]") | game/game-designer |
 | USER_PERSONAS.md | Player personas (skill, session length, motivation per Bartle/engagement type) | sdlc-lead interview |
+| Project plan | PLUS `docs/design/game/PRODUCTION.md` (mode indie/AAA, gate ladder, milestones, scope ledger, GTM checkpoint) | game/game-producer |
 | Phase 3 design docs | ARCHITECTURE.md as usual PLUS `docs/design/game/TECH_NOTES.md` (engine choice, timestep, determinism) | game/gameplay-engineer |
 | Phase 3 numbers | `docs/design/game/balance/` models with simulation scripts | game/game-balance-designer |
+| Phase 3 [if story-bearing] | `docs/design/game/NARRATIVE.md` (delivery mix, quest/dialogue structure, barks) | game/narrative-designer |
+| Phase 3 [if leveled] | `docs/design/game/levels/LEVEL_<slice>.md` (metrics, flow, beat chart) for the slice level | game/level-designer |
+| Phase 3 [if audio serves a pillar] | `docs/design/game/AUDIO.md` (middleware, event list, mix rules, budgets) | game/game-audio-designer |
 | test-engineer reviews | PLUS `docs/testing/playtest/PLAYTEST_<date>.md` per slice build | game/playtest-evaluator |
+
+**Prototype gate (pre-production — BEFORE finalizing the GDD, when the core
+loop is unproven; per `agents/shared/GAME_PRODUCTION.md` §4):** the first build
+is a time-boxed **2-4 week prototype with success AND kill criteria written
+before building** (game-designer states them, game-producer holds them). Pass =
+the loop playtests well with someone who's never seen it → finalize the GDD.
+Hit the kill criteria = kill or pivot cheaply and re-enter discovery — that is
+the process *working*, record it. No production work before this gate.
 
 **Vertical-slice gate (replaces nothing — INSERTED between Phase 3 and full Phase 4):**
 The first Phase 4 wave builds ONLY the vertical slice defined in GDD.md § 7.
@@ -146,6 +163,14 @@ The gate to continue into content production:
 
 A game that fails the slice gate iterates on the slice — it never proceeds to
 content production on the theory that more levels will fix the core loop.
+
+**Production gates after the slice (labels from GAME_PRODUCTION.md §1, held by
+game-producer):** **alpha = feature lock** (every system in; no new mechanics
+after — new-mechanic requests become post-1.0 rows) and **beta = content lock**
+(all content in; bugs/balance/perf only). If targeting console, PRODUCTION.md
+carries the cert plan (2-3 submission rounds, 6-10 weeks per platform ⚠) —
+functional QA, fun playtests, and cert compliance are three different
+disciplines; don't let one report claim the others.
 
 **Discovery interview (--game additions):** ask also — target platform(s) and
 input model? session length (3-min mobile / 30-min desktop)? singleplayer or

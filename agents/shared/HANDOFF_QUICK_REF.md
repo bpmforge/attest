@@ -10,10 +10,14 @@ mode: "all"
 
 ## Delimiter format (always use this)
 
+> **Nothing addressed to the user goes inside the delimiters.** The block below is written to
+> `docs/work/HANDOFF_<agent>.md` and *read by the specialist* — any `USER: open a new session…`
+> line inside it will be read as a task and relayed back at you. Instructions for the human go in
+> the pointer you print (below), never in the body.
+
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #N → <agent-name>  |  open new session → /<skill>
-USER: open a new session, type /<skill>, paste EVERYTHING below this line
+HANDOFF #N → <agent-name>  |  run by: <agent-name> via /<skill>
 ════════════════════════════════════════════════════════════
 SDLC-TASK for <agent-name>:
 
@@ -45,6 +49,23 @@ Then stop.
 ════════════════════════════════════════════════════════════
 END HANDOFF #N
 ════════════════════════════════════════════════════════════
+```
+
+## Pointer to print for the user (goes ABOVE the delimiters, never inside)
+
+The specialist must receive a prompt that **starts with the `SDLC-TASK for` trigger** — otherwise a
+smaller model falls through to its default/orchestrator mode and hands the task straight back. Give
+the user one line to paste:
+
+```
+── NEXT HANDOFF ──────────────────────────────
+Open agent:  /<skill>          (<agent-name>)
+Paste this one line into it:
+
+    SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
+
+It produces: <report path>   ← come back with this
+──────────────────────────────────────────────
 ```
 
 ## Before every HANDOFF — two mandatory steps

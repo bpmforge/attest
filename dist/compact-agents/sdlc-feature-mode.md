@@ -3,6 +3,9 @@ description: 'Mode 3 — Add a feature to an existing system. Impact analysis, o
 mode: "subagent"
 ---
 
+> **Persistence (do not end your turn early):** never end your turn after *announcing* an action — perform it; if you cannot call a tool, print `BLOCKED: <reason>` (never a plan as your final message). Full rule: `agents/shared/PERSISTENCE.md`.
+
+
 # SDLC Lead — Mode 3: Add Feature
 
 This file contains the Mode 3 workflow. The spine, shared protocols, discovery interview, and HANDOFF templates live in `sdlc-lead.md`. Read that file first before executing any step here.
@@ -12,6 +15,21 @@ This file contains the Mode 3 workflow. The spine, shared protocols, discovery i
 **Start with the Mode 3 Feature Discovery Interview above. Do not skip it.**
 
 Add a feature to an existing system without breaking it.
+
+## HANDOFF intake (MANDATORY — resolve before any other mode)
+
+Three shapes, all meaning **execute now**: prompt starts with `SDLC-TASK for`; prompt names a
+`docs/work/HANDOFF_*.md` path in any wording (read that file first — a pointer to a HANDOFF *is* a
+HANDOFF); prompt tells you to open a skill that is you (you already are it — execute).
+
+Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
+`docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
+lines inside the block are for the human who already delivered it — ignore, never relay. Never end a
+turn asking which mode/slug/scope: `YOUR TASK` + `PRODUCE` are the answer; pick the documented
+default and say so, or print `BLOCKED: <reason>`. Then follow `BOUNDED_TASK_CONTRACT.md`.
+
+Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
+fine; re-issuing your own task is not.
 
 ## Loop Prevention (MANDATORY)
 
@@ -52,7 +70,7 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 
 ---
 
-- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh` and `validate-mermaid.sh` on every book before marking the deliverable DONE.
+- **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh`, `validate-mermaid.sh`, and `validate-doc-render-health.sh` on every book before marking the deliverable DONE.
 
 ## Delegation Rule (MANDATORY — read before any delegation step)
 
@@ -61,18 +79,20 @@ This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Delivera
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
 > 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
-> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: `has_task_tool=true` in `docs/work/.model-context` → dispatch via the Task tool and wait for the manifest; otherwise emit the block as text and wait for the user to return and say "<agent> done"
+> 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
 > **Translation rule (apply to every `task()` call you read):**
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Emit HANDOFF block for X] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
+> **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): emit all HANDOFF blocks in one message. The user opens N sessions simultaneously. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -102,19 +122,23 @@ Glob docs/sdlc/SDLC_TRACKER.md
 - If exists → `read(filePath="docs/sdlc/SDLC_TRACKER.md")` and resume from the last non-DONE step.
 - If not exists → `write(filePath="docs/sdlc/SDLC_TRACKER.md", content="[Mode 3 template from SDLC_TRACKER section above — fill in feature name and date]")`
 
-## Step 1: Impact Analysis (Use `/explore` Pattern)
+## Step 1: Impact Analysis (HANDOFF to app-cartographer / `/explore`)
 
-After the Feature Discovery Interview confirms scope, run a codebase exploration
-to trace the affected feature end-to-end. Follow the `/explore` skill pattern:
+After the Feature Discovery Interview confirms scope, the affected feature must be traced
+end-to-end. **This is a HANDOFF — you do NOT grep/read source and trace call chains yourself**
+(that violates the strict-delegation rule in `sdlc-lead.md`). Write a HANDOFF to
+`docs/work/HANDOFF_app-cartographer.md` (per `agents/shared/HANDOFF_TEMPLATES.md`) and point the
+user at `/explore` (app-cartographer). Its task:
 
-1. **Find entry points** — Grep for the feature name, routes, components
-2. **Trace call chains** — For each entry point, follow handler → service → repository → DB
-3. **Map data flow** — What data enters, transforms, stores, and is read downstream
-4. **Identify blast radius** — Every file, table, endpoint, and test that would change
-5. **Assess risk** — What could break? What depends on the same code?
+1. **Find entry points** — grep the feature name, routes, components
+2. **Trace call chains** — handler → service → repository → DB, per entry point
+3. **Map data flow** — what data enters, transforms, stores, is read downstream
+4. **Identify blast radius** — every file, table, endpoint, test that would change
+5. **Assess risk** — what could break; what depends on the same code
 
-Produce: `docs/explore/EXPLORE_[feature].md` — file:line map of everything involved.
-Also produce: Impact analysis summary listing every file, table, and endpoint affected.
+It produces: `docs/explore/EXPLORE_[feature].md` — a file:line map of everything involved, plus an
+impact summary listing every file, table, and endpoint affected. **You then READ that map** and
+scope the build/audit HANDOFFs from it — you never trace the code yourself.
 
 ### Impact Analysis Confidence Loop
 
@@ -127,6 +151,8 @@ After drafting the impact analysis:
 ## Step 1.5: Sub-component Decomposition (mandatory check)
 
 Before designing, decide whether the feature is **atomic** (one component, linear flow) or **splits into independent sub-components** that can each run the full Mode-3 lifecycle in parallel. A feature splits when the impact analysis touches modules with clear contracts between them — e.g., "notifications" = schema + API + worker + UI.
+
+**When it splits, write module-contract tickets** (see `docs/TICKET_SCHEMA.md`): one `kind:module` entry per sub-component in `docs/work/plan.json` with `interface`, an **exclusive `write_scope`**, `depends_on`, and `acceptance`. Disjoint write-scopes are what let separate contributors/agents build them at once without colliding. From then on, `/reflow` recomputes the claimable set and emits each module's HANDOFF, and `docs/work/STATE.md` (per `agents/shared/CHECKPOINT_STATE.md`) is refreshed after each step so anyone can `/clear` and `/sdlc resume`.
 
 Ask the user:
 
@@ -219,7 +245,7 @@ Next after resume: api-designer handoff (if API changes needed)
 ---
   HANDOFF → db-architect
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /dba:
+Write this block to `docs/work/HANDOFF_db-architect.md`, then tell the user: open `/dba` and have it read `docs/work/HANDOFF_db-architect.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for db-architect:
 
@@ -243,13 +269,41 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
+**If the schema change touches EXISTING tables (ALTER / DROP / RENAME / type change),** hand off to the migration-planner for a safe ordered rollout — db-architect designs the target schema, migration-planner sequences how to get there without breaking production:
+
+```
+---
+  HANDOFF → migration-planner
+---
+Write this block to `docs/work/HANDOFF_migration-planner.md`, then tell the user: open `/migration-planner` and have it read `docs/work/HANDOFF_migration-planner.md` and follow it (it reads the doc — nothing is pasted):
+
+SDLC-TASK for migration-planner:
+
+CONTEXT (read these before starting):
+- docs/DATABASE.md — current schema (the "from" state)
+- db/migrations/[next-number]_[feature-slug].sql — the target change db-architect produced
+
+YOUR TASK:
+Produce an ordered, reversible migration plan for the existing-table changes in this
+feature. Every step has an explicit rollback; every destructive operation (DROP, RENAME,
+type change) gets a warning + estimated downtime + a backfill/expand-contract strategy.
+
+PRODUCE exactly:
+- docs/features/[feature-slug]/MIGRATION_PLAN.md — ordered steps, each with rollback + risk
+
+When written, print exactly:
+"migration plan done — [N steps, M destructive]"
+Then stop.
+---
+```
+
 If API changes needed:
 
 ```
 ---
   HANDOFF → api-designer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /api-design:
+Write this block to `docs/work/HANDOFF_api-designer.md`, then tell the user: open `/api-design` and have it read `docs/work/HANDOFF_api-designer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for api-designer:
 
@@ -279,7 +333,7 @@ If the feature touches auth, data access, or user input:
 ---
   HANDOFF → security-auditor
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /security:
+Write this block to `docs/work/HANDOFF_security-auditor.md`, then tell the user: open `/security` and have it read `docs/work/HANDOFF_security-auditor.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for security-auditor:
 
@@ -355,7 +409,7 @@ Next after resume: implementation checkpoint
 ---
   HANDOFF → test-engineer
 ---
-Open a new OpenCode conversation and paste this EXACT prompt to /test-expert:
+Write this block to `docs/work/HANDOFF_test-engineer.md`, then tell the user: open `/test-expert` and have it read `docs/work/HANDOFF_test-engineer.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for test-engineer:
 
@@ -447,7 +501,7 @@ Before emitting, evaluate the auto-trigger rules against the impact analysis:
 - **performance-engineer** — runs if the impact touches a path with an NFR target in SRS.md, DB queries (new or modified), loops over collections, caching, or background jobs.
 - **ux-engineer** — runs if any UI file is in the impact.
 
-Emit ONE message containing every triggered HANDOFF as separate blocks. User opens N OpenCode sessions concurrently. Report back with all N completion phrases before synthesis.
+**These are HANDOFFs — you never read the source and review/scan it yourself.** Write each `docs/work/HANDOFF_<agent>.md`, point the user at the N specialists (`/review-code`, `/security`, …), and read only their produced reports (`FIX_BACKLOG_*` / `SECURITY_FINAL_*`) before synthesis. Report back with all N completion phrases before synthesis.
 
 ```
 ---
@@ -457,7 +511,7 @@ Emit ONE message containing every triggered HANDOFF as separate blocks. User ope
 ───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
-YOUR TASK: 8-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop). File:line + severity + fix per finding.
+YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design). File:line + severity + fix per finding.
 PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
 Print exactly: "review done — [verdict and top finding]"
 
@@ -503,14 +557,19 @@ bash(command="./scripts/validators/run-coverage-loop.sh feature 2>/dev/null || b
 
 If the FIX_BACKLOG "Merge-blocking" section is empty AND the coverage loop exits 0 → reviews gate passes. Skip to block 7.
 
+**5.5. Challenge (MANDATORY when any FIX_BACKLOG row is HIGH/CRITICAL):**
+
+Before remediating, emit a **`challenger` HANDOFF** on the review artifact per `agents/shared/CHALLENGER_PROTOCOL.md` (write `docs/work/HANDOFF_challenger.md`, point the user at `/challenge`). It produces `docs/reviews/CHALLENGE_REPORT_<feature>_<date>.md` with per-finding CONFIRMED / CONTRADICTED verdicts. **CONTRADICTED rows are dropped; CONFIRMED rows (+ anything the challenge surfaces) are the backlog the fix-verify loop remediates.** Never skip this on a HIGH/CRITICAL backlog, and never adjudicate the findings yourself. `validate-challenger-gate.sh` fails the phase-4 gate if this report is missing.
+
 **6. Fix-Verify loop (see Fix-Verify Loop Protocol § Steps 3–5):**
 
-Iterate up to 3 times:
-- Emit the Remediation HANDOFF (coding-agent given FIX_BACKLOG) → wait for "fix done".
+Iterate — **tier-aware and class-driven, not a flat 3.** `scripts/fix-verify.mjs` classifies each pass (CLEARED / PROGRESSED / STALLED / OSCILLATING) and reads the ceiling from `docs/work/.model-context` (6 metered / 12 local): STALLED escalates after 2 same-tier attempts; PROGRESSED may extend to the ceiling; OSCILLATING (regressed) escalates immediately, stops on the second.
+- Emit the Remediation HANDOFF (coding-agent given the CONFIRMED FIX_BACKLOG) → wait for "fix done".
 - Emit the targeted Re-verification HANDOFF (code-reviewer — or original specialist for domain-specific checks) → wait for "verify done".
 - If all PASS → reviews gate passes, proceed to block 7.
 - If any FAIL → update FIX_BACKLOG with remaining rows, iterate.
 - After 3 failed cycles → emit the escalation block (§ Step 5), STOP, wait for user decision [A/B/C/D].
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: apply the loop-exhaustion default (route to the named specialist, else waiver+continue), logged to `docs/work/APPROVALS.md`.
 
 **7. Git — two steps:**
 

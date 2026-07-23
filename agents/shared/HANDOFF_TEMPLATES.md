@@ -32,7 +32,7 @@ END HANDOFF #N
 
 **sdlc-lead output rule:** Write the delimiter header, HANDOFF body, and delimiter footer to `docs/work/HANDOFF_<agent>.md`. Never add commentary or instructions inside the delimited region. Explanation to the user goes ABOVE the opening delimiter.
 
-**Receiving agent rule:** When your prompt starts with `SDLC-TASK for` — you are inside a HANDOFF block. Follow the six rules in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Do not look for or process the delimiter lines.
+**Receiving agent rule:** When your prompt starts with `SDLC-TASK for` — or names a `docs/work/HANDOFF_*.md` path in any wording — you are inside a HANDOFF. Read the file if you were given a pointer, then follow the six rules in `agents/shared/BOUNDED_TASK_CONTRACT.md`. Do not look for or process the delimiter lines, and never re-emit the HANDOFF you received. Full rules: the **HANDOFF intake** block at the top of your agent file.
 
 ---
 
@@ -41,15 +41,24 @@ END HANDOFF #N
 **The handoff is a DOCUMENT the specialist reads, not a block the user pastes.** For each handoff:
 
 1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.
-2. **Print a short pointer to the user** — which agent to open, which handoff doc to read, and which report they'll submit back:
+2. **Print a short pointer to the user** — which agent to open, the exact line to paste, and which report they'll submit back:
    ```
    ── NEXT HANDOFF ──────────────────────────────
    Open agent:   /<skill>            (<agent-name>)
-   It reads:     docs/work/HANDOFF_<agent>.md   ← its full task is in this file
+   Paste this one line into it:
+
+       SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
+
    It produces:  <docs/reviews/REPORT_*.md>     ← come back when done
    I will read that report and continue. I do NOT run this check myself.
    ──────────────────────────────────────────────
    ```
+   **The paste line must start with `SDLC-TASK for`.** That prefix is the trigger every specialist
+   matches on to enter Bounded Task Mode. A bare pointer ("open /<skill>, it reads
+   docs/work/HANDOFF_<agent>.md") is *not* reliable: smaller models fall through to their default or
+   orchestrator mode and hand the task straight back — asking which mode/slug to run, or re-printing
+   the handoff and telling the user to open the very skill they are already in. Verified failure on
+   `gpt-5-mini` (2026-07); the receiving-side backstop is the **HANDOFF intake** block in every agent.
 3. **STOP and wait.** When the user returns with the completion phrase / report path, read the REPORT and continue. Never open the specialist for them, and never do the check yourself.
 
 ## Contents of the handoff document

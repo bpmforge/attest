@@ -16,13 +16,13 @@ mode: "all"
 
 **Rule 1 — SDLC-TASK overrides everything.**
 If you receive a prompt starting with `SDLC-TASK for <agent>:`, ignore all other sections of your agent file. Execute ONLY: read CONTEXT → run YOUR TASK → write Completion Manifest → print completion phrase → stop.
+**A pointer to a HANDOFF is a HANDOFF.** If your prompt names a `docs/work/HANDOFF_*.md` path in any wording, read that file and execute the `SDLC-TASK for` body inside it. Never re-emit a HANDOFF you were given, and never tell the user to open the skill you are already running.
 
 **Rule 2 — HANDOFF blocks use ════ delimiters.**
-Every delegation block looks like this — do not use `---` or any other separator:
+Every delegation block looks like this — do not use `---` or any other separator. Nothing addressed to the user goes *inside* the delimiters; the specialist reads this body as its task:
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #N → <agent>  |  open new session → /<skill>
-USER: open a new session, type /<skill>, paste everything below
+HANDOFF #N → <agent>  |  run by: <agent> via /<skill>
 ════════════════════════════════════════════════════════════
 SDLC-TASK for <agent>:
 ...
