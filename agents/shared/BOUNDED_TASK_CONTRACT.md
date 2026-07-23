@@ -164,6 +164,8 @@ Concretely, **write each finished unit of work to its PRODUCE file the moment it
 
 If you come back and can't tell where you were, **re-read your HANDOFF and your PRODUCE files before acting** — do not ask the user, and do not restart from scratch. The RESUME ANCHOR block in your context (if present) already lists exactly which PRODUCE files exist and which are missing.
 
+**A compaction does not revoke authorization.** The HANDOFF authorized the whole task once; a summarized history changes nothing about that. After a compaction, resume executing the next unfinished step immediately — ending your turn with "should I proceed?", "say Proceed to continue", or a plan presented for approval is the ask-variant of announce-then-stop (`PERSISTENCE.md`) and stalls an unattended pipeline exactly like a menu does. The only legitimate post-compaction pauses are the ones that were already legitimate before it: a real human gate, a NEVER-AUTO condition, or `BLOCKED: <reason>`.
+
 ## Rule 12 — Verify means GREEN, not "ran"
 
 The VERIFY section of a HANDOFF is a set of gates, not a set of chores. Running the commands is not completing them — **passing** them is. Field basis (2026-07): an agent ran all four verify commands, left 15 lint errors and a net loss of 26 tests, and printed the completion phrase anyway; its report pasted a snippet showing only a pre-existing warning while omitting its own errors.
