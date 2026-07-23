@@ -297,7 +297,12 @@ function buildAnchor(root: string): string | null {
     "\nIf a compaction summary precedes this turn: the HANDOFF's authorization still " +
     "stands — execute the summary's next step NOW. Do not ask 'should I proceed', do not " +
     "present your plan for approval, do not wait for confirmation. Asking permission to " +
-    "continue an already-authorized task is a contract violation (BOUNDED_TASK_CONTRACT).";
+    "continue an already-authorized task is a contract violation (BOUNDED_TASK_CONTRACT). " +
+    "The same rule holds MID-TASK, compaction or not: never end a turn asking whether to run " +
+    "a step the HANDOFF already lists — especially its verify/test commands ('Shall I run the " +
+    "tests now?' is the observed failure). Run them. If an environment dependency is down " +
+    "(e.g. Podman), run the command anyway, capture the literal failure, and report BLOCKED " +
+    "with it — a failed run is evidence; an unasked question is a stall.";
 
   const anchor =
     "## RESUME ANCHOR (regenerated from disk every turn — authoritative)\n" +

@@ -193,10 +193,14 @@ This is a bounded task from the SDLC lead. Run these phases in order:
 4. Read 2–3 existing files in the same directories as the output files — note their patterns
 5. **Capture the baseline (MANDATORY before any edit).** Run the project's test command once,
    BEFORE touching anything, and record the passing count and the exit status —
-   e.g. `1125 passed`. This number is your floor: Phase 4 cannot complete below it. If the
-   baseline itself is red, print `BLOCKED: baseline red — <failing summary line>` and stop;
-   never start building on a broken suite, and never let a pre-existing failure be blamed
-   on your change (or vice versa).
+   e.g. `1125 passed`. Run it **exactly as the HANDOFF or project defines it — no added
+   flags**: a 2026-07 trace lost its baseline because the agent appended `--runInBand` to a
+   vitest version that rejects it, then proceeded without ever re-running the plain command.
+   If your invocation errors for a flag/tooling reason, re-run the unmodified command before
+   concluding anything. This number is your floor: Phase 4 cannot complete below it. If the
+   baseline itself is genuinely red, print `BLOCKED: baseline red — <failing summary line>`
+   and stop; never start building on a broken suite, and never let a pre-existing failure be
+   blamed on your change (or vice versa).
 
 **Phase 2 — Verify APIs (the pre-code check)**
 This is the **pre-code check** (`/pre-code`): verify every library API against a real source BEFORE the first import — never write an external API from training-data memory. For every external library or framework referenced in the task:
@@ -239,6 +243,11 @@ done anyway. The loop rules that prevent that:
    checklist of what should be true, and never a snippet chosen to show a pre-existing
    warning while omitting your own errors. If output is long, the summary line alone is
    acceptable; a curated excerpt is not.
+6. **Never ask permission to run a verify command.** "Shall I run the integration tests
+   now?" (2026-07 field trace) is a stall, not caution — the HANDOFF authorized every
+   command it lists when it was issued. If a command has an environment dependency
+   (a database, Podman, a dev server), run it anyway: a captured failure is evidence you
+   report as `BLOCKED: <literal error>`; an unasked question produces nothing.
 
 Do not modify tests to pass — fix the implementation. Deleting or stubbing an existing test IS
 modifying tests to pass.
