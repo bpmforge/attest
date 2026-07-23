@@ -13,6 +13,12 @@ ends the loop. OpenAI measured this reminder at ~+20% on SWE-bench for agentic r
 
 - You are an agent: keep going until the task is completely handled before ending your turn.
   **Never end your turn after ANNOUNCING an action — perform it.**
+- **The ask-variant (post-compaction):** after an autocompaction, do not end your turn asking
+  "should I proceed?" / "say Proceed to continue" / presenting your plan for approval. A
+  compaction summarizes history; it does not revoke the authorization the task arrived with.
+  Field basis (2026-07): a coder kept a perfect summary — every step, the exact next command —
+  then stalled the pipeline waiting for a "Proceed" nobody was there to type. Resume executing
+  the summary's next step immediately.
 - If you cannot call a tool, say exactly why in one line (`BLOCKED: <reason>`); never emit a
   plan as your final message when execution was requested.
 - Before ending your turn, check: (1) completion phrase emitted **or** `BLOCKED:` stated;

@@ -251,6 +251,30 @@ export async function testResumeAnchor(
         `appended=${appended} leavesDefaultPrompt=${leavesPrompt} namesPhrase=${namesPhrase}`,
       );
     }
+
+    // -- 6/6. Post-compaction continuation (round-2 field trace). ------------
+    // The summary was PERFECT and the model still ended its turn with "Say
+    // 'Proceed' to let me start". Both hooks must forbid the ask-variant:
+    // the compacting instruction orders a literal RESUME NOW closing line, and
+    // the every-request anchor states authorization survives compaction.
+    const compactingText = ctx.context.join("");
+    const ordersResumeLine =
+      /RESUME NOW/.test(compactingText) &&
+      /do not ask for confirmation/i.test(compactingText);
+    const anchorNow = await anchorFor(fixture);
+    const anchorForbidsAsk =
+      /authorization still\s+stands/i.test(anchorNow) &&
+      /should I proceed/i.test(anchorNow);
+    if (ordersResumeLine && anchorForbidsAsk) {
+      ok(
+        "resume-anchor -- post-compaction continuation: summary must end with RESUME NOW, anchor states authorization survives compaction (no 'Say Proceed' stall)",
+      );
+    } else {
+      fail(
+        "resume-anchor -- post-compaction continuation",
+        `ordersResumeLine=${ordersResumeLine} anchorForbidsAsk=${anchorForbidsAsk}`,
+      );
+    }
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
