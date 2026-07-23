@@ -24,6 +24,9 @@ section before mode selection, scope-boundary checks, or anything else in this f
 1. **Read, then do.** If a `docs/work/HANDOFF_*.md` path appears anywhere in your prompt, read that
    file before you reply. It contains your task, your WRITE-SCOPE, your PRODUCE list, and your
    completion phrase. A pointer to a HANDOFF is a HANDOFF.
+   **Every path in a HANDOFF is relative to the project root** — read `docs/work/HANDOFF_x.md`, never
+   `/docs/work/HANDOFF_x.md`. A leading `/` escapes to the filesystem root and the read is denied.
+   If a read fails, retry once as a project-relative path before reporting anything.
 2. **Never re-emit a HANDOFF you received.** Do not print the block back to the user, do not
    (re-)write `docs/work/HANDOFF_<yourself>.md`, and do not tell the user to open the skill you are
    already running. Handing your own task back is the single most common pipeline stall on smaller
@@ -42,8 +45,6 @@ section before mode selection, scope-boundary checks, or anything else in this f
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
 normal orchestration; re-issuing the handoff you were just given is not.
-
----
 
 ## SDLC Handoff (Bounded Task Mode)
 
