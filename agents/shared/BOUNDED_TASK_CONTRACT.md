@@ -155,3 +155,11 @@ Enforced by `scripts/validators/validate-no-reinvent.sh` (hard-fails edits to `G
 ## Rule 10 — Phase-gated checkpoint/revert (B7)
 
 For multi-phase work (> 3 sequential gated phases), Rule 8's 3-strike escalation is backed by a git checkpoint. After a phase gate returns **PASS**, the orchestrator checkpoints it (commit + `phase/<name>-pass-*` tag). When a later phase fails unrecoverably, it **reverts to the last known-good checkpoint and restarts that phase from clean state** — it does not unwind from the error context (a weak model cannot reliably edit its way out of a broken state). See `agents/shared/CHECKPOINT_REVERT.md`. Reverts are for unrecoverable failure only; exploration uses a branch.
+
+## Rule 11 — Checkpoint as you go, so a compaction can't erase progress
+
+On a long task the runtime may **autocompact** — replace the conversation with a summary — and a weaker model then loses the thread: it re-does finished work, forgets which PRODUCE files it still owes, or drops the completion phrase. You cannot prevent compaction, but you can make it survivable by keeping the truth on disk, where the `resume-anchor` plugin re-reads it into every turn (`plugins/resume-anchor.ts`).
+
+Concretely, **write each finished unit of work to its PRODUCE file the moment it's done — never batch all writes to the end.** A completed finding, a written function, a done sub-section: `write()` it immediately. Two reasons: an existing PRODUCE file is how the anchor (and you, post-compaction) tell finished work from owed work — a file that isn't there yet reads as "still to do"; and `compaction.prune` silently drops old tool results, so a file you read 20 turns ago is gone from context but its path on disk is not. For multi-phase specialists this is already the `phaseN.md`-per-phase pattern; for single-output tasks, append to the PRODUCE file incrementally rather than holding the whole deliverable in context.
+
+If you come back and can't tell where you were, **re-read your HANDOFF and your PRODUCE files before acting** — do not ask the user, and do not restart from scratch. The RESUME ANCHOR block in your context (if present) already lists exactly which PRODUCE files exist and which are missing.
