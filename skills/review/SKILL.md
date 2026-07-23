@@ -56,7 +56,7 @@ smaller models fall through to their default mode and hand the task back instead
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #1 → code-reviewer  |  run by: /review-code
+HANDOFF #1 → code-reviewer  |  run by: code-reviewer via /review-code
 ════════════════════════════════════════════════════════════
 SDLC-TASK for code-reviewer:
 
@@ -78,7 +78,7 @@ END HANDOFF #1
 ════════════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════════════
-HANDOFF #2 → security-auditor  |  run by: /security
+HANDOFF #2 → security-auditor  |  run by: security-auditor via /security
 ════════════════════════════════════════════════════════════
 SDLC-TASK for security-auditor:
 
@@ -100,7 +100,7 @@ END HANDOFF #2
 ════════════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════════════
-HANDOFF #3 → performance-engineer  |  run by: /perf
+HANDOFF #3 → performance-engineer  |  run by: performance-engineer via /perf
 ════════════════════════════════════════════════════════════
 SDLC-TASK for performance-engineer:
 

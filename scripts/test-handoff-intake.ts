@@ -74,21 +74,26 @@ export async function testHandoffIntake(
   );
 
   // -- 1/4. RED: both defects planted in one coordinator are both flagged ----
+  // The fixture plants USER: lines in TWO placements: the block header AND the
+  // task body between the 2nd and 3rd delimiter. The first implementation of
+  // this check toggled in/out on every ════, which marked header and footer as
+  // "inside" and the task body as "outside" -- inverting the very region the
+  // rationale is about. Requiring >= 2 hits pins both placements.
   const red = runValidator(validatorScript, path.join(fixturesDir, "red"));
-  const redFlagsUserLine = red.stdout.includes(
-    '"category":"user-line-in-handoff-body"',
-  );
+  const userLineHits = (
+    red.stdout.match(/"category":"user-line-in-handoff-body"/g) ?? []
+  ).length;
   const redFlagsMissingIntake = red.stdout.includes(
     '"category":"missing-handoff-intake"',
   );
-  if (red.exitCode !== 0 && redFlagsUserLine && redFlagsMissingIntake) {
+  if (red.exitCode !== 0 && userLineHits >= 2 && redFlagsMissingIntake) {
     ok(
-      "validate-handoff-discipline -- RED: a USER: line inside the ════ body and a missing HANDOFF intake block are both flagged",
+      "validate-handoff-discipline -- RED: USER: lines in both the block header AND the task body are flagged, plus the missing HANDOFF intake block",
     );
   } else {
     fail(
       "validate-handoff-discipline -- RED (handoff intake)",
-      `expected exit!=0 with both categories, got exit=${red.exitCode} userLine=${redFlagsUserLine} missingIntake=${redFlagsMissingIntake}`,
+      `expected exit!=0, >=2 user-line hits and missing-intake, got exit=${red.exitCode} userLineHits=${userLineHits} missingIntake=${redFlagsMissingIntake}`,
     );
   }
 

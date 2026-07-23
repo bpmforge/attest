@@ -75,7 +75,7 @@ assume a spawn). The claimed module's contract becomes the HANDOFF contract:
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF → <owner/agent>  |  run by: /<skill>   (default /code)
+HANDOFF → <owner/agent>  |  run by: <owner/agent> via /<skill>   (default /code)
 ════════════════════════════════════════════════════════════
 SDLC-TASK for <agent>:
 
