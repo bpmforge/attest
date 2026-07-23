@@ -191,18 +191,40 @@ with open(cfg_path, "w") as f:
 print(f"  wrote provider '{pid}' with {len(model_ids)} model(s)")
 PY
 
-# ── 4. Point the embedder at the same host (code-search / memory) ─────────────
-if [[ "$DO_EMBED" == true ]]; then
-  step "Embedder env (code-search / memory vector search)"
-  PROFILE="$HOME/.bashrc"; [[ -n "${ZSH_VERSION:-}" ]] && PROFILE="$HOME/.zshrc"
-  LINE="export LM_STUDIO_URL=\"${LLM_URL%/v1}\"   # bpm-opencode-experts: remote embedder"
-  if [[ -f "$PROFILE" ]] && grep -qF 'bpm-opencode-experts: remote embedder' "$PROFILE"; then
-    # keep it current in case the URL changed
-    tmp="$(mktemp)"; grep -vF 'bpm-opencode-experts: remote embedder' "$PROFILE" > "$tmp"; mv "$tmp" "$PROFILE"
-  fi
-  printf '%s\n' "$LINE" >> "$PROFILE"
-  ok "set LM_STUDIO_URL in $PROFILE (run: source $PROFILE)"
+# ── 4. Shell environment: embedder URL + tool PATHs in the LOGIN shell's rc ───
+# CRITICAL: write to the USER'S login shell rc, not the shell THIS script runs
+# under. The script is bash (#!/usr/bin/env bash), so `$ZSH_VERSION` is always
+# empty here and the old detection always picked ~/.bashrc — wrong on a zsh box,
+# where the interactive session never reads it (verified live, 2026-07). Detect
+# from the passwd entry / $SHELL instead.
+login_profile() {
+  local sh
+  sh="$(getent passwd "$(id -un)" 2>/dev/null | cut -d: -f7)"
+  [[ -z "$sh" ]] && sh="${SHELL:-}"
+  case "$sh" in
+    */zsh)  printf '%s\n' "$HOME/.zshrc" ;;
+    */bash) printf '%s\n' "$HOME/.bashrc" ;;
+    *)      printf '%s\n' "${ENV:-$HOME/.profile}" ;;
+  esac
+}
+
+step "Shell environment (login shell rc)"
+PROFILE="$(login_profile)"
+MARK="bpm-opencode-experts: dev env"
+touch "$PROFILE"
+# Rewrite our managed block idempotently: drop any prior block, append fresh.
+if grep -qF "$MARK" "$PROFILE"; then
+  tmp="$(mktemp)"; sed "/# $MARK/,/# end $MARK/d" "$PROFILE" > "$tmp"; mv "$tmp" "$PROFILE"
 fi
+{
+  printf '\n# %s\n' "$MARK"
+  # npm-global bin: where check-tools installs npm tools when the global prefix
+  # is not writable (knip/ts-prune/jscpd). Nothing else puts this on PATH.
+  printf 'export PATH="$HOME/.npm-global/bin:$PATH"\n'
+  [[ "$DO_EMBED" == true ]] && printf 'export LM_STUDIO_URL="%s"\n' "${LLM_URL%/v1}"
+  printf '# end %s\n' "$MARK"
+} >> "$PROFILE"
+ok "wrote dev env to $PROFILE (PATH += ~/.npm-global/bin${DO_EMBED:+, LM_STUDIO_URL}) — run: source $PROFILE"
 
 # ── 5. Verify ─────────────────────────────────────────────────────────────────
 step "Verify"
