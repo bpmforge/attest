@@ -32,12 +32,31 @@ write(filePath="docs/work/HANDOFF_MANIFEST_review_<date>.md", content="
 ")
 ```
 
-**Step 2 — Emit all 3 HANDOFFs in one message:**
+**Step 2 — Emit all 3 HANDOFFs in one message.**
+
+Write each block below to its own `docs/work/HANDOFF_<agent>.md`, then print this pointer. Nothing
+addressed to the user goes *inside* the `════` delimiters — the specialist reads that body as its
+task and will relay any `USER:` line straight back at you.
+
+```
+── 3 HANDOFFS READY ──────────────────────────
+Open each agent and paste its one line:
+
+  /review-code   SDLC-TASK for code-reviewer: read docs/work/HANDOFF_code-reviewer.md and execute it.
+  /security      SDLC-TASK for security-auditor: read docs/work/HANDOFF_security-auditor.md and execute it.
+  /perf          SDLC-TASK for performance-engineer: read docs/work/HANDOFF_performance-engineer.md and execute it.
+
+Come back with all 3 report paths and I'll aggregate.
+──────────────────────────────────────────────
+```
+
+Each paste line **must start with `SDLC-TASK for`** — that prefix is the trigger the specialist
+matches to enter Bounded Task Mode. A bare "open /review-code, it reads …" pointer is not reliable:
+smaller models fall through to their default mode and hand the task back instead of running it.
 
 ```
 ════════════════════════════════════════════════════════════
-HANDOFF #1 → code-reviewer  |  open new session → /review-code
-USER: open a new OpenCode session, type /review-code, paste everything below
+HANDOFF #1 → code-reviewer  |  run by: code-reviewer via /review-code
 ════════════════════════════════════════════════════════════
 SDLC-TASK for code-reviewer:
 
@@ -59,8 +78,7 @@ END HANDOFF #1
 ════════════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════════════
-HANDOFF #2 → security-auditor  |  open new session → /security
-USER: open a new OpenCode session, type /security, paste everything below
+HANDOFF #2 → security-auditor  |  run by: security-auditor via /security
 ════════════════════════════════════════════════════════════
 SDLC-TASK for security-auditor:
 
@@ -82,8 +100,7 @@ END HANDOFF #2
 ════════════════════════════════════════════════════════════
 
 ════════════════════════════════════════════════════════════
-HANDOFF #3 → performance-engineer  |  open new session → /perf
-USER: open a new OpenCode session, type /perf, paste everything below
+HANDOFF #3 → performance-engineer  |  run by: performance-engineer via /perf
 ════════════════════════════════════════════════════════════
 SDLC-TASK for performance-engineer:
 

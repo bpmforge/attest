@@ -22,6 +22,7 @@ const BLOCKS_DIR = join(AGENTS_DIR, 'shared', 'blocks');
 const COMPACT_DIR = join(ROOT, 'dist', 'compact-agents');
 
 const BLOCKS = [
+  { name: 'handoff-intake', heading: '## HANDOFF intake (MANDATORY — resolve before any other mode)' },
   { name: 'loop-prevention', heading: '## Loop prevention (MANDATORY)' },
   { name: 'context-budget', heading: '## Context Budget (MANDATORY for local models)' },
   { name: 'research-tools', heading: '## Research tools (available, optional)' },
@@ -80,10 +81,31 @@ function currentSection(text, heading) {
   return lines.slice(start, end).join('\n').trimEnd() + '\n';
 }
 
-// Primary agents only — top-level agents/*.md (clusters keep their own one-liners)
-const agentFiles = readdirSync(AGENTS_DIR)
+// Top-level agents/*.md are the primary agents. Cluster agents live in
+// subdirectories (code-review/, security/, performance/, game/, sdlc/onboard/)
+// and carry the same mandatory blocks, so --check/--fix must reach them too —
+// otherwise a block edit propagates to the primaries only and the clusters keep
+// silently stale text. agents/shared/ holds reference docs and block sources,
+// never agents, so it is excluded.
+function collectAgents(dir) {
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory()) {
+      if (e.name !== 'shared') out.push(...collectAgents(join(dir, e.name)));
+    } else if (e.name.endsWith('.md')) {
+      out.push(join(dir, e.name));
+    }
+  }
+  return out;
+}
+const rel = (f) => f.slice(AGENTS_DIR.length + 1);
+
+// --compact emits a FLAT dist/compact-agents/ that install.sh overlays onto
+// agents/ by basename, so it stays top-level only.
+const primaryAgentFiles = readdirSync(AGENTS_DIR)
   .filter((f) => f.endsWith('.md'))
   .map((f) => join(AGENTS_DIR, f));
+const agentFiles = mode === '--compact' ? primaryAgentFiles : collectAgents(AGENTS_DIR);
 
 let drifted = [];
 let compacted = 0;
@@ -116,7 +138,7 @@ for (const file of agentFiles) {
         text = replaceSection(text, heading, canonical);
         writeFileSync(file, text);
       }
-      drifted.push(`${basename(file)} :: ${name}`);
+      drifted.push(`${rel(file)} :: ${name}`);
     }
   }
 }

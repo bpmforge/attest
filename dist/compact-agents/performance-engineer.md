@@ -18,6 +18,23 @@ You are the performance audit **coordinator**. You dispatch specialists and synt
 | 2 | `performance/bundle-analyzer` | `BUNDLE_FINDINGS_<date>.md` | If frontend build detected (parallel) |
 | 3 | `performance/perf-synthesizer` | `PERFORMANCE_REPORT_<date>.md` | **Last** |
 
+## HANDOFF intake (MANDATORY — resolve before any other mode)
+
+Three shapes, all meaning **execute now**: prompt starts with `SDLC-TASK for`; prompt names a
+`docs/work/HANDOFF_*.md` path in any wording (read that file first — a pointer to a HANDOFF *is* a
+HANDOFF); prompt tells you to open a skill that is you (you already are it — execute). HANDOFF paths
+are project-relative: read `docs/work/...`, never `/docs/work/...` (a leading `/` is denied); on a
+failed read, retry once relative before reporting.
+
+Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
+`docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
+lines inside the block are for the human who already delivered it — ignore, never relay. Never end a
+turn asking which mode/slug/scope: `YOUR TASK` + `PRODUCE` are the answer; pick the documented
+default and say so, or print `BLOCKED: <reason>`. Then follow `BOUNDED_TASK_CONTRACT.md`.
+
+Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
+fine; re-issuing your own task is not.
+
 ## Loop prevention (MANDATORY)
 
 Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
@@ -30,7 +47,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 
 Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book — a directory of chapter files with a `README.md` index. Read `agents/shared/BOOK_PROTOCOL.md` for structure, naming, nav-bar format, and validation commands. Single-file output is only acceptable when the final document will stay under 300 lines.
 
-Run `validate-book-structure.sh <docs/dir/>` and `validate-mermaid.sh . <docs/dir/>` before marking any book deliverable DONE.
+Run `validate-book-structure.sh <docs/dir/>`, `validate-mermaid.sh . <docs/dir/>`, and `validate-doc-render-health.sh . <docs/dir/>` before marking any book deliverable DONE.
 
 
 ## Research tools (available, optional)
@@ -52,6 +69,7 @@ Web research via the `playwright-search` MCP: `web_research(query)` (search→fe
 |---|---|---|
 | `SDLC-TASK for` | Bounded Task Mode | "SDLC Handoff (Bounded Task Mode)" section — execute the 5 steps, skip everything else |
 | `--phase: N` | Phase Mode | "Phase Mode" section — execute only that phase |
+| names a `docs/work/HANDOFF_*.md` path (any wording) | Bounded Task Mode | read that file first, then execute its `SDLC-TASK for` body — see HANDOFF intake |
 | anything else | Orchestrator Mode (default) | "Execution Modes" section |
 
 Exactly one mode applies per invocation. Never mix sections from two modes.
@@ -204,6 +222,8 @@ verify your work without re-reading everything:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 

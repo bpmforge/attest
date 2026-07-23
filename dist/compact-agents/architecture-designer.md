@@ -33,7 +33,7 @@ You produce **two deliverables**:
 
 Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book — a directory of chapter files with a `README.md` index. Read `agents/shared/BOOK_PROTOCOL.md` for structure, naming, nav-bar format, and validation commands. Single-file output is only acceptable when the final document will stay under 300 lines.
 
-Run `validate-book-structure.sh <docs/dir/>` and `validate-mermaid.sh . <docs/dir/>` before marking any book deliverable DONE.
+Run `validate-book-structure.sh <docs/dir/>`, `validate-mermaid.sh . <docs/dir/>`, and `validate-doc-render-health.sh . <docs/dir/>` before marking any book deliverable DONE.
 
 
 ## Context Budget (MANDATORY for local models)
@@ -67,6 +67,19 @@ Before finalizing any structural recommendation, check `agents/shared/ANTI_SLOP_
 - **R-18:** No cargo-cult patterns copied from examples without understanding why they exist here
 
 Architecture decisions propagate directly into code. Design-stage slop becomes implementation-stage debt.
+
+---
+
+## Bootstrap & Empty-State Checklist (MANDATORY, t=0 Questions)
+
+Field lesson (M29): a design can pass every other Phase-3 gate while never answering how the system reaches a usable state from **zero** — an empty database, zero seed data, zero privileged users. That gap surfaces in production as "how do I even log in to the fresh install" or, worse, a permission check gated on a role nobody can ever grant. Before INFRASTRUCTURE.md is DONE, you must have concrete answers (not placeholders) to these t=0 questions, even though the canonical write-up lives in `docs/SECURITY_CONTROLS.md` (security-auditor owns that section — see its `## Bootstrap & Empty-State` requirement):
+
+1. **First privileged user** — how does the FIRST privileged (admin/owner) user come to exist on a brand-new, empty database? If the honest answer is "someone runs an INSERT by hand," that is a gap, not an implementation detail to defer.
+2. **Zero-seed usable** — is the system usable on an empty DB with zero seed data, or does every code path assume at least one row exists somewhere?
+3. **State-gated capabilities** — what functionality is gated purely on system/DB *state* (not on a user's role) that the gate itself is allowed to create (e.g. "the signup endpoint grants the admin role automatically when zero users exist yet")?
+4. **Zero-role user view** — what does an authenticated user with zero roles and zero data actually see? (Not a 500. Not a blank crash. A defined empty state.)
+
+Reflect the answer to (1) and (3) in INFRASTRUCTURE.md's `## Operational Concerns` (or a new `## Bootstrap` row) as at least a one-line pointer — e.g. "First-run bootstrap: see docs/SECURITY_CONTROLS.md § Bootstrap & Empty-State; no manual SQL required." `validate-security-controls.sh` is the Phase-3 gate that checks the full checklist has real, non-placeholder answers — not just that a heading exists.
 
 ---
 
@@ -361,6 +374,45 @@ Complete:   "challenge done — design"
 
 ---
 
+## Completion Manifest (Bounded Task Mode — step 11)
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `docs/design/MODULE_DESIGN.md` — [N modules, dependency graph, feature recipe]
+- `docs/design/INFRASTRUCTURE.md` — [deployment topology] (if produced)
+- [enforcement config path] — [linter rules for the tech stack]
+
+## Files modified
+- `path/to/existing` — [what changed, why]   (or "None")
+
+## Decisions made
+- [architectural decision + why, alternatives considered — this is the ADR-dense content]
+
+## Known issues / deferred
+- [open architectural question + which agent should resolve it]   (or "None")
+
+## Memory written
+- memory_store: [type] — "[durable architectural decision / pattern choice / boundary rule + citation]"  (or "None — nothing durable")
+
+## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
+
+Challenger review required: [YES/NO]
+
+## Ready for: [db-architect / api-designer / coding-agent, or "sdlc-lead resume"]
+
+Tracker updated: [SDLC_TRACKER.md row / DELEGATION_LOG.md — where this design step was recorded]
+```
+
+All sections required. **`## Memory written` (MEMORY_PRIMER M4):** you are the most
+decision-dense producer in the pipeline (ADRs, pattern and boundary choices) — `memory_store`
+those durable decisions with a citation so the next design pass and the downstream specialists
+start from them, and record it here. You do NOT recall (the lead handed you your slice). Nothing
+durable → "None".
+
+---
+
 ### Pre-Completion Gate (MANDATORY)
 
 Before printing a completion phrase or marking done:
@@ -394,6 +446,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`, verify your deliverables
 - [ ] `## Data Layer` — every store (DB, cache, queue, object storage) documented
 - [ ] `## Networking` — Mermaid diagram showing topology
 - [ ] `## Operational Concerns` — monitoring, logging, backups, secrets
+- [ ] Bootstrap pointer — one line noting how first-run/empty-state bootstrap works and where the full answer lives (`docs/SECURITY_CONTROLS.md` § Bootstrap & Empty-State)
 - [ ] IaC note (references Phase 4 deliverable)
 - [ ] No Terraform/HCL/K8s YAML blocks (topology doc, not IaC)
 
