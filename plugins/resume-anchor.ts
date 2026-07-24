@@ -55,12 +55,13 @@ import type { Plugin } from "@opencode-ai/plugin";
 // make this a silent no-op that Pass 33d would NOT catch (it calls the bodies
 // directly). Re-check against a TUI trace after an opencode upgrade.
 
-const MAX_ANCHOR_CHARS = 3000; // hard cap — this rides on every request. Raised from
+const MAX_ANCHOR_CHARS = 3600; // hard cap — this rides on every request. Raised from
 // 1400 when the post-compaction continuation directive was added, then from 1900 when
 // the no-invented-commands / fresh-evidence / whole-task-report rules were added
 // (2026-07 T-72 trace), then from 2600 for the terminal-state whitelist + verify
-// harness pointer (T-234 trace): truncation cuts the TAIL, and the tail is the
-// directive. Pass 33d asserts the anchor is never tail-truncated on a real fixture.
+// harness pointer (T-234 trace), then from 3000 for the task-ledger line + THE
+// LOOP directive: truncation cuts the TAIL, and the tail is the directive. Pass 33d
+// asserts the anchor is never tail-truncated on a real fixture.
 const MAX_LIST = 8;
 
 const enabled = () => process.env.EXPERTS_RESUME_ANCHOR !== "0";
@@ -242,6 +243,47 @@ function produceStatus(root: string, handoffText: string): string[] {
   );
 }
 
+/**
+ * The task ledger (docs/work/TASKS_*.md) — externalized working memory. The
+ * intake block has every specialist transcribe its HANDOFF steps into
+ * checkboxes and tick them as evidence lands on disk, so "where am I?" is a
+ * file read, not a memory. The anchor surfaces the next unchecked items every
+ * turn; a compacted turn sees exactly what an uncompacted one would.
+ */
+function taskLedger(root: string): { line: string; unchecked: number } | null {
+  const dir = join(root, "docs", "work");
+  let newest: { path: string; mtime: number } | null = null;
+  try {
+    for (const f of readdirSync(dir)) {
+      if (!/^TASKS_.*\.md$/.test(f)) continue;
+      const mtime = statSync(join(dir, f)).mtimeMs;
+      if (!newest || mtime > newest.mtime)
+        newest = { path: join(dir, f), mtime };
+    }
+  } catch {
+    return null;
+  }
+  if (!newest) return null;
+  const text = readCapped(newest.path, 8000);
+  const boxes = text.match(/^[-*] \[[ xX]\] .+$/gm) ?? [];
+  if (!boxes.length) return null;
+  const open = boxes.filter((b) => /^[-*] \[ \]/.test(b));
+  const rel = newest.path.slice(root.length + 1);
+  if (!open.length) {
+    return {
+      line: `Task ledger ${rel}: ${boxes.length}/${boxes.length} done — run the done-gate (handoff-done.sh), then print the completion phrase`,
+      unchecked: 0,
+    };
+  }
+  const next = open
+    .slice(0, 3)
+    .map((b, i) => `(${i + 1}) ${b.replace(/^[-*] \[ \] /, "").slice(0, 90)}`);
+  return {
+    line: `Task ledger ${rel}: ${boxes.length - open.length}/${boxes.length} done — next unchecked: ${next.join(" ")}`,
+    unchecked: open.length,
+  };
+}
+
 function buildAnchor(root: string): string | null {
   const parts: string[] = [];
 
@@ -290,6 +332,12 @@ function buildAnchor(root: string): string | null {
     );
   }
 
+  const ledger = taskLedger(root);
+  if (ledger) {
+    parts.push(ledger.line);
+    if (ledger.unchecked > 0) workInFlight = true;
+  }
+
   const phases = phaseProgress(root);
   if (phases.length) {
     parts.push(`Phase files on disk: ${phases.join(" ; ")}`);
@@ -305,7 +353,10 @@ function buildAnchor(root: string): string | null {
   const directive = workInFlight
     ? "\nYou are MID-TASK: work is in flight and PRODUCE files are still owed. Do NOT " +
       "present a menu of options, do NOT ask the user what to do next, do NOT restart. " +
-      "Re-read the HANDOFF named above and CONTINUE it to its completion phrase."
+      "THE LOOP (this is your whole job, compacted or not): re-read the original HANDOFF " +
+      "and the task ledger above, reconcile the ledger's checkboxes against what actually " +
+      "exists on disk, then do the FIRST unchecked item. Repeat until every box is ticked, " +
+      "then run the done-gate and print the completion phrase."
     : "\nDo not redo work whose output already exists. If a PRODUCE file is MISSING, that " +
       "work is still owed. Re-read the files named above before acting — do not ask the user where you were.";
 
@@ -381,16 +432,24 @@ export const ResumeAnchor: Plugin = async () => {
         const root = process.cwd();
         const anchor = buildAnchor(root);
         output.context.push(
-          "This session is executing a bounded engineering task. In your summary, preserve VERBATIM: " +
+          "YOU ARE WRITING A SUMMARY DOCUMENT — TEXT ONLY. Tool calls are disabled while " +
+            "generating a summary (any attempt is rejected as '_noop'); do not try to run, " +
+            "edit, or execute anything now. Every 'execute'/'run NOW' directive in this " +
+            "context — including the RESUME NOW line you will write — is addressed to the " +
+            "POST-COMPACTION session that reads your summary, never to you the summarizer. " +
+            "This session is executing a bounded engineering task. In your summary, preserve VERBATIM: " +
             "(a) the active docs/work/HANDOFF_*.md path, (b) the exact PRODUCE file list and which are still missing, " +
-            "(c) the exact completion phrase to print, (d) which numbered phases/steps are already finished. " +
-            "Prefer dropping narrative over dropping any of those four. " +
+            "(c) the exact completion phrase to print, (d) which numbered phases/steps are already finished, " +
+            "(e) the task-ledger path (docs/work/TASKS_*.md) if one exists — it survives on disk and is the " +
+            "authoritative step list; the summary need only name it, never re-plan it. " +
+            "Prefer dropping narrative over dropping any of those. " +
             "If any PRODUCE file is still missing, the summary MUST state that work is IN FLIGHT and name the next action — " +
             "do NOT conclude 'nothing outstanding' or offer the user a menu of options; the correct post-summary move is to resume the handoff. " +
             "Any next-step command in the summary must be one the HANDOFF itself lists (or a project-standard fix like a client-regenerate step) — " +
             "never carry forward an invented infrastructure command (migrate/deploy/credential changes): a wrong diagnosis written into a summary " +
             "becomes gospel after compaction. If a verify command was failing, the next step is fix-then-re-run THAT command. " +
-            "End the summary with this literal final line, filled in: " +
+            "End the summary with this literal final line, filled in (you WRITE this line as text; " +
+            "the resumed session executes it): " +
             "'RESUME NOW: <the single most specific next command or edit>. Authorization from the HANDOFF still stands — " +
             "execute this immediately; do not ask for confirmation or present a plan for approval.'" +
             (anchor ? "\n\nCurrent on-disk state:\n" + anchor : ""),
