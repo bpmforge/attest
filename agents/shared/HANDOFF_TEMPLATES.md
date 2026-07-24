@@ -93,6 +93,13 @@ total. The parts share one budget — do not let them fight.
 
 **Write this block to `docs/work/HANDOFF_<agent>.md`**, then print the NEXT HANDOFF pointer (above) to the user. The block below IS the document the specialist reads — the `════` delimiters frame the task.
 
+**Also write the task ledger `docs/work/TASKS_<agent>-<slug>.md`** — the HANDOFF's steps as
+`- [ ] <step>` checkboxes, one per step, in order. You (the orchestrator, a strong model) transcribe
+it so the specialist (often a small model) never has to: the specialist ticks boxes as evidence lands
+on disk, the runtime re-injects the next-unchecked items into its every turn, and after a compaction
+its whole job reduces to "reconcile the ledger against disk, do the first unchecked item." A HANDOFF
+without a ledger makes the weakest model in the pipeline do the transcription — write it yourself.
+
 ```
 ════════════════════════════════════════════════════════════
 HANDOFF → <agent-name>   (open /<skill> and read this file)
