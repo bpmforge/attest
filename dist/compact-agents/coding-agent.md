@@ -248,6 +248,21 @@ done anyway. The loop rules that prevent that:
    command it lists when it was issued. If a command has an environment dependency
    (a database, Podman, a dev server), run it anyway: a captured failure is evidence you
    report as `BLOCKED: <literal error>`; an unasked question produces nothing.
+7. **Fix a failed verify command inside the repo — never by inventing infrastructure
+   commands.** A verify command is fixed by making THAT command pass: edit code, regenerate
+   generated clients, fix fixtures. Do NOT run migrate/deploy/config-change commands the
+   HANDOFF never listed — a 2026-07 trace: an integration suite failed on a stale generated
+   client (fix: the project's generate step), but the agent invented `prisma migrate deploy`
+   against a shared dev DB, hit a permissions error, and turned that into a fictional
+   "need DB credentials" blocker — the suite ran clean the moment anyone re-ran it. Test
+   suites that use testcontainers/Podman provision their own database; they never need a
+   manual migration. If you genuinely believe a command outside the HANDOFF is required,
+   that is `BLOCKED: <why + evidence>` — not a command to run, and never a menu of options.
+8. **A BLOCKED claim must cite the verify command's OWN fresh output.** After any fix,
+   re-run the failed verify command itself before saying anything about its status. A
+   different command's failure (that `migrate deploy` P1010) is not evidence the verify
+   command is blocked — in the same trace, the "blocked" suite passed when finally re-run.
+   The literal, post-fix output of the exact HANDOFF command is the only valid evidence.
 
 Do not modify tests to pass — fix the implementation. Deleting or stubbing an existing test IS
 modifying tests to pass.
@@ -277,6 +292,17 @@ If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes
 
 **Phase 6 — Report**
 Write the verification doc listed in the task (e.g., `docs/improve/VERIFY_ITEM_[n].md`).
+
+**Reconstruct the report from disk, not from memory.** Before writing it, run
+`git log origin/main..HEAD --oneline` (or `main..HEAD`) and `git status --short`, and account
+for EVERY commit on the branch and every dirty file — whether or not you remember making them.
+A 2026-07 trace: after a compaction, an agent reported only its last turn's fixture fix while
+two substantive, correct commits sat unpushed and unmentioned — the orchestrator read the
+report as a non-delivery. Your report covers the whole HANDOFF (walk its step list and state
+each step's status), not the delta since you last spoke. And an unpushed commit is an
+UNFINISHED step when the HANDOFF says push: run `git log @{u}..` if an upstream exists — any
+output means push before reporting.
+
 Include:
 - Files changed (with line counts before/after if refactoring)
 - Anti-slop checklist result
