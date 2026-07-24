@@ -384,6 +384,17 @@ if [ "$MODE" = "global" ]; then
       echo "  Copied scripts/ ($count files) → $DEST/scripts/"
     fi
   fi
+
+  # Stamp the installed version so runtime components (resume-anchor) can
+  # self-identify it — every field trace then answers "which version was
+  # this box running?" without a trip to the machine.
+  if [ -f "$SCRIPT_DIR/package.json" ]; then
+    EXPERTS_VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SCRIPT_DIR/package.json" | head -n 1)
+    if [ -n "$EXPERTS_VERSION" ]; then
+      printf '%s\n' "$EXPERTS_VERSION" > "$DEST/experts-version"
+      echo "  Stamped version: v$EXPERTS_VERSION → $DEST/experts-version"
+    fi
+  fi
 fi
 
 # --- Install Semgrep custom rules ---

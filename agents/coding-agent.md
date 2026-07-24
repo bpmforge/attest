@@ -367,6 +367,20 @@ bash scripts/validators/validate-code-health.sh .
 If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes → document in manifest "Known issues / deferred" with specific reason. Do not silently ship a dimension scoring < 5.
 
 **Phase 6 — Report**
+
+**Gate your "done" mechanically first.** Run:
+
+```
+bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>
+```
+
+`DONE-CHECK: RED` lists exactly what is missing (stale/red verify report, uncommitted or
+unpushed work, missing PRODUCE files, missing completion-report section) — fix those items,
+never argue with them. Only on `DONE-CHECK: GREEN` do you write the report and print the
+completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
+concluded "everything done" with 57 lint errors, no report, and unpushed commits — the
+judgment call is exactly what a small model gets wrong; the script doesn't.)
+
 Write the verification doc listed in the task (e.g., `docs/improve/VERIFY_ITEM_[n].md`).
 
 **Reconstruct the report from disk, not from memory.** Before writing it, run

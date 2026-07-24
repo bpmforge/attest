@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Plugin } from "@opencode-ai/plugin";
 
@@ -63,6 +64,24 @@ const MAX_ANCHOR_CHARS = 3000; // hard cap — this rides on every request. Rais
 const MAX_LIST = 8;
 
 const enabled = () => process.env.EXPERTS_RESUME_ANCHOR !== "0";
+
+// Installed-version stamp (written by install.sh). Every anchor — and thus
+// every compaction summary and field trace — self-identifies which release
+// the box was running; "which version was this?" stops needing a machine trip.
+let _version: string | null = null;
+function expertsVersion(): string {
+  if (_version === null) {
+    try {
+      _version = readFileSync(
+        join(homedir(), ".config", "opencode", "experts-version"),
+        "utf8",
+      ).trim();
+    } catch {
+      _version = "";
+    }
+  }
+  return _version;
+}
 
 function readCapped(path: string, maxChars: number): string {
   try {
@@ -317,12 +336,15 @@ function buildAnchor(root: string): string | null {
     "NOT done), and walk the HANDOFF's step list, not just your last turn's delta. " +
     "Run verify commands via `bash ~/.config/opencode/scripts/verify-handoff.sh <packet>` " +
     "(reads the ```verify fence, keeps output tails, checks the baseline, writes the report " +
-    "itself — one VERIFY: ALL GREEN / RED verdict). A turn may end only three ways: more " +
+    "itself — one VERIFY: ALL GREEN / RED verdict), and gate your 'done' with " +
+    "`bash ~/.config/opencode/scripts/handoff-done.sh <packet>` — print the completion " +
+    "phrase only on DONE-CHECK: GREEN. A turn may end only three ways: more " +
     "work, the completion phrase, or BLOCKED: <evidence> — never a menu of options (A/B/C), " +
     "a confirm-request, or a which-step question.";
 
+  const ver = expertsVersion();
   const anchor =
-    "## RESUME ANCHOR (regenerated from disk every turn — authoritative)\n" +
+    `## RESUME ANCHOR (${ver ? `experts v${ver} — ` : ""}regenerated from disk every turn — authoritative)\n` +
     "Your conversation history may have been summarized by autocompaction. The\n" +
     "facts below were just read from the filesystem, so they are correct even when\n" +
     "your recollection is not. Trust them over memory.\n" +

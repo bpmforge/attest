@@ -134,7 +134,11 @@ The harness runs each command exactly as written, keeps output tails, checks
 the pass-count baseline, and writes docs/work/VERIFY_REPORT.md itself -- the
 specialist pastes that file into the completion report instead of retyping
 outputs (small models relabel errors and truncate summaries when trusted to
-transcribe; the harness makes that impossible).
+transcribe; the harness makes that impossible). Before reporting, require:
+  bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>
+which gates the done-claim mechanically (verify GREEN + fresh, committed,
+pushed, PRODUCE files exist, report appended) -- the completion phrase is
+printed only on DONE-CHECK: GREEN.
 
 Include a Completion Manifest at <manifest-path> with required sections:
 - Files produced (path, content summary, line count) -- every path is
