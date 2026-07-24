@@ -275,6 +275,36 @@ export async function testResumeAnchor(
         `ordersResumeLine=${ordersResumeLine} anchorForbidsAsk=${anchorForbidsAsk}`,
       );
     }
+
+    // -- 7/7. Verify-evidence discipline (T-72 field trace, 2026-07). ----
+    // The agent invented `prisma migrate deploy` (never in the HANDOFF), hit a
+    // permissions error, reported a fictional DB-credentials blocker, and its
+    // post-compaction report covered only the last turn's delta — omitting two
+    // real unpushed commits. Both hooks must carry the counter-rules, and the
+    // every-request anchor must NOT be tail-truncated (the rules live at the
+    // tail; `…` at the end means the cap is too small for a realistic body).
+    const anchorHasEvidenceRules =
+      /never run migrate\/deploy/i.test(anchorNow) &&
+      /git log origin\/main\.\.HEAD/.test(anchorNow) &&
+      /own post-fix output/i.test(anchorNow);
+    const anchorNotTruncated = !anchorNow.endsWith("…");
+    const compactingForbidsInvented =
+      /invented infrastructure command/i.test(compactingText) &&
+      /fix-then-re-run THAT command/i.test(compactingText);
+    if (
+      anchorHasEvidenceRules &&
+      anchorNotTruncated &&
+      compactingForbidsInvented
+    ) {
+      ok(
+        "resume-anchor -- verify-evidence discipline: anchor forbids invented infra commands + orders disk-reconstructed reports (untruncated); compacting hook blocks wrong-diagnosis carry-forward",
+      );
+    } else {
+      fail(
+        "resume-anchor -- verify-evidence discipline",
+        `anchorHasEvidenceRules=${anchorHasEvidenceRules} anchorNotTruncated=${anchorNotTruncated} compactingForbidsInvented=${compactingForbidsInvented} (anchor length=${anchorNow.length})`,
+      );
+    }
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
