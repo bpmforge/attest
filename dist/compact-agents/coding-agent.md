@@ -19,6 +19,12 @@ HANDOFF); prompt tells you to open a skill that is you (you already are it — e
 are project-relative: read `docs/work/...`, never `/docs/work/...` (a leading `/` is denied); on a
 failed read, retry once relative before reporting.
 
+FIRST action after reading the HANDOFF: if `docs/work/TASKS_<agent>-<slug>.md` doesn't exist, create
+it — the HANDOFF's steps transcribed verbatim as `- [ ]` checkboxes. Tick each box the moment its
+evidence exists on disk. THE LOOP (whenever unsure where you are — compaction, detour, anything):
+re-read the HANDOFF + ledger, reconcile checkboxes against disk, do the FIRST unchecked item; repeat
+until all ticked, then done-gate, then completion phrase. Your memory lives on disk, not here.
+
 Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 `docs/work/HANDOFF_<yourself>.md`, don't tell the user to open the skill you are running. `USER:`
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
@@ -323,6 +329,20 @@ bash scripts/validators/validate-code-health.sh .
 If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes → document in manifest "Known issues / deferred" with specific reason. Do not silently ship a dimension scoring < 5.
 
 **Phase 6 — Report**
+
+**Gate your "done" mechanically first.** Run:
+
+```
+bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>
+```
+
+`DONE-CHECK: RED` lists exactly what is missing (stale/red verify report, uncommitted or
+unpushed work, missing PRODUCE files, missing completion-report section) — fix those items,
+never argue with them. Only on `DONE-CHECK: GREEN` do you write the report and print the
+completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
+concluded "everything done" with 57 lint errors, no report, and unpushed commits — the
+judgment call is exactly what a small model gets wrong; the script doesn't.)
+
 Write the verification doc listed in the task (e.g., `docs/improve/VERIFY_ITEM_[n].md`).
 
 **Reconstruct the report from disk, not from memory.** Before writing it, run
