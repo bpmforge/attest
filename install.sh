@@ -132,6 +132,65 @@ echo -n "Checking Node version... "
 check_node_version
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Native build dependency check ────────────────────────────────────────────
+# better-sqlite3 and sqlite-vec (used by bpm-memory-mcp / bpm-code-search-mcp)
+# compile a native addon via node-gyp, which needs a C/C++ compiler + python3.
+# Without these, `npm install` silently produces a binary that mismatches the
+# active Node's ABI (NODE_MODULE_VERSION) the next time Node is upgraded —
+# surfaces later as `ERR_DLOPEN_FAILED` rather than an install-time error.
+check_native_build_deps() {
+  local have_cc=false have_python=false
+  if command -v cc &>/dev/null || command -v gcc &>/dev/null || command -v clang &>/dev/null; then
+    have_cc=true
+  fi
+  command -v python3 &>/dev/null && have_python=true
+
+  if [ "$have_cc" = true ] && [ "$have_python" = true ]; then
+    echo "  Native build tools (C compiler, python3) ✓"
+    return
+  fi
+
+  echo ""
+  echo "  ⚠️  Missing native build tools needed to compile better-sqlite3:"
+  [ "$have_cc" = false ] && echo "      - no C/C++ compiler found"
+  [ "$have_python" = false ] && echo "      - python3 not found"
+
+  case "$(uname -s)" in
+    Darwin)
+      echo "     Install with: xcode-select --install"
+      if [ -t 0 ]; then
+        printf "  Run that now? [Y/n]: "
+        read -r yn </dev/tty
+        case "${yn:-Y}" in [Yy]*) xcode-select --install 2>&1 || true ;; esac
+      fi
+      ;;
+    Linux)
+      if command -v apt-get &>/dev/null; then
+        echo "     Install with: sudo apt-get install -y build-essential python3"
+        if [ -t 0 ]; then
+          printf "  Run that now (requires sudo password)? [Y/n]: "
+          read -r yn </dev/tty
+          case "${yn:-Y}" in [Yy]*)
+            sudo apt-get update && sudo apt-get install -y build-essential python3
+            echo "  Native build tools installed ✓"
+            ;;
+          esac
+        fi
+      else
+        echo "     Install a C compiler + python3 via your distro's package manager"
+        echo "     (e.g. dnf: sudo dnf install gcc-c++ python3, apk: sudo apk add build-base python3)"
+      fi
+      ;;
+    *)
+      echo "     Install a C/C++ compiler and python3, then re-run install.sh."
+      ;;
+  esac
+}
+
+echo -n "Checking native build dependencies... "
+check_native_build_deps
+# ─────────────────────────────────────────────────────────────────────────────
+
 MODE="global"
 METHOD="copy"
 INSTALL_SEMGREP=false
@@ -859,6 +918,18 @@ if [ "$INSTALL_MEMORY" = true ]; then
       fi
     fi
 
+    # Also register with Claude Code, if installed (separate config from OpenCode's $CONFIG_FILE)
+    if [ -n "${MEMORY_SERVER:-}" ] && [ -f "$MEMORY_SERVER" ]; then
+      if command -v claude &>/dev/null; then
+        if claude mcp list 2>/dev/null | grep -q "^memory"; then
+          echo "  bpm-memory-mcp MCP already registered with Claude Code"
+        else
+          claude mcp add memory node "$MEMORY_SERVER" 2>&1 | head -3
+          echo "  Registered bpm-memory-mcp MCP with Claude Code (user-level)"
+        fi
+      fi
+    fi
+
     # --- Embedding-provider setup (semantic recall needs an embedder) --------
     # Without one, memory silently degrades to keyword-only BM25 — recall works
     # but misses paraphrased matches. The server self-heals (retries the
@@ -952,6 +1023,18 @@ else
       echo "      \"command\": [\"node\", \"$CODE_SEARCH_BIN\"],"
       echo '      "enabled": true'
       echo '    }'
+    fi
+  fi
+
+  # Also register with Claude Code, if installed (separate config from OpenCode's $CONFIG_FILE)
+  if [ -n "${CODE_SEARCH_BIN:-}" ] && [ -f "$CODE_SEARCH_BIN" ]; then
+    if command -v claude &>/dev/null; then
+      if claude mcp list 2>/dev/null | grep -q "^code-search"; then
+        echo "  bpm-code-search-mcp already registered with Claude Code"
+      else
+        claude mcp add code-search node "$CODE_SEARCH_BIN" 2>&1 | head -3
+        echo "  Registered bpm-code-search-mcp with Claude Code (user-level)"
+      fi
     fi
   fi
 fi
