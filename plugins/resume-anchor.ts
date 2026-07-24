@@ -54,9 +54,10 @@ import type { Plugin } from "@opencode-ai/plugin";
 // make this a silent no-op that Pass 33d would NOT catch (it calls the bodies
 // directly). Re-check against a TUI trace after an opencode upgrade.
 
-const MAX_ANCHOR_CHARS = 1900; // hard cap — this rides on every request. Raised from
-// 1400 when the post-compaction continuation directive was added: truncation cuts the
-// TAIL, and the tail is now the directive that stops the "Say 'Proceed'" stall.
+const MAX_ANCHOR_CHARS = 2600; // hard cap — this rides on every request. Raised from
+// 1400 when the post-compaction continuation directive was added, then from 1900 when
+// the no-invented-commands / fresh-evidence / whole-task-report rules were added
+// (2026-07 T-72 trace): truncation cuts the TAIL, and the tail is the directive.
 const MAX_LIST = 8;
 
 const enabled = () => process.env.EXPERTS_RESUME_ANCHOR !== "0";
@@ -302,7 +303,16 @@ function buildAnchor(root: string): string | null {
     "a step the HANDOFF already lists — especially its verify/test commands ('Shall I run the " +
     "tests now?' is the observed failure). Run them. If an environment dependency is down " +
     "(e.g. Podman), run the command anyway, capture the literal failure, and report BLOCKED " +
-    "with it — a failed run is evidence; an unasked question is a stall.";
+    "with it — a failed run is evidence; an unasked question is a stall. " +
+    "Fix a failing verify command INSIDE the repo (code edits, regenerating generated " +
+    "clients, fixing fixtures), then re-run THAT exact command — never run migrate/deploy/" +
+    "credential commands the HANDOFF never listed (observed failure: an invented 'prisma " +
+    "migrate deploy' hit a permissions error and became a fictional 'need DB credentials' " +
+    "blocker while the real testcontainers suite passed on re-run — such suites provision " +
+    "their own DB). BLOCKED is only valid citing the verify command's own post-fix output. " +
+    "When reporting, reconstruct from disk: `git log origin/main..HEAD --oneline` + " +
+    "`git status --short` — account for every commit (unpushed commits = the push step is " +
+    "NOT done), and walk the HANDOFF's step list, not just your last turn's delta.";
 
   const anchor =
     "## RESUME ANCHOR (regenerated from disk every turn — authoritative)\n" +
@@ -348,6 +358,9 @@ export const ResumeAnchor: Plugin = async () => {
             "Prefer dropping narrative over dropping any of those four. " +
             "If any PRODUCE file is still missing, the summary MUST state that work is IN FLIGHT and name the next action — " +
             "do NOT conclude 'nothing outstanding' or offer the user a menu of options; the correct post-summary move is to resume the handoff. " +
+            "Any next-step command in the summary must be one the HANDOFF itself lists (or a project-standard fix like a client-regenerate step) — " +
+            "never carry forward an invented infrastructure command (migrate/deploy/credential changes): a wrong diagnosis written into a summary " +
+            "becomes gospel after compaction. If a verify command was failing, the next step is fix-then-re-run THAT command. " +
             "End the summary with this literal final line, filled in: " +
             "'RESUME NOW: <the single most specific next command or edit>. Authorization from the HANDOFF still stands — " +
             "execute this immediately; do not ask for confirmation or present a plan for approval.'" +
