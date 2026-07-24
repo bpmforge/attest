@@ -54,10 +54,12 @@ import type { Plugin } from "@opencode-ai/plugin";
 // make this a silent no-op that Pass 33d would NOT catch (it calls the bodies
 // directly). Re-check against a TUI trace after an opencode upgrade.
 
-const MAX_ANCHOR_CHARS = 2600; // hard cap — this rides on every request. Raised from
+const MAX_ANCHOR_CHARS = 3000; // hard cap — this rides on every request. Raised from
 // 1400 when the post-compaction continuation directive was added, then from 1900 when
 // the no-invented-commands / fresh-evidence / whole-task-report rules were added
-// (2026-07 T-72 trace): truncation cuts the TAIL, and the tail is the directive.
+// (2026-07 T-72 trace), then from 2600 for the terminal-state whitelist + verify
+// harness pointer (T-234 trace): truncation cuts the TAIL, and the tail is the
+// directive. Pass 33d asserts the anchor is never tail-truncated on a real fixture.
 const MAX_LIST = 8;
 
 const enabled = () => process.env.EXPERTS_RESUME_ANCHOR !== "0";
@@ -312,7 +314,12 @@ function buildAnchor(root: string): string | null {
     "their own DB). BLOCKED is only valid citing the verify command's own post-fix output. " +
     "When reporting, reconstruct from disk: `git log origin/main..HEAD --oneline` + " +
     "`git status --short` — account for every commit (unpushed commits = the push step is " +
-    "NOT done), and walk the HANDOFF's step list, not just your last turn's delta.";
+    "NOT done), and walk the HANDOFF's step list, not just your last turn's delta. " +
+    "Run verify commands via `bash ~/.config/opencode/scripts/verify-handoff.sh <packet>` " +
+    "(reads the ```verify fence, keeps output tails, checks the baseline, writes the report " +
+    "itself — one VERIFY: ALL GREEN / RED verdict). A turn may end only three ways: more " +
+    "work, the completion phrase, or BLOCKED: <evidence> — never a menu of options (A/B/C), " +
+    "a confirm-request, or a which-step question.";
 
   const anchor =
     "## RESUME ANCHOR (regenerated from disk every turn — authoritative)\n" +
