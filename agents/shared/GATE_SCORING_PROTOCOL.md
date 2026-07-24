@@ -81,6 +81,12 @@ Examples:
 - `re-ran independently: re-read src/auth/session.ts:40-80 — confirmed the timeout guard the manifest claims — n/a`
 - `re-ran independently: grep for the removed route in router.ts — 0 matches, confirmed gone — exit 0`
 
+**For code HANDOFFs with a ` ```verify ` fence, re-run through the same harness the specialist used:**
+`bash ~/.config/opencode/scripts/verify-handoff.sh <packet> --report docs/reviews/VERIFY_REPORT_lead.md`
+— identical commands, identical report format, so `diff docs/work/VERIFY_REPORT.md docs/reviews/VERIFY_REPORT_lead.md`
+exposes any divergence between the specialist's evidence and yours directly (differing exit codes or
+pass counts = the manifest misrepresented state; that is auto-reject grounds, not a judgment call).
+
 **A score submitted without this field is INCOMPLETE — not a valid score.** Do not proceed to Step 4; send it back to whoever scored it ("add `re-ran independently: <...>`") and wait for the resubmission. This codifies the single highest-value pattern from the 2026-07-08 field report (H9/D-1): verify-don't-trust caught nearly every serious defect that run precisely *because* verification was independently re-run by the verifier, not read off the maker's manifest. A score with no re-run behind it is a guess wearing a number.
 
 **Checklist — a score is only complete when all of these hold:**

@@ -144,4 +144,124 @@ export async function testVerifyHandoff(root: string, ok: Ok, fail: Fail) {
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
+
+  // ==== auto-baseline + done-gate (git-backed fixture) ======================
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), "handoff-done-"));
+  const git = (args: string[]) =>
+    spawnSync("git", args, { cwd: repo, encoding: "utf8" });
+  const sh = (scriptPath: string, args: string[]) =>
+    spawnSync("bash", [scriptPath, ...args], { cwd: repo, encoding: "utf8" });
+  const doneScript = path.join(root, "scripts", "handoff-done.sh");
+
+  try {
+    fs.mkdirSync(path.join(repo, "docs", "work"), { recursive: true });
+    fs.mkdirSync(path.join(repo, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(repo, "src", "thing.ts"),
+      "export const x = 1;\n",
+    );
+    const packet = path.join("docs", "work", "packet.md");
+    fs.writeFileSync(
+      path.join(repo, packet),
+      "# packet\n\nPRODUCE exactly these files (nothing else):\n" +
+        "- src/thing.ts -- the widget\n\n" +
+        '```verify\necho "Tests 4 passed"\n```\n\n' +
+        'Reply in chat with only: "task-234 done — see docs/work/packet.md"\n',
+    );
+    git(["init", "-q", "-b", "main"]);
+    git(["config", "user.email", "t@t"]);
+    git(["config", "user.name", "t"]);
+    git(["add", "-A"]);
+    git(["commit", "-qm", "init"]);
+
+    // -- 7. Auto-baseline: clean pre-change tree, no --baseline flag given. --
+    const auto = sh(script, [packet]);
+    const baselineStored = fs.existsSync(
+      path.join(repo, "docs", "work", "verify-baseline.txt"),
+    );
+    if (
+      auto.status === 0 &&
+      /storing baseline automatically/.test(auto.stdout) &&
+      baselineStored
+    ) {
+      ok(
+        "verify-handoff -- auto-baseline: clean pre-change tree stores the baseline without the flag",
+      );
+    } else {
+      fail(
+        "verify-handoff -- auto-baseline",
+        `status=${auto.status} stored=${baselineStored} stdout:\n${auto.stdout}`,
+      );
+    }
+
+    // -- 8. Done-gate GREEN: verify GREEN + committed + PRODUCE exists;
+    //       extracts the completion phrase from the packet.
+    const green = sh(doneScript, [packet, "--no-push-check"]);
+    if (
+      green.status === 0 &&
+      /DONE-CHECK: GREEN/.test(green.stdout) &&
+      /task-234 done — see docs\/work\/packet\.md/.test(green.stdout)
+    ) {
+      ok(
+        "handoff-done -- GREEN on verified+committed state, completion phrase extracted for copy",
+      );
+    } else {
+      fail(
+        "handoff-done -- green path",
+        `status=${green.status} stdout:\n${green.stdout}`,
+      );
+    }
+
+    // -- 9. Done-gate RED on stale report + uncommitted source change. ------
+    // (The fix-after-verify-without-rerun failure: an edit after the last
+    // harness run makes the report worthless, and the tree is dirty.)
+    fs.writeFileSync(
+      path.join(repo, "src", "thing.ts"),
+      "export const x = 2; // edited after verify\n",
+    );
+    const stale = sh(doneScript, [packet, "--no-push-check"]);
+    if (
+      stale.status === 1 &&
+      /changed AFTER the verify run/.test(stale.stdout) &&
+      /uncommitted changes outside docs\/work/.test(stale.stdout) &&
+      /Do NOT print the completion phrase/.test(stale.stdout)
+    ) {
+      ok(
+        "handoff-done -- RED on edit-after-verify (stale report) + uncommitted work; forbids the phrase",
+      );
+    } else {
+      fail(
+        "handoff-done -- stale/dirty path",
+        `status=${stale.status} stdout:\n${stale.stdout}`,
+      );
+    }
+
+    // -- 10. Done-gate RED when a PRODUCE file is missing / report absent. --
+    git(["checkout", "-q", "--", "."]);
+    fs.writeFileSync(
+      path.join(repo, packet),
+      "# packet\n\nPRODUCE exactly these files (nothing else):\n" +
+        "- src/thing.ts -- the widget\n" +
+        "- src/missing-widget.ts -- never written\n\n" +
+        '```verify\necho "Tests 4 passed"\n```\n',
+    );
+    fs.rmSync(path.join(repo, "docs", "work", "VERIFY_REPORT.md"));
+    const missing = sh(doneScript, [packet, "--no-push-check"]);
+    if (
+      missing.status === 1 &&
+      /no verify report/.test(missing.stdout) &&
+      /PRODUCE missing: src\/missing-widget\.ts/.test(missing.stdout)
+    ) {
+      ok(
+        "handoff-done -- RED names the missing verify report and each missing PRODUCE file",
+      );
+    } else {
+      fail(
+        "handoff-done -- missing artifacts",
+        `status=${missing.status} stdout:\n${missing.stdout}`,
+      );
+    }
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+  }
 }
