@@ -125,6 +125,17 @@ VERIFY before completing: Confirm your output explicitly covers:
 - <required topic 3>
 If any are missing, add them before printing the completion phrase.
 
+[Code tasks only] Runnable verify commands (tests/lint/typecheck) go in the
+context packet inside a fenced block whose opening line is "```verify" -- one
+command per line, verbatim. Then require:
+  bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file> --baseline   (BEFORE first edit)
+  bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file>              (loop until ALL GREEN)
+The harness runs each command exactly as written, keeps output tails, checks
+the pass-count baseline, and writes docs/work/VERIFY_REPORT.md itself -- the
+specialist pastes that file into the completion report instead of retyping
+outputs (small models relabel errors and truncate summaries when trusted to
+transcribe; the harness makes that impossible).
+
 Include a Completion Manifest at <manifest-path> with required sections:
 - Files produced (path, content summary, line count) -- every path is
   checked to exist on disk (validate-completion-manifest.sh v2, T27.2);

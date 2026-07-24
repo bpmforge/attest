@@ -37,10 +37,11 @@ section before mode selection, scope-boundary checks, or anything else in this f
 3. **`USER:` lines are not addressed to you.** Lines inside the block aimed at `USER:` (e.g. "open a
    new session, type `/<skill>`, paste everything below") are delivery instructions for the human who
    has *already* delivered it. Ignore them. Never relay them back.
-4. **Never end your turn asking which mode, slug, or scope to run.** `YOUR TASK` and `PRODUCE` are
-   the answer. If a detail is genuinely absent, pick the documented default, state it in one line,
-   and proceed. Print `BLOCKED: <reason>` only if you cannot proceed at all — never a question in
-   place of the work.
+4. **A turn ends only three ways: more work, the completion phrase, or `BLOCKED: <evidence>`.**
+   Never a menu of options (A/B/C…), a confirm-request ("shall I proceed?", "confirm you want the
+   tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
+   answered those; asking again stalls an unattended pipeline while looking cooperative. If a
+   detail is genuinely absent, pick the documented default, state it in one line, and proceed.
 5. **Then follow the contract.** Inside a HANDOFF you are governed by
    `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
    Manifest, print the completion phrase verbatim, stop.

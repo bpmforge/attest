@@ -286,7 +286,9 @@ export async function testResumeAnchor(
     const anchorHasEvidenceRules =
       /never run migrate\/deploy/i.test(anchorNow) &&
       /git log origin\/main\.\.HEAD/.test(anchorNow) &&
-      /own post-fix output/i.test(anchorNow);
+      /own post-fix output/i.test(anchorNow) &&
+      /verify-handoff\.sh/.test(anchorNow) &&
+      /end only three ways/i.test(anchorNow);
     const anchorNotTruncated = !anchorNow.endsWith("…");
     const compactingForbidsInvented =
       /invented infrastructure command/i.test(compactingText) &&
