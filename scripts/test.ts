@@ -48,6 +48,7 @@ import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
+import { testVerifyHandoff } from "./test-verify-handoff.ts";
 import { testSetupDevServer } from "./test-setup-dev-server.ts";
 import { testMermaidBashDivergence } from "./test-mermaid-bash-divergence.ts";
 import { testRequirementClosure } from "./test-requirement-closure.ts";
@@ -528,6 +529,14 @@ console.log(
   "\n[Pass 33e] setup-dev-server.sh — provision/refresh a remote LLM dev box",
 );
 await testSetupDevServer(root, ok, fail);
+
+// Mechanical verify-loop evidence: small models cannot self-report verify
+// compliance, so the harness runs the commands, keeps tails, compares the
+// baseline, and writes the report itself.
+console.log(
+  "\n[Pass 33f] verify-handoff.sh — mechanical verify evidence harness",
+);
+await testVerifyHandoff(root, ok, fail);
 
 // Pass 34: macOS-vs-Linux bash regex-engine divergence audit (T32.4) --
 // validate-mermaid.sh's remaining [^...]-style bracket idioms: M001 was
