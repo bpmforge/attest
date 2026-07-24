@@ -89,6 +89,32 @@ mkdir -p "$LOGDIR"
 [ -n "$REPORT" ] || REPORT="$OUT/VERIFY_REPORT.md"
 BASE_FILE="$OUT/verify-baseline.txt"
 
+# --- auto-baseline -----------------------------------------------------------
+# A baseline is only meaningful pre-change. If none is stored, store one
+# automatically WHEN we can prove this run is pre-change: clean working tree
+# AND the branch has no commits beyond the base branch. Otherwise warn loudly —
+# a missing baseline means test deletion cannot be detected mechanically.
+if [ "$BASELINE_MODE" -eq 0 ] && [ ! -f "$BASE_FILE" ]; then
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    CLEAN=$(git status --porcelain 2>/dev/null | grep -Ev ' docs/(work|reviews)/' || true)
+    BASE_BRANCH=""
+    git show-ref --verify --quiet refs/heads/main && BASE_BRANCH="main"
+    [ -z "$BASE_BRANCH" ] && git show-ref --verify --quiet refs/heads/master && BASE_BRANCH="master"
+    AHEAD=0
+    if [ -n "$BASE_BRANCH" ]; then
+      AHEAD=$(git log "$BASE_BRANCH"..HEAD --oneline 2>/dev/null | wc -l | tr -d ' ')
+    fi
+    if [ -z "$CLEAN" ] && [ -n "$BASE_BRANCH" ] && [ "$AHEAD" -eq 0 ]; then
+      BASELINE_MODE=1
+      echo "note: no baseline stored + clean pre-change tree — storing baseline automatically"
+    else
+      echo "WARNING: no baseline stored and the tree already has changes — pass-count"
+      echo "         regressions CANNOT be detected. If you have not edited yet, commit/stash"
+      echo "         and re-run with --baseline from the clean pre-change state." >&2
+    fi
+  fi
+fi
+
 # --- run --------------------------------------------------------------------
 STAMP="$(date -u '+%Y-%m-%d %H:%M:%SZ' 2>/dev/null || date)"
 {
