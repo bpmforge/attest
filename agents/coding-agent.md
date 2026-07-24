@@ -37,10 +37,11 @@ section before mode selection, scope-boundary checks, or anything else in this f
 3. **`USER:` lines are not addressed to you.** Lines inside the block aimed at `USER:` (e.g. "open a
    new session, type `/<skill>`, paste everything below") are delivery instructions for the human who
    has *already* delivered it. Ignore them. Never relay them back.
-4. **Never end your turn asking which mode, slug, or scope to run.** `YOUR TASK` and `PRODUCE` are
-   the answer. If a detail is genuinely absent, pick the documented default, state it in one line,
-   and proceed. Print `BLOCKED: <reason>` only if you cannot proceed at all — never a question in
-   place of the work.
+4. **A turn ends only three ways: more work, the completion phrase, or `BLOCKED: <evidence>`.**
+   Never a menu of options (A/B/C…), a confirm-request ("shall I proceed?", "confirm you want the
+   tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
+   answered those; asking again stalls an unattended pipeline while looking cooperative. If a
+   detail is genuinely absent, pick the documented default, state it in one line, and proceed.
 5. **Then follow the contract.** Inside a HANDOFF you are governed by
    `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
    Manifest, print the completion phrase verbatim, stop.
@@ -235,8 +236,11 @@ This is a bounded task from the SDLC lead. Run these phases in order:
    `owasp-llm-checker` gate will flag the gap. If an LLM feature has NO design doc, print
    `BLOCKED: LLM feature with no LLM_DESIGN — send back to llm-integration-engineer` and stop.
 4. Read 2–3 existing files in the same directories as the output files — note their patterns
-5. **Capture the baseline (MANDATORY before any edit).** Run the project's test command once,
-   BEFORE touching anything, and record the passing count and the exit status —
+5. **Capture the baseline (MANDATORY before any edit).** Preferred:
+   `bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file> --baseline` — it runs the
+   packet's ` ```verify ` commands and stores the pass-count baseline mechanically (Phase 4's
+   harness then compares against it on every run). Manual fallback: run the project's test
+   command once, BEFORE touching anything, and record the passing count and the exit status —
    e.g. `1125 passed`. Run it **exactly as the HANDOFF or project defines it — no added
    flags**: a 2026-07 trace lost its baseline because the agent appended `--runInBand` to a
    vitest version that rejects it, then proceeded without ever re-running the plain command.
@@ -263,7 +267,24 @@ For each file:
 3. Apply anti-slop rules to every function before moving to the next
 
 **Phase 4 — Test (loop to GREEN, not to "ran")**
-Run every verify command the task specifies (e.g., `go test ./...`, `npm test`, lint, typecheck).
+
+**DEFAULT PATH — the harness, not manual discipline.** Run the verify commands through:
+
+```
+bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file>
+```
+
+It reads the commands from the packet's ` ```verify ` fence (if the HANDOFF lists them only as
+prose steps, first copy them into a ` ```verify ` fence in the context packet, character-for-
+character, one command per line), runs each EXACTLY as written, captures full output + exit
+codes, keeps the summary TAIL, compares pass counts against the stored baseline, writes
+`docs/work/VERIFY_REPORT.md` itself, and prints one verdict line. Your loop is just:
+run → read `VERIFY: ALL GREEN` or `VERIFY: RED — <command>` → fix inside the repo → re-run
+(3-strike cap per LOOP_PREVENTION → `BLOCKED`, never a success report). Append the generated
+VERIFY_REPORT.md contents to your completion report — never retype or summarize outputs by
+hand. The rules below are what the harness enforces; they bind you fully whenever you run any
+verify command manually:
+
 This phase is a **convergence loop with mechanical exit conditions** — a 2026-07 field trace
 showed an agent run the commands, leave 15 lint errors and a net LOSS of 26 tests, and report
 done anyway. The loop rules that prevent that:
@@ -307,6 +328,17 @@ done anyway. The loop rules that prevent that:
    different command's failure (that `migrate deploy` P1010) is not evidence the verify
    command is blocked — in the same trace, the "blocked" suite passed when finally re-run.
    The literal, post-fix output of the exact HANDOFF command is the only valid evidence.
+9. **A PASS claim needs the exact command's own output too — no pass-by-proxy.** A 2026-07
+   trace skipped `npx vitest run --config vitest.integration.config.ts` and the web tsc
+   entirely, claiming "integration passed as part of the suite". A different command's
+   success is never evidence; every verify command in the HANDOFF gets its own run and its
+   own literal output, or the task is not done.
+10. **Never head-truncate verify output, never relabel errors.** `| sed -n '1,240p'` /
+    `| head` cut off the END of the output — where the `Found N errors` / `N passed`
+    summary lives (same trace: 57 biome errors reported as "a small set of non-blocking
+    suggestions" because the count line was never seen). If output must be trimmed, trim
+    with `tail`. Report the literal count line; errors are a red gate — calling them
+    "warnings", "suggestions", or "non-blocking" voids the report.
 
 Do not modify tests to pass — fix the implementation. Deleting or stubbing an existing test IS
 modifying tests to pass.
