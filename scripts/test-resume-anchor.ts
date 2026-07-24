@@ -60,6 +60,18 @@ function makeFixture(): string {
     path.join(root, "docs/reviews/CODE_REVIEW_alpha.md"),
     "# alpha\n",
   );
+  // task ledger: 2 ticked, 2 open — the anchor must surface the FIRST unchecked
+  fs.writeFileSync(
+    path.join(root, "docs/work/TASKS_code-reviewer-zebra.md"),
+    [
+      "# Task ledger",
+      "- [x] read the context packet",
+      "- [x] review module alpha, write CODE_REVIEW_alpha.md",
+      "- [ ] review module beta, write CODE_REVIEW_beta.md",
+      "- [ ] run the done-gate and print the completion phrase",
+      "",
+    ].join("\n"),
+  );
   return root;
 }
 
@@ -195,7 +207,7 @@ export async function testResumeAnchor(
     const forbidsMenu =
       /do NOT present a menu/i.test(withOwed) &&
       /MID-TASK/.test(withOwed) &&
-      /CONTINUE it to its completion phrase/.test(withOwed);
+      /Repeat until every box is ticked/.test(withOwed);
     if (forbidsMenu) {
       ok(
         "resume-anchor -- with an owed PRODUCE file, the anchor forbids the menu/ask-user drift and orders a resume",
@@ -305,6 +317,50 @@ export async function testResumeAnchor(
       fail(
         "resume-anchor -- verify-evidence discipline",
         `anchorHasEvidenceRules=${anchorHasEvidenceRules} anchorNotTruncated=${anchorNotTruncated} compactingForbidsInvented=${compactingForbidsInvented} (anchor length=${anchorNow.length})`,
+      );
+    }
+
+    // -- 8/9. Task ledger — externalized working memory (verify231 trace). ---
+    // The anchor must surface the ledger's progress and FIRST unchecked item
+    // every turn, and the MID-TASK directive must state THE LOOP (reconcile
+    // ledger against disk → do first unchecked item) so a compacted turn's
+    // job is a file read, not a memory.
+    const ledgerSurfaced =
+      /Task ledger docs\/work\/TASKS_code-reviewer-zebra\.md: 2\/4 done/.test(
+        anchorNow,
+      ) && /\(1\) review module beta/.test(anchorNow);
+    const loopStated =
+      /THE LOOP/.test(anchorNow) && /FIRST unchecked item/.test(anchorNow);
+    if (ledgerSurfaced && loopStated) {
+      ok(
+        "resume-anchor -- task ledger: anchor shows done-count + first unchecked items, directive states THE LOOP",
+      );
+    } else {
+      fail(
+        "resume-anchor -- task ledger",
+        `ledgerSurfaced=${ledgerSurfaced} loopStated=${loopStated}\n${anchorNow}`,
+      );
+    }
+
+    // -- 9/9. Summarizer no-tool-call guard (the '_noop' failure). -----------
+    // A live TUI trace showed the summarizer model obeying the anchor's
+    // 'execute NOW' directives DURING summary generation — 'Tool call not
+    // allowed while generating summary: _noop'. The compacting context must
+    // open by declaring text-only and re-addressing every execute directive
+    // to the post-compaction session.
+    const noopGuard =
+      /TEXT ONLY/.test(compactingText) &&
+      /_noop/.test(compactingText) &&
+      /never to you the summarizer/i.test(compactingText) &&
+      /TASKS_\*\.md/.test(compactingText);
+    if (noopGuard) {
+      ok(
+        "resume-anchor -- compacting hook opens with the text-only/_noop guard and names the task ledger",
+      );
+    } else {
+      fail(
+        "resume-anchor -- summarizer no-tool-call guard",
+        compactingText.slice(0, 600),
       );
     }
   } finally {
