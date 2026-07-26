@@ -150,6 +150,37 @@ const UPSTREAM = {
 };
 function requiredUpstream(phase) { return UPSTREAM[phase.id] || []; }
 
+// PROCESS FIDELITY (PLAN.md §B — promised, previously not implemented). The real
+// system gates each phase with scripts/validators/validate-phase-gate.sh. Checking
+// only "did a file appear" measures far less than the gate does: the 27B's Phase 2
+// output existed, read well, and still failed the gate on missing USE_CASES.md,
+// a missing REQUIREMENTS_MATRIX.md and untraceable user stories.
+//
+// Gaps are split. `phase-ordering` gaps come from deliberately skipping Phases 0-1
+// and are NOT model deficiencies; content gaps are.
+const GATE_FOR = { 'P2-requirements': 'phase-2', 'P3-design': 'phase-3', 'P4-implement': 'phase-4' };
+
+function runGate(dir, phase) {
+  const gate = GATE_FOR[phase.id];
+  if (!gate) return null;
+  const r = spawnSync('bash', [join(REPO, 'scripts/validators/validate-phase-gate.sh'), gate, dir],
+    { encoding: 'utf8', timeout: 180000 });
+  const out = `${r.stdout || ''}${r.stderr || ''}`;
+  const m = /\{"validator":"validate-phase-gate".*\}/.exec(out);
+  if (!m) return { gate, error: 'no JSON summary emitted' };
+  try {
+    const j = JSON.parse(m[0]);
+    const items = j.items || [];
+    const ordering = items.filter((i) => i.category === 'phase-ordering');
+    const content = items.filter((i) => i.category !== 'phase-ordering');
+    return {
+      gate, passed: j.exit === 0, gaps_total: j.gaps,
+      gaps_content: content.length, gaps_ordering: ordering.length,
+      content_detail: content.map((i) => `${i.category}: ${String(i.detail).slice(0, 110)}`),
+    };
+  } catch { return { gate, error: 'unparseable gate JSON' }; }
+}
+
 // LIVELOCK WATCHDOG. Measured 2026-07-26: a model emitted `Write` with a missing
 // `filePath` argument, received the same error, and retried IDENTICALLY 12+ times
 // until the 2400s timeout — 40 minutes of wall-clock for zero progress.
@@ -407,6 +438,7 @@ for (const model of MODELS) {
         cpSync(dir, rdir, { recursive: true });
         console.error(`  ▸ ${phase.id} [${i + 1}/${IMPL_REPEATS}]…`);
         const rec = await runPhase(rdir, model, phase, `impl${i + 1}`);
+        rec.gate = runGate(rdir, phase);
         rec.hidden = scoreHidden(rdir);
         rec.dir = rdir;
         console.error(`     ${rec.secs}s tools=${rec.tools} mcp=${rec.mcp} → hidden ${rec.hidden.pass}/${rec.hidden.total || 25}${rec.outcome ? `  ⚠ ${rec.outcome}` : ''}`);
@@ -435,10 +467,12 @@ for (const model of MODELS) {
     }
     console.error(`  ▸ ${phase.id}…`);
     const rec = await runPhase(dir, model, phase, phase.id);
+    rec.gate = runGate(dir, phase);
     if (phase.verifySources) { rec.sources = verifySources(dir, phase.artifacts[0]); m.research = rec.sources; }
     const made = Object.values(rec.artifacts).filter(Boolean).length;
     console.error(`     ${rec.secs}s tools=${rec.tools} mcp=${rec.mcp} failed=${rec.failed} artifacts=${made}/${phase.artifacts.length}` +
       (rec.sources ? ` sources ${rec.sources.live}/${rec.sources.checked} live` : '') +
+      (rec.gate ? `  gate:${rec.gate.passed ? 'PASS' : `${rec.gate.gaps_content} content-gaps`}` : '') +
       (rec.outcome ? `  ⚠ ${rec.outcome}` : rec.invocation_error ? '  ⚠ INVOCATION_ERROR' : ''));
     m.phases.push(rec);
   }
