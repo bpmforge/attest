@@ -167,7 +167,7 @@ const LIVELOCK_REPEATS = 6;
 function runPhase(dir, model, phase, label) {
   return new Promise((resolve) => {
     const args = ['run', '--dir', dir, '-m', `${PROVIDER}/${model}`];
-    if (phase.agent) args.push('--agent', phase.agent);
+    if (phase.agent && !BARE) args.push('--agent', phase.agent);
     args.push(phase.prompt);
     const t0 = performance.now();
     const cfgPath = phaseConfig(phase);
@@ -390,7 +390,7 @@ mkdirSync(STAGE, { recursive: true });
 const results = { generated: new Date().toISOString(), models: {} };
 
 for (const model of MODELS) {
-  const slug = model.replace(/[^a-z0-9]+/gi, '-');
+  const slug = model.replace(/[^a-z0-9]+/gi, '-') + (LABEL ? `--${LABEL}` : '');
   console.error(`\n████ ${model}`);
   const m = { phases: [], impl: [], research: null };
 
@@ -423,7 +423,7 @@ for (const model of MODELS) {
     // it. Running P5/P6 after a P4 that wrote no code grades the reviewer on an
     // empty tree and reports it as a model result. Measured 2026-07-26: the whole
     // tail of a run executed against nothing and produced four more zeros.
-    const missingUpstream = requiredUpstream(phase).filter((a) => !existsSync(join(dir, a)));
+    const missingUpstream = NO_UPSTREAM ? [] : requiredUpstream(phase).filter((a) => !existsSync(join(dir, a)));
     if (missingUpstream.length) {
       console.error(`  ▸ ${phase.id} — BLOCKED (missing upstream: ${missingUpstream.join(', ')})`);
       m.phases.push({
@@ -444,7 +444,7 @@ for (const model of MODELS) {
   }
 
   m.finalDir = dir;
-  results.models[model] = m;
+  results.models[LABEL ? `${model} [${LABEL}]` : model] = m;
 }
 
 mkdirSync(OUT, { recursive: true });
