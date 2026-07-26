@@ -33,7 +33,12 @@ const MODELS = (flag('--models') || '').split(',').filter(Boolean);
 const PROVIDER = flag('--provider', 'lmstudio');
 const IMPL_REPEATS = Number(flag('--impl-repeats', '2'));
 const ONLY = flag('--phase', null)?.split(',').map((s) => s.trim());
-if (!MODELS.length) { console.error('usage: --models a,b'); process.exit(2); }
+// Resume against an existing workcopy instead of wiping it. Phases build on each
+// other (implement reads SRS + design), so a --phase subset run MUST be able to
+// keep prior phases' artifacts or it silently destroys the upstream work and
+// grades the model on inputs it never received.
+const RESUME = argv.includes('--resume');
+if (!MODELS.length && !argv.includes('--self-test')) { console.error('usage: --models a,b [--self-test]'); process.exit(2); }
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
 const cnt = (s, re) => (s.match(re) || []).length;
@@ -160,8 +165,8 @@ function verifySources(dir, file) {
 }
 
 // The grade that matters: a suite the model never saw.
-function scoreHidden(dir) {
-  const lib = join(dir, 'src/library.mjs');
+function scoreHidden(dir, libDirOverride = null) {
+  const lib = libDirOverride ? join(libDirOverride, 'library.mjs') : join(dir, 'src/library.mjs');
   if (!existsSync(lib)) return { ran: false, why: 'src/library.mjs missing', pass: 0, fail: 0, total: 25 };
   const r = spawnSync('node', ['--test', '--test-reporter=tap', join(HIDDEN, 'acceptance.test.mjs')], {
     encoding: 'utf8', timeout: 180000, cwd: HIDDEN, env: { ...process.env, LIB_PATH: lib },
@@ -175,11 +180,69 @@ function scoreHidden(dir) {
 
 function newWorkcopy(name) {
   const dir = join(STAGE, name);
+  if (RESUME && existsSync(join(dir, 'BRIEF.md'))) return dir;   // keep prior phases
   rmSync(dir, { recursive: true, force: true });
   mkdirSync(dir, { recursive: true });
   for (const f of ['BRIEF.md', 'CONTRACT.md']) cpSync(join(PROJ, f), join(dir, f));
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ name, type: 'module', private: true }, null, 2));
   return dir;
+}
+
+
+// ── I1: harness calibration gate ─────────────────────────────────────────────
+// A detector that matches nothing looks exactly like a model that did nothing.
+// Before this harness grades anything it must prove, on inputs whose answers are
+// known, that it can tell good from bad. Five of the eight faults in the
+// 2026-07-25 evaluation were detectors silently returning a plausible zero.
+//
+// Passing the reference is NOT sufficient — a suite of `assert(true)` would also
+// pass. So we MUTATE the reference (flip one business rule) and require the suite
+// to CATCH it. Mutating the real reference on the fly keeps the known-bad input
+// in sync with the known-good one automatically.
+function selfTest() {
+  let ok = true;
+  const say = (pass, what, detail = '') => {
+    if (!pass) ok = false;
+    console.log(`  ${pass ? 'PASS' : 'FAIL'}  ${what}${detail ? `  — ${detail}` : ''}`);
+  };
+
+  // 1. known-good: reference must score full marks
+  const refDir = join(HIDDEN, 'reference');
+  const good = scoreHidden(join(HIDDEN, '..', '.hidden-selftest-good'), refDir);
+  say(good.ran && good.fail === 0 && good.pass >= 25, 'hidden suite passes the reference',
+      `${good.pass}/${good.total}`);
+
+  // 2. known-bad: flip "more than £10" to ">=" and require the suite to catch it
+  const mutantDir = join(STAGE, '_selftest_mutant');
+  mkdirSync(mutantDir, { recursive: true });
+  const src = readFileSync(join(refDir, 'library.mjs'), 'utf8');
+  const mutated = src.replace('outstanding(memberId) > FEE_THRESHOLD',
+                              'outstanding(memberId) >= FEE_THRESHOLD');
+  if (mutated === src) { say(false, 'mutation applied', 'pattern not found — update the mutant'); }
+  writeFileSync(join(mutantDir, 'library.mjs'), mutated);
+  const bad = scoreHidden(mutantDir, mutantDir);
+  say(bad.ran && bad.fail > 0, 'hidden suite CATCHES a mutated business rule',
+      `${bad.pass}/${bad.total}, failures: ${(bad.failedTests || []).slice(0, 2).join('; ') || 'none'}`);
+
+  // 3. tool-glyph counter must be non-zero on real opencode output (fault #3/#4)
+  const sample = `\u001b[0m\u001b[0m\u2731 \u001b[0mGlob "*"\n\u001b[0m\u2192 \u001b[0mRead a.txt\n\u2699 context7_query-docs {}\n\u2717 WebFetch failed\n`;
+  const plain = strip(sample);
+  say(cnt(plain, /^\s*[\u2699\u2731\u2192\u2717\u2193]\s*\S+/gm) === 4, 'tool counter sees builtin + MCP + failed glyphs',
+      `counted ${cnt(plain, /^\s*[\u2699\u2731\u2192\u2717\u2193]\s*\S+/gm)}/4`);
+
+  // 4. link classifier must separate dead from merely blocked (fault #7)
+  const cls = (code) => (/^2|^3/.test(code) ? 'live' : /^(403|429)$/.test(code) ? 'blocked' : 'dead');
+  say(cls('200') === 'live' && cls('403') === 'blocked' && cls('404') === 'dead',
+      'link classifier is three-way (live/blocked/dead)');
+
+  rmSync(mutantDir, { recursive: true, force: true });
+  console.log(ok ? '\ncalibration PASSED — harness may grade\n' : '\ncalibration FAILED — do NOT trust any number this harness produces\n');
+  return ok;
+}
+
+if (argv.includes('--self-test')) {
+  console.log('harness calibration (I1):');
+  process.exit(selfTest() ? 0 : 1);
 }
 
 // ── run ──────────────────────────────────────────────────────────────────────
