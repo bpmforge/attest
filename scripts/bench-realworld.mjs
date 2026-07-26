@@ -231,7 +231,19 @@ for (const model of MODELS) {
 }
 
 mkdirSync(OUT, { recursive: true });
-writeFileSync(join(OUT, 'BENCH_REALWORLD.json'), `${JSON.stringify(results, null, 2)}\n`);
+// MERGE per model, never overwrite. Phases are routinely run in separate
+// invocations (--phase / --models subsets); a plain write silently discards the
+// other model's results — which is exactly what happened to the 9B's P2/P3 data.
+// Same bug already fixed in bench-model-compare.mjs; fixed here too.
+const outPath = join(OUT, 'BENCH_REALWORLD.json');
+let merged = results;
+if (existsSync(outPath)) {
+  try {
+    const prev = JSON.parse(readFileSync(outPath, 'utf8'));
+    merged = { ...prev, ...results, models: { ...prev.models, ...results.models } };
+  } catch { /* unreadable prior file — clean write */ }
+}
+writeFileSync(outPath, `${JSON.stringify(merged, null, 2)}\n`);
 console.error(`\nwrote ${join(OUT, 'BENCH_REALWORLD.json')}`);
 
 console.log('\nmodel                     phase              secs   tools  mcp  failed  artifacts  hidden');
