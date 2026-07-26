@@ -42,7 +42,20 @@ const cnt = (s, re) => (s.match(re) || []).length;
 // Each runs as its OWN opencode session (fresh context), matching LOCAL_LLM_GUIDE.
 const PHASES = [
   {
-    id: 'P2-requirements', agent: 'sdlc-lead', timeout: 1_500_000,
+    // NOT sdlc-lead: that is the top-level ORCHESTRATOR (mode:primary, 44 handoff
+    // refs) whose job is to route work to specialists, and whose mandatory startup
+    // sequence reads scripts/detect-sdlc-state.sh + docs/work/SDLC_AUDIT.md — neither
+    // of which exists in a clean project workcopy. Pointed at a single unattended
+    // session it burns 2 probe calls, finds no pipeline state, and writes nothing.
+    // Measured: 38.6s, 0/2 artifacts — which reads as "the model cannot do
+    // requirements" and is purely an agent-selection error.
+    //
+    // Nor sdlc-init-phases-0-2: that one is mode:subagent, and `opencode run
+    // --agent <subagent>` FALLS BACK to the default agent — and the fallback path
+    // LOSES --dir. It then read from and wrote into the expert repo itself rather
+    // than the workcopy. Use the default agent here: it honours --dir (proven) and
+    // the prompt fully specifies the deliverable.
+    id: 'P2-requirements', agent: null, timeout: 1_500_000,
     prompt: 'Read BRIEF.md and CONTRACT.md. Produce docs/SRS.md (IEEE 830 style, numbered FR-NNN requirements covering every business rule) and docs/USER_STORIES.md. Explicitly call out any rules in the brief that are ambiguous or that conflict with each other, in an "Open Questions" section of SRS.md. Then stop.',
     artifacts: ['docs/SRS.md', 'docs/USER_STORIES.md'],
   },
@@ -105,6 +118,16 @@ function runPhase(dir, model, phase, label) {
   };
   // Dead-fast exit with no tool activity is a harness fault, not a model score.
   if (!timedOut && secs < 5 && tools === 0) rec.invocation_error = out.slice(0, 300).replace(/\s+/g, ' ');
+  // A subagent passed to --agent silently falls back to the default agent AND the
+  // fallback loses --dir, so the phase runs against the wrong tree. Never score it.
+  if (/is a subagent, not a primary agent/.test(out)) {
+    rec.invocation_error = `agent "${phase.agent}" is a subagent; opencode fell back to the default agent and lost --dir`;
+  }
+  // Belt and braces: if the session touched the expert repo instead of the
+  // workcopy, the result is about the wrong files entirely.
+  if (out.includes(`${REPO}/docs/`) && !dir.startsWith(join(REPO, '.tmp-realworld'))) {
+    rec.invocation_error = 'session escaped the workcopy and wrote into the expert repo';
+  }
   return rec;
 }
 
@@ -116,14 +139,23 @@ function verifySources(dir, file) {
   const urls = [...new Set((readFileSync(p, 'utf8').match(/https?:\/\/[^\s)\]<>"'`]+/g) || [])
     .map((u) => u.replace(/[.,;]+$/, '')))];
   const checked = urls.slice(0, 12).map((u) => {
+    // Send a browser UA: npmjs/gitlab/cloudflare answer bare curl with 403 even
+    // for pages that plainly exist.
     const r = spawnSync('curl', ['-sS', '-o', '/dev/null', '-w', '%{http_code}', '-L',
-      '--max-time', '15', '--retry', '1', u], { encoding: 'utf8' });
+      '--max-time', '15', '--retry', '1', '-A',
+      'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124 Safari/537.36',
+      u], { encoding: 'utf8' });
     return { url: u, status: (r.stdout || '000').trim() };
   });
+  // THREE outcomes, not two. 403/429 means the host refused to answer a script —
+  // that is NOT evidence the page is fabricated. Only 404/410/000 is. Collapsing
+  // "blocked" into "dead" scored three real npm packages as invented citations.
+  const is = (c, re) => re.test(c.status);
   return {
     total: urls.length, checked: checked.length,
-    live: checked.filter((c) => /^2|^3/.test(c.status)).length,
-    dead: checked.filter((c) => !/^2|^3/.test(c.status)).map((c) => `${c.status} ${c.url}`),
+    live: checked.filter((c) => is(c, /^2|^3/)).length,
+    blocked: checked.filter((c) => is(c, /^(403|429)$/)).map((c) => `${c.status} ${c.url}`),
+    dead: checked.filter((c) => !is(c, /^2|^3/) && !is(c, /^(403|429)$/)).map((c) => `${c.status} ${c.url}`),
   };
 }
 

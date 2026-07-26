@@ -168,6 +168,24 @@ export default tool({
         const raw = chunks.join("");
         const errRaw = errChunks.join("").trim();
 
+        // `opencode run --agent <x>` where x is mode:subagent does NOT fail — it
+        // prints a notice and silently falls back to the DEFAULT agent, then exits
+        // 0. The caller gets generic-agent output and believes a specialist ran.
+        // Caught in the field 2026-07-25 driving a local model through the pipeline:
+        // requirements "completed" having been produced by no specialist at all.
+        // Exit 0 is not evidence the right agent ran — check.
+        if (/is a subagent, not a primary agent/.test(`${errRaw}\n${raw}`)) {
+          context.metadata({
+            title: `task: ${agent} — WRONG AGENT (subagent fallback)`,
+          });
+          resolve(
+            `[task: AGENT FALLBACK] '${agent}' is a subagent, so opencode ran the DEFAULT agent instead. ` +
+              `Its output is NOT this specialist's work and must not be treated as such. ` +
+              `Dispatch a mode:primary agent, or run this specialist via a HANDOFF (path C).`,
+          );
+          return;
+        }
+
         if (code === 0) {
           const text = extractText(raw);
           context.metadata({ title: `task: ${agent} — done in ${elapsed}s` });
