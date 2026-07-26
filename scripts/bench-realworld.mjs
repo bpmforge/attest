@@ -136,6 +136,20 @@ const PHASES = [
 ];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+
+// Declared INPUTS per phase (the artifact gate). A phase whose inputs are absent is
+// BLOCKED, never run-and-scored: an absent finding from a phase that had nothing to
+// read is missing data, not a capability signal. Function declaration, not a const
+// arrow — it is referenced from the main loop above its definition point.
+const UPSTREAM = {
+  'P3-design': ['docs/SRS.md'],
+  'P4-implement': ['docs/SRS.md'],
+  'P5-tests': ['src/library.mjs'],
+  'P6-review': ['src/library.mjs'],
+  'P6-security': ['src/library.mjs'],
+};
+function requiredUpstream(phase) { return UPSTREAM[phase.id] || []; }
+
 // LIVELOCK WATCHDOG. Measured 2026-07-26: a model emitted `Write` with a missing
 // `filePath` argument, received the same error, and retried IDENTICALLY 12+ times
 // until the 2400s timeout — 40 minutes of wall-clock for zero progress.
@@ -339,6 +353,29 @@ function selfTest() {
       'link classifier is three-way (live/blocked/dead)');
 
   rmSync(mutantDir, { recursive: true, force: true });
+
+  // 5. DRY-RUN the phase machinery. The gate previously only exercised SCORING and
+  // exited before the run loop, so a ReferenceError in the loop shipped happily —
+  // measured: a 4-hour run that died 3 seconds in on an undefined symbol, because
+  // `node --check` validates syntax, not resolution. Exercise every code path the
+  // real run touches, short of spawning a model.
+  let dryOk = true;
+  for (const phase of PHASES) {
+    try {
+      if (!phase.id || !Array.isArray(phase.artifacts) || !phase.timeout) throw new Error('phase missing id/artifacts/timeout');
+      if (!Array.isArray(requiredUpstream(phase))) throw new Error('requiredUpstream did not return an array');
+      const cfg = phaseConfig(phase);
+      if (cfg && !existsSync(cfg)) throw new Error('phaseConfig returned a path that does not exist');
+      if (cfg) {
+        const parsed = JSON.parse(readFileSync(cfg, 'utf8'));
+        const enabled = Object.entries(parsed.mcp || {}).filter(([, d]) => d.enabled).map(([n]) => n);
+        const want = (phase.mcp ?? []).slice().sort().join(',');
+        if (enabled.sort().join(',') !== want) throw new Error(`mcp scoping mismatch: got [${enabled}] want [${want}]`);
+      }
+    } catch (e) { dryOk = false; say(false, `phase machinery: ${phase.id}`, e.message); }
+  }
+  say(dryOk, 'every phase dry-runs (symbols resolve, tool scoping applies)');
+
   console.log(ok ? '\ncalibration PASSED — harness may grade\n' : '\ncalibration FAILED — do NOT trust any number this harness produces\n');
   return ok;
 }
