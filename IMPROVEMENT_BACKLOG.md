@@ -453,7 +453,7 @@ From `issues/field-report-local-model-eval-2026-07.md` (local-model evaluation,
 2026-07-25/26). Eight faults, every one manufacturing an apparent MODEL
 deficiency. These are process changes; a prompt edit would have fixed none of them.
 
-### I1. Harness calibration gate — prove the instrument before trusting the reading
+### I1. Harness calibration gate — prove the instrument before trusting the reading ✅ DONE 2026-07-26
 - **Rule:** any harness that produces a number about a model MUST first demonstrate,
   on a known-good and a known-bad input, that it can tell them apart. Ship the
   calibration as a `--self-test` and run it before any grading run.
@@ -508,4 +508,14 @@ deficiency. These are process changes; a prompt edit would have fixed none of th
 - live (2xx/3xx) / **blocked** (403/429, unverifiable) / dead (404/410/000). Only dead
   is evidence of fabrication. Collapsing blocked into dead scored three real npm
   packages as invented citations.
+
+### I8. Rule-interaction matrix at Phase 2 ✅ DONE 2026-07-26
+- `references/phase-completion-checklist.md` Phase 2: enumerate every PAIR of rules touching
+  the same entity/state and state whether one can make the other unreachable. Record pairs
+  checked, not just problems found — an unlisted pair is an unchecked pair.
+- **Why:** the seeded structural flaw (reservation expiry vs loan duration) was missed by
+  BOTH models, which between them produced 17 ambiguity findings. Both analysed rules
+  individually — which is exactly what "identify ambiguities" invites. The defect lives in
+  the PAIR, so per-rule diligence cannot surface it at any capability level. This is a
+  process fix, not a model fix: enumerate the pairs and it becomes unmissable.
 

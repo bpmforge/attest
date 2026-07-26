@@ -33,6 +33,21 @@ Judgment:
 - [ ] NFRs have numbers (P95 latency, uptime %, max dataset size) — every one
 - [ ] You read the stories aloud as a user journey and no step is missing
 - [ ] Someone asked "what happens on failure?" for each P0 story — the answer is in the criteria
+- [ ] **Rule-interaction matrix done.** For every PAIR of rules that touch the same entity or
+      state, state explicitly whether one can make the other unreachable, contradict it, or
+      change its meaning. Write the pairs checked, not just the problems found — "no
+      interaction" is a result, and an unlisted pair is an unchecked pair.
+- [ ] Every ambiguity/conflict entry cites its referents AND a concrete case where they
+      actually disagree (ANTI_SLOP_RULES **R-31**). No concrete case → delete the entry.
+
+> **Why the matrix is mechanical and not a judgment call** (field basis: local-model
+> evaluation 2026-07-26). A brief was seeded with a structural flaw — a reservation expires
+> after 3 days, but cannot be collected while the tool is on loan, so the "don't renew if
+> reserved" rule is near-dead logic. **Two different models, analysing the same brief, both
+> missed it** while between them producing 17 ambiguity findings. Both analysed rules
+> *individually*, which is what "identify ambiguities" invites. Neither was asked to check
+> rule 5 against rule 6, and neither did. The defect lives in the pair, not in either rule,
+> so no amount of per-rule diligence surfaces it. Enumerate the pairs and it is unmissable.
 
 ## Phase 3 — Design
 
