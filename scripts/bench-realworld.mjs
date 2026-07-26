@@ -41,6 +41,40 @@ const RESUME = argv.includes('--resume');
 if (!MODELS.length && !argv.includes('--self-test')) { console.error('usage: --models a,b [--self-test]'); process.exit(2); }
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
+
+// TOOL-SURFACE SCOPING. A full session exposes ~80 tools across 5 MCP servers.
+// Measured 2026-07-26: given that surface, a model spent 702s of its IMPLEMENTATION
+// phase driving Playwright (33 browser artifacts) to write a Node module, and
+// another burned 77 tool calls / 31 failures thrashing. Selection degrades with
+// surface area, so scope the surface to the phase: an implementation phase has no
+// business seeing a browser.
+//
+// Implemented by generating a filtered opencode config per phase and pointing
+// OPENCODE_CONFIG at it — no model cooperation required.
+function phaseConfig(phase) {
+  const allow = phase.mcp ?? [];
+  const userCfgPath = join(process.env.HOME, '.config/opencode/opencode.json');
+  let cfg = {};
+  try { cfg = JSON.parse(readFileSync(userCfgPath, 'utf8')); } catch { return null; }
+  const mcp = {};
+  for (const [name, def] of Object.entries(cfg.mcp || {})) {
+    mcp[name] = { ...def, enabled: allow.includes(name) };
+  }
+  cfg.mcp = mcp;
+  // Custom tools in ~/.config/opencode/tools/ are NOT MCP, so the filter above
+  // cannot reach them — playwright_web/playwright_test survive it, and
+  // playwright_web is the exact tool that burned 702s of an implementation phase.
+  // The `tools` disable map is best-effort: verified the config still loads, not
+  // verified to remove them. MCP filtering is the measured win (80 -> 29 tools).
+  if (!allow.includes('playwright-mcp')) {
+    cfg.tools = { ...(cfg.tools || {}), playwright_web: false, playwright_test: false };
+  }
+  const dir = join(STAGE, '_cfg');
+  mkdirSync(dir, { recursive: true });
+  const out = join(dir, `${phase.id}.json`);
+  writeFileSync(out, JSON.stringify(cfg, null, 2));
+  return out;
+}
 const cnt = (s, re) => (s.match(re) || []).length;
 
 // ── phases ───────────────────────────────────────────────────────────────────
@@ -60,7 +94,7 @@ const PHASES = [
     // LOSES --dir. It then read from and wrote into the expert repo itself rather
     // than the workcopy. Use the default agent here: it honours --dir (proven) and
     // the prompt fully specifies the deliverable.
-    id: 'P2-requirements', agent: null, timeout: 1_500_000,
+    id: 'P2-requirements', agent: null, timeout: 1_500_000, mcp: [],
     prompt: 'Read BRIEF.md and CONTRACT.md. Produce docs/SRS.md (IEEE 830 style, numbered FR-NNN requirements covering every business rule) and docs/USER_STORIES.md. Explicitly call out any rules in the brief that are ambiguous or that conflict with each other, in an "Open Questions" section of SRS.md. Then stop.',
     artifacts: ['docs/SRS.md', 'docs/USER_STORIES.md'],
   },
@@ -68,34 +102,34 @@ const PHASES = [
     // Deliberately research-dependent: it cannot be answered from the brief, and
     // the correct answer depends on the CURRENT state of the ecosystem. This is
     // where MCP/web use is measured rather than assumed.
-    id: 'P3-research', agent: 'researcher', timeout: 1_500_000,
+    id: 'P3-research', agent: 'researcher', timeout: 1_500_000, mcp: ['context7', 'playwright-search'],
     prompt: 'For this Node.js service we must do date arithmetic (adding days to ISO dates, counting days between dates) and integer-pence money arithmetic, with zero floating-point error and deterministic behaviour. Research the CURRENT recommended approach: is a date library warranted or is built-in Temporal/Date sufficient, and what is the present status of the Temporal API in Node? Note anything deprecated or recently changed. Write docs/RESEARCH_DATE_MONEY.md with a recommendation and cite every source as a full URL. Then stop.',
     artifacts: ['docs/RESEARCH_DATE_MONEY.md'],
     verifySources: true,
   },
   {
-    id: 'P3-design', agent: 'architecture-designer', timeout: 1_500_000,
+    id: 'P3-design', agent: 'architecture-designer', timeout: 1_500_000, mcp: ['context7'],
     prompt: 'Read BRIEF.md, CONTRACT.md and docs/SRS.md. Produce docs/ARCHITECTURE.md (module boundaries, data model, Mermaid diagram) and docs/THREAT_MODEL.md (STRIDE, covering who may call each contract method). Then stop.',
     artifacts: ['docs/ARCHITECTURE.md', 'docs/THREAT_MODEL.md'],
   },
   {
-    id: 'P4-implement', agent: 'coding-agent', timeout: 2_400_000, repeats: true,
+    id: 'P4-implement', agent: 'coding-agent', timeout: 2_400_000, repeats: true, mcp: ['context7'],
     prompt: 'Implement the service in src/library.mjs exactly per CONTRACT.md, satisfying every rule in BRIEF.md and every FR in docs/SRS.md. It must export createLibrary(seed) and the seven methods with the documented reason codes. All money is integer pence. Never read the system clock — dates are passed in. Do not create any other entry point. Then stop.',
     artifacts: ['src/library.mjs'],
     scored: true,
   },
   {
-    id: 'P5-tests', agent: 'test-engineer', timeout: 1_800_000,
+    id: 'P5-tests', agent: 'test-engineer', timeout: 1_800_000, mcp: [],
     prompt: 'Write a test suite at tests/library.test.mjs using node:test that covers the business rules in BRIEF.md and docs/SRS.md against src/library.mjs. Then run it and report the pass/fail count. Then stop.',
     artifacts: ['tests/library.test.mjs'],
   },
   {
-    id: 'P6-review', agent: 'code-reviewer', timeout: 1_800_000,
+    id: 'P6-review', agent: 'code-reviewer', timeout: 1_800_000, mcp: [],
     prompt: 'Review src/library.mjs against BRIEF.md, CONTRACT.md and docs/SRS.md. Write docs/reviews/CODE_REVIEW.md listing every defect you find, each with file:line and why it matters. Be specific about any business rule implemented incorrectly. Then stop.',
     artifacts: ['docs/reviews/CODE_REVIEW.md'],
   },
   {
-    id: 'P6-security', agent: 'security-auditor', timeout: 1_500_000,
+    id: 'P6-security', agent: 'security-auditor', timeout: 1_500_000, mcp: [],
     prompt: 'Security-audit src/library.mjs against CONTRACT.md. The trustees require that non-staff can never set maintenance or waive a fee. Write docs/reviews/SECURITY_FINDINGS.md. Then stop.',
     artifacts: ['docs/reviews/SECURITY_FINDINGS.md'],
   },
@@ -122,9 +156,14 @@ function runPhase(dir, model, phase, label) {
     if (phase.agent) args.push('--agent', phase.agent);
     args.push(phase.prompt);
     const t0 = performance.now();
+    const cfgPath = phaseConfig(phase);
     const proc = spawn('opencode', args, {
       stdio: ['ignore', 'pipe', 'pipe'],
-      env: { ...process.env, OPENCODE_AUTONOMY: 'auto' },
+      env: {
+        ...process.env,
+        OPENCODE_AUTONOMY: 'auto',
+        ...(cfgPath ? { OPENCODE_CONFIG: cfgPath } : {}),
+      },
     });
     let buf = '', lastErr = null, repeats = 0, livelocked = null;
     const onData = (chunk) => {
@@ -343,6 +382,20 @@ for (const model of MODELS) {
       continue;
     }
 
+    // ARTIFACT GATE. Every phase must PRODUCE something; downstream phases consume
+    // it. Running P5/P6 after a P4 that wrote no code grades the reviewer on an
+    // empty tree and reports it as a model result. Measured 2026-07-26: the whole
+    // tail of a run executed against nothing and produced four more zeros.
+    const missingUpstream = requiredUpstream(phase).filter((a) => !existsSync(join(dir, a)));
+    if (missingUpstream.length) {
+      console.error(`  ▸ ${phase.id} — BLOCKED (missing upstream: ${missingUpstream.join(', ')})`);
+      m.phases.push({
+        phase: phase.id, label: phase.id, outcome: 'BLOCKED', secs: 0,
+        note: `upstream artifact(s) absent: ${missingUpstream.join(', ')} — not run, NOT a model result`,
+        artifacts: {}, tools: 0, mcp: 0, failed: 0,
+      });
+      continue;
+    }
     console.error(`  ▸ ${phase.id}…`);
     const rec = await runPhase(dir, model, phase, phase.id);
     if (phase.verifySources) { rec.sources = verifySources(dir, phase.artifacts[0]); m.research = rec.sources; }
