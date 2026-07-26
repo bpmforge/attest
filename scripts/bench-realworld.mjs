@@ -17,7 +17,7 @@
 // Usage:
 //   node scripts/bench-realworld.mjs --models a,b [--impl-repeats 2] [--phase P2,...]
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 
@@ -102,18 +102,56 @@ const PHASES = [
 ];
 
 // ── helpers ──────────────────────────────────────────────────────────────────
+// LIVELOCK WATCHDOG. Measured 2026-07-26: a model emitted `Write` with a missing
+// `filePath` argument, received the same error, and retried IDENTICALLY 12+ times
+// until the 2400s timeout — 40 minutes of wall-clock for zero progress.
+//
+// LOOP_PREVENTION.md and PERSISTENCE.md already cover this, but both are
+// PROMPT-side ("read this once at the start"). The agent never loaded them, and a
+// heavily-quantized model may not obey them if it does. A mechanical detector
+// works regardless of whether the model can follow instructions — which is the
+// entire argument for fixing process rather than prompts.
+//
+// Reported as LIVELOCK: not a TIMEOUT (which implies "needed more time" — it did
+// not) and never a score.
+const LIVELOCK_REPEATS = 6;
+
 function runPhase(dir, model, phase, label) {
-  const args = ['run', '--dir', dir, '-m', `${PROVIDER}/${model}`];
-  if (phase.agent) args.push('--agent', phase.agent);
-  args.push(phase.prompt);
-  const t0 = performance.now();
-  const r = spawnSync('opencode', args, {
-    encoding: 'utf8', timeout: phase.timeout, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, OPENCODE_AUTONOMY: 'auto' },
+  return new Promise((resolve) => {
+    const args = ['run', '--dir', dir, '-m', `${PROVIDER}/${model}`];
+    if (phase.agent) args.push('--agent', phase.agent);
+    args.push(phase.prompt);
+    const t0 = performance.now();
+    const proc = spawn('opencode', args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, OPENCODE_AUTONOMY: 'auto' },
+    });
+    let buf = '', lastErr = null, repeats = 0, livelocked = null;
+    const onData = (chunk) => {
+      const text = strip(String(chunk));
+      buf += text;
+      for (const line of text.split('\n')) {
+        const m = /ERROR:\s*(.+)/.exec(line);
+        if (!m) continue;
+        const sig = m[1].trim().slice(0, 120);
+        if (sig === lastErr) {
+          if (++repeats >= LIVELOCK_REPEATS && !livelocked) { livelocked = sig; proc.kill('SIGTERM'); }
+        } else { lastErr = sig; repeats = 1; }
+      }
+    };
+    proc.stdout.on('data', onData);
+    proc.stderr.on('data', onData);
+    const timer = setTimeout(() => proc.kill('SIGTERM'), phase.timeout);
+    proc.on('close', () => {
+      clearTimeout(timer);
+      const secs = +((performance.now() - t0) / 1000).toFixed(1);
+      resolve(finish(dir, phase, label, secs, buf, livelocked));
+    });
   });
-  const secs = +((performance.now() - t0) / 1000).toFixed(1);
-  const out = strip(`${r.stdout || ''}${r.stderr || ''}`);
-  const timedOut = r.error?.code === 'ETIMEDOUT' || r.signal === 'SIGTERM';
+}
+
+function finish(dir, phase, label, secs, out, livelocked) {
+  const timedOut = !livelocked && secs >= phase.timeout / 1000 - 3;
   const tools = cnt(out, /^\s*[⚙✱→✗↓]\s*\S+/gm);
   const rec = {
     phase: phase.id, label, secs, timedOut,
@@ -122,16 +160,42 @@ function runPhase(dir, model, phase, label) {
     transcript: out.slice(-4000),
   };
   // Dead-fast exit with no tool activity is a harness fault, not a model score.
-  if (!timedOut && secs < 5 && tools === 0) rec.invocation_error = out.slice(0, 300).replace(/\s+/g, ' ');
+  if (!timedOut && tools === 0) rec.invocation_error = out.slice(0, 300).replace(/\s+/g, ' ');
+  if (livelocked) {
+    rec.livelock = livelocked;
+    rec.outcome = 'LIVELOCK';
+    rec.note = `killed after ${LIVELOCK_REPEATS} identical tool errors — no progress was being made`;
+  }
+  // ABANDONED: the model oriented (read files, globbed) and then stopped without
+  // producing anything. Distinct from "tried and got it wrong" — this is the
+  // announce-then-stop pause PERSISTENCE.md targets, and it must not be scored as
+  // a capability result.
+  const madeAny = phase.artifacts.some((a) => existsSync(join(dir, a)));
+  if (!rec.outcome && !timedOut && !madeAny && tools > 0 && tools <= 10) {
+    rec.outcome = 'ABANDONED';
+    rec.note = 'oriented then stopped: tool calls made, no declared artifact written, no completion phrase';
+  }
   // A subagent passed to --agent silently falls back to the default agent AND the
   // fallback loses --dir, so the phase runs against the wrong tree. Never score it.
   if (/is a subagent, not a primary agent/.test(out)) {
     rec.invocation_error = `agent "${phase.agent}" is a subagent; opencode fell back to the default agent and lost --dir`;
   }
-  // Belt and braces: if the session touched the expert repo instead of the
-  // workcopy, the result is about the wrong files entirely.
-  if (out.includes(`${REPO}/docs/`) && !dir.startsWith(join(REPO, '.tmp-realworld'))) {
-    rec.invocation_error = 'session escaped the workcopy and wrote into the expert repo';
+  // ESCAPE DETECTION (v2 — v1 never fired). v1 required `!dir.startsWith(STAGE)`,
+  // but dir is ALWAYS in STAGE, so the condition was dead. Measured cost: a P4
+  // implement run wrote src/library.mjs into evals/realworld/tool-library/ instead
+  // of the workcopy and was scored 0/25 — the real score was 14/25.
+  //
+  // Check the ARTIFACT, not the transcript: if a declared artifact is missing from
+  // the workcopy but present at the same relative path under REPO, the session
+  // escaped. That is concrete and cannot be fooled by log formatting.
+  const escaped = phase.artifacts.filter(
+    (a) => !existsSync(join(dir, a)) && existsSync(join(REPO, a)),
+  );
+  if (escaped.length) {
+    rec.invocation_error =
+      `session escaped the workcopy: ${escaped.join(', ')} landed under the expert repo ` +
+      `instead of ${dir}. Score is INVALID (the artifact exists, just not where --dir said).`;
+    rec.escaped_artifacts = escaped;
   }
   return rec;
 }
@@ -266,10 +330,10 @@ for (const model of MODELS) {
         rmSync(rdir, { recursive: true, force: true });
         cpSync(dir, rdir, { recursive: true });
         console.error(`  ▸ ${phase.id} [${i + 1}/${IMPL_REPEATS}]…`);
-        const rec = runPhase(rdir, model, phase, `impl${i + 1}`);
+        const rec = await runPhase(rdir, model, phase, `impl${i + 1}`);
         rec.hidden = scoreHidden(rdir);
         rec.dir = rdir;
-        console.error(`     ${rec.secs}s tools=${rec.tools} mcp=${rec.mcp} → hidden ${rec.hidden.pass}/${rec.hidden.total || 25}`);
+        console.error(`     ${rec.secs}s tools=${rec.tools} mcp=${rec.mcp} → hidden ${rec.hidden.pass}/${rec.hidden.total || 25}${rec.outcome ? `  ⚠ ${rec.outcome}` : ''}`);
         m.impl.push(rec);
         m.phases.push(rec);
       }
@@ -280,12 +344,12 @@ for (const model of MODELS) {
     }
 
     console.error(`  ▸ ${phase.id}…`);
-    const rec = runPhase(dir, model, phase, phase.id);
+    const rec = await runPhase(dir, model, phase, phase.id);
     if (phase.verifySources) { rec.sources = verifySources(dir, phase.artifacts[0]); m.research = rec.sources; }
     const made = Object.values(rec.artifacts).filter(Boolean).length;
     console.error(`     ${rec.secs}s tools=${rec.tools} mcp=${rec.mcp} failed=${rec.failed} artifacts=${made}/${phase.artifacts.length}` +
       (rec.sources ? ` sources ${rec.sources.live}/${rec.sources.checked} live` : '') +
-      (rec.invocation_error ? '  ⚠ INVOCATION_ERROR' : ''));
+      (rec.outcome ? `  ⚠ ${rec.outcome}` : rec.invocation_error ? '  ⚠ INVOCATION_ERROR' : ''));
     m.phases.push(rec);
   }
 
