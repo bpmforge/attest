@@ -188,6 +188,33 @@ export default tool({
 
         if (code === 0) {
           const text = extractText(raw);
+
+          // PROOF OF EXECUTION (the general rule; the subagent check above is one
+          // symptom of it). BOUNDED_TASK_CONTRACT Rule 3 requires every specialist
+          // to print `✓ <agent> done — [...]` as its last act. Without that phrase
+          // we cannot distinguish "ran and found nothing" from "never ran" — and
+          // those are the SAME observable today: exit 0 plus plausible prose.
+          //
+          // That ambiguity is why every failure in the 2026-07-25 local-model
+          // evaluation read as a model deficiency: broken plumbing fails closed,
+          // and failing closed is indistinguishable from "the model didn't do it".
+          // An empty result is a claim, and a claim needs evidence.
+          const phrase = new RegExp(`✓\\s*${agent}\\s+done`, "i");
+          if (!phrase.test(text) && !phrase.test(raw)) {
+            context.metadata({
+              title: `task: ${agent} — NO COMPLETION PHRASE (treat as NOT RUN)`,
+            });
+            resolve(
+              `[task: NOT RUN] '${agent}' exited 0 but never printed its completion phrase ` +
+                `("✓ ${agent} done — ..."), so there is no evidence the specialist actually ran to completion. ` +
+                `Do NOT treat the text below as this specialist's result — an absent finding here means ` +
+                `UNKNOWN, not "nothing found". Re-dispatch, or run it as a HANDOFF (path C) and check the ` +
+                `Completion Manifest with scripts/validators/validate-completion-manifest.sh.\n\n` +
+                `--- unverified output follows ---\n${text.slice(0, 2000)}`,
+            );
+            return;
+          }
+
           context.metadata({ title: `task: ${agent} — done in ${elapsed}s` });
           resolve(text || "Agent completed (no text output captured).");
         } else {

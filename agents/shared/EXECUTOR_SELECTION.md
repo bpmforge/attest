@@ -98,3 +98,46 @@ micro-agents — they read files, run bash, write findings.
 - anomalyco/opencode#16491 — MCP tools unavailable in Task-tool subagents (open; the reason `mcp_in_subagents` defaults false)
 - anomalyco/opencode#6573 — native Task awaits have no timeout (the reason B is preferred for long specialists)
 - anomalyco/opencode#15069 — async dispatch (feature request; would let the runner parallelize natively)
+
+---
+
+## Proof of execution — a dispatch is only a RESULT if it proves it ran
+
+**Field basis (2026-07-25, local-model pipeline evaluation).** Seven distinct
+faults were found while driving local models through this system. Every one made
+a model look *worse* than it was; not one ever made a model look better. That
+asymmetry is structural, not luck: broken plumbing **fails closed** — no output,
+no matching glyph, no permission, wrong agent, wrong directory — and failing
+closed is **indistinguishable from "the model didn't do it."**
+
+So the system's default reading of a silent dispatch ("the specialist ran and
+found nothing") is exactly the wrong one, and it is the reading that ships.
+
+**Rule.** A dispatched specialist's output may be treated as a RESULT only when it
+carries proof of execution:
+
+1. **Completion phrase present** — `✓ <agent> done — [...]` per
+   `BOUNDED_TASK_CONTRACT.md` Rule 3. Enforced in `tools/task.ts`; exit 0 is NOT
+   evidence.
+2. **The requested agent actually ran** — `opencode run --agent <x>` where `x` is
+   `mode:subagent` prints a notice, silently runs the DEFAULT agent, and exits 0.
+   Only `mode:primary` agents are dispatchable via path B; subagents go via path C.
+3. **Artifacts exist at the declared paths, inside the intended tree** — the
+   default-agent fallback also drops `--dir` (`cwd:` survives it), so a session can
+   escape and write into the parent repo. Verify the PRODUCE paths landed where
+   the HANDOFF said, not merely that files appeared somewhere.
+
+**Without all three, the outcome is `NOT RUN` / `UNKNOWN` — never "clean".** An
+absent finding from an unproven dispatch is not a passing result; it is missing
+data, and it must not satisfy a gate.
+
+> This is the dispatch-time analogue of what `validate-completion-manifest.sh` v2
+> already does for manifests that exist ("cannot be faked by content"). The gap it
+> closes is the manifest that never existed at all — which no validator could see,
+> because nothing required one to be there.
+
+**Corollary for reviewers.** When a local model "fails" a task, check in this
+order before recording the failure: provider-qualified model id → agent is
+`mode:primary` → working directory → artifact paths → your success-detector
+actually matches real output. In this evaluation that checklist would have caught
+all seven.
