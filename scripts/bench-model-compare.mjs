@@ -353,11 +353,17 @@ function runTask(model, task) {
   // Strip ANSI FIRST: opencode emits `\x1b[0m✱ \x1b[0mGlob "*"`, so anchoring
   // on `^\s*[✱→]` against raw stdout matches nothing and silently reports 0.
   const plain = stdout.replace(/\x1b\[[0-9;]*m/g, '');
-  const toolLines = (plain.match(/^\s*[✱→]\s*\S+/gm) || []).length;
+  // Glyph set matters: built-in tools print ✱/→, FAILED calls print ✗, and MCP
+  // tools print ⚙. Matching only [✱→] silently reports zero MCP usage — which
+  // read as "the model never touches context7/web" when it in fact made 8 calls.
+  const toolLines = (plain.match(/^\s*[⚙✱→✗↓]\s*\S+/gm) || []).length;
+  const mcpCalls = (plain.match(/^\s*[⚙✗]\s*\S+/gm) || []).length;
+  const failedCalls = (plain.match(/^\s*✗\s*\S+/gm) || []).length;
   const v = timedOut ? { objective: 'TIMEOUT', score: 0 } : task.verify(dir);
   const out = {
     task: task.id, horizon: task.horizon, scaffold: task.scaffold, ms, timedOut,
-    tool_invocations: toolLines, stdout_bytes: stdout.length,
+    tool_invocations: toolLines, mcp_calls: mcpCalls, failed_calls: failedCalls,
+    stdout_bytes: stdout.length,
     ...v, transcript: stdout.slice(-6000),
   };
   if (!KEEP) rmSync(dir, { recursive: true, force: true }); else out.dir = dir;
