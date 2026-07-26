@@ -244,6 +244,40 @@ Neither dominates; the split is clean and depends on the job:
 budget, more parameters at lower precision was the better trade for analysis
 work — the opposite of the intuition that 2-bit is too lossy to be useful.
 
+### MCP / web grounding (tier D, N=3 × 2 tasks)
+
+Harness: `scripts/bench-mcp-grounding.mjs`. A real opencode session exposes
+**~80 tools** across 5 MCP servers — selection under 80 is a different problem
+than tier B's 4, and it is the one that actually runs in production.
+
+| | correct | tool calls (med) | MCP calls (med) | failed calls | **total time** |
+|---|---|---|---|---|---|
+| qwen3.5-9b | **6/6** | 3–5 | 3–4 | 1 | **316.6 s** |
+| ternary-bonsai-27b | **6/6** | **2** | **2** | **0** | 433.3 s |
+
+Per task (median seconds): sqlite3 **78.8 vs 77.6** (tied); flask **39.6 vs 67.2**
+(9B ~1.7× faster).
+
+**Both models reach for context7/web unprompted, and both are 100% correct.**
+MCP access does not separate them on accuracy.
+
+The 27B is genuinely more **tool-economical** — 2 calls, zero failures, versus
+the 9B's 3–5 calls and one failed `web_fetch` followed by playwright retries.
+**But economy does not buy wall-clock here:** the 9B finishes the whole suite
+~27% faster, because per-call overhead is small next to its ~1.9× decode
+advantage. Fewer, cleaner calls lost to raw speed.
+
+> **Superseded claim.** An earlier N=1 observation (9B 120 s / 8 calls vs 27B
+> 59 s / 2 calls) suggested MCP round-trips *invert* the speed ranking. At N=3
+> that does not replicate — the 9B is faster or tied on both tasks. The single
+> run was noise, and the inference drawn from it was wrong. This is the second
+> time in this benchmark that N=1 produced a confident false conclusion; see
+> note 4 below.
+
+**Consequence for model choice:** MCP/web access is not a reason to prefer the
+27B. Both ground correctly; the 9B gets there sooner. The 27B's advantage stays
+where it was measured — open-ended analysis depth, not tool use.
+
 ### Measurement notes (read before trusting any of this)
 
 Four harness faults were caught, each of which had already produced a confident
@@ -261,5 +295,19 @@ wrong result before it was found:
    receipt). At N=5 both models score 5/5. The two sub-60 s "failures" were early
    terminations, not reasoning failures.
 
+5. **The glyph set is part of the measurement.** opencode prints built-in tools
+   with `✱`/`→`, failures with `✗`, and **MCP tools with `⚙`**. Matching only
+   `[✱→]` reported *zero MCP usage* for models that were in fact making 8 calls
+   per run — and supported a flatly false conclusion ("neither model reaches for
+   context7") until the glyph was found. Tier C counts before this fix were
+   undercounts.
+
 Every one of these would have read as "the local model is bad at X". On this
 stack, suspect the harness before the model.
+
+**Meta-lesson.** Five of the five faults above inflate or invent a *model*
+deficiency; none of them ever made a model look better than it was. That
+asymmetry is not luck — a broken harness usually fails closed (no output, no
+match, no permission), and failing closed always reads as "the model didn't do
+it". Budget review time accordingly: when a local model looks bad, the prior
+should favor the harness.
