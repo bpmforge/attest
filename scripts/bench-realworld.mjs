@@ -418,7 +418,8 @@ if (argv.includes('--self-test')) {
 
 // ── run ──────────────────────────────────────────────────────────────────────
 mkdirSync(STAGE, { recursive: true });
-const results = { generated: new Date().toISOString(), models: {} };
+const RUN_STAMP = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+const results = { generated: new Date().toISOString(), runStamp: RUN_STAMP, models: {} };
 
 for (const model of MODELS) {
   const slug = model.replace(/[^a-z0-9]+/gi, '-') + (LABEL ? `--${LABEL}` : '');
@@ -480,6 +481,32 @@ for (const model of MODELS) {
   m.finalDir = dir;
   results.models[LABEL ? `${model} [${LABEL}]` : model] = m;
 }
+
+// EVIDENCE RETENTION. Workcopies are wiped at the start of each run, so every claim
+// about a prior run's artifacts becomes unverifiable the moment the next run starts —
+// fatal under CHALLENGER_PROTOCOL ("every challenge must cite file:line ... if you
+// cannot produce evidence the verdict is UNVERIFIABLE, not CONTRADICTED").
+// Measured cost: the 9B SRS sections quoted as confabulated no longer exist, so that
+// finding is now unfalsifiable rather than confirmed.
+// run-evals.mjs already archives to docs/work/eval-runs/; match the convention.
+mkdirSync(OUT, { recursive: true });
+const ARCHIVE = join(OUT, 'realworld-runs', RUN_STAMP);
+for (const [model, m] of Object.entries(results.models)) {
+  const dest = join(ARCHIVE, model.replace(/[^a-z0-9]+/gi, '-'));
+  if (m.finalDir && existsSync(m.finalDir)) {
+    mkdirSync(dest, { recursive: true });
+    for (const sub of ['docs', 'src', 'tests']) {
+      if (existsSync(join(m.finalDir, sub))) cpSync(join(m.finalDir, sub), join(dest, sub), { recursive: true });
+    }
+  }
+  for (const r of m.impl || []) {
+    if (r.dir && existsSync(join(r.dir, 'src'))) {
+      mkdirSync(dest, { recursive: true });
+      cpSync(join(r.dir, 'src'), join(dest, `${r.label}-src`), { recursive: true });
+    }
+  }
+}
+console.error(`archived artifacts to ${ARCHIVE}`);
 
 mkdirSync(OUT, { recursive: true });
 // MERGE per model, never overwrite. Phases are routinely run in separate
