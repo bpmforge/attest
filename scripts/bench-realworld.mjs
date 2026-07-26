@@ -38,6 +38,16 @@ const ONLY = flag('--phase', null)?.split(',').map((s) => s.trim());
 // keep prior phases' artifacts or it silently destroys the upstream work and
 // grades the model on inputs it never received.
 const RESUME = argv.includes('--resume');
+// Restored: this declaration block previously no-op'd (the patch that added it had
+// no assertion and its anchor had already been edited away), so LABEL/BARE/
+// NO_UPSTREAM were USED at lines 425/482 but never DEFINED — the run died on a
+// ReferenceError after the first model completed. Third occurrence of the same
+// silent-replace failure; every patch anchor is asserted now.
+const TASK_FILTER = flag('--task', null);
+// LIFT CONTROLS (evals/README.md: lift = pass-rate(scaffolded) - pass-rate(bare)).
+const BARE = argv.includes('--bare');            // drop the specialist agent
+const NO_UPSTREAM = argv.includes('--no-upstream'); // ignore the artifact gate
+const LABEL = flag('--label', null);             // name the cell so runs don't collide
 if (!MODELS.length && !argv.includes('--self-test')) { console.error('usage: --models a,b [--self-test]'); process.exit(2); }
 
 const strip = (s) => s.replace(/\x1b\[[0-9;]*m/g, '');
