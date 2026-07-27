@@ -39,12 +39,29 @@ wrapper). TypeScript cannot see that step. **This shape compiles clean and throw
 
 Shape 2 is the reason a passing build is not evidence of correctness here.
 
+## Locating the script
+
+A global install puts it beside the other expert scripts; a project-mode install
+does not ship `scripts/` at all. Resolve it once, then use `$EXPERTS` below:
+
+```bash
+EXPERTS=$(for d in ~/.config/opencode/scripts ~/.claude/scripts; do
+  [ -f "$d/api-surface.mjs" ] && echo "$d" && break
+done)
+```
+
+If that comes back empty you are on a project-mode install: copy
+`api-surface.mjs` into the target repo (`scripts/` or `frontend/scripts/`), commit
+it, and set `EXPERTS` to that directory. A vendored copy is the intended fallback
+— the script has no dependencies beyond `node:fs` and `node:path`, and living in
+the repo means CI can run it without the expert system installed.
+
 ## Workflow
 
 ### 1. Rank the project's dependencies by risk
 
 ```bash
-node <experts>/scripts/api-surface.mjs --scan
+node "$EXPERTS/api-surface.mjs" --scan
 ```
 
 Ranks every dependency by structural risk: interface merges, packages shipping no
@@ -54,10 +71,15 @@ directory holding `package.json`, or pass `--root=<dir> --src=<dir>`.
 Read the output, don't just take the top row. High `augs` with low `calls` is
 latent exposure; `NO — LIVE BUG` in the registered column is an active defect.
 
+Frameworks rank on structure alone — Next.js merges a dozen members onto `Window`
+and `HTMLAttributes` with no registration step behind any of them. That is not
+actionable. The rows worth acting on are feature libraries whose merged members
+the project actually calls.
+
 ### 2. Generate a reference for the libraries that matter
 
 ```bash
-node <experts>/scripts/api-surface.mjs --package=@antv/x6
+node "$EXPERTS/api-surface.mjs" --package=@antv/x6
 ```
 
 Writes `docs/development/<PKG>_API.md`: installed version, exported classes with
@@ -84,7 +106,7 @@ worse than none.
 ### 4. Gate it
 
 ```bash
-node <experts>/scripts/api-surface.mjs --check
+node "$EXPERTS/api-surface.mjs" --check
 ```
 
 Exits non-zero on: a declared dependency shipping no JavaScript that nothing
