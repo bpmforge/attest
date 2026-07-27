@@ -1,4 +1,12 @@
 {
+  "name": "bpm-opencode-experts",
+  "version": "2.32.0",
+  "license": "Apache-2.0",
+  "description": "SDLC expert-agent system for opencode — specialist agents, shared protocols, and validators.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bpmforge/bpm-opencode-experts.git"
+  },
   "type": "module",
   "dependencies": {
     "@opencode-ai/plugin": "1.4.0",
@@ -20,6 +28,5 @@
     "evals:status": "node scripts/eval-status.mjs",
     "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
-  },
-  "version": "2.32.0"
+  }
 }
