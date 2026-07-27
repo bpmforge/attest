@@ -45,16 +45,21 @@ A global install puts it beside the other expert scripts; a project-mode install
 does not ship `scripts/` at all. Resolve it once, then use `$EXPERTS` below:
 
 ```bash
-EXPERTS=$(for d in ~/.config/opencode/scripts ~/.claude/scripts; do
-  [ -f "$d/api-surface.mjs" ] && echo "$d" && break
-done)
+for d in ~/.config/opencode/scripts ~/.claude/scripts ./scripts ./frontend/scripts; do
+  [ -f "$d/api-surface.mjs" ] && EXPERTS="$d" && break
+done
+[ -n "$EXPERTS" ] && echo "using $EXPERTS/api-surface.mjs" || echo "NOT INSTALLED — vendor it (below)"
 ```
 
-If that comes back empty you are on a project-mode install: copy
-`api-surface.mjs` into the target repo (`scripts/` or `frontend/scripts/`), commit
-it, and set `EXPERTS` to that directory. A vendored copy is the intended fallback
-— the script has no dependencies beyond `node:fs` and `node:path`, and living in
-the repo means CI can run it without the expert system installed.
+**If that prints NOT INSTALLED**, you are on a project-mode install, which does
+not ship `scripts/` at all. Copy `api-surface.mjs` from the expert-system repo
+into the target project (`scripts/` or `frontend/scripts/`), commit it, and set
+`EXPERTS` to that directory.
+
+Vendoring is the intended fallback, not a workaround: the script imports nothing
+beyond `node:fs` and `node:path`, and a copy living in the repo is what lets CI
+run the gate without the expert system installed. Do not proceed with an empty
+`$EXPERTS` — every command below would silently target `/api-surface.mjs`.
 
 ## Workflow
 
