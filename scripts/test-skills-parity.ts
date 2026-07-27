@@ -17,10 +17,11 @@
  *      review-code/code-review, research/researcher, security/security-audit,
  *      ux/ux-expert) with zero false positives, and the exceptions list must
  *      cover every documented one-sided skill. This does NOT assert the live
- *      pair is drift-free — as of T22.12 it genuinely is not: 4 opencode
- *      skills (design-options, explore, simplify, steward) are real,
- *      uncited gaps in claude-experts, which is the check correctly firing,
- *      not a bug. See T22.12's evidence note for the follow-up.
+ *      pair is drift-free by assertion — it asserts the live result equals
+ *      KNOWN_MISSING_IN_CLAUDE exactly. That set was emptied at v2.0.0 when
+ *      the four then-open gaps (design-options, explore, simplify, steward)
+ *      were ported, so the expectation today is zero missing on both sides.
+ *      A new uncited gap therefore fails here, which is the point.
  *   2. RED (planted, per the ticket's acceptance criterion): a fixture skill
  *      present in only one repo must be flagged missing on the other side.
  *   3. GREEN: a skill present in both repos under a renamed directory (same
@@ -53,7 +54,7 @@ export async function testSkillsParity(
         live.missingInOpencode.length === 0
       )
         ok(
-          `skills-parity — live repo pair: name/trigger resolver matches every renamed skill (0 false positives), exceptions cover every documented one-sided skill; ${expectedMissingInClaude.length} real uncited gap(s) correctly surfaced (design-options, explore, simplify, steward — see T22.12 evidence)`,
+          `skills-parity — live repo pair: name/trigger resolver matches every renamed skill (0 false positives), exceptions cover every documented one-sided skill; ${expectedMissingInClaude.length} tracked gap(s) — matches KNOWN_MISSING_IN_CLAUDE exactly`,
         );
       else
         fail(

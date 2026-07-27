@@ -826,6 +826,11 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
   # engine being present is enough to make use of the community rule cache.
   SAST_ENGINE_OK=false
   { [ "$OPENGREP_OK" = true ] || [ "$SEMGREP_OK" = true ]; } && SAST_ENGINE_OK=true
+  # scripts/ is copied to $DEST in global mode only, so every user-facing path
+  # below must resolve to the copy that actually exists — a project install was
+  # printing "run $DEST/scripts/update-semgrep-rules.sh" for a file never placed there.
+  RULES_SCRIPT="$SCRIPT_DIR/scripts/update-semgrep-rules.sh"
+  [ -f "$DEST/scripts/update-semgrep-rules.sh" ] && RULES_SCRIPT="$DEST/scripts/update-semgrep-rules.sh"
   if [ "$INSTALL_SEMGREP" = true ] && [ "$SAST_ENGINE_OK" = true ]; then
     # --opengrep/--semgrep flag + a SAST engine is installed: clone missing sources automatically
     echo "  Cloning missing community rule sources (--opengrep/--semgrep flag set)..."
@@ -862,14 +867,14 @@ if [ ${#missing_sources[@]} -gt 0 ]; then
           || echo "  ⚠️ Some community rule sources failed — check output above"
       fi
     else
-      echo "  Skipped. Run later:  $DEST/scripts/update-semgrep-rules.sh"
+      echo "  Skipped. Run later:  $RULES_SCRIPT"
     fi
   else
     # Non-interactive or no SAST engine installed: print instructions
     if [ "$SAST_ENGINE_OK" = false ]; then
-      echo "  ℹ️  Install Opengrep or Semgrep first, then run:  $DEST/scripts/update-semgrep-rules.sh"
+      echo "  ℹ️  Install Opengrep or Semgrep first, then run:  $RULES_SCRIPT"
     else
-      echo "  ℹ️  Run later:  $DEST/scripts/update-semgrep-rules.sh"
+      echo "  ℹ️  Run later:  $RULES_SCRIPT"
       echo "      Or re-run:  ./install.sh --opengrep  (auto-clones everything)"
     fi
   fi
