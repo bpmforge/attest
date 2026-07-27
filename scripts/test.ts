@@ -49,7 +49,7 @@ import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
 import { testApiSurface } from "./test-api-surface.ts";
 import { testVerifyReceipt } from "./test-verify-receipt.ts";
-import { testDelegationGate } from "./test-delegation-gate.ts";
+import { testDelegationGate, testDelegationMetrics } from "./test-delegation-gate.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
 import { testSetupDevServer } from "./test-setup-dev-server.ts";
@@ -636,6 +636,7 @@ testVerifyReceipt(root, ok, fail);
 // delegation-gate: three checks a passing test suite cannot make.
 console.log("\n[Pass 47] delegation-gate — coverage delta, pattern novelty, reviewer citations");
 testDelegationGate(root, ok, fail);
+testDelegationMetrics(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

@@ -568,7 +568,8 @@ defects, and there is a hard schedule pressure pressuring exactly that disciplin
   independently confirmed present, verbatim, at every commit. No current analogue in the
   system; more AI review layers cannot fix an AI reviewer being confidently wrong.
 
-### I5. Publish the reliability metric from a mechanical source
+### I5. Publish the reliability metric from a mechanical source ✅ DONE 2026-07-27 (v2.41.0)
+- `delegation-metrics.mjs` derives it from the log. In-flight rows are excluded from the denominator rather than counted as passes, and a rate over fewer than 10 samples is labelled not-yet-meaningful instead of ranked on.
 - Derive DONE/REDO counts from the delegation log, not a hand tally (M22: no coverage
   claim whose denominator came from the claimant).
 - **Why:** turns "I don't trust AI-authored code" into a trending number; makes drift
@@ -602,7 +603,8 @@ v2.36.0 is unenforceable there.
   and flags majors behind.
 - **Why:** the principle above is currently true only for TypeScript projects.
 
-### J2. Attribute the correction rate by model and agent role ⬅ OPEN
+### J2. Attribute the correction rate by model and agent role ✅ DONE 2026-07-27 (v2.41.0)
+- Same script: `--json` and a printed split by model and by agent. A log with no model column says so explicitly rather than printing an empty split — recording the column is the prerequisite, and the aggregate cannot substitute for it.
 The downstream project logs 24% correction rounds across 118 delegations but cannot say
 which models produce them. One session showed Haiku 4.5, GPT-5 and Sonnet 5 in use, with
 the coding-agent on Haiku 4.5 during a round that had false `tsc` claims — one data point,

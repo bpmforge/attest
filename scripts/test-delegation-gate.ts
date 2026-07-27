@@ -90,3 +90,50 @@ export function testDelegationGate(
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
+/**
+ * Appended to test-delegation-gate.ts — delegation-metrics shares its subject
+ * (the delegation loop) and its evidence base.
+ *
+ * The properties worth pinning: PENDING rows must not be counted as successes
+ * (that silently flatters the rate), and a missing model column must say so
+ * rather than reporting a split it cannot produce.
+ */
+export function testDelegationMetrics(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const script = path.join(root, "scripts/delegation-metrics.mjs");
+  if (!fs.existsSync(script)) {
+    fail("delegation-metrics — script present", `${script} not found`);
+    return;
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "delegation-metrics-"));
+  try {
+    const log = path.join(tmp, "log.md");
+    fs.writeFileSync(
+      log,
+      "| Ticket | Agent | Model | Outcome |\n|---|---|---|---|\n" +
+        "| T-1 | coding-agent | Haiku 4.5 | DONE |\n" +
+        "| T-2 | coding-agent | Haiku 4.5 | REDO |\n" +
+        "| T-3 | coding-agent | Sonnet 5 | DONE |\n" +
+        "| T-4 | coding-agent | Sonnet 5 | PENDING |\n",
+    );
+    const r = run(script, tmp, [`--log=${log}`, "--json"]);
+    const j = JSON.parse(r.out);
+    // 3 scored (PENDING excluded), 1 correction => 33.3%. Counting PENDING as a
+    // pass would report 25% and flatter the number.
+    if (j.scored === 3 && j.corrections === 1 && j.excluded === 1 && j.byModel["Haiku 4.5"].corrections === 1)
+      ok("delegation-metrics — in-flight rows excluded from the denominator, not counted as passes");
+    else fail("delegation-metrics — denominator", JSON.stringify({ scored: j.scored, excluded: j.excluded }));
+
+    const noModel = path.join(tmp, "nm.md");
+    fs.writeFileSync(noModel, "| Ticket | Agent | Outcome |\n|---|---|---|\n| T-1 | coding-agent | DONE |\n");
+    const r2 = run(script, tmp, [`--log=${noModel}`]);
+    if (r2.code === 0 && /No model column/.test(r2.out))
+      ok("delegation-metrics — a log with no model column says so instead of reporting an empty split");
+    else fail("delegation-metrics — missing model column", `exit=${r2.code} out=${r2.out.trim()}`);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
