@@ -137,3 +137,76 @@ export function testDelegationMetrics(
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+
+/**
+ * validate-invariants.sh — declared cross-cutting rules.
+ *
+ * The regression pinned here is subtle and was live: records were TAB-delimited,
+ * and bash treats tab as IFS-whitespace, so consecutive delimiters collapse. An
+ * invariant with an empty `require` shifted its `forbid` into the require slot and
+ * the check silently INVERTED — reporting a forbidden pattern as a missing
+ * requirement, and passing files that actually violated it.
+ */
+export function testInvariants(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const script = path.join(root, "scripts/validators/validate-invariants.sh");
+  if (!fs.existsSync(script)) {
+    fail("validate-invariants — script present", `${script} not found`);
+    return;
+  }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "invariants-"));
+  const sh = (cwd: string, args: string[]) => {
+    try {
+      return { code: 0, out: execFileSync("bash", [script, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+    } catch (e: any) {
+      return { code: e.status ?? 1, out: `${e.stdout ?? ""}${e.stderr ?? ""}` };
+    }
+  };
+  try {
+    const p = path.join(tmp, "p");
+    fs.mkdirSync(path.join(p, ".sdlc"), { recursive: true });
+    fs.mkdirSync(path.join(p, "src/api"), { recursive: true });
+    fs.writeFileSync(
+      path.join(p, ".sdlc/invariants.json"),
+      JSON.stringify({
+        invariants: [
+          { name: "audited seam", files: "src/api/*.ts", require: "withAuditedTx", exclude: "health\\.ts", why: "ADR-014" },
+          { name: "no local auth", files: "src/api/*.ts", forbid: "function getAuthUser", why: "import it" },
+        ],
+      }),
+    );
+    fs.writeFileSync(path.join(p, "src/api/good.ts"), "withAuditedTx(() => {});\n");
+    fs.writeFileSync(path.join(p, "src/api/bad.ts"), "db.update();\nfunction getAuthUser(){}\n");
+    fs.writeFileSync(path.join(p, "src/api/health.ts"), 'export const h = "ok";\n');
+
+    const red = sh(p, [p]);
+    const missingReq = /bad\.ts: missing required 'withAuditedTx'/.test(red.out);
+    const hitForbid = /bad\.ts: contains forbidden 'function getAuthUser'/.test(red.out);
+    const excluded = !/health\.ts/.test(red.out);
+    if (red.code === 1 && missingReq && hitForbid && excluded)
+      ok("validate-invariants — RED: require and forbid both fire on the right file; exclude honoured");
+    else
+      fail(
+        "validate-invariants — RED",
+        `exit=${red.code} req=${missingReq} forbid=${hitForbid} excluded=${excluded}`,
+      );
+
+    fs.writeFileSync(path.join(p, "src/api/bad.ts"), "withAuditedTx(() => {});\n");
+    const green = sh(p, [p]);
+    if (green.code === 0) ok("validate-invariants — GREEN: clean once the violation is fixed");
+    else fail("validate-invariants — GREEN", `exit=${green.code} out=${green.out.trim()}`);
+
+    const none = path.join(tmp, "none");
+    fs.mkdirSync(none, { recursive: true });
+    const noCfg = sh(none, [none]);
+    if (noCfg.code === 0 && /nothing declared/.test(noCfg.out))
+      ok("validate-invariants — no config is a notice, not a failure");
+    else fail("validate-invariants — no config", `exit=${noCfg.code}`);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
