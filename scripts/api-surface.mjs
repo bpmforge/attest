@@ -18,6 +18,7 @@
  *   node api-surface.mjs --package=@antv/x6         # write a reference doc
  *   node api-surface.mjs --check                    # CI: stub deps + unmet augmentations
  *   node api-surface.mjs --family=@antv/x6          # registry: is "latest" the same major?
+ *   node api-surface.mjs --outdated                 # npm/cargo/go/pypi: what is a major behind?
  *
  * Options:
  *   --root=<dir>     project root holding package.json  (default: cwd)
@@ -486,7 +487,17 @@ async function registryInfo(name) {
   }
 }
 
-const major = (v) => (v ? String(v).replace(/^[^\d]*/, "").split(".")[0] : null);
+/**
+ * The version position that signals a breaking change. Under semver, 0.x is
+ * pre-stable and the MINOR is the breaking position — 0.10 -> 0.11 is a break,
+ * not a patch bump. Most Rust crates live at 0.x, so treating "0" as the major
+ * would report nearly every breaking Cargo upgrade as "current".
+ */
+const major = (v) => {
+  if (!v) return null;
+  const parts = String(v).replace(/^[^\d]*/, "").split(".");
+  return parts[0] === "0" && parts[1] !== undefined ? `0.${parts[1]}` : parts[0];
+};
 
 /**
  * Sibling packages published under the same name prefix. Enumerated from the
@@ -563,6 +574,193 @@ async function family(anchor) {
       : `\nEvery family member resolves to v${target} — "install latest" is safe here.`,
   );
   return problems.length;
+}
+
+
+// ── outdated (multi-ecosystem) ──────────────────────────────────────────────
+// The rest of this file reads TypeScript type definitions, so it only serves npm.
+// Version CURRENCY is not TypeScript-specific: "is this dependency still current,
+// and how far behind is it" is answerable from any registry, and a Go or Rust
+// project has exactly the same exposure to an agent writing versions from recall.
+//
+// Each adapter is a manifest parser plus one registry endpoint returning the
+// current stable version. Nothing here needs the package installed.
+
+const ECOSYSTEMS = [
+  {
+    id: "npm",
+    manifest: "package.json",
+    parse: (t) => {
+      const j = JSON.parse(t);
+      return Object.entries({ ...j.dependencies, ...j.devDependencies }).map(([name, range]) => ({
+        name,
+        range,
+      }));
+    },
+    latest: async (n) =>
+      (await json(`https://registry.npmjs.org/${n.replace("/", "%2f")}`, {
+        accept: "application/vnd.npm.install-v1+json",
+      }))?.["dist-tags"]?.latest,
+  },
+  {
+    id: "cargo",
+    manifest: "Cargo.toml",
+    // Deliberately line-based: pulling in a TOML parser to read `name = "1.2"`
+    // lines would be the only dependency this script has.
+    parse: (t) => {
+      const out = [];
+      let inDeps = false;
+      for (const line of t.split("\n")) {
+        const section = /^\s*\[([^\]]+)\]/.exec(line);
+        if (section) {
+          inDeps = /(^|\.)(dependencies|dev-dependencies|build-dependencies)$/.test(section[1]);
+          continue;
+        }
+        if (!inDeps) continue;
+        const m = /^\s*([A-Za-z0-9_-]+)\s*=\s*(?:"([^"]+)"|\{[^}]*version\s*=\s*"([^"]+)")/.exec(line);
+        if (m) out.push({ name: m[1], range: m[2] ?? m[3] });
+      }
+      return out;
+    },
+    latest: async (n) => (await json(`https://crates.io/api/v1/crates/${n}`))?.crate?.max_stable_version,
+  },
+  {
+    id: "go",
+    manifest: "go.mod",
+    parse: (t) =>
+      [...t.matchAll(/^\s*([\w.\-\/]+\.[\w.\-\/]+)\s+v(\S+)/gm)]
+        .map((m) => ({ name: m[1], range: `v${m[2]}` }))
+        .filter((d) => !d.name.startsWith("go ")),
+    latest: async (n) => (await json(`https://proxy.golang.org/${n.toLowerCase()}/@latest`))?.Version,
+  },
+  {
+    id: "pypi",
+    manifest: "pyproject.toml",
+    parse: (t) =>
+      [...t.matchAll(/^\s*["']?([A-Za-z0-9._-]+)["']?\s*[=~><]{1,2}\s*["']?([0-9][^"',\s]*)/gm)].map(
+        (m) => ({ name: m[1], range: m[2] }),
+      ),
+    latest: async (n) => (await json(`https://pypi.org/pypi/${n}/json`))?.info?.version,
+  },
+];
+
+async function json(url, headers = {}) {
+  try {
+    // crates.io rejects requests without a descriptive User-Agent (documented
+    // policy); the others ignore it. Sent everywhere so one adapter is not a
+    // special case.
+    const res = await fetch(url, {
+      headers: { "user-agent": "bpm-opencode-experts api-surface (version currency check)", ...headers },
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function outdated() {
+  const eco = ECOSYSTEMS.find((e) => existsSync(join(ROOT, e.manifest)));
+  if (!eco) {
+    console.error(
+      `api-surface: no supported manifest in ${ROOT} ` +
+        `(looked for ${ECOSYSTEMS.map((e) => e.manifest).join(", ")})`,
+    );
+    return 2;
+  }
+
+  let deps;
+  try {
+    deps = eco.parse(read(join(ROOT, eco.manifest))).filter((d) => d.name && d.range);
+  } catch (e) {
+    console.error(`api-surface: could not parse ${eco.manifest} — ${e.message}`);
+    return 2;
+  }
+
+  console.log(`${eco.manifest} — ${deps.length} dependencies (${eco.id})\n`);
+  console.log("package".padEnd(42) + "declared".padEnd(18) + "latest".padEnd(18) + "status");
+  console.log("─".repeat(96));
+
+  let behind = 0;
+  let unknown = 0;
+  for (const d of deps.sort((a, b) => a.name.localeCompare(b.name))) {
+    const latest = await eco.latest(d.name);
+    let status;
+    if (!latest) {
+      status = "registry lookup failed";
+      unknown++;
+    } else if (major(d.range) !== major(latest)) {
+      status = `MAJOR BEHIND — v${major(d.range)} → v${major(latest)}`;
+      behind++;
+    } else {
+      status = "current major";
+    }
+    console.log(
+      d.name.slice(0, 40).padEnd(42) + String(d.range).padEnd(18) + String(latest ?? "—").padEnd(18) + status,
+    );
+  }
+
+  console.log(
+    `\n${behind} dependency(ies) a major behind` +
+      (unknown ? `, ${unknown} unresolved (private registry or offline)` : "") +
+      `.\nA major behind is not automatically wrong — it is a decision that should be` +
+      `\nrecorded in TECH_STACK.md rather than inherited by default.`,
+  );
+  return behind ? 1 : 0;
+}
+
+
+// ── selftest ────────────────────────────────────────────────────────────────
+// The manifest parsers and the semver rule are the parts most likely to break
+// silently under refactor, and both are testable without touching a network.
+
+function selftest() {
+  const fails = [];
+  const eq = (label, got, want) => {
+    if (JSON.stringify(got) !== JSON.stringify(want))
+      fails.push(`${label}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+  };
+
+  // 0.x is pre-stable: the MINOR is the breaking position.
+  eq("major(1.2.3)", major("1.2.3"), "1");
+  eq("major(^3.1.7)", major("^3.1.7"), "3");
+  eq("major(0.10)", major("0.10"), "0.10");
+  eq("major(0.11.0)", major("0.11.0"), "0.11");
+  eq("0.10 != 0.11", major("0.10") === major("0.11.0"), false);
+  eq("major(v1.41.6)", major("v1.41.6"), "1");
+
+  const eco = (id) => ECOSYSTEMS.find((e) => e.id === id);
+
+  eq(
+    "cargo: table + inline-table deps, sections respected",
+    eco("cargo").parse(
+      '[package]\nname = "x"\nversion = "9.9"\n\n[dependencies]\nanyhow = "1.0"\n' +
+        'tokio = { version = "1.44", features = ["full"] }\n\n[dev-dependencies]\nmockall = "0.13"\n',
+    ),
+    [
+      { name: "anyhow", range: "1.0" },
+      { name: "tokio", range: "1.44" },
+      { name: "mockall", range: "0.13" },
+    ],
+  );
+
+  eq(
+    "go: module paths with versions",
+    eco("go").parse("module example.com/x\n\ngo 1.22\n\nrequire (\n\tgithub.com/a/b v1.2.3\n)\n"),
+    [{ name: "github.com/a/b", range: "v1.2.3" }],
+  );
+
+  eq(
+    "npm: deps + devDeps merged",
+    eco("npm").parse('{"dependencies":{"a":"^1.0.0"},"devDependencies":{"b":"~2.0.0"}}'),
+    [
+      { name: "a", range: "^1.0.0" },
+      { name: "b", range: "~2.0.0" },
+    ],
+  );
+
+  for (const f of fails) console.error(`api-surface selftest: ${f}`);
+  console.log(fails.length ? `${fails.length} selftest failure(s)` : "api-surface selftest: ok");
+  return fails.length;
 }
 
 // ── reference doc ───────────────────────────────────────────────────────────
@@ -745,16 +943,21 @@ node api-surface.mjs --check            # CI gate
 
 // ── entry ───────────────────────────────────────────────────────────────────
 
-if (!existsSync(join(ROOT, "package.json"))) {
+// --outdated serves every supported ecosystem; the type-reading modes are npm-only.
+const npmOnly = !argv.includes("--outdated") && !argv.includes("--selftest");
+if (npmOnly && !existsSync(join(ROOT, "package.json"))) {
   console.error(`api-surface: no package.json at ${ROOT} — pass --root=<dir>`);
+  console.error(`api-surface: for a non-npm project, --outdated works from its own manifest`);
   process.exit(2);
 }
 
 if (argv.includes("--check")) process.exit(check() ? 1 : 0);
 else if (argv.includes("--scan")) scan();
 else if (opt("family")) process.exit((await family(opt("family"))) ? 1 : 0);
+else if (argv.includes("--outdated")) process.exit(await outdated());
+else if (argv.includes("--selftest")) process.exit(selftest() ? 1 : 0);
 else if (opt("package")) generate(opt("package"));
 else {
-  console.error("api-surface: pass --scan, --check, --family=<name>, or --package=<name>");
+  console.error("api-surface: pass --scan, --check, --outdated, --family=<name>, or --package=<name>");
   process.exit(2);
 }
