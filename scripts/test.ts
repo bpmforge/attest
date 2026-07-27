@@ -48,6 +48,7 @@ import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
 import { testApiSurface } from "./test-api-surface.ts";
+import { testVerifyReceipt } from "./test-verify-receipt.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
 import { testSetupDevServer } from "./test-setup-dev-server.ts";
@@ -626,6 +627,10 @@ await testFigmaAdapter(root, ok, fail);
 // package used via @import must not be reported as dead).
 console.log("\n[Pass 44] api-surface — library API grounding gate");
 await testApiSurface(root, ok, fail);
+
+// verify-receipt: the agent must not author its own pass/fail.
+console.log("\n[Pass 46] verify-receipt — untrusted verification receipts");
+testVerifyReceipt(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

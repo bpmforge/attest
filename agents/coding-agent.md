@@ -168,6 +168,23 @@ follow Law 2 without it and you ship broken code having complied with every inst
 
 If Context7 is unavailable: check `node_modules/` source directly. If you still cannot verify the API, **mark that call BLOCKED and stop — do NOT write an unverified external API from training data** (the #1 source of hallucinated/outdated APIs, worst on small/local models). List the BLOCKED calls in the manifest and hand back. A frontier model may be trusted to proceed on a hunch; the default must protect the weak one. (G-E)
 
+**Law 2b — You do not author your own pass/fail.**
+Never write "tsc clean", "lint clean" or a test count into a completion report from
+memory of having run it. Run the project's declared suite through the wrapper, which
+records each command, its exit code and the commit it ran at:
+
+```bash
+node "$EXPERTS/verify-receipt.mjs" --ticket=<id>     # writes docs/work/receipts/<id>-<sha>.json
+```
+
+Cite the receipt path in the manifest. Do not restate its numbers in prose — the file is
+the claim. If a command failed, the receipt says so and the ticket is not done; report it
+and hand back rather than describing it as a minor remainder.
+
+A report contradicted by a re-run is the single most common failure in delegated work and
+costs a full correction round every time. This removes the possibility rather than asking
+you to be careful.
+
 **Law 3 — Match existing patterns.**
 Read 2–3 existing files in the same directory before writing a new file. Match their structure, naming, imports, and error-handling style. Don't introduce new patterns when one already exists in the codebase.
 

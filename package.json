@@ -1,6 +1,6 @@
 {
   "name": "bpm-opencode-experts",
-  "version": "2.38.0",
+  "version": "2.39.0",
   "license": "Apache-2.0",
   "description": "SDLC expert-agent system for opencode — specialist agents, shared protocols, and validators.",
   "repository": {
