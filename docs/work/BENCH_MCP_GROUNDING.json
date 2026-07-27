@@ -1,0 +1,126 @@
+{
+  "generated": "2026-07-26T00:30:33.586Z",
+  "repeats": 3,
+  "rows": [
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "sqlite3-paramstyle",
+      "repeat": 1,
+      "secs": 90.8,
+      "correct": true,
+      "tools": 5,
+      "mcp": 4,
+      "failed": 0
+    },
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "sqlite3-paramstyle",
+      "repeat": 2,
+      "secs": 35.1,
+      "correct": true,
+      "tools": 3,
+      "mcp": 3,
+      "failed": 0
+    },
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "sqlite3-paramstyle",
+      "repeat": 3,
+      "secs": 78.8,
+      "correct": true,
+      "tools": 7,
+      "mcp": 7,
+      "failed": 1
+    },
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "flask-route-methods",
+      "repeat": 1,
+      "secs": 41.1,
+      "correct": true,
+      "tools": 3,
+      "mcp": 3,
+      "failed": 0
+    },
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "flask-route-methods",
+      "repeat": 2,
+      "secs": 31.2,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "qwen/qwen3.5-9b",
+      "task": "flask-route-methods",
+      "repeat": 3,
+      "secs": 39.6,
+      "correct": true,
+      "tools": 3,
+      "mcp": 3,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "sqlite3-paramstyle",
+      "repeat": 1,
+      "secs": 80.3,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "sqlite3-paramstyle",
+      "repeat": 2,
+      "secs": 69.3,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "sqlite3-paramstyle",
+      "repeat": 3,
+      "secs": 77.6,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "flask-route-methods",
+      "repeat": 1,
+      "secs": 63.2,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "flask-route-methods",
+      "repeat": 2,
+      "secs": 75.7,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    },
+    {
+      "model": "ternary-bonsai-27b-mlx",
+      "task": "flask-route-methods",
+      "repeat": 3,
+      "secs": 67.2,
+      "correct": true,
+      "tools": 2,
+      "mcp": 2,
+      "failed": 0
+    }
+  ]
+}

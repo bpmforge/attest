@@ -65,3 +65,5 @@ logs/
 .worktrees/
 .tmp-wd-*/
 .tmp-*/
+.tmp-realworld/
+docs/work/realworld-runs/

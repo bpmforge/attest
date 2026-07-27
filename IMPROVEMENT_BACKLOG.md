@@ -444,3 +444,78 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 - **Tiny:** 2 | **Small:** 11 | **Medium:** 9 | **Medium-Large:** 1 | **Large:** 2 | **Architecture:** 4
 - **High priority:** A1, B1, B2, C2
 - Groups B, C, E can run in parallel once foundations are done
+
+---
+
+## Group I — Measurement & Dispatch Integrity
+
+From `issues/field-report-local-model-eval-2026-07.md` (local-model evaluation,
+2026-07-25/26). Eight faults, every one manufacturing an apparent MODEL
+deficiency. These are process changes; a prompt edit would have fixed none of them.
+
+### I1. Harness calibration gate — prove the instrument before trusting the reading ✅ DONE 2026-07-26
+- **Rule:** any harness that produces a number about a model MUST first demonstrate,
+  on a known-good and a known-bad input, that it can tell them apart. Ship the
+  calibration as a `--self-test` and run it before any grading run.
+- Precedent that worked: the real-world hidden suite was validated 25/25 against a
+  reference implementation *before* any model was graded, so a buggy suite could not
+  manufacture a fake model failure.
+- Would have caught faults 2, 3, 4, 5, 7 — each of which returned a plausible-looking
+  zero on real input and was never checked against a case known to be non-zero.
+- **Why:** a detector that matches nothing looks exactly like a model that did nothing.
+- Effort: S per harness. Add to `evals/README.md` validity rules.
+
+### I2. Falsifiable claims — every finding carries a concrete failure case ⬅ highest quality lift
+- **Rule:** a claimed requirements conflict, ambiguity, or review finding MUST cite
+  the specific IDs it relates AND a concrete input where they disagree. No concrete
+  case → the claim is dropped, not softened.
+- **Why:** confabulated analysis is longer, better formatted and more confident than
+  real analysis (§4 of the field report: 23.9 KB with ≥2 invented conflicts vs 9.1 KB
+  with 0). Volume currently reads as rigor. An invented conflict cannot produce a
+  concrete disagreeing input — that is what makes this checkable rather than advisory.
+- Mirrors what security findings already do with preconditions/yields; extends that
+  discipline to requirements and code-review output.
+- Model-agnostic: raises output quality for every tier, not just local.
+- Effort: S (guidance) + S (validator check for an "Open Questions" section).
+
+### I3. Comparative claims require N≥3 or carry an explicit unreplicated label
+- **Rule:** `eval-compare.mjs` must refuse to compute lift/gap from N=1 cells, and any
+  single-sample result must be rendered as `unreplicated`, never as a rate.
+- **Why:** two N=1 conclusions reversed on repeat this engagement; run-to-run variance
+  exceeded the between-model difference both times.
+- Effort: S.
+
+### I4. Select models on pipeline work, not token throughput
+- **Rule:** the model table in `LOCAL_LLM_GUIDE.md` ranks on *measured end-to-end phase
+  work*. tok/s may be listed but must be marked non-predictive.
+- **Why:** measured anti-correlation — the 9B is ~1.9× faster per token and ~2× slower
+  at the actual job. Cost is driven by tool round-trips, retries and output volume.
+- Effort: S. Depends on I1/I3 for trustworthy numbers.
+
+### I5. Proof of execution at dispatch ✅ DONE 2026-07-26 (dbf5f5a)
+- `tools/task.ts` requires the BOUNDED_TASK_CONTRACT Rule 3 completion phrase before
+  treating output as a result; absent → NOT RUN. Subagent fallback detected explicitly.
+  Documented in `EXECUTOR_SELECTION.md`.
+- **Why:** "ran and found nothing" and "never ran" were the same observable (exit 0 +
+  plausible prose), so a dispatch that silently did nothing could satisfy a gate.
+
+### I6. Local-tier runtime rules ✅ DONE 2026-07-26
+- `references/local-agentic-models.md` §4: SEARCH BEFORE FETCH (never hand-construct a
+  documentation URL), dispatch only `mode:primary`, never point a single-shot session
+  at an orchestrator, and the suspect-the-harness checklist.
+
+### I7. Link verification needs three outcomes ✅ DONE 2026-07-26
+- live (2xx/3xx) / **blocked** (403/429, unverifiable) / dead (404/410/000). Only dead
+  is evidence of fabrication. Collapsing blocked into dead scored three real npm
+  packages as invented citations.
+
+### I8. Rule-interaction matrix at Phase 2 ✅ DONE 2026-07-26
+- `references/phase-completion-checklist.md` Phase 2: enumerate every PAIR of rules touching
+  the same entity/state and state whether one can make the other unreachable. Record pairs
+  checked, not just problems found — an unlisted pair is an unchecked pair.
+- **Why:** the seeded structural flaw (reservation expiry vs loan duration) was missed by
+  BOTH models, which between them produced 17 ambiguity findings. Both analysed rules
+  individually — which is exactly what "identify ambiguities" invites. The defect lives in
+  the PAIR, so per-rule diligence cannot surface it at any capability level. This is a
+  process fix, not a model fix: enumerate the pairs and it becomes unmissable.
+

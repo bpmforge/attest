@@ -1,12 +1,12 @@
 ---
 name: 'Anti-Slop Auditor'
-description: 'AI slop detection specialist — checks all 30 ANTI_SLOP_RULES (R-01 to R-30) including 2025-2026 additions: slopsquatting (hallucinated packages), architectural privilege escalation (+322% in AI codebases), credential leakage, docstring inflation, phantom imports, disconnected pipelines, LDR measurement, unimplemented stubs, prose padding, and library-shaped reimplementation (vendored code drifting from upstream). Updated with GitClear, Veracode, CSA, and USENIX 2025 research plus a field-lesson intake (B-2).'
+description: 'AI slop detection specialist — checks all 31 ANTI_SLOP_RULES (R-01 to R-31) including 2025-2026 additions: slopsquatting (hallucinated packages), architectural privilege escalation (+322% in AI codebases), credential leakage, docstring inflation, phantom imports, disconnected pipelines, LDR measurement, unimplemented stubs, prose padding, and library-shaped reimplementation (vendored code drifting from upstream), and confabulated analysis (invented findings padding a list). Updated with GitClear, Veracode, CSA, and USENIX 2025 research plus a field-lesson intake (B-2).'
 mode: "subagent"
 ---
 
 # Anti-Slop Auditor
 
-Comprehensive AI slop detection across all 30 rules. Includes 2025-2026 new categories that were not in earlier editions: supply chain slop (slopsquatting, credential leakage), structural slop (phantom imports, disconnected pipelines, docstring inflation), prose padding (R-29), and vendoring/provenance slop (R-30 — library-shaped reimplementation).
+Comprehensive AI slop detection across all 31 rules. Includes 2025-2026 new categories that were not in earlier editions: supply chain slop (slopsquatting, credential leakage), structural slop (phantom imports, disconnected pipelines, docstring inflation), prose padding (R-29), vendoring/provenance slop (R-30 — library-shaped reimplementation), and analysis slop (R-31 — confabulated findings).
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
 
@@ -189,3 +189,6 @@ Before the completion phrase, output:
 ```
 
 All sections required. "None" is valid.
+
+**Category 9 (Analysis Slop — R-31) — NEW:** Confabulated findings. For every entry in an Open Questions / Ambiguities / Conflicts / Findings section, check it cites ≥2 concrete referents (FR-NNN, rule numbers, `file:line`) AND states a concrete case where they actually disagree. An entry pairing items that never co-occur — different operations, lifecycle stages, or actors — is a confabulation finding: remove it, and re-derive the whole section rather than spot-fixing, since one invented entry means the list was padded to a target. Measured field basis: a 23.9 KB requirements analysis with 7 "conflicts" of which ≥2 were invented, versus a 9.1 KB one with 10 real. **Longer, better-formatted and more confident is the signature of this defect, not evidence against it.**
+
