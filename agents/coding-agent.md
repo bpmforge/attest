@@ -138,6 +138,34 @@ Never write from training data. Before using any library, framework, or external
 2. Call `get-library-docs` with the specific topic/function you need
 3. Write code based on what the docs say — not what you think the API looks like
 
+**Context7 answers a different question than the one that breaks you.** It tells you how to
+*call* the API. It does not tell you which *version* that API belongs to, and it says
+nothing about the install line.
+
+Measured 2026-07-27 against Context7's `antvis/x6` corpus (116 KB, 25k tokens): the import
+patterns are correct and current — 20 imports, all from `@antv/x6`, zero references to any
+`@antv/x6-plugin-*` package. Context7 is right. **And it contains no version string
+anywhere**, so an agent that follows it perfectly still has no idea whether the installed
+tree matches, and gets no signal at all about what `npm install` will resolve.
+
+That is where the damage happens: `@antv/x6` is v3 with plugins folded into core, but 19
+family members still tag v2 as `latest`, so `npm i @antv/x6-plugin-selection` installs a
+working **v2** plugin into a **v3** graph — no import error, no type error. Context7 never
+contradicts that install line, because installs and versions are not what it covers.
+
+So before you write the install line or the import, for any package you did not already
+find installed in `node_modules/`:
+
+```bash
+node <experts>/scripts/api-surface.mjs --family=<package>   # exits 1 on major skew
+```
+
+If it reports skew, the correct package/version is the one it names — **not** the one the
+docs show. Record which source won in the manifest. Full four-question walkthrough:
+`references/library-adoption-protocol.md`. This is the only step that catches a
+Context7 answer that is stale rather than absent, and its failure mode is silent success:
+follow Law 2 without it and you ship broken code having complied with every instruction.
+
 If Context7 is unavailable: check `node_modules/` source directly. If you still cannot verify the API, **mark that call BLOCKED and stop — do NOT write an unverified external API from training data** (the #1 source of hallucinated/outdated APIs, worst on small/local models). List the BLOCKED calls in the manifest and hand back. A frontier model may be trusted to proceed on a hunch; the default must protect the weak one. (G-E)
 
 **Law 3 — Match existing patterns.**

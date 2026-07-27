@@ -69,12 +69,17 @@ next when it cannot.
 **1. The installed tree — `--package=`.** Ground truth for *this* project. Nothing else
 can tell you what your code is actually compiled against. Always wins a disagreement.
 
-**2. Context7 MCP** (`resolve-library-id` → `get-library-docs`). Current *published* docs
-and worked examples — the fastest path to usage patterns, and the right first stop before
-writing new code. Its limit is structural: it serves what the maintainers published. When
-upstream docs still describe a previous major's package layout, Context7 repeats that
-faithfully. It is not wrong; it is answering "what do the docs say", not "what will npm
-install".
+**2. Context7 MCP** (`resolve-library-id` → `get-library-docs`). Current published docs and
+worked examples — the fastest path to usage patterns and the right first stop before
+writing new code. It is frequently *more* current than the top web result; measured against
+AntV X6 on 2026-07-27 its corpus was cleanly v3, with zero references to the superseded
+plugin packages.
+
+Its limit is not accuracy, it is **scope**: Context7 answers "how do I call this", never
+"which version is this" or "what will `npm install` give me". The same X6 corpus — 116 KB —
+contained no version string at all. An agent can follow Context7 perfectly, write correct
+calls, and still install a package family that mixes majors. Rungs 1 and 3 are what cover
+that; they do not replace Context7, they answer questions it does not take.
 
 **3. The registry — `--family=<pkg>`.** The rung below Context7, and the one that catches
 what docs cannot: **`latest` is published per package, but compatibility is per family.**
@@ -190,6 +195,9 @@ weight — the pointer is what gets loaded every session.
 
 ## Related
 
+- `references/library-adoption-protocol.md` — the four questions, which source is
+  authoritative for each, and the X6 walkthrough showing that answering only the first
+  ships broken code with every instruction satisfied.
 - `references/antv-x6-v3.md` — a worked, portable instance: AntV X6 v3, where npm's own
   `latest` tags point at v2 for 10 of 12 satellite packages. Read it if the project uses
   X6; read it as an example of what a hand-written companion to the generated doc contains.
