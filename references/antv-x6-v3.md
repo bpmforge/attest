@@ -16,8 +16,14 @@ node "$EXPERTS/api-surface.mjs" --family=@antv/x6
 ```
 
 That prints the live registry state. The table below is a snapshot; the command is
-authoritative. Context7 answers "what do the docs say" — this answers "what will npm
-actually install", which is where AntV's satellites diverge.
+authoritative.
+
+**Context7 is not the problem here, and should still be your first stop for usage.**
+Measured 2026-07-27, its `antvis/x6` corpus is cleanly v3: 20 imports, all from
+`@antv/x6`, zero references to any `@antv/x6-plugin-*` package. What it does not carry —
+in 116 KB of retrieved docs — is a single version string, or any install line. So it
+cannot tell you that installing the plugin packages is wrong, because installs are not
+what it covers. That gap is what the command above fills.
 
 ## The install line
 

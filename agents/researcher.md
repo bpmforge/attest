@@ -185,6 +185,13 @@ fact_store({
 Rules:
 - **Store claims, not summaries.** One fact = one falsifiable statement with its quote. A paragraph is not a fact.
 - **Source-type credibility ladder** sets initial confidence: official docs/RFC/spec 0.9 · academic 0.8 · engineering blog 0.7 · news 0.5 · forum (HN/Reddit/SO) 0.4 · unknown 0.3. Corroboration raises it; never start a forum claim above 0.5.
+- **A package version claim comes from the registry, never from prose.** Docs, blogs and
+  release notes describe what was published; the registry decides what installs. They
+  disagree more often than the ladder above suggests, and official docs sitting at 0.9 is
+  exactly what makes the disagreement dangerous. For any "what version / which package"
+  question: `npm view <pkg> version` (and `--family` via `api-surface.mjs` when the library
+  spans a scope — a satellite package's `latest` can trail its own core by a major). Cite
+  the registry as the source; a version answered from a webpage is UNVERIFIED.
 - **Perishable facts get `staleAfterDays`** (versions, prices, benchmarks, model IDs: 30-90d). Evergreen concepts omit it.
 - **Query before you search:** at task start, `fact_query({ query: "<topic>", includeContradictions: true })` — prior sessions' verified facts are free; re-deriving them is the waste this exists to prevent.
 - **Query the vault too, before you search:** the project's compiled wiki at `~/Code/agent-brain-vault/wiki/` (see the `vault` skill for the full ingest/query/lint contract) may already have a synthesized, cited answer for a project-specific question — check it the same way you check the Fact Bank, and cite the page in the report instead of re-researching what's already compiled.

@@ -148,6 +148,20 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 **After researcher returns:** Run the Research Findings Review Protocol before writing TECH_STACK.md.
+
+**Every library named in TECH_STACK.md carries a registry-verified version.** A stack entry
+without one is a recommendation, not a decision — downstream agents will resolve it to
+whatever `latest` happens to be, which is the version nobody evaluated. For each library:
+
+```bash
+npm view <pkg> version                                       # what latest resolves to
+node <experts>/scripts/api-surface.mjs --family=<pkg>        # does the FAMILY agree?
+```
+
+Record the exact version. If `--family` reports major skew, record which members must be
+pinned or avoided, and why — that is a stack decision, not an implementation detail, and it
+is invisible to every agent downstream unless TECH_STACK.md states it.
+
 → Write TECH_STACK.md → mark DONE
 
 **Step 2 — Module design (HANDOFF — new):**
