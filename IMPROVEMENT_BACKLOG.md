@@ -4,6 +4,9 @@ Generated: 2026-05-19
 Source: Expert system audit + gap analysis
 Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 engagement field report
 (`issues/field-report-mode1-sdlc-run-2026-07.md`). Groups A–G (original audit) remain all-closed.
+Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
+(`issues/field-report-downstream project-delegation-2026-07-27.md`): 118 delegations, 24% correction rate,
+0 escapes to `main`, all caught by a human lead re-verifying by hand under a hard deadline.
 
 ---
 
@@ -519,3 +522,47 @@ deficiency. These are process changes; a prompt edit would have fixed none of th
   the PAIR, so per-rule diligence cannot surface it at any capability level. This is a
   process fix, not a model fix: enumerate the pairs and it becomes unmissable.
 
+---
+
+## Group I — Delegation-loop integrity (a downstream project field report, 2026-07-27)
+
+Source: `issues/field-report-downstream project-delegation-2026-07-27.md`. Every item below closes a
+failure observed on the record, not a hypothetical. The through-line: the lead's manual
+re-verification is the only thing standing between a 24% correction rate and shipped
+defects, and there is a hard schedule pressure pressuring exactly that discipline.
+
+### I1. Untrusted verify receipts — the agent must not author its own pass/fail
+- Project declares verify commands once (`.sdlc/verify.json`); a wrapper runs them and
+  writes `docs/work/receipts/<ticket>-<sha>.json` with command, exit code, output tail, SHA.
+- Validator asserts receipt SHA == pushed commit and every exit code is 0.
+- **Why:** false "tsc/biome clean" claims appear in 4 of the 5 named tickets — the single
+  most repeated failure. `validate-completion-manifest.sh` explicitly declines this case
+  (receipt-CHECK, not re-run) for sound injection/reproducibility reasons; this closes it
+  without executing any prose.
+
+### I2. Test-coverage delta gate
+- Count test files + cases at merge-base vs HEAD; net-negative fails absent an explicit
+  `Coverage-removed:` justification.
+- **Why:** T-164 r1 silently deleted 300+ lines of coverage while claiming coverage
+  added. `validate-no-reinvent.sh` sees ≥90% single-file rewrites, not the across-diff case.
+
+### I3. Pattern-novelty gate (warn)
+- Flag new directory names / file-placement patterns with zero occurrences on base.
+- **Why:** T-235 introduced a `__tests__/` layout existing nowhere else; the lead
+  caught it with `find -type d -iname __tests__` returning zero hits on `main`.
+
+### I4. Reviewer-citation gate
+- A REJECT verdict must cite `file:line`; resolve each citation at the reviewed SHA and
+  fail the verdict when a citation does not exist or contradicts the file there.
+- **Why:** T-234's code-reviewer fabricated a REJECT over a wiring omission
+  independently confirmed present, verbatim, at every commit. No current analogue in the
+  system; more AI review layers cannot fix an AI reviewer being confidently wrong.
+
+### I5. Publish the reliability metric from a mechanical source
+- Derive DONE/REDO counts from the delegation log, not a hand tally (M22: no coverage
+  claim whose denominator came from the claimant).
+- **Why:** turns "I don't trust AI-authored code" into a trending number; makes drift
+  visible before it is a crisis.
+
+**Order:** I1 alone if only one ships. Then I4 (highest cost per occurrence), then I2/I3
+(cheap). I5 is reporting, not a gate.
