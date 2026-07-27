@@ -547,18 +547,21 @@ defects, and there is a hard schedule pressure pressuring exactly that disciplin
   without executing any prose.
 </details>
 
-### I2. Test-coverage delta gate
+### I2. Test-coverage delta gate ✅ DONE 2026-07-27 (v2.40.0)
+- `delegation-gate.mjs --coverage`. Per-FILE shrinkage, not just the net total — the observed failure added a new test file while deleting cases from an existing one, so the totals matched and a net-only check passed it. `Coverage-removed:` in a commit message clears an intentional removal.
 - Count test files + cases at merge-base vs HEAD; net-negative fails absent an explicit
   `Coverage-removed:` justification.
 - **Why:** T-164 r1 silently deleted 300+ lines of coverage while claiming coverage
   added. `validate-no-reinvent.sh` sees ≥90% single-file rewrites, not the across-diff case.
 
-### I3. Pattern-novelty gate (warn)
+### I3. Pattern-novelty gate ✅ DONE 2026-07-27 (v2.40.0)
+- `delegation-gate.mjs --patterns`. Directory names introduced with zero precedent in the base tree; advisory, never fatal. Mechanizes the `find -type d -iname __tests__` the lead ran by hand.
 - Flag new directory names / file-placement patterns with zero occurrences on base.
 - **Why:** T-235 introduced a `__tests__/` layout existing nowhere else; the lead
   caught it with `find -type d -iname __tests__` returning zero hits on `main`.
 
-### I4. Reviewer-citation gate
+### I4. Reviewer-citation gate ✅ DONE 2026-07-27 (v2.40.0)
+- `delegation-gate.mjs --citations=<file>` + code-reviewer wiring. Fails on a line past EOF, a path absent at the reviewed commit, and a verdict with no `file:line` at all.
 - A REJECT verdict must cite `file:line`; resolve each citation at the reviewed SHA and
   fail the verdict when a citation does not exist or contradicts the file there.
 - **Why:** T-234's code-reviewer fabricated a REJECT over a wiring omission
