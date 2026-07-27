@@ -61,7 +61,56 @@ beyond `node:fs` and `node:path`, and a copy living in the repo is what lets CI
 run the gate without the expert system installed. Do not proceed with an empty
 `$EXPERTS` — every command below would silently target `/api-surface.mjs`.
 
+## Resolving "what is the current API?" — in this order
+
+Each rung answers a different question. Stop at the first that answers yours; fall to the
+next when it cannot.
+
+**1. The installed tree — `--package=`.** Ground truth for *this* project. Nothing else
+can tell you what your code is actually compiled against. Always wins a disagreement.
+
+**2. Context7 MCP** (`resolve-library-id` → `get-library-docs`). Current *published* docs
+and worked examples — the fastest path to usage patterns, and the right first stop before
+writing new code. Its limit is structural: it serves what the maintainers published. When
+upstream docs still describe a previous major's package layout, Context7 repeats that
+faithfully. It is not wrong; it is answering "what do the docs say", not "what will npm
+install".
+
+**3. The registry — `--family=<pkg>`.** The rung below Context7, and the one that catches
+what docs cannot: **`latest` is published per package, but compatibility is per family.**
+A library split across a scope can ship a new major on its core while satellite packages
+keep `latest` pointing at the old one. Installing "the latest" of each then silently mixes
+majors — no import error, no type error.
+
+```bash
+node "$EXPERTS/api-surface.mjs" --family=@antv/x6
+```
+
+Enumerates the family from the registry (not just package.json, so it works before
+anything is installed), and flags every member whose `latest` is a different major than
+the anchor. Exits non-zero when any exist.
+
+**4. The package's own types.** If a package is not in Context7 and its docs are thin,
+`npm pack <name>@<version>` and read the `.d.ts` — the type definitions ship with the
+package and cannot disagree with it. This is what `--package=` automates once installed.
+
+**5. Upstream source / release notes**, via the project's web-retrieval tooling, for
+*why* something changed when the above tell you *that* it changed.
+
+**Never** substitute recall for any of these, and never let a green typecheck stand in for
+rung 1 — see the registration trap below.
+
 ## Workflow
+
+### 0. Before adopting a library — check the family
+
+```bash
+node "$EXPERTS/api-surface.mjs" --family=<package>
+```
+
+Do this at adoption time and at every major upgrade, not just when something breaks.
+It is the cheapest of these steps and the only one that catches a bad install line
+*before* the code is written against it.
 
 ### 1. Rank the project's dependencies by risk
 
@@ -141,6 +190,9 @@ weight — the pointer is what gets loaded every session.
 
 ## Related
 
+- `references/antv-x6-v3.md` — a worked, portable instance: AntV X6 v3, where npm's own
+  `latest` tags point at v2 for 10 of 12 satellite packages. Read it if the project uses
+  X6; read it as an example of what a hand-written companion to the generated doc contains.
 - `references/library-api-grounding.md` — the trap taxonomy and detection method.
 - `references/context7-mcp.md` — live upstream docs. Complementary: Context7 gives
   current *published* docs, this gives the *installed* truth. When they disagree,
