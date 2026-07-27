@@ -268,6 +268,41 @@ export async function testApiSurface(
         );
     }
 
+    // ── GREEN: augmented member shadowing a built-in is not evidence ──────
+    // Found running --check against Quarry: vitest augments `test` and
+    // `timeout`, and `/re/.test(s)` + `AbortSignal.timeout(5000)` read as two
+    // calls into an unregistered package. A gate that fails a build over
+    // RegExp.prototype.test is worse than no gate.
+    {
+      const proj = path.join(tmp, "green-builtin-shadow");
+      const modules = path.join(proj, "node_modules");
+      fs.mkdirSync(path.join(proj, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(proj, "package.json"),
+        JSON.stringify({ dependencies: { "runner-lib": "^1.0.0" } }),
+      );
+      pkg(modules, "runner-lib", {
+        "index.js": "module.exports = {};",
+        "types/aug.d.ts":
+          "declare module 'host' {\n  interface Cfg {\n    test(name: string): void\n    timeout(ms: number): void\n  }\n}\n",
+      });
+      fs.writeFileSync(
+        path.join(proj, "src/app.ts"),
+        "if (/^a/.test(s)) fetch(u, { signal: AbortSignal.timeout(5000) });\n",
+      );
+
+      const r = check(script, proj);
+      if (r.code === 0)
+        ok(
+          "api-surface — GREEN: members shadowing JS built-ins (test/timeout) are not counted as evidence",
+        );
+      else
+        fail(
+          "api-surface — GREEN builtin-shadowing member",
+          `expected clean, got exit=${r.code} out=${r.out.trim()}`,
+        );
+    }
+
     // ── GREEN: identical, with the registering import present ─────────────
     {
       const proj = path.join(tmp, "green-registered");
