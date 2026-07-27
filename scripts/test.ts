@@ -47,6 +47,7 @@ import { testSyncModelLimits } from "./test-sync-model-limits.ts";
 import { testTuiSessionHygiene } from "./test-tui-session-hygiene.ts";
 import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
+import { testApiSurface } from "./test-api-surface.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
 import { testSetupDevServer } from "./test-setup-dev-server.ts";
@@ -619,6 +620,12 @@ testToolPreflight(root, ok, fail);
 testSdlcModeClarity(root, ok, fail);
 
 await testFigmaAdapter(root, ok, fail);
+
+// api-surface --check: red/green fixtures for both gate rules. The stub-dependency
+// pair also pins the false positive that made the naive version wrong (a CSS-only
+// package used via @import must not be reported as dead).
+console.log("\n[Pass 41] api-surface — library API grounding gate");
+testApiSurface(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

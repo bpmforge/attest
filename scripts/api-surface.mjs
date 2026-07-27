@@ -311,8 +311,17 @@ function scan() {
     // An unregistered package whose augmented API is already being called is a
     // live runtime failure, not a latent one. Everything else is exposure:
     // real traps that this codebase happens to satisfy today.
+    //
+    // Blast radius is what makes exposure actionable, so `calls` outweighs the
+    // raw augmentation count. Without that, a framework merging a dozen members
+    // onto `Window` that nobody registers anything for outranks the one feature
+    // library the project genuinely depends on.
     const live = augs.length && !imports && calls;
-    const score = (ships ? 0 : 10) + (live ? 20 : 0) + Math.min(augs.length * 2, 16);
+    const score =
+      (ships ? 0 : 10) +
+      (live ? 25 : 0) +
+      Math.min(augs.length, 6) +
+      Math.min(Math.round(calls / 10), 10);
     if (score > 0) {
       rows.push({
         name,
