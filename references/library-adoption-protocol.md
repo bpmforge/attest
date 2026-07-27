@@ -77,6 +77,17 @@ your tree, Context7 read the docs.
 node "$EXPERTS/api-surface.mjs" --check          # Q3+Q4 regressions
 ```
 
+**Periodically, any ecosystem:**
+
+```bash
+node "$EXPERTS/api-surface.mjs" --outdated       # npm · cargo · go · pypi
+```
+
+Reads whichever manifest is present and reports every dependency a breaking version behind.
+`0.x` is treated as pre-stable, where the minor is the breaking position — the rule most
+Rust projects live under. Being behind is not automatically wrong; it is a decision that
+belongs in `TECH_STACK.md` rather than inherited by default.
+
 **At every major upgrade:** all of the above again. The generated doc carries the version it
 was produced from; a stale one reads as authoritative and is worse than none.
 

@@ -139,6 +139,16 @@ export async function testApiSurface(
     return;
   }
 
+  // Offline: manifest parsers (npm/cargo/go) and the 0.x-is-breaking semver rule.
+  // Network-dependent modes (--outdated, --family) are exercised by hand against
+  // real projects, not here — a CI gate must not depend on three registries.
+  try {
+    execFileSync("node", [script, "--selftest"], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    ok("api-surface — selftest: manifest parsers + 0.x-breaking semver rule");
+  } catch (e: any) {
+    fail("api-surface — selftest", `${e.stdout ?? ""}${e.stderr ?? ""}`.trim());
+  }
+
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "api-surface-"));
   try {
     // ── RED: a stub dependency nothing references ─────────────────────────

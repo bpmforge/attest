@@ -4,6 +4,8 @@ Generated: 2026-05-19
 Source: Expert system audit + gap analysis
 Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 engagement field report
 (`issues/field-report-mode1-sdlc-run-2026-07.md`). Groups A–G (original audit) remain all-closed.
+Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
+J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
 (`issues/field-report-downstream project-delegation-2026-07-27.md`): 118 delegations, 24% correction rate,
 0 escapes to `main`, all caught by a human lead re-verifying by hand under a hard deadline.
@@ -566,3 +568,78 @@ defects, and there is a hard schedule pressure pressuring exactly that disciplin
 
 **Order:** I1 alone if only one ships. Then I4 (highest cost per occurrence), then I2/I3
 (cheap). I5 is reporting, not a gate.
+
+---
+
+## Group J — Version currency + expert-system defects (build session, 2026-07-27)
+
+Trigger: a downstream project reported agents writing third-party library code from
+training data. The instruction already existed (coding-agent Law 2) and was still
+insufficient — see `references/library-adoption-protocol.md`. Investigating it surfaced
+six further defects in this repo.
+
+**Principle established:** *the registry decides what installs; docs decide how to call it;
+the installed tree decides what you compile against. No source answers more than one, and
+training data answers none.*
+
+### J1. Version currency is npm-only ✅ DONE 2026-07-27 (v2.37.0)
+- `--outdated`: cargo / go / pypi / npm adapters, ecosystem detected from the manifest present. 0.x treated as pre-stable (minor is the breaking position) — without that, 9 breaking-version-behind Rust crates in vulnforge read as current. Offline `--selftest` pins the parsers and the semver rule.
+`api-surface.mjs` reads `package.json` / `node_modules`. Kryptkeeper is Go; vulnforge,
+KPrust and RetroForge are Rust. For those, nothing in the system checks whether a
+dependency is current — the "never rely on training data for versions" rule shipped in
+v2.36.0 is unenforceable there.
+- Add registry adapters: crates.io (`/api/v1/crates/<n>` → `max_stable_version`),
+  PyPI (`/pypi/<n>/json` → `info.version`), Go proxy (`/<mod>/@latest` → `Version`).
+- Ecosystem detected from the manifest present; `--outdated` reports declared vs latest
+  and flags majors behind.
+- **Why:** the principle above is currently true only for TypeScript projects.
+
+### J2. Attribute the correction rate by model and agent role ⬅ OPEN
+The downstream project logs 24% correction rounds across 118 delegations but cannot say
+which models produce them. One session showed Haiku 4.5, GPT-5 and Sonnet 5 in use, with
+the coding-agent on Haiku 4.5 during a round that had false `tsc` claims — one data point,
+not a finding.
+- Extend the delegation log with `model` + `agent`; report the rate split by both.
+- **Why:** if one tier carries most of the corrections, the fix is a tier change, not more
+  gates. Cheapest possible experiment, plausibly the largest throughput win. Extends I5.
+
+### J3. Declared-invariant gate ⬅ OPEN
+A route bypassed the audited-transaction seam every other route uses **and passed its own
+tests**. This is the class a human who knows the system catches and tooling currently does
+not. Sibling already has the shape (`check-standards.sh` errors on a local
+`getAuthUser`); generalize it: a project declares `files matching X must import Y`, one
+validator enforces.
+
+### J4. Bounded-review packager ⬅ OPEN
+Given a commit range, emit a curated diff plus the delegation-log slice, sized for a 2-4
+hour session. A senior reviewer estimated ~1 month of ramp-up to review the codebase cold,
+which is why he is unavailable; a bounded packet is what makes opportunistic review
+possible at all.
+
+### J5. Project-mode installs cannot run script-backed skills ⬅ OPEN
+`install.sh --project` copies `skills/` and `references/` but never `scripts/` (that block
+is gated on `MODE = global`). So `/api-ground`, `/steward` and `/reflow` are broken by
+design in project mode. v2.34.0 fixed the *message* that named a non-existent path; the
+structural gap remains. Either copy the scripts a skill references, or symlink the repo's.
+
+### J6. `pre-code-check` skill lives outside the canonical repo ⬅ OPEN
+It exists only in `~/.claude/skills/pre-code-check/`, outside this repo and outside
+`npm run build:claude` — a dual-repo violation by this program's own rules. It is also the
+skill closest in intent to `/api-ground`; decide whether to absorb or port it.
+
+### J7. Twelve perpetual skill content-drift warnings ⬅ OPEN
+`build:claude` reports description drift for a11y, analytics, containers, cost,
+data-governance, gate, onboard-gap-fill, onboard-inventory, onboard-verify, reliability,
+review, security on every run. A warning that always fires is not a signal. Reconcile the
+descriptions or record cited exceptions, as `SKILL_PARITY_EXCEPTIONS` already does.
+
+### Shipped this session (v2.34.0 → v2.36.0)
+`/api-ground` + `api-surface.mjs` (`--scan` / `--package=` / `--check` / `--family=`) ·
+`references/library-adoption-protocol.md`, `library-api-grounding.md`, `antv-x6-v3.md` ·
+registry verification wired into library **pick** (phase-3 TECH_STACK), **research**
+(researcher version claims) and **code** (coding-agent Law 2) · `skill-scripts-ship` gate ·
+installer path fix · a pre-existing `steward` defect (it instructed readers to run a script
+that was never generated into claude-experts).
+
+**Order:** J1 (makes the shipped principle true everywhere) → J2 (cheap, high leverage) →
+J5 (structural, blocks adoption of everything script-backed) → J3 → J4 → J6/J7 (hygiene).
