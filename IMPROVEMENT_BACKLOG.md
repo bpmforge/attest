@@ -533,7 +533,11 @@ failure observed on the record, not a hypothetical. The through-line: the lead's
 re-verification is the only thing standing between a 24% correction rate and shipped
 defects, and there is a hard schedule pressure pressuring exactly that discipline.
 
-### I1. Untrusted verify receipts — the agent must not author its own pass/fail
+### I1. Untrusted verify receipts ✅ DONE 2026-07-27 (v2.39.0)
+- `scripts/verify-receipt.mjs` (`--init` / `--ticket=` / `--check`) + coding-agent **Law 2b**. Commands come from a committed `.sdlc/verify.json`; the wrapper writes exit codes + SHA; the agent cites the file and never authors a field in it. Staleness is "no material change since", not exact-SHA — committing the receipt moves HEAD and must not invalidate it. 5 fixtures.
+
+<details><summary>original proposal</summary>
+
 - Project declares verify commands once (`.sdlc/verify.json`); a wrapper runs them and
   writes `docs/work/receipts/<ticket>-<sha>.json` with command, exit code, output tail, SHA.
 - Validator asserts receipt SHA == pushed commit and every exit code is 0.
@@ -541,6 +545,7 @@ defects, and there is a hard schedule pressure pressuring exactly that disciplin
   most repeated failure. `validate-completion-manifest.sh` explicitly declines this case
   (receipt-CHECK, not re-run) for sound injection/reproducibility reasons; this closes it
   without executing any prose.
+</details>
 
 ### I2. Test-coverage delta gate
 - Count test files + cases at merge-base vs HEAD; net-negative fails absent an explicit
