@@ -71,4 +71,4 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 
 ## License
 
-See `LICENSE`.
+[Apache License 2.0](LICENSE) — Copyright 2026 Bradford Matthews.
