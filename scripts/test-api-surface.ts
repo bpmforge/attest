@@ -127,6 +127,37 @@ export function testApiSurface(
         );
     }
 
+    // ── GREEN: asset package located with require.resolve ─────────────────
+    // Found by running --check against Lodestone, which reaches its .wasm
+    // grammars via `require.resolve("tree-sitter-wasms/package.json")`. An
+    // import-shaped reference test misses that and calls a working dependency
+    // dead, so the stub rule matches any mention of the name instead.
+    {
+      const proj = path.join(tmp, "green-asset");
+      const modules = path.join(proj, "node_modules");
+      fs.mkdirSync(path.join(proj, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(proj, "package.json"),
+        JSON.stringify({ dependencies: { "wasm-grammars": "^1.0.0" } }),
+      );
+      pkg(modules, "wasm-grammars", { "out/lang.wasm": "\0asm" });
+      fs.writeFileSync(
+        path.join(proj, "src/load.ts"),
+        'const dir = path.dirname(require.resolve("wasm-grammars/package.json"));\n',
+      );
+
+      const r = check(script, proj);
+      if (r.code === 0)
+        ok(
+          "api-surface — GREEN: an asset package located via require.resolve is not reported as dead",
+        );
+      else
+        fail(
+          "api-surface — GREEN require.resolve asset package",
+          `expected clean, got exit=${r.code} out=${r.out.trim()}`,
+        );
+    }
+
     // ── RED: augmented members called, package never imported ─────────────
     // Members are inherited via `extends` from a second file, so a parser that
     // only reads the augmentation site finds nothing and the gate stays silent.

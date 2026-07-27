@@ -235,16 +235,38 @@ function withInherited(classes, name) {
 }
 
 /**
- * Packages that ship no JavaScript AND that nothing references — a dependency
- * resolving to nothing. A stub that IS referenced is normally a legitimate
- * CSS-only package pulled in with `@import`, so referencing clears it.
+ * Any mention of the package name in source — deliberately looser than
+ * `importers`. A package with no JavaScript is still perfectly alive when it
+ * ships assets reached some other way: `@import "tw-animate-css"` from CSS,
+ * `require.resolve("tree-sitter-wasms/package.json")` to locate `.wasm` files,
+ * a bundler alias, a dynamic import built from a variable.
+ *
+ * Enumerating those forms is a losing game, and the costs are lopsided: missing
+ * a genuinely dead dependency wastes disk, while a false positive tells someone
+ * to delete a working one. Bias to the cheap error.
+ */
+function referencesTo(pkg, files = sourceFiles()) {
+  const q = pkg.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`["'\`]${q}(?:["'\`/])`);
+  return files.filter((f) => {
+    try {
+      return re.test(read(f));
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Packages that ship no JavaScript AND that nothing mentions — a dependency
+ * resolving to nothing. Any reference at all clears it; see `referencesTo`.
  */
 function stubPackages(deps, files = sourceFiles()) {
   return Object.keys(deps).filter((name) => {
     const dir = join(MODULES, name);
     if (!existsSync(dir) || IGNORED(name)) return false;
     if (walk(dir, (f) => /\.[cm]?js$/.test(f)).length) return false;
-    return importers(name, files).length === 0;
+    return referencesTo(name, files).length === 0;
   });
 }
 
@@ -300,7 +322,8 @@ function scan() {
     const augs = augmentations(name);
     const imports = importers(name, files).length;
     const ships =
-      walk(join(MODULES, name), (f) => /\.[cm]?js$/.test(f)).length > 0 || imports > 0;
+      walk(join(MODULES, name), (f) => /\.[cm]?js$/.test(f)).length > 0 ||
+      referencesTo(name, files).length > 0;
     const calls = augs.length
       ? [...callCounts([...new Set(augs.flatMap((a) => a.members))], files).values()].reduce(
           (a, b) => a + b,

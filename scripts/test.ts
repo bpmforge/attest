@@ -624,7 +624,7 @@ await testFigmaAdapter(root, ok, fail);
 // api-surface --check: red/green fixtures for both gate rules. The stub-dependency
 // pair also pins the false positive that made the naive version wrong (a CSS-only
 // package used via @import must not be reported as dead).
-console.log("\n[Pass 41] api-surface — library API grounding gate");
+console.log("\n[Pass 44] api-surface — library API grounding gate");
 testApiSurface(root, ok, fail);
 
 // ---------------------------------------------------------------------------
