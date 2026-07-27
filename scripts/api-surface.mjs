@@ -350,8 +350,11 @@ function scan() {
     );
   }
   console.log(
-    `\naugs = API merged onto types the package does not own; it typechecks whether\n` +
-      `or not anything registered it. "calls" counts those members used in ${relative(ROOT, SRC)}/.\n\n` +
+    `\naugs = API merged onto types the package does not own. Where the package is\n` +
+      `imported for other reasons those members typecheck unconditionally, and only\n` +
+      `work after a separate runtime registration tsc cannot see. "calls" counts\n` +
+      `those members used in ${relative(ROOT, SRC)}/ — blast radius if one is missed.\n` +
+      `Framework-wide merges rank on structure but rarely have a registration step.\n\n` +
       `Generate a reference for the top entries:\n` +
       `  node api-surface.mjs --package=${rows[0]?.name ?? "<pkg>"}`,
   );
