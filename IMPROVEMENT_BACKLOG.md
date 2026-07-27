@@ -616,18 +616,21 @@ hour session. A senior reviewer estimated ~1 month of ramp-up to review the code
 which is why he is unavailable; a bounded packet is what makes opportunistic review
 possible at all.
 
-### J5. Project-mode installs cannot run script-backed skills ⬅ OPEN
+### J5. Project-mode installs cannot run script-backed skills ✅ DONE 2026-07-27 (v2.38.0)
+- `install.sh` copies `scripts/` in project mode too; verified `.opencode/scripts/api-surface.mjs` lands (207 files). The version stamp and MCP setup stay global-only.
 `install.sh --project` copies `skills/` and `references/` but never `scripts/` (that block
 is gated on `MODE = global`). So `/api-ground`, `/steward` and `/reflow` are broken by
 design in project mode. v2.34.0 fixed the *message* that named a non-existent path; the
 structural gap remains. Either copy the scripts a skill references, or symlink the repo's.
 
-### J6. `pre-code-check` skill lives outside the canonical repo ⬅ OPEN
+### J6. `pre-code-check` skill lives outside the canonical repo ✅ DONE 2026-07-27 (v2.38.0)
+- Ported to `skills/pre-code/` in both repos, rewritten to delegate library verification to `/api-ground` instead of duplicating it. Orphan removed from `~/.claude/skills/`.
 It exists only in `~/.claude/skills/pre-code-check/`, outside this repo and outside
 `npm run build:claude` — a dual-repo violation by this program's own rules. It is also the
 skill closest in intent to `/api-ground`; decide whether to absorb or port it.
 
-### J7. Twelve perpetual skill content-drift warnings ⬅ OPEN
+### J7. Twelve perpetual skill content-drift warnings ✅ DONE 2026-07-27 (v2.38.0)
+- All 12 synced opencode→claude through the build's own `transform()`, so runtime wording stays correct. `build:claude:check` now reports **0** content-drift warnings — the warning is a signal again.
 `build:claude` reports description drift for a11y, analytics, containers, cost,
 data-governance, gate, onboard-gap-fill, onboard-inventory, onboard-verify, reliability,
 review, security on every run. A warning that always fires is not a signal. Reconcile the

@@ -86,7 +86,7 @@ const PATHS = [
   ['.opencode/', '.claude/'],
 ];
 
-function transform(text) {
+export function transform(text) {
   for (const [a, b] of PROSE) text = text.split(a).join(b);
   for (const [a, b] of PATHS) text = text.split(a).join(b);
   return text;
