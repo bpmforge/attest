@@ -45,3 +45,66 @@ Which local/open models actually deliver agentic (tool-calling, multi-step codin
 - **Don't trust the model — trust the gates.** The validators and `evals/` are what make a local model safe to rely on, regardless of its leaderboard rank.
 
 > Caveat: 2025 facts + the Docker eval are well-sourced. 2026 point-releases (GLM-5.x, Qwen3.5, Gemma 4, Nemotron 3, DeepSeek V4) are real but move weekly — re-verify exact numbers against official pages before relying on them.
+
+---
+
+## 4. Field-measured behaviours (M5 Max, 2026-07-25)
+
+Measured driving `qwen3.5-9b` (4-bit) and `ternary-bonsai-27b` (2-bit) through the
+real pipeline. Full data: `docs/BENCH_LOCAL_MODEL_COMPARISON.md`.
+
+### 4.1 SEARCH BEFORE FETCH — mandatory for local tiers
+
+Local models **construct plausible documentation URLs from memory and fetch
+them**. Measured: 9 failed `WebFetch` calls in one research phase, all invented
+(`nodejs.org/api/date.html`, `/api/timestamp.html`, `/api/timerange.html` — none
+of those pages exist), before falling back to search. That burned the majority of
+a 13-minute phase and produced nothing.
+
+**Rule:** never hand-construct a documentation URL. Fetch only a URL that came
+back from a search result or from `context7 resolve-library-id` → `query-docs`.
+If you catch yourself typing a docs URL from memory, search instead. One guessed
+URL costs a full round trip and they cluster — a model that guesses once usually
+guesses four more times before giving up.
+
+### 4.2 Availability ≠ use ≠ efficiency
+
+With ~80 tools exposed (5 MCP servers), both models **do** reach for
+context7/web unprompted and were 100% correct on grounded lookups. They differ on
+*economy*: 2 calls / 0 failures (27B) vs 3–5 calls / 1 failure (9B) for the same
+answer. Tool *count* is the local-tier cost driver, not token rate — but note the
+faster model still won total wall-clock, so do not optimise call count blindly.
+
+### 4.3 Quantization hurts less than expected; the runtime hurts more
+
+A 2-bit 27B beat a 4-bit 9B on every quality dimension measured (recall, correct
+remediations, attack chains) at ~1.9× the wall-clock. Meanwhile a **single
+engine constant** (`_FORCED_TOOL_LOGIT = 1e9`, which overflows fp16 → NaN) took
+tool calling from 0% to 100% for float16-scaled models
+([lmstudio#2207](https://github.com/lmstudio-ai/lmstudio-bug-tracker/issues/2207)).
+
+**Rule — suspect the harness before the model.** Across this evaluation, *seven*
+distinct faults each manufactured an apparent model deficiency; none ever made a
+model look better than it was. That asymmetry is structural: broken plumbing
+fails closed (no output, no regex match, no permission, wrong agent), and failing
+closed is indistinguishable from "the model didn't do it". Before recording any
+local-model failure, verify: the model id is provider-qualified, the agent is
+`mode:primary`, the working directory is what you think, the artifact path is
+what you asked for, and your success-detector actually matches real output.
+
+### 4.4 Dispatch only `mode:primary` agents
+
+`opencode run --agent <x>` where `x` is `mode:subagent` does **not** error — it
+prints a notice, silently runs the **default** agent, and exits 0. The output
+looks like a specialist report and is not one. The fallback path also drops
+`--dir` (though `cwd:` survives it), so the session can escape into the parent
+repo and write there. Guarded in `tools/task.ts`; see `EXECUTOR_SELECTION.md`
+path B. Subagents must go via a HANDOFF (path C).
+
+### 4.5 Never point a single-shot session at an orchestrator
+
+`sdlc-lead` and the other routers assume repo-local pipeline state
+(`detect-sdlc-state.sh`, `docs/work/SDLC_AUDIT.md`) and a human to route to. In a
+clean workcopy an orchestrator finds no state and stops — measured 0 artifacts in
+38s, which reads as model failure and is not. Dispatch the **producer**
+specialist directly.
