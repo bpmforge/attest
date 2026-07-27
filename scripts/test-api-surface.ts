@@ -28,7 +28,70 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { pathToFileURL } from "url";
 import { execFileSync } from "child_process";
+
+/**
+ * Every `scripts/*.mjs` a skill tells the reader to run must actually reach the
+ * Claude target, or the instruction is unrunnable there.
+ *
+ * `build-target-claude.mjs` copies scripts from an explicit six-entry allowlist
+ * (`COPY_FILES`) plus `scripts/validators/*.sh` — NOT the whole directory. A new
+ * script therefore ships to opencode via install.sh but silently never reaches
+ * claude-experts. Caught when `--write` into a throwaway target produced a skill
+ * referencing `api-surface.mjs` and no such file; nothing in the suite noticed,
+ * because skills-parity compares skills and the build compares only what it
+ * already knows to copy.
+ */
+async function testSkillScriptsShip(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): Promise<void> {
+  const { COPY_FILES, COPY_GLOBS, SKILL_PARITY_EXCEPTIONS, KNOWN_MISSING_IN_CLAUDE } =
+    await import(
+      pathToFileURL(path.join(root, "scripts/build-target-claude.mjs")).href
+    );
+  // Only skills that actually reach claude-experts impose a requirement on their
+  // scripts. `reflow` and `steward` are opencode-only (documented exceptions and
+  // tracked gaps), so the scripts they call need never be generated — they ship
+  // to opencode through install.sh, which copies scripts/ wholesale.
+  const opencodeOnly = (skill: string) =>
+    SKILL_PARITY_EXCEPTIONS.has(skill) || KNOWN_MISSING_IN_CLAUDE.has(skill);
+  const shipped = (rel: string) =>
+    COPY_FILES.includes(rel) ||
+    COPY_GLOBS.some(
+      ([dir, ext]: [string, string]) =>
+        rel.startsWith(`${dir}/`) && rel.endsWith(ext),
+    );
+
+  const skillsDir = path.join(root, "skills");
+  const missing: string[] = [];
+  let referenced = 0;
+
+  for (const skill of fs.readdirSync(skillsDir)) {
+    const file = path.join(skillsDir, skill, "SKILL.md");
+    if (!fs.existsSync(file) || opencodeOnly(skill)) continue;
+    for (const m of fs
+      .readFileSync(file, "utf8")
+      .matchAll(/\bscripts\/([\w.-]+\.(?:mjs|sh))/g)) {
+      const rel = `scripts/${m[1]}`;
+      if (!fs.existsSync(path.join(root, rel))) continue; // illustrative path, not ours
+      referenced++;
+      if (!shipped(rel)) missing.push(`${skill} -> ${rel}`);
+    }
+  }
+
+  if (!missing.length)
+    ok(
+      `skill-scripts-ship — every repo script referenced by a claude-bound skill (${referenced} reference(s)) is in COPY_FILES/COPY_GLOBS`,
+    );
+  else
+    fail(
+      "skill-scripts-ship",
+      `referenced by a skill but never generated into claude-experts: ${missing.join(", ")}`,
+    );
+}
 
 /** Minimal installed-package tree: package.json plus the given files. */
 function pkg(
@@ -63,11 +126,13 @@ function check(script: string, root: string): { code: number; out: string } {
   }
 }
 
-export function testApiSurface(
+export async function testApiSurface(
   root: string,
   ok: (label: string) => void,
   fail: (label: string, reason: string) => void,
-): void {
+): Promise<void> {
+  await testSkillScriptsShip(root, ok, fail);
+
   const script = path.join(root, "scripts/api-surface.mjs");
   if (!fs.existsSync(script)) {
     fail("api-surface — script present", `${script} not found`);

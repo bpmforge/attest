@@ -30,14 +30,20 @@ const OUT = (() => {
 })();
 
 // ── what gets generated ─────────────────────────────────────────────────
-const COPY_GLOBS = [
+export const COPY_GLOBS = [
   ['agents', '.md'],
   ['references', '.md'],
   ['exemplars', '.md'],
   ['scripts/validators', '.sh'],
   ['dist/compact-agents', '.md'],
+  // The shared library behind the generated scripts. `gen-status-report.mjs`
+  // (invoked by the steward skill, which DOES ship to claude-experts) imports
+  // ./lib/tickets.mjs, ./lib/user-stories.mjs and ./lib/status-report.mjs;
+  // without these the skill's instruction resolves to a module-not-found. The
+  // directory is self-contained — every import inside it is a lib/ sibling.
+  ['scripts/lib', '.mjs'],
 ];
-const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs'];
+export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/gen-status-report.mjs'];
 
 // Whole-file overrides: runtime-flavored docs maintained per-target in
 // build/overrides/claude/<relpath>. No transforms applied to these.
@@ -98,7 +104,7 @@ function transform(text) {
 // Every exception below is cited so an unjustified gap can never hide here
 // (M22 rubric: "no coverage claim whose denominator came from the
 // claimant"). Anything NOT listed here is real, uncited drift and MUST fail.
-const SKILL_PARITY_EXCEPTIONS = new Set([
+export const SKILL_PARITY_EXCEPTIONS = new Set([
   // Opencode-only "wrapper" skills: the underlying agent ships in
   // claude-experts/agents/ (confirmed: challenger.md, migration-planner.md,
   // documentation-gap-finder.md, frontend-design.md,
