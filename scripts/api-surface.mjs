@@ -17,6 +17,7 @@
  *   node api-surface.mjs --scan                     # rank deps by grounding risk
  *   node api-surface.mjs --package=@antv/x6         # write a reference doc
  *   node api-surface.mjs --check                    # CI: stub deps + unmet augmentations
+ *   node api-surface.mjs --family=@antv/x6          # registry: is "latest" the same major?
  *
  * Options:
  *   --root=<dir>     project root holding package.json  (default: cwd)
@@ -454,6 +455,116 @@ function check() {
   return problems.length;
 }
 
+
+// ── family (registry) ───────────────────────────────────────────────────────
+// `latest` is published PER PACKAGE, but compatibility is per FAMILY. When a
+// library splits across a scope (@antv/x6*, @babel/*, @nestjs/*, @tanstack/*),
+// a major can land on the core while satellite packages keep a `latest` tag
+// pointing at the previous major. Installing "the latest version" of each then
+// silently mixes majors.
+//
+// Real case, verified 2026-07-27: @antv/x6 is 3.1.7, but 10 of 12 @antv/x6-*
+// satellites still tag v2 as latest. `npm i @antv/x6-plugin-selection` yields a
+// working v2 plugin handed to a v3 graph — no import error, no type error.
+//
+// This is the rung below Context7: when published docs are wrong or missing,
+// the registry plus the package's own type definitions are the ground truth.
+
+async function registryInfo(name) {
+  try {
+    const res = await fetch(`https://registry.npmjs.org/${name.replace("/", "%2f")}`, {
+      headers: { accept: "application/vnd.npm.install-v1+json" },
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return {
+      latest: body["dist-tags"]?.latest ?? null,
+      versions: Object.keys(body.versions ?? {}),
+    };
+  } catch {
+    return null; // offline: degrade to the local-only comparison
+  }
+}
+
+const major = (v) => (v ? String(v).replace(/^[^\d]*/, "").split(".")[0] : null);
+
+/**
+ * Sibling packages published under the same name prefix. Enumerated from the
+ * registry, not just from package.json, so the check answers "what will I get
+ * if I install this family" BEFORE anything is installed — which is when the
+ * answer actually changes a decision.
+ */
+async function registrySiblings(prefix) {
+  try {
+    const res = await fetch(
+      `https://registry.npmjs.org/-/v1/search?text=${encodeURIComponent(prefix)}&size=100`,
+    );
+    if (!res.ok) return [];
+    const body = await res.json();
+    return (body.objects ?? [])
+      .map((o) => o.package?.name)
+      .filter((n) => n && n.startsWith(prefix));
+  } catch {
+    return [];
+  }
+}
+
+async function family(anchor) {
+  const { deps } = manifest();
+  const prefix = anchor.includes("/") ? anchor.split("/")[0] + "/" : anchor.split("-")[0];
+  const declared = Object.keys(deps).filter((n) => n.startsWith(prefix));
+  const anchorPrefix = anchor.endsWith("/") ? anchor : anchor;
+  const members = [
+    ...new Set([
+      anchor,
+      ...declared,
+      ...(await registrySiblings(anchorPrefix)).filter((n) => n.startsWith(anchorPrefix)),
+    ]),
+  ];
+
+  const anchorInstalled = version(anchor);
+  const anchorReg = await registryInfo(anchor);
+  const target = major(anchorInstalled ?? anchorReg?.latest);
+
+  console.log(`Family of ${anchor} — target major v${target ?? "?"}\n`);
+  console.log("package                          installed  latest    highest-v" + target + "  verdict");
+  console.log("─".repeat(96));
+
+  const problems = [];
+  for (const name of members.sort()) {
+    const inst = version(name);
+    const reg = await registryInfo(name);
+    const compatible = (reg?.versions ?? []).filter((v) => major(v) === target).pop() ?? null;
+    let verdict = "ok";
+    if (inst && major(inst) !== target) {
+      verdict = `MAJOR SKEW — installed v${major(inst)}`;
+      problems.push(`${name} installed at ${inst}, family target is v${target}`);
+    } else if (reg?.latest && major(reg.latest) !== target) {
+      // Deliberately does NOT say "pin <compatible>": a v-target release can be
+      // a stub published only to park the name after the functionality moved
+      // into the core package (every @antv/x6-plugin-* 3.0.0 is CSS-only).
+      // Surface the skew; let the caller confirm the package still ships code.
+      verdict = compatible
+        ? `latest is v${major(reg.latest)}; v${target} = ${compatible} — verify it ships JS, may have moved into core`
+        : `no v${target} published — do not install`;
+      if (!inst) problems.push(`${name} latest=${reg.latest} would install v${major(reg.latest)}`);
+    }
+    console.log(
+      `${name.padEnd(32)} ${String(inst ?? "—").padEnd(10)} ${String(reg?.latest ?? "—").padEnd(9)} ` +
+        `${String(compatible ?? "none").padEnd(11)} ${verdict}`,
+    );
+  }
+
+  console.log(
+    problems.length
+      ? `\n${problems.length} package(s) where "install latest" does NOT give you v${target}.\n` +
+          `Before pinning any of them, check whether the capability moved into ${anchor} itself —\n` +
+          `a same-major release can be a name-parking stub with no JavaScript in it.`
+      : `\nEvery family member resolves to v${target} — "install latest" is safe here.`,
+  );
+  return problems.length;
+}
+
 // ── reference doc ───────────────────────────────────────────────────────────
 
 function generate(pkg) {
@@ -641,8 +752,9 @@ if (!existsSync(join(ROOT, "package.json"))) {
 
 if (argv.includes("--check")) process.exit(check() ? 1 : 0);
 else if (argv.includes("--scan")) scan();
+else if (opt("family")) process.exit((await family(opt("family"))) ? 1 : 0);
 else if (opt("package")) generate(opt("package"));
 else {
-  console.error("api-surface: pass --scan, --check, or --package=<name>");
+  console.error("api-surface: pass --scan, --check, --family=<name>, or --package=<name>");
   process.exit(2);
 }
