@@ -43,7 +43,7 @@ export const COPY_GLOBS = [
   // directory is self-contained — every import inside it is a lib/ sibling.
   ['scripts/lib', '.mjs'],
 ];
-export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs'];
+export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
 
 // Whole-file overrides: runtime-flavored docs maintained per-target in
 // build/overrides/claude/<relpath>. No transforms applied to these.

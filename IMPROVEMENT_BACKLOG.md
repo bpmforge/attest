@@ -613,14 +613,16 @@ not a finding.
 - **Why:** if one tier carries most of the corrections, the fix is a tier change, not more
   gates. Cheapest possible experiment, plausibly the largest throughput win. Extends I5.
 
-### J3. Declared-invariant gate ⬅ OPEN
+### J3. Declared-invariant gate ✅ DONE 2026-07-27 (v2.42.0)
+- `scripts/validators/validate-invariants.sh` + coding-agent **Law 3b**. `.sdlc/invariants.json` declares require/forbid patterns per glob with a mandatory `why`. Testing caught a live inversion: records were tab-delimited, bash treats tab as IFS-whitespace, and an empty `require` shifted `forbid` into its slot — reporting forbidden patterns as missing requirements and passing real violations.
 A route bypassed the audited-transaction seam every other route uses **and passed its own
 tests**. This is the class a human who knows the system catches and tooling currently does
 not. Sibling already has the shape (`check-standards.sh` errors on a local
 `getAuthUser`); generalize it: a project declares `files matching X must import Y`, one
 validator enforces.
 
-### J4. Bounded-review packager ⬅ OPEN
+### J4. Bounded-review packager ✅ DONE 2026-07-27 (v2.42.0)
+- `scripts/review-packet.mjs`. Diffstat, new-vs-modified split, novel directory names, the verification receipts covering the range, and three explicit questions. States plainly when no receipts exist rather than implying the range passed.
 Given a commit range, emit a curated diff plus the delegation-log slice, sized for a 2-4
 hour session. A senior reviewer estimated ~1 month of ramp-up to review the codebase cold,
 which is why he is unavailable; a bounded packet is what makes opportunistic review

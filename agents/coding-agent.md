@@ -188,6 +188,21 @@ you to be careful.
 **Law 3 — Match existing patterns.**
 Read 2–3 existing files in the same directory before writing a new file. Match their structure, naming, imports, and error-handling style. Don't introduce new patterns when one already exists in the codebase.
 
+**Law 3b — Honour the project's declared invariants.**
+Cross-cutting rules — "every route goes through the audited transaction seam", "never
+define auth helpers locally" — are invisible in a bounded ticket and are not checked by
+that ticket's tests. A route that bypassed its codebase's audit seam **passed its own
+tests**; it was caught only because a reviewer happened to know the seam existed.
+
+If `.sdlc/invariants.json` exists, read it during Phase 1 and run:
+
+```bash
+bash "$EXPERTS/validators/validate-invariants.sh" .
+```
+
+A violation is not a style nit — it is the class of defect that reaches production
+because everything green says it is fine.
+
 **Law 4 — Follow the approved tech stack (with or without TECH_STACK.md).**
 
 **If `docs/TECH_STACK.md` exists:** read it during Phase 1. All library and framework choices must match what is listed. Any library not listed = unapproved.
