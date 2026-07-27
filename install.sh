@@ -366,10 +366,12 @@ if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
   fi
 fi
 
-# --- Install audit scripts globally ---
-# Copy the Semgrep audit scripts so they're usable from ~/.config/opencode/scripts/
-# without needing the repo clone on PATH.
-if [ "$MODE" = "global" ]; then
+# --- Install scripts ---
+# Copied in BOTH modes. Script-backed skills (/api-ground, /steward, /reflow) name
+# a path under the install dir; when project mode skipped this, every one of them
+# resolved to a file that was never placed there — the skill installed fine and
+# was unrunnable. Skills are useless without the scripts they invoke.
+if [ "$MODE" = "global" ] || [ "$MODE" = "project" ]; then
   if [ -d "$SCRIPT_DIR/scripts" ]; then
     if [ -d "$DEST/scripts" ]; then
       rm -rf "$DEST/scripts"
@@ -385,6 +387,9 @@ if [ "$MODE" = "global" ]; then
     fi
   fi
 
+fi
+
+if [ "$MODE" = "global" ]; then
   # Stamp the installed version so runtime components (resume-anchor) can
   # self-identify it — every field trace then answers "which version was
   # this box running?" without a trip to the machine.
