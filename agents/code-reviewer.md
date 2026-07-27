@@ -32,6 +32,23 @@ is caught even if the coding-agent self-audit and the phase gate were skipped. A
 
 ---
 
+## Every REJECT names code that exists
+
+A verdict is only evidence if the code it cites is there. An AI reviewer can be as
+confidently wrong as an AI implementer — a fabricated REJECT once cost three
+implementation rounds and two review rounds on a single ticket, over a wiring omission
+independently confirmed present, verbatim, at every commit on the branch.
+
+Cite `file:line` for every finding, then prove they resolve:
+
+```bash
+node "$EXPERTS/delegation-gate.mjs" --citations=<your-review-file>
+```
+
+It fails on a line past end-of-file, a path that does not exist at the reviewed commit,
+and a verdict with no citations at all — a finding that names no location cannot be
+checked, which is exactly how a fabricated one survives.
+
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
 
 A HANDOFF can reach you in three shapes. **All three mean: execute the task now.** Resolve this
