@@ -290,6 +290,39 @@ function importers(pkg, files = sourceFiles()) {
 }
 
 /** How often each name is called as a method anywhere in the source tree. */
+/**
+ * Method names that already exist on a JavaScript built-in, computed from the
+ * runtime rather than guessed at.
+ *
+ * `.member(` is a textual match, so a merged member sharing a name with a
+ * built-in cannot be told apart from ordinary code: vitest augments `test` and
+ * `timeout`, and `/re/.test(s)` plus `AbortSignal.timeout(5000)` then look like
+ * 2 calls into an unregistered package. Ranking survives that noise; a CI gate
+ * does not — it fails the build and tells someone their test runner is not
+ * registered. Excluded from evidence, kept in the doc's ranking with a caveat.
+ */
+const BUILTIN_MEMBERS = (() => {
+  const names = new Set();
+  const roots = [
+    Object, Array, String, Number, Boolean, Function, RegExp, Date, Error,
+    Promise, Map, Set, WeakMap, WeakSet, Symbol, JSON, Math, Reflect,
+    ArrayBuffer, DataView, Uint8Array, BigInt, Proxy,
+    globalThis.AbortSignal, globalThis.AbortController, globalThis.URL,
+    globalThis.URLSearchParams, globalThis.Headers, globalThis.Response,
+  ].filter(Boolean);
+  for (const root of roots) {
+    for (const target of [root, root.prototype]) {
+      if (!target) continue;
+      try {
+        for (const key of Object.getOwnPropertyNames(target)) names.add(key);
+      } catch {
+        /* exotic descriptor — skip */
+      }
+    }
+  }
+  return names;
+})();
+
 function callCounts(names, files = sourceFiles()) {
   const counts = new Map();
   const bodies = files.map((f) => {
@@ -402,8 +435,9 @@ function check() {
     if (IGNORED(name) || !existsSync(join(MODULES, name))) continue;
     const augs = augmentations(name);
     if (!augs.length || importers(name, files).length) continue;
+    // Built-in-shadowing members are not evidence — see BUILTIN_MEMBERS.
     const called = callCounts(
-      augs.flatMap((a) => a.members),
+      augs.flatMap((a) => a.members).filter((m) => !BUILTIN_MEMBERS.has(m)),
       files,
     );
     if (called.size) {
