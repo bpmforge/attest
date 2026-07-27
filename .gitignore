@@ -45,6 +45,17 @@ docs/work/EVAL_RESULTS.json
 # writes this under any --root it's pointed at, same reasoning as telemetry above.
 **/docs/work/watchdog-events.jsonl
 
+# Session model receipts (T30.2, per-machine, append-only) -- same shape and
+# reasoning as telemetry above: session ids and model pins from THIS machine's
+# runs, meaningless in anyone else's checkout.
+**/docs/work/session-receipts.jsonl
+
+# Blind-grading answer key -- deliberately NOT committed. BENCH_BLIND_PACKET.md
+# is committed as evidence, but committing the key that maps candidate A/B back
+# to model names would foreclose re-grading that packet blind. Regenerate it
+# with scripts/bench-model-compare.mjs when you need it.
+docs/work/BENCH_BLIND_KEY.json
+
 # Generated expert reports (per-project outputs)
 docs/reviews/
 docs/security/
