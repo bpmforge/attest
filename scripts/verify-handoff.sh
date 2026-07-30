@@ -311,7 +311,17 @@ elif [ -n "$RED_CMD" ] && [ -n "$PREEXISTING" ] && [ -z "$COUNT_RED" ]; then
   # had failures would downgrade to a warning and ship — the exact masking the
   # count check exists to catch.
   VERDICT="VERIFY: BASELINE_RED — $PREEXISTING"
+elif [ -n "$RED_CMD" ] && [ -n "$PREEXISTING" ]; then
+  # Reachable only when COUNT_RED blocked the BASELINE_RED downgrade above. Both
+  # facts belong in the line: the deletion is the actionable one, and the
+  # failures are still not this HANDOFF's. Naming only "exit N" here would send
+  # the agent hunting a code defect that pre-dates its work, with the deletion
+  # mentioned nowhere in the line it was told to read.
+  VERDICT="VERIFY: RED — $COUNT_RED (the $CUR_FAILS failing signature(s) themselves pre-date this work — the missing passes do not)"
 elif [ -n "$RED_CMD" ]; then
+  # Deliberately ahead of COUNT_RED: a failing test lowers the pass count as a
+  # consequence, so letting the count win here would relabel every ordinary
+  # test failure as "existing tests were deleted or broken".
   VERDICT="VERIFY: RED — exit $RED_CODE from: $RED_CMD"
 elif [ -n "$COUNT_RED" ]; then
   VERDICT="VERIFY: RED — $COUNT_RED"

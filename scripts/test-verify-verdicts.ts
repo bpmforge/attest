@@ -229,9 +229,15 @@ export async function testVerifyVerdicts(root: string, ok: Ok, fail: Fail) {
       if (
         r.status === 1 &&
         !/BASELINE_RED/.test(r.stdout) &&
-        /REGRESSION/.test(report(dir))
+        /REGRESSION/.test(report(dir)) &&
+        // The verdict LINE must name the deletion — it is the actionable fact,
+        // and it is the only line the agent is instructed to read.
+        /pass-count regressed: 3 < baseline 50/.test(r.stdout) &&
+        /pre-date this work/.test(r.stdout)
       ) {
-        ok("V-03c: pre-existing failures do not mask a pass-count regression");
+        ok(
+          "V-03c: pre-existing failures do not mask a pass-count regression, and the verdict line names both facts",
+        );
       } else {
         fail(
           "V-03c: pre-existing failures do not mask a pass-count regression",
