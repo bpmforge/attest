@@ -1,5 +1,6 @@
 import type { Plugin } from "@opencode-ai/plugin";
 import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
 import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
@@ -241,72 +242,14 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
 };
 
 // ─── G1: session-model receipt (T30.2, M30 model-tier guard) ─────────
-// Self-contained on purpose: install.sh only ships `plugins/` to a target
-// project (not `scripts/`), so this plugin can't import
-// scripts/lib/model-tiers.mjs across the install boundary. The matching
-// algorithm below intentionally mirrors that module's `resolveTier` (same
-// glob-to-regex, same first-match-wins over tiers in declaration order) —
-// keep the two in sync by hand if the registry format changes.
+// Session-model receipt (T30.2) now lives in scripts/lib/session-receipt.mjs.
+// A file in plugins/ must export ONLY its Plugin: OpenCode's loader calls every
+// export as a plugin factory, so the helpers that used to live here were invoked
+// with the loader's own context object — "glob.replace is not a function" — and
+// the ENTIRE plugin (bash blocking, credential-write blocking, post-edit scans,
+// telemetry, receipts) silently failed to load on every session. resume-anchor.ts
+// exports only its Plugin and has never failed; that is the control case.
 const sessionModelLogged = new Set<string>();
-const tierConfigCache = new Map<string, any>();
-
-export function globToRegExpForTier(glob: string): RegExp {
-  const escaped = glob
-    .replace(/[.+^${}()|[\]\\]/g, "\\$&")
-    .replace(/\*/g, ".*");
-  return new RegExp(`^${escaped}$`, "i");
-}
-
-export function resolveTierForReceipt(
-  modelId: string,
-  config: any,
-): string | null {
-  if (!modelId || !config?.tiers) return null;
-  for (const [tierName, tier] of Object.entries<any>(config.tiers)) {
-    for (const pattern of tier?.match ?? []) {
-      if (globToRegExpForTier(pattern).test(modelId)) return tierName;
-    }
-  }
-  return null;
-}
-
-export function loadTierConfig(root: string): any {
-  if (tierConfigCache.has(root)) return tierConfigCache.get(root);
-  let config: any = null;
-  try {
-    config = JSON.parse(readFileSync(join(root, "models.json"), "utf8"));
-  } catch {
-    // No project-level models.json — tier resolves to null (unclassified),
-    // not an error; G2's gate only fires for a resolved "frontier" tier.
-  }
-  tierConfigCache.set(root, config);
-  return config;
-}
-
-export function logSessionReceipt(projectRoot: string, info: any) {
-  try {
-    const modelId = `${info.providerID}/${info.modelID}`;
-    const tier = resolveTierForReceipt(modelId, loadTierConfig(projectRoot));
-    const row = {
-      ts: new Date(info.time?.created ?? Date.now()).toISOString(),
-      source: "plugin",
-      session: info.sessionID,
-      agent: info.mode ?? null,
-      model: modelId,
-      tier,
-    };
-    const file = join(projectRoot, "docs", "work", "session-receipts.jsonl");
-    mkdirSync(dirname(file), { recursive: true });
-    appendFileSync(file, JSON.stringify(row) + "\n");
-    // The "first output line" half of G1 — surfaces the resolved model+tier
-    // immediately, not just in a file nobody tails mid-session.
-    console.log(
-      `[session-receipt] model=${modelId} tier=${tier ?? "unclassified"} session=${info.sessionID}`,
-    );
-  } catch {
-    // Receipts must never break the session — silent, same as telemetry.
-  }
-}
 
 // ─── Telemetry (plan 4.12) ───────────────────────────────────────────
 // Append-only JSONL of actuals. Counts and identifiers only — never

@@ -25,8 +25,12 @@ export async function testSessionModelReceipt(
   ok: (label: string) => void,
   fail: (label: string, reason: string) => void,
 ): Promise<void> {
+  // Imported from scripts/lib/, not from the plugin: a file in plugins/ must
+  // export ONLY its Plugin, because OpenCode's loader calls every export as a
+  // plugin factory. Exporting these helpers from there took the whole plugin
+  // down with "glob.replace is not a function".
   const mod = await import(
-    pathToFileURL(path.join(root, "plugins/expert-hooks.ts")).href
+    pathToFileURL(path.join(root, "scripts/lib/session-receipt.mjs")).href
   );
   const { resolveTierForReceipt, logSessionReceipt } = mod;
   const config = JSON.parse(

@@ -77,7 +77,10 @@ import {
   testGateLevelsDocumented,
 } from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
-import { testGateOutputContract } from "./test-gate-output-contract.ts";
+import {
+  testGateOutputContract,
+  testPluginExportContract,
+} from "./test-gate-output-contract.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
   testRetryBudgets,
@@ -695,6 +698,7 @@ console.log(
   "\n[Pass 52] Gate-output contract — every emitted verdict state is documented",
 );
 testGateOutputContract(root, ok, fail);
+testPluginExportContract(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
