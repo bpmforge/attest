@@ -16,9 +16,15 @@ They auto-load from `~/.config/opencode/tools/` without any config changes neede
 
 | Tool | Purpose | When to use |
 |------|---------|-------------|
-| `write.ts` | Atomic file write — fixes silent-fail bug in LM Studio | Anytime writing a file with local LLM |
-| `append.ts` | Append to existing file with existence check | Adding content without overwriting |
-| `update.ts` | Overwrite existing file (errors if missing) | Safer replacement for write when file must exist |
+| `write.ts` | Atomic file write, creates parent dirs — fixes silent-fail bug in LM Studio | Anytime writing a file with local LLM |
+| `append.ts` | Append; creates the file (and parent dirs) if absent | Adding content without overwriting |
+| `update.ts` | Overwrite; creates the file (and parent dirs) if absent | Interchangeable with `write` — reports `Created (did not exist)` so a typo'd path stays visible |
+
+> **None of the three ever fails because a file or directory is missing.** That
+> existence guard used to error (`ERROR: File does not exist: <path>`) and it
+> dead-ended any agent creating its first `docs/work/` handoff or state file —
+> the agent read it as "no create-capable write tool" and stopped. All three now
+> upsert and `mkdir -p` their parent directory.
 | `file-info.ts` | File metadata (size, lines, extension) without reading content | Before reading large files to avoid token waste |
 
 ### Shell & Process Execution
