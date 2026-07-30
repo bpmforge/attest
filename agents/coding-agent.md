@@ -455,10 +455,25 @@ If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes
 bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>
 ```
 
-`DONE-CHECK: RED` lists exactly what is missing (stale/red verify report, uncommitted or
-unpushed work, missing PRODUCE files, missing completion-report section) — fix those items,
-never argue with them. Only on `DONE-CHECK: GREEN` do you write the report and print the
-completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
+**The output has three levels, and only one of them blocks you:**
+
+| Line | Meaning | What you do |
+|---|---|---|
+| `[ok]` | that check passed | nothing |
+| `[warn]` | informational, **never blocking** — usually something outside your reach: no `\`\`\`verify` fence in the HANDOFF, no git remote configured, another agent's uncommitted files | name it in your report, then carry on |
+| `[FAIL]` | blocking | fix it |
+
+The verdict names the blocking items explicitly — `DONE-CHECK: RED — N blocking
+item(s). Warnings above are NOT blockers; these are: …`. **Read that list, not the
+whole output.** Field basis 2026-07-30: a researcher hit one `[FAIL]` (its own 19KB
+deliverable, written and never committed) alongside four `[warn]` lines, and
+reported "lacks a verify fence and changes are uncommitted/unpushed" — both of
+those were warnings, deliberately non-blocking, and it never committed the file
+that actually blocked it. Reporting a warning as a blocker stalls the pipeline
+exactly as hard as ignoring a real one.
+
+Fix the `[FAIL]` items, never argue with them. Only on `DONE-CHECK: GREEN` do you
+write the report and print the completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
 concluded "everything done" with 57 lint errors, no report, and unpushed commits — the
 judgment call is exactly what a small model gets wrong; the script doesn't.)
 
