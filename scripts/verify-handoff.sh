@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# verify-handoff.sh — mechanical verify-loop evidence harness (v2.30.0)
+# verify-handoff.sh — mechanical verify-loop evidence harness (v2.44.0)
 #
 # WHY THIS EXISTS: small models cannot reliably self-report verify compliance.
 # Field traces (2026-07, gpt-5-mini): `|| true` appended to gates, biome errors
@@ -14,14 +14,44 @@
 #
 # Usage:
 #   bash verify-handoff.sh <file>              # run commands from the file's ```verify fence
-#   bash verify-handoff.sh <file> --baseline   # also store pass-count baseline (run BEFORE editing)
+#   bash verify-handoff.sh <file> --baseline   # also store the baseline (run BEFORE editing)
 #   bash verify-handoff.sh -c "cmd" [-c ...]   # explicit commands, no file
 #   Options: --report <path>   (default docs/work/VERIFY_REPORT.md)
 #
 # The ```verify fence: first fenced block opening with ```verify in the file;
 # each non-empty, non-# line is one command, run verbatim via `bash -c` from
-# the directory this script was invoked in. Exit: 0 = ALL GREEN, 1 = RED,
-# 2 = usage/no commands.
+# the directory this script was invoked in.
+#
+# Three wrong-verdict channels this closes (field trace 2026-07, downstream project):
+#   * A command that matched NOTHING is not a pass. `jest --passWithNoTests`,
+#     vitest with no match, and `eslint --no-error-on-unmatched-pattern` all exit
+#     0 having tested nothing; `biome check <config-excluded-path>` exits non-zero
+#     with "No files were processed" and reads as the agent's defect. Both are the
+#     same bug — a fence/path/config defect — and both are now named as one.
+#     Guarded by a zero-pass-count precondition, so a monorepo run where one
+#     package has no tests but 1000 pass elsewhere is NOT flagged.
+#   * A summed pass-count cannot tell a pre-existing failure from a new one. The
+#     baseline now stores failing-test SIGNATURES plus provenance (commit,
+#     branch, command count). On RED, the current failing set is compared against
+#     it: a subset means BASELINE_RED (pre-existing, not this agent's work); any
+#     new signature stays RED and only the NEW ones are named. Attribution is
+#     claimed only when the baseline commit is an ancestor of HEAD — otherwise
+#     the verdict says UNKNOWN rather than guessing.
+#   * A run with no baseline silently performs no regression check at all. The
+#     ALL GREEN verdict now says so, so absent evidence stops reading as evidence.
+#
+# Baseline format (docs/work/verify-baseline.txt): line 1 is the summed
+# pass-count — a bare integer file from any earlier version still reads
+# correctly — followed by `# `-prefixed provenance and `# fail:` signatures.
+#
+# Exit: 0 = ALL GREEN, 1 = RED, 2 = usage/no commands, 3 = BASELINE_RED
+# (every failure pre-dates this work; the verdict line is the authority and
+# handoff-done.sh treats it as a warning, not a block).
+#
+# Known gaps, stated rather than hidden: a pass-count that RISES while tests are
+# deleted (+10 new / -5 removed) is still undetectable — that needs a full
+# test-name inventory, not just failures. And the pass-count sum greps the whole
+# log, so a test NAME containing "5 passed" inflates it.
 #
 # Never-sudo, dependency-free (bash 3.2+, awk, tail, grep). Never masks an
 # exit code; never truncates the head of a summary.
@@ -42,7 +72,7 @@ while [ $# -gt 0 ]; do
       [ $# -ge 2 ] || { echo "verify-handoff: -c needs a command" >&2; exit 2; }
       CMDS+=("$2"); shift ;;
     -h|--help)
-      sed -n '2,28p' "$0"; exit 0 ;;
+      awk 'NR>1 && /^set -u/{exit} NR>1' "$0"; exit 0 ;;
     -*)
       echo "verify-handoff: unknown option $1" >&2; exit 2 ;;
     *)
@@ -88,12 +118,31 @@ LOGDIR="$OUT/verify-logs"
 mkdir -p "$LOGDIR"
 [ -n "$REPORT" ] || REPORT="$OUT/VERIFY_REPORT.md"
 BASE_FILE="$OUT/verify-baseline.txt"
+FAIL_CUR="$LOGDIR/.failures-current.txt"
+: > "$FAIL_CUR"
+
+# Specific, known emptiness strings from real runners. NEVER a generic "did this
+# touch files" heuristic: a fence legitimately contains `git branch
+# --show-current`, `test -s <path>`, and bare `echo`, and this repo's own test
+# fixture emits "Found 0 errors" as a GREEN signal.
+EMPTY_RE='no files were processed|no files matching|no test files found|no test files|no tests found|no tests ran|no tests to run|found no tests|ran 0 tests|collected 0 items'
+
+# Normalized failing-test signatures. Uppercase FAIL/FAILED/--- FAIL: and the
+# vitest/jest glyphs — deliberately NOT the lowercase summary line ("7 failed |
+# 114 passed"), which is a count, not a signature. Timings are stripped so the
+# same failure yields the same signature on every run.
+extract_failures() {
+  grep -hE '(^|[[:space:]])(FAIL|FAILED|--- FAIL:|✗|×|●)([[:space:]]|$)' "$1" 2>/dev/null \
+    | sed -E 's/^[[:space:]]*//; s/[[:space:]]+$//; s/\([0-9]+(\.[0-9]+)?[[:space:]]*m?s\)//g; s/[[:space:]][[:space:]]+/ /g' \
+    | sort -u
+}
 
 # --- auto-baseline -----------------------------------------------------------
 # A baseline is only meaningful pre-change. If none is stored, store one
 # automatically WHEN we can prove this run is pre-change: clean working tree
 # AND the branch has no commits beyond the base branch. Otherwise warn loudly —
 # a missing baseline means test deletion cannot be detected mechanically.
+BASELINE_CHECKED=0
 if [ "$BASELINE_MODE" -eq 0 ] && [ ! -f "$BASE_FILE" ]; then
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     CLEAN=$(git status --porcelain 2>/dev/null | grep -Ev ' docs/(work|reviews)/' || true)
@@ -132,6 +181,7 @@ GREEN=0
 RED_CMD=""
 RED_CODE=0
 TOTAL_PASSED=0
+EMPTY_CMD=""
 
 for cmd in "${CMDS[@]}"; do
   N=$((N + 1))
@@ -146,6 +196,16 @@ for cmd in "${CMDS[@]}"; do
   CMD_PASSED=$(grep -Eo '[0-9]+ pass(ed|ing)' "$LOG" 2>/dev/null | grep -Eo '[0-9]+' | awk '{ s += $1 } END { print s + 0 }')
   TOTAL_PASSED=$((TOTAL_PASSED + CMD_PASSED))
 
+  # Matched-nothing detection. Both conditions are required: an emptiness string
+  # AND zero passes anywhere in this command's output.
+  CMD_EMPTY=0
+  if [ "$CMD_PASSED" -eq 0 ] && grep -qiE "$EMPTY_RE" "$LOG" 2>/dev/null; then
+    CMD_EMPTY=1
+    [ -z "$EMPTY_CMD" ] && EMPTY_CMD="$cmd"
+  fi
+
+  extract_failures "$LOG" >> "$FAIL_CUR"
+
   {
     echo "## Command $N"
     echo ""
@@ -155,6 +215,7 @@ for cmd in "${CMDS[@]}"; do
     echo ""
     echo "- Exit code: **$CODE**"
     [ "$CMD_PASSED" -gt 0 ] && echo "- Pass-count mentions summed: $CMD_PASSED"
+    [ "$CMD_EMPTY" -eq 1 ] && echo "- **Matched nothing**: the output says no files/tests were processed and zero tests passed. This is a fence/path/config defect, not a code defect."
     echo "- Output TAIL (last 15 lines — the summary end; full log: $LOG):"
     echo ""
     echo '```'
@@ -172,26 +233,90 @@ for cmd in "${CMDS[@]}"; do
   fi
 done
 
+CUR_FAILS=$(sort -u "$FAIL_CUR" 2>/dev/null | grep -c . | tr -d ' ')
+
 # --- baseline ---------------------------------------------------------------
-BASELINE_RED=""
+COUNT_RED=""
+PREEXISTING=""
+NEW_FAILS=""
 if [ "$BASELINE_MODE" -eq 1 ]; then
-  echo "$TOTAL_PASSED" > "$BASE_FILE"
-  echo "- Baseline stored: $TOTAL_PASSED summed pass-count ($BASE_FILE)" >> "$REPORT"
+  {
+    echo "$TOTAL_PASSED"
+    echo "# verify-baseline v2 — generated by verify-handoff.sh, not hand-written"
+    echo "# commit: $(git rev-parse HEAD 2>/dev/null || echo none)"
+    echo "# branch: $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo none)"
+    echo "# ncmds: $N"
+    sort -u "$FAIL_CUR" 2>/dev/null | grep . | sed 's/^/# fail: /'
+  } > "$BASE_FILE"
+  echo "- Baseline stored: $TOTAL_PASSED summed pass-count, $CUR_FAILS failing signature(s) ($BASE_FILE)" >> "$REPORT"
   echo "baseline stored: $TOTAL_PASSED"
 elif [ -f "$BASE_FILE" ]; then
-  BASE=$(tr -cd '0-9' < "$BASE_FILE")
+  BASELINE_CHECKED=1
+  # Line 1 only — a bare-integer baseline from an older version still reads, and
+  # digits inside the provenance comments cannot corrupt the count.
+  BASE=$(head -n 1 "$BASE_FILE" | tr -cd '0-9')
+  BASE_COMMIT=$(sed -n 's/^# commit: //p' "$BASE_FILE" | head -n 1)
+  BASE_FAILS="$LOGDIR/.failures-baseline.txt"
+  sed -n 's/^# fail: //p' "$BASE_FILE" | sort -u > "$BASE_FAILS"
+
   if [ -n "$BASE" ] && [ "$TOTAL_PASSED" -lt "$BASE" ]; then
-    BASELINE_RED="pass-count regressed: $TOTAL_PASSED < baseline $BASE — existing tests were deleted or broken"
+    COUNT_RED="pass-count regressed: $TOTAL_PASSED < baseline $BASE — existing tests were deleted or broken"
   fi
-  echo "- Baseline check: current $TOTAL_PASSED vs stored $BASE ${BASELINE_RED:+— REGRESSION}" >> "$REPORT"
+  echo "- Baseline check: current $TOTAL_PASSED vs stored $BASE ${COUNT_RED:+— REGRESSION}" >> "$REPORT"
+
+  # Attribution, only for a run that actually failed. This can downgrade a RED
+  # to BASELINE_RED; it can never turn a failure into ALL GREEN.
+  if [ -n "$RED_CMD" ] && [ "$CUR_FAILS" -gt 0 ] && [ -s "$BASE_FAILS" ]; then
+    ANCESTOR=1
+    if [ -n "$BASE_COMMIT" ] && [ "$BASE_COMMIT" != "none" ]; then
+      git merge-base --is-ancestor "$BASE_COMMIT" HEAD >/dev/null 2>&1 || ANCESTOR=0
+    elif git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      # A pre-v2 baseline carries no commit. Inside a repo that is unverifiable
+      # provenance, and attribution is a claim about history — do not make it.
+      ANCESTOR=0
+    fi
+    if [ "$ANCESTOR" -eq 0 ]; then
+      echo "- Attribution: **UNKNOWN** — the baseline was stored at $BASE_COMMIT, which is not an ancestor of HEAD. Re-store it from this branch's base." >> "$REPORT"
+    else
+      NEW_FAILS=$(sort -u "$FAIL_CUR" | grep . | comm -23 - "$BASE_FAILS")
+      NEW_COUNT=$(printf '%s' "$NEW_FAILS" | grep -c . | tr -d ' ')
+      if [ "$NEW_COUNT" -eq 0 ]; then
+        PREEXISTING="$CUR_FAILS failing signature(s), 0 new — every one is present in the baseline stored at ${BASE_COMMIT:-unknown}"
+        {
+          echo "- Attribution: **all $CUR_FAILS failure(s) pre-date this work** (baseline ${BASE_COMMIT:-unknown}). Not this HANDOFF's defect — cite this line and report them; do not try to fix them inside this scope."
+        } >> "$REPORT"
+      else
+        {
+          echo "- Attribution: **$NEW_COUNT NEW failure(s)** not in the baseline — these are this work's:"
+          echo ""
+          echo '```'
+          printf '%s\n' "$NEW_FAILS"
+          echo '```'
+        } >> "$REPORT"
+      fi
+    fi
+  fi
 fi
 
 # --- verdict ----------------------------------------------------------------
 echo "" >> "$REPORT"
-if [ -n "$RED_CMD" ]; then
+if [ -n "$EMPTY_CMD" ]; then
+  # Named ahead of the exit code: in the biome-on-excluded-path case the non-zero
+  # exit IS the emptiness, and naming "exit 1" instead sends the agent looking for
+  # a code defect that does not exist.
+  VERDICT="VERIFY: RED — fence command matched nothing (path/config defect, not a code defect): $EMPTY_CMD"
+elif [ -n "$RED_CMD" ] && [ -n "$PREEXISTING" ] && [ -z "$COUNT_RED" ]; then
+  # COUNT_RED must be clear: pre-existing failures do NOT excuse a pass-count
+  # that dropped. Without this guard, deleting tests while the baseline already
+  # had failures would downgrade to a warning and ship — the exact masking the
+  # count check exists to catch.
+  VERDICT="VERIFY: BASELINE_RED — $PREEXISTING"
+elif [ -n "$RED_CMD" ]; then
   VERDICT="VERIFY: RED — exit $RED_CODE from: $RED_CMD"
-elif [ -n "$BASELINE_RED" ]; then
-  VERDICT="VERIFY: RED — $BASELINE_RED"
+elif [ -n "$COUNT_RED" ]; then
+  VERDICT="VERIFY: RED — $COUNT_RED"
+elif [ "$BASELINE_CHECKED" -eq 0 ] && [ "$BASELINE_MODE" -eq 0 ]; then
+  VERDICT="VERIFY: ALL GREEN ($GREEN/$N) — BASELINE NOT CHECKED (no baseline stored; a test deleted in this work would not be detected)"
 else
   VERDICT="VERIFY: ALL GREEN ($GREEN/$N)"
 fi
@@ -200,6 +325,7 @@ echo "$VERDICT"
 echo "report: $REPORT"
 
 case "$VERDICT" in
-  "VERIFY: ALL GREEN"*) exit 0 ;;
+  "VERIFY: ALL GREEN"*)   exit 0 ;;
+  "VERIFY: BASELINE_RED"*) exit 3 ;;
   *) exit 1 ;;
 esac

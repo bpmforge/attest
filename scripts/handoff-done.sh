@@ -43,7 +43,7 @@ while [ $# -gt 0 ]; do
     --report)
       [ $# -ge 2 ] || { echo "handoff-done: --report needs a path" >&2; exit 2; }
       REPORT="$2"; shift ;;
-    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
+    -h|--help) awk 'NR>1 && /^set -u/{exit} NR>1' "$0"; exit 0 ;;
     -*) echo "handoff-done: unknown option $1" >&2; exit 2 ;;
     *) FILE="$1" ;;
   esac
@@ -152,9 +152,19 @@ if [ ! -f "$REPORT" ]; then
     red "no verify report at $REPORT — run: bash ~/.config/opencode/scripts/verify-handoff.sh $FILE"
   fi
 else
-  VERDICT=$(grep -E 'VERIFY: (ALL GREEN|RED)' "$REPORT" | tail -n 1)
+  VERDICT=$(grep -E 'VERIFY: (ALL GREEN|BASELINE_RED|RED)' "$REPORT" | tail -n 1)
   case "$VERDICT" in
-    *"ALL GREEN"*) grn "verify report is ALL GREEN ($REPORT)" ;;
+    *"ALL GREEN"*)
+      grn "verify report is ALL GREEN ($REPORT)"
+      case "$VERDICT" in
+        *"BASELINE NOT CHECKED"*)
+          wrn "the harness performed no regression check (no baseline stored) — a test deleted in this work would not have been caught; say so in your report" ;;
+      esac ;;
+    *BASELINE_RED*)
+      # Every failure was already failing at the baseline commit, so it is not
+      # this HANDOFF's defect and the contract forbids fixing it here. Blocking
+      # on it is the unwinnable gate the downstream project trace stalled on (2026-07).
+      wrn "verify report is BASELINE_RED — every failure pre-dates this work; name them in your report, do not fix them in this scope. Verdict: ${VERDICT}" ;;
     *RED*)         red "verify report is RED — fix and re-run the harness. Verdict: ${VERDICT}" ;;
     *)             red "verify report has no verdict line — re-run the harness" ;;
   esac
