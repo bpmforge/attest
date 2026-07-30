@@ -72,6 +72,7 @@ import { testToolPreflight } from "./test-tool-preflight.ts";
 import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
+import { testLocalOnlyGit } from "./test-local-only-git.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -661,6 +662,13 @@ console.log(
   "\n[Pass 49] Wrong-verdict channels — matched-nothing, failure attribution, unchecked baseline",
 );
 await testVerifyVerdicts(root, ok, fail);
+
+// Local-only git: a repo with no forge is a supported setup, and a gate row that
+// cannot be satisfied there must never read as a blocker or as an unearned pass.
+console.log(
+  "\n[Pass 50] Local-only git — forge-optional bootstrap + impossible gate rows",
+);
+testLocalOnlyGit(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

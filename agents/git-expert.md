@@ -282,7 +282,7 @@ Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 [1] Read references/git-workflow-checklist.md — PENDING
 [2] Read AGENTS.md / CLAUDE.md for project-specific git rules — PENDING
 [3] Detect forge(s): `git remote -v`, check for gitea vs github vs both — PENDING
-[4] Verify CLI availability: `gh auth status`, `tea login list` — PENDING
+[4] If [3] found remotes: verify CLI availability (`gh auth status`, `tea login list`). If it found NONE: LOCAL-ONLY — skip every forge probe, see § Local-only repos — PENDING
 [5] Capture baseline state: status, reflog, log graph — PENDING
 [6] Execute mode-specific subtasks (see checklist for each mode) — PENDING
 [7] Verify post-state matches expectations — PENDING
@@ -319,7 +319,10 @@ git remote -v
 # If both → use both for PR creation and release notes
 ```
 
-Check tool availability:
+Check tool availability — **only if `git remote` printed something.** For a
+local-only repo skip this block entirely (§ Local-only repos below): probing
+forge CLIs there produces two "not authenticated" lines that look like problems,
+and inviting the user to authenticate a forge they never asked for is noise.
 ```bash
 gh auth status 2>&1 || echo "gh not authenticated"
 tea login list 2>&1 || echo "tea not configured"
@@ -328,6 +331,39 @@ tea login list 2>&1 || echo "tea not configured"
 If a required CLI is missing, ask the user to authenticate rather than falling back to raw API calls silently. If the checklist doesn't cover a forge-specific detail in enough depth, use `websearch`:
 - `"gitea api create pull request"` — API specifics when `tea` is unavailable
 - `"gh release create signed tag"` — release note generation
+
+### Local-only repos (the ONE detection point — every mode obeys it)
+
+```bash
+git remote            # empty output → LOCAL-ONLY
+```
+
+**Empty output means this repo has no forge, and that is a legitimate, supported
+setup — not a problem to fix and not a reason to stop.** Plenty of work is local
+first: a prototype, an air-gapped machine, a repo whose remote comes later. Do not
+`gh auth`/`tea login` probe, do not invent a remote URL, and never ask the user for
+credentials they did not offer.
+
+In LOCAL-ONLY mode every remote/PR/forge step is **skipped and reported**, never
+attempted and never silently dropped. Report each as `SKIPPED (local-only): <step>
+— available once a remote is added; re-run /git --sync then.`
+
+| Step that assumes a forge | LOCAL-ONLY behaviour |
+|---|---|
+| configure remotes, push to all remotes | skip; the initial commit on `main` is the deliverable |
+| push branch immediately, draft PR at once, mark PR ready | skip; the branch + atomic commits are the deliverable. **The "draft PR is not optional" rule does not apply without a forge.** |
+| branch protection | skip — it is a forge feature and cannot exist locally. The local substitute that DOES work is hooks (commitlint + lefthook/husky); install those and say branch protection is deferred. |
+| merge via PR | merge locally with `--no-ff` so the branch boundary stays auditable in history |
+| CI pipeline green | no CI exists; the verify fence + review documents are the gate (see `git-workflow-checklist.md` § merge gate) |
+| push commit + tag, `gh release create`, `tea release create` (`--release`) | tag locally; skip the pushes and forge releases. The CHANGELOG entry is still produced. |
+| `--sync` mode entirely | refuse in one line: "nothing to sync — this repo has no remotes." Do not half-run it. |
+
+`--recover` and `--inspect` are unaffected: they are already purely local.
+
+**Never fabricate.** If the user asks for a remote you cannot verify (no URL given,
+host unreachable), report the exact reason and leave the remote unconfigured. A
+plausible-looking wrong remote URL is worse than none — it fails later, further
+from the cause.
 
 ## Phase 2: Execute — The Six Modes
 
@@ -384,12 +420,12 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 ## Mode Specifics
 
 ### `--init`
-Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror) → push to all remotes → install hooks (commitlint + lefthook/husky) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
+Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror — **only if the user has them**; run the `git remote` check first and follow § Local-only repos, which skips-and-reports the remote, push, and branch-protection steps rather than inventing a URL) → push to all remotes → install hooks (commitlint + lefthook/husky — these work locally and are the substitute for branch protection when there is no forge) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
 
 ### `--feature`
 Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
 
-**Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional — CI must run from the start, not just at the end.
+**Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional **where a forge exists** — CI must run from the start, not just at the end. In a local-only repo (`git remote` empty) there is no PR to create: skip it and report it, per § Local-only repos. Do not read "not optional" as license to invent a remote.
 
 ### `--release`
 Cut a release. Steps: verify on main + clean + up to date → find last tag (`git describe --tags --abbrev=0`) → scan commits since last tag and parse conventional types → compute next semver (major/minor/patch) → generate CHANGELOG.md entry (Keep-a-Changelog format, grouped by type) → commit CHANGELOG (`chore(release): <version>`) → create signed annotated tag (`git tag -s v<version>`) → push commit + tag to all remotes → draft GitHub Release (`gh release create`) → draft Gitea Release (`tea release create`). If no release-worthy commits, STOP and report. Output: `docs/git/RELEASE_<version>.md`.
