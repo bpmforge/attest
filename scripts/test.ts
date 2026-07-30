@@ -49,7 +49,11 @@ import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
 import { testApiSurface } from "./test-api-surface.ts";
 import { testVerifyReceipt } from "./test-verify-receipt.ts";
-import { testDelegationGate, testDelegationMetrics, testInvariants } from "./test-delegation-gate.ts";
+import {
+  testDelegationGate,
+  testDelegationMetrics,
+  testInvariants,
+} from "./test-delegation-gate.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
 import { testSetupDevServer } from "./test-setup-dev-server.ts";
@@ -66,6 +70,7 @@ import { testQaVnvStructure } from "./test-qa-vnv-structure.ts";
 import { testAgentReachability } from "./test-agent-reachability.ts";
 import { testToolPreflight } from "./test-tool-preflight.ts";
 import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
+import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -634,10 +639,20 @@ console.log("\n[Pass 46] verify-receipt — untrusted verification receipts");
 testVerifyReceipt(root, ok, fail);
 
 // delegation-gate: three checks a passing test suite cannot make.
-console.log("\n[Pass 47] delegation-gate — coverage delta, pattern novelty, reviewer citations");
+console.log(
+  "\n[Pass 47] delegation-gate — coverage delta, pattern novelty, reviewer citations",
+);
 testDelegationGate(root, ok, fail);
 testDelegationMetrics(root, ok, fail);
 testInvariants(root, ok, fail);
+
+// Unwinnable gates: a RED an agent cannot clear turns finished work into a
+// permanent stall. Both halves of the 2026-07 a new-project trace are pinned here.
+console.log(
+  "\n[Pass 48] Unwinnable gates — handoff-done.sh RED conditions + file-tool upsert",
+);
+await testHandoffDone(root, ok, fail);
+await testFileToolUpsert(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

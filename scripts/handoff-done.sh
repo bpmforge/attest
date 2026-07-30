@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# handoff-done.sh — mechanical done-gate for HANDOFF specialists (v2.31.0)
+# handoff-done.sh — mechanical done-gate for HANDOFF specialists (v2.43.0)
 #
 # WHY: the "am I done?" judgment was the last self-assessed step. Field trace
 # (T-234, 2026-07): the agent re-read the HANDOFF on request and still
@@ -14,11 +14,18 @@
 #     --report <path>     VERIFY_REPORT location (default docs/work/VERIFY_REPORT.md)
 #
 # Checks:
-#   1. VERIFY_REPORT.md exists and its verdict line is ALL GREEN
+#   1. VERIFY_REPORT.md exists and its verdict line is ALL GREEN. A HANDOFF with
+#      no ```verify fence warns instead when its PRODUCE list is documents only,
+#      or when the repo has no runnable verify target yet — demanding a report
+#      the HANDOFF cannot produce is an unwinnable gate. If PRODUCE ships source
+#      and something IS runnable, the missing fence itself is the failure.
 #   2. Freshness: no tracked file modified AFTER the report (fix-after-verify
 #      without a re-run is a red flag, not a formality)
-#   3. Working tree committed (dirty docs/work/** is a warning, not a failure)
-#   4. Commits pushed (upstream exists and git log @{u}.. is empty)
+#   3. Working tree committed — files this HANDOFF owns (WRITE-SCOPE ∪ PRODUCE)
+#      fail; anything else warns, because another agent owns it and the contract
+#      forbids you touching it. Dirty docs/work/** is a warning too.
+#   4. Commits pushed (upstream exists and git log @{u}.. is empty). No remote
+#      configured at all warns — there is nowhere to push.
 #   5. PRODUCE paths parsed from the file all exist on disk (best-effort parse)
 #   6. If the HANDOFF says to append a completion report, the target contains
 #      a "## Completion report" heading
@@ -36,7 +43,7 @@ while [ $# -gt 0 ]; do
     --report)
       [ $# -ge 2 ] || { echo "handoff-done: --report needs a path" >&2; exit 2; }
       REPORT="$2"; shift ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     -*) echo "handoff-done: unknown option $1" >&2; exit 2 ;;
     *) FILE="$1" ;;
   esac
@@ -61,9 +68,89 @@ wrn()  { echo "  [warn] $1"; WARNS=$((WARNS + 1)); }
 
 echo "DONE-CHECK for $FILE"
 
+# -- 0. Parse the HANDOFF's PRODUCE and WRITE-SCOPE lists ---------------------
+# Both are bullet lists; a path may be backticked. Used by checks 1, 3 and 5.
+parse_list() {
+  awk -v head="$1" '
+    $0 ~ head { in_p = 1; next }
+    in_p && /^[[:space:]]*-[[:space:]]/ {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+      if (match(line, /`[^`]+`/)) {
+        path = substr(line, RSTART + 1, RLENGTH - 2)
+      } else {
+        split(line, a, /[[:space:]]/); path = a[1]
+      }
+      if (path ~ /[\/.]/ && path !~ /^</) print path
+      next
+    }
+    in_p && !/^[[:space:]]*$/ && !/^[[:space:]]*-/ { in_p = 0 }
+  ' "$FILE" | sort -u
+}
+
+PRODUCE_PATHS=$(parse_list '^(PRODUCE|## PRODUCE)')
+# Attribution set = WRITE-SCOPE ∪ PRODUCE. A file you were told to produce is
+# yours to commit even when the HANDOFF omits a WRITE-SCOPE section.
+SCOPE_PATHS=$(printf '%s\n%s\n' \
+  "$(parse_list '^(WRITE-SCOPE|## WRITE-SCOPE)')" "$PRODUCE_PATHS" \
+  | grep -v '^$' | sort -u)
+
+# Is $1 inside this HANDOFF's attribution set? Nothing parseable = no, so
+# unattributable files degrade to a warning instead of a false RED.
+in_scope() {
+  [ -n "$SCOPE_PATHS" ] || return 1
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
+    s=${s%\*\*}; s=${s%/}
+    case "$1" in
+      "$s"|"$s"/*) return 0 ;;
+    esac
+  done <<INNER
+$SCOPE_PATHS
+INNER
+  return 1
+}
+
+# Does this HANDOFF ship code, or only documents? A doc-only HANDOFF has no
+# runnable verify fence, so there is nothing for the harness to write a report
+# from. Field trace (2026-07): researcher finished both deliverables, then
+# withheld the completion phrase permanently because the gate demanded a report
+# its own HANDOFF made impossible.
+HAS_FENCE=0
+grep -qE '^```verify[[:space:]]*$' "$FILE" && HAS_FENCE=1
+# …and is there anything in this repo a fence could even run? Demanding a fence
+# where no build/test target exists yet rebuilds the same unwinnable gate one
+# size smaller, so that case warns and the HANDOFF that adds the target owns the
+# fence.
+HAS_VERIFY_TARGET=0
+if [ -f package.json ] && grep -qE '"(test|build|lint|typecheck|check)"[[:space:]]*:' package.json; then
+  HAS_VERIFY_TARGET=1
+elif [ -f Makefile ] || [ -f makefile ] || [ -f pyproject.toml ] || \
+     [ -f Cargo.toml ] || [ -f go.mod ] || [ -f build.gradle ] || [ -f pom.xml ]; then
+  HAS_VERIFY_TARGET=1
+fi
+SHIPS_CODE=0
+while IFS= read -r p; do
+  [ -n "$p" ] || continue
+  case "$p" in
+    docs/*|*.md|README*|LICENSE*|CHANGELOG*|.gitignore|.gitattributes) ;;
+    *) SHIPS_CODE=1 ;;
+  esac
+done <<EOF
+$PRODUCE_PATHS
+EOF
+
 # -- 1. Verify report exists and is ALL GREEN --------------------------------
 if [ ! -f "$REPORT" ]; then
-  red "no verify report at $REPORT — run: bash ~/.config/opencode/scripts/verify-handoff.sh $FILE"
+  if [ "$HAS_FENCE" -eq 0 ] && [ "$SHIPS_CODE" -eq 0 ]; then
+    wrn "no verify report — this HANDOFF has no \`\`\`verify fence and PRODUCEs documents only; nothing runnable to verify"
+  elif [ "$HAS_FENCE" -eq 0 ] && [ "$HAS_VERIFY_TARGET" -eq 0 ]; then
+    wrn "no verify report — PRODUCE ships source but this repo has no runnable verify target yet (no package.json script, Makefile, pyproject.toml, Cargo.toml, go.mod); say so in your report. The HANDOFF that adds the target owns the \`\`\`verify fence."
+  elif [ "$HAS_FENCE" -eq 0 ]; then
+    red "PRODUCE ships source files but $FILE has no \`\`\`verify fence — add one (build/lint/test commands), then run: bash ~/.config/opencode/scripts/verify-handoff.sh $FILE"
+  else
+    red "no verify report at $REPORT — run: bash ~/.config/opencode/scripts/verify-handoff.sh $FILE"
+  fi
 else
   VERDICT=$(grep -E 'VERIFY: (ALL GREEN|RED)' "$REPORT" | tail -n 1)
   case "$VERDICT" in
@@ -91,11 +178,38 @@ fi
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   DIRTY=$(git status --porcelain 2>/dev/null | grep -Ev ' docs/(work|reviews)/' || true)
   DIRTY_DOCS=$(git status --porcelain 2>/dev/null | grep -E ' docs/(work|reviews)/' || true)
-  if [ -n "$DIRTY" ]; then
-    red "uncommitted changes outside docs/work — commit before reporting:"
-    echo "$DIRTY" | sed 's/^/         /' | head -10
+  # Only files this HANDOFF owns are yours to commit. The contract forbids
+  # touching anything else, so failing on another agent's uncommitted files
+  # made the gate unwinnable in a shared repo (2026-07).
+  DIRTY_MINE=""
+  DIRTY_THEIRS=""
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    f=$(printf '%s' "$line" | sed 's/^...//; s/^.* -> //; s/^"//; s/"$//')
+    if in_scope "$f"; then
+      DIRTY_MINE="$DIRTY_MINE$line
+"
+    else
+      DIRTY_THEIRS="$DIRTY_THEIRS$line
+"
+    fi
+  done <<EOF
+$DIRTY
+EOF
+
+  if [ -n "$DIRTY_MINE" ]; then
+    red "uncommitted changes to files this HANDOFF owns (WRITE-SCOPE/PRODUCE) — commit before reporting:"
+    printf '%s' "$DIRTY_MINE" | sed 's/^/         /' | head -10
   else
-    grn "working tree committed (source files)"
+    grn "working tree committed (every file this HANDOFF owns)"
+  fi
+  if [ -n "$DIRTY_THEIRS" ]; then
+    if [ -n "$SCOPE_PATHS" ]; then
+      wrn "uncommitted files this HANDOFF does not own — not yours to commit; name them in your report and leave them alone:"
+    else
+      wrn "no WRITE-SCOPE or PRODUCE list parsed from $FILE — the files below are unattributed; confirm manually which are yours:"
+    fi
+    printf '%s' "$DIRTY_THEIRS" | sed 's/^/         /' | head -10
   fi
   [ -n "$DIRTY_DOCS" ] && wrn "uncommitted docs/work|docs/reviews files — commit them with your report"
 
@@ -107,6 +221,8 @@ if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       else
         grn "all commits pushed"
       fi
+    elif [ -z "$(git remote 2>/dev/null)" ]; then
+      wrn "no git remote configured — there is nowhere to push; say so in your report (a fresh repo is not unpushed work)"
     else
       red "no upstream set — push first: git push -u origin \$(git branch --show-current)   (or pass --no-push-check if this HANDOFF does not push)"
     fi
@@ -117,6 +233,7 @@ fi
 PRODUCE_SEEN=0
 PRODUCE_MISSING=0
 while IFS= read -r p; do
+  [ -n "$p" ] || continue
   PRODUCE_SEEN=$((PRODUCE_SEEN + 1))
   if [ -e "$p" ]; then
     grn "PRODUCE exists: $p"
@@ -124,21 +241,9 @@ while IFS= read -r p; do
     red "PRODUCE missing: $p"
     PRODUCE_MISSING=$((PRODUCE_MISSING + 1))
   fi
-done < <(awk '
-  /^(PRODUCE|## PRODUCE)/ { in_p = 1; next }
-  in_p && /^[[:space:]]*-[[:space:]]/ {
-    line = $0
-    sub(/^[[:space:]]*-[[:space:]]*/, "", line)
-    if (match(line, /`[^`]+`/)) {
-      path = substr(line, RSTART + 1, RLENGTH - 2)
-    } else {
-      split(line, a, /[[:space:]]/); path = a[1]
-    }
-    if (path ~ /[\/.]/ && path !~ /^</) print path
-    next
-  }
-  in_p && !/^[[:space:]]*$/ && !/^[[:space:]]*-/ { in_p = 0 }
-' "$FILE" | sort -u)
+done <<EOF
+$PRODUCE_PATHS
+EOF
 [ "$PRODUCE_SEEN" -eq 0 ] && wrn "no PRODUCE list parsed from $FILE — file-existence check skipped (verify manually against the HANDOFF)"
 
 # -- 6. Completion report appended, if required -------------------------------
