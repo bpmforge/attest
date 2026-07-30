@@ -73,6 +73,7 @@ import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
+import { testRetryBudgets, testClaimVsEvidence } from "./test-retry-and-claims.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -669,6 +670,14 @@ console.log(
   "\n[Pass 50] Local-only git — forge-optional bootstrap + impossible gate rows",
 );
 testLocalOnlyGit(root, ok, fail);
+
+// Retry budgets + claim-vs-evidence: a tooling mistake must not consume a
+// code-fix attempt, and cited evidence must not say the opposite of the claim.
+console.log(
+  "\n[Pass 51] Retry budgets + claim-vs-evidence — four counters, and evidence that outranks prose",
+);
+testRetryBudgets(root, ok, fail);
+testClaimVsEvidence(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

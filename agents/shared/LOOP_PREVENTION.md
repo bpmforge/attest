@@ -147,6 +147,7 @@ URLs/files already fetched: [<list>]
 Learned so far: [<bullet facts>]
 Still missing: [<specific gaps>]
 Errors so far: <count>/3 strikes
+Retry budgets: tooling <n>/2 · environment <n>/2 · code <n>/3 · review <n>/3 · total <n>/8
 ```
 
 After every successful call, ask before the next one:
@@ -158,9 +159,72 @@ If 3 consecutive successful calls produce nothing new, the work-unit is **as ans
 
 ---
 
+## Retry budgets — four counters, not one
+
+**A tooling mistake must not consume a code-fix attempt.** Field trace 2026-07
+(downstream project): a fence ran `pnpm biome check scripts/conductor` against a config that
+excludes `scripts/`. The agent burned attempts on an invocation defect it could
+not fix, hit the single 3-strike cap, and stopped with the implementation
+finished and unreported. One counter cannot tell "I typed the command wrong" from
+"the code is wrong", so the cheapest failure exhausts the budget for the real one.
+
+Keep **four independent counters** per HANDOFF, plus the existing schema counter:
+
+| Counter | Budget | What it covers |
+|---|---|---|
+| `tooling_retries` | 2 | the command/flag/path is wrong, or the tool's own config excludes the target |
+| `environment_retries` | 2 | the machine is not ready — missing dep, service down, port taken, unauthenticated |
+| `code_remediation_retries` | 3 | a real defect in code you own |
+| `review_retries` | 3 | rework demanded by a reviewer |
+| `schema_retries` | 2 | malformed tool args (Class 2 above — unchanged) |
+
+**Global cap: 8 attempts total per HANDOFF, whatever the mix.** Four counters buy
+the right *kind* of attempt; they do not buy unlimited attempts. Hitting the cap
+stops you exactly like a single counter would.
+
+### Classification is read off evidence, never judged
+
+You may only charge an attempt to a counter you can cite evidence for. The
+harness already classifies the common cases for you — use its verdict, do not
+re-decide it:
+
+| Evidence you can point at | Counter |
+|---|---|
+| `VERIFY: RED — fence command matched nothing (path/config defect…)` | `tooling` |
+| `command not found`, `unknown flag`, `No files were processed`, "paths were provided but ignored" | `tooling` |
+| `ENOENT` on a binary, service/DB unreachable, port in use, an auth prompt, a missing lockfile install | `environment` |
+| `VERIFY: RED — exit N from: <cmd>` where the failures are attributed as **NEW** | `code_remediation` |
+| a reviewer finding you accepted | `review` |
+| `VERIFY: BASELINE_RED` / any failure attributed as pre-existing | **none — costs nothing.** It is not your work. Report it and move on. |
+
+**Cannot cite evidence for a class?** It charges `code_remediation` *and* the
+global cap. Unclassifiable failures are the expensive kind on purpose.
+
+> **The abuse this prevents:** relabelling a code failure as "tooling" to buy
+> three more attempts. That is why every charge needs a citation. If you find
+> yourself reasoning "this is probably an environment thing" with nothing to
+> quote, it is a code failure until proven otherwise.
+
+State the counters in the ledger between attempts, and reconcile them against the
+verify report rather than memory:
+
+```
+tooling 0/2 · environment 0/2 · code 1/3 · review 0/3 · schema 0/2 · total 1/8
+Last charge: code — "VERIFY: RED — exit 1 from: npx vitest run" (2 NEW failures)
+```
+
+When any single counter or the global cap is exhausted, stop with
+`BLOCKED: <evidence>` and say **which counter ran out** — the orchestrator's next
+move depends on it. A tooling exhaustion means fix the fence; a code exhaustion
+means the task is harder than scoped; an environment exhaustion means nothing was
+ever going to run here.
+
+---
+
 ## Universal STOP triggers
 
 Stop and surface to user if ANY of these:
+- any single retry counter exhausted, or the 8-attempt global cap reached
 - ≥ 3 strikes (failure loop)
 - ≥ 2 schema-validation errors on the same tool call shape (validation loop)
 - Same URL fetched twice (you've already lost track — re-read your checkpoint instead)
