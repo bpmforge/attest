@@ -96,6 +96,36 @@ export function testLocalOnlyGit(root: string, ok: Ok, fail: Fail) {
     }
   }
 
+  // -- 1c. The bootstrap .gitignore must exclude THIS system's own runtime
+  //    artifacts. They are written into the project by the MCP, plugin and
+  //    harness, so nobody thinks to ignore them — and the first scope gate then
+  //    flags them as out-of-scope writes. Field failure 2026-07-30: a Phase 0
+  //    HANDOFF blocked by `.code-search/`, which two other documents already
+  //    claimed was gitignored.
+  {
+    const g = read("agents/git-expert.md");
+    const required = [
+      ".code-search/",
+      "docs/work/.model-context",
+      "docs/work/verify-logs/",
+      "docs/work/verify-baseline.txt",
+      "**/docs/work/telemetry.jsonl",
+      "**/docs/work/session-receipts.jsonl",
+      "**/docs/work/watchdog-events.jsonl",
+    ];
+    const missing = required.filter((r) => !g.includes(r));
+    if (missing.length === 0 && /runtime artifacts/i.test(g)) {
+      ok(
+        "bootstrap: --init's .gitignore covers the expert system's own runtime artifacts",
+      );
+    } else {
+      fail(
+        "bootstrap: --init's .gitignore covers the expert system's own runtime artifacts",
+        `missing: ${missing.join(", ") || "(header text)"}`,
+      );
+    }
+  }
+
   // -- 2/5. --init must not promise remotes unconditionally. ----------------
   {
     const g = read("agents/git-expert.md");

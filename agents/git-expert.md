@@ -422,6 +422,34 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 ### `--init`
 Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror — **only if the user has them**; run the `git remote` check first and follow § Local-only repos, which skips-and-reports the remote, push, and branch-protection steps rather than inventing a URL) → push to all remotes → install hooks (commitlint + lefthook/husky — these work locally and are the substitute for branch protection when there is no forge) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
 
+**The `.gitignore` must exclude this system's own runtime artifacts, not just the
+language's.** They are generated into the project by the MCP, the plugin and the
+harness — nobody writes them deliberately, so nobody thinks to ignore them, and
+they surface as out-of-scope writes in the very first scope gate. Field failure
+2026-07-30: `.code-search/`, created by the code-search MCP the moment any agent
+indexes, was flagged "written outside assigned scope" and blocked a Phase 0
+HANDOFF; `docs/work/session-receipts.jsonl` and `telemetry.jsonl` had already
+been committed, and both are per-machine files meaningless in anyone else's
+checkout. Two documents — `CODE_SEARCH.md` and `sdlc-onboard-mode.md` — already
+*assert* `.code-search/` is gitignored. Nothing made it true.
+
+Include verbatim:
+
+```gitignore
+# Expert-system runtime artifacts — generated per-machine, never committed
+.code-search/                          # code-search MCP symbol index
+docs/work/.model-context               # resolved local-model context budget
+docs/work/verify-logs/                 # verify-handoff.sh per-command logs
+docs/work/verify-baseline.txt          # pass-count + failure-signature baseline
+**/docs/work/telemetry.jsonl           # per-message actuals (this machine only)
+**/docs/work/session-receipts.jsonl    # session model receipts (this machine only)
+**/docs/work/watchdog-events.jsonl     # run-until-done kill checkpoints
+```
+
+The `**/` forms are deliberate: validators and the harness write these under any
+root they are pointed at, including fixture directories, so a root-anchored
+pattern misses them.
+
 ### `--feature`
 Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
 
