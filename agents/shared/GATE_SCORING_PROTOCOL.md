@@ -114,8 +114,43 @@ If Step 2's gates **failed**, the HANDOFF does not reach scoring at all — retu
 Append the result to `docs/work/DELEGATION_LOG.md`. The `re-ran independently` field (see Step 3) is required — a row without it is an incomplete log entry, same as an unscored HANDOFF:
 
 ```
-| <timestamp> | <agent> | <task summary> | DONE/FAILED/REDO | <score>/10 | re-ran independently: <what, counts, exit codes> | <notes> |
+| <timestamp> | <agent> | <task summary> | DONE/FAILED/REDO/DONE-LEAD-FIXED | <score>/10 | re-ran independently: <what, counts, exit codes> | <notes> |
 ```
+
+### If you closed the gap yourself, the outcome is `DONE-LEAD-FIXED`, never `DONE`
+
+Sometimes finishing a small mechanical gap yourself genuinely beats a round-trip,
+and that judgement is yours to make. What is **not** yours is logging it as a clean
+delivery. Field trace 2026-07: a lead closed specialist gaps three times — "I
+already know exactly what's needed and it's mechanical, I'll close these directly
+rather than a round-trip", "~90% correct though — I'll finish the small remaining
+gaps directly", "both small/mechanical — lead fixed directly" — and logged each
+row `DONE`. Rework happened every time; only the identity of who did it changed.
+`delegation-metrics.mjs` counts `DONE` as accepted, so **the models producing the
+most rework scored the cleanest** — exactly backwards for a metric whose purpose is
+to tell you when a tier change is cheaper than another gate.
+
+`DONE-LEAD-FIXED` counts as a correction and is reported as its own subtotal. Put
+what you fixed in the notes column, in one line.
+
+**Two hard bounds on absorbing.** Past either, absorbing is the wrong instrument —
+the HANDOFF or the routing is what needs fixing:
+
+1. **Never absorb a PRODUCE file.** Writing a deliverable the specialist was
+   supposed to produce means the HANDOFF did not land; re-dispatch it with the gap
+   named. Ticking a checkbox on work you did yourself is how a phase reports
+   complete with nobody having verified the thing.
+2. **Twice on the same agent+model in one phase is a routing signal, not a
+   shortcut.** Stop absorbing and change something upstream — tighten the packet,
+   move that agent to a stronger tier (`models.json`), or split the task. A third
+   silent fix buys one step and costs the evidence that would have prevented the
+   next ten.
+
+**It also costs context.** Absorbing pulls the specialist's material into the
+orchestrator's window, which is what `TUI_SESSION_HYGIENE.md` Rule 1 exists to
+prevent — the traced sessions ran to 451K tokens (45% of window) and $33.55 while
+the lead did specialist work inline. A round-trip is often the *cheaper* option in
+tokens, not just the more honest one.
 
 ## Step 6 — Continue or Escalate
 
