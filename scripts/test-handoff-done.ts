@@ -370,3 +370,43 @@ export async function testFileToolUpsert(root: string, ok: Ok, fail: Fail) {
     fs.rmSync(fixture, { recursive: true, force: true });
   }
 }
+
+/**
+ * The gate's output levels must be EXPLAINED where agents are told to run it.
+ *
+ * v2.43.0 introduced a third level (`[warn]`) so the gate would stop blocking on
+ * things an agent cannot fix. The reading instructions were never updated and
+ * still described a two-state world — coding-agent.md said "DONE-CHECK: RED
+ * lists exactly what is missing (… uncommitted or unpushed work …)". On
+ * 2026-07-30 a researcher saw `[warn] no verify report` and `[warn] no git
+ * remote` — the exact examples that sentence names — concluded they were its
+ * blockers, and never committed the file that actually was. It followed a stale
+ * instruction correctly. Output levels and the docs that read them have to move
+ * together.
+ */
+export function testGateLevelsDocumented(root: string, ok: Ok, fail: Fail) {
+  const docs = [
+    "agents/coding-agent.md",
+    "agents/shared/BOUNDED_TASK_CONTRACT.md",
+  ];
+  const missing: string[] = [];
+  for (const d of docs) {
+    const s = fs.readFileSync(path.join(root, d), "utf8");
+    const explainsWarn = /\[warn\][\s\S]{0,200}never blocking/i.test(s);
+    const explainsFail = /\[FAIL\][\s\S]{0,120}block/i.test(s);
+    const staleClaim = /RED` lists exactly what is missing/.test(s);
+    if (!explainsWarn || !explainsFail || staleClaim) {
+      missing.push(
+        `${d} (warn=${explainsWarn} fail=${explainsFail} stale=${staleClaim})`,
+      );
+    }
+  }
+  if (missing.length === 0) {
+    ok("gate levels: [warn] is documented as never-blocking wherever the done-gate is invoked");
+  } else {
+    fail(
+      "gate levels: [warn] is documented as never-blocking wherever the done-gate is invoked",
+      missing.join("; "),
+    );
+  }
+}

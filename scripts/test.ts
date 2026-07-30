@@ -71,7 +71,11 @@ import { testQaVnvStructure } from "./test-qa-vnv-structure.ts";
 import { testAgentReachability } from "./test-agent-reachability.ts";
 import { testToolPreflight } from "./test-tool-preflight.ts";
 import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
-import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
+import {
+  testHandoffDone,
+  testFileToolUpsert,
+  testGateLevelsDocumented,
+} from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
@@ -661,6 +665,7 @@ console.log(
 );
 await testHandoffDone(root, ok, fail);
 await testFileToolUpsert(root, ok, fail);
+testGateLevelsDocumented(root, ok, fail);
 
 // Wrong-verdict channels: the harness exists so a verdict cannot be narrated
 // away, so a verdict that is itself wrong is the deepest defect class here.
