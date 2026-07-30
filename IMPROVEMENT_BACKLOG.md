@@ -7,8 +7,8 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
 J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
-(`issues/field-report-downstream project-delegation-2026-07-27.md`): 118 delegations, 24% correction rate,
-0 escapes to `main`, all caught by a human lead re-verifying by hand under a hard deadline.
+(held privately, not in this repo): 118 delegations, 24% correction rate,
+0 escapes to `main`, all caught by a human lead re-verifying by hand under schedule pressure.
 
 ---
 
@@ -528,10 +528,10 @@ deficiency. These are process changes; a prompt edit would have fixed none of th
 
 ## Group I — Delegation-loop integrity (a downstream project field report, 2026-07-27)
 
-Source: `issues/field-report-downstream project-delegation-2026-07-27.md`. Every item below closes a
+Source: a private downstream field report (not in this repo). Every item below closes a
 failure observed on the record, not a hypothetical. The through-line: the lead's manual
 re-verification is the only thing standing between a 24% correction rate and shipped
-defects, and there is a hard schedule pressure pressuring exactly that discipline.
+defects, and schedule pressure falls on exactly that discipline.
 
 ### I1. Untrusted verify receipts ✅ DONE 2026-07-27 (v2.39.0)
 - `scripts/verify-receipt.mjs` (`--init` / `--ticket=` / `--check`) + coding-agent **Law 2b**. Commands come from a committed `.sdlc/verify.json`; the wrapper writes exit codes + SHA; the agent cites the file and never authors a field in it. Staleness is "no material change since", not exact-SHA — committing the receipt moves HEAD and must not invalidate it. 5 fixtures.
