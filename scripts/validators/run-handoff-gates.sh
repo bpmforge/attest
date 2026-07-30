@@ -110,6 +110,26 @@ note "scope(s): ${SCOPE_DIRS[*]}"
 note "manifest: $MANIFEST"
 [[ -n "$COVERAGE" ]] && note "coverage: $COVERAGE" || note "coverage: (none)"
 
+# These gates are FAIL-FAST: the first one to fail exits, so every gate after it
+# is UNRUN, not passed. Observed 2026-07-30: a specialist hit a SCOPE failure and
+# proposed edits to the completion manifest — but the manifest gate had never
+# executed, so the manifest could not have been the problem. The old ending,
+# a bare "[run-handoff-gates] 1 gap(s)", named neither the failing gate nor the
+# fact that the rest were skipped.
+gate_fail() {
+  local gate="$1" detail="$2" fix="$3"
+  gap "$gate" "$detail"
+  {
+    printf '\n%sGATE FAILED: %s%s\n' "$_BOLD" "$gate" "$_RESET"
+    printf '  what failed : %s\n' "$detail"
+    printf '  to clear it : %s\n' "$fix"
+    printf '  note        : gates run in order and stop at the first failure, so every\n'
+    printf '                gate after %s did NOT run. It is not passing — it is unrun.\n' "$gate"
+    printf '                Fix this gate, then re-run to reach the others.\n'
+  } >&2
+  validator_exit
+}
+
 # ── Gate 1: scope ──────────────────────────────────────────────────────────
 printf '\n%s== GATE: SCOPE ==%s\n' "$_BOLD" "$_RESET" >&2
 scope_args=()
@@ -120,8 +140,8 @@ if bash "$VALIDATORS_DIR/validate-scope.sh" "${scope_args[@]}" --root "$ROOT" > 
   pass "scope gate clean"
 else
   bash "$VALIDATORS_DIR/validate-scope.sh" "${scope_args[@]}" --root "$ROOT" 2>&1 | tail -20 >&2 || true
-  gap "scope" "git writes outside assigned scope (${SCOPE_DIRS[*]})"
-  validator_exit
+  gate_fail "scope" "git writes outside assigned scope (${SCOPE_DIRS[*]})" \
+    "commit or revert the out-of-scope paths listed above, or re-run with that path added to --scope if it is genuinely part of this HANDOFF's deliverable"
 fi
 
 # ── Gate 2: manifest ───────────────────────────────────────────────────────
@@ -130,8 +150,8 @@ if bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" "$ROOT" > 
   pass "manifest gate clean"
 else
   bash "$VALIDATORS_DIR/validate-completion-manifest.sh" "$MANIFEST" "$ROOT" 2>&1 | tail -20 >&2 || true
-  gap "manifest" "completion manifest invalid at $MANIFEST"
-  validator_exit
+  gate_fail "manifest" "completion manifest invalid at $MANIFEST" \
+    "fix the manifest gaps listed above (missing section, unresolvable cited path, maker==verifier)"
 fi
 
 # ── Gate 2b: tech-stack (Law 4) ────────────────────────────────────────────
@@ -142,8 +162,8 @@ if bash "$VALIDATORS_DIR/validate-tech-stack.sh" "$MANIFEST" "$ROOT" > /dev/null
   pass "tech-stack gate clean"
 else
   bash "$VALIDATORS_DIR/validate-tech-stack.sh" "$MANIFEST" "$ROOT" 2>&1 | tail -20 >&2 || true
-  gap "tech-stack" "manifest declares a dependency not in docs/TECH_STACK.md (Law 4) -- add it to the stack doc or remove the dep"
-  validator_exit
+  gate_fail "tech-stack" "manifest declares a dependency not in docs/TECH_STACK.md (Law 4)" \
+    "add the dependency to docs/TECH_STACK.md, or remove the dependency"
 fi
 
 # ── Gate 3: coverage (optional) ────────────────────────────────────────────
@@ -151,15 +171,15 @@ if [[ -n "$COVERAGE" ]]; then
   printf '\n%s== GATE: COVERAGE (%s) ==%s\n' "$_BOLD" "$COVERAGE" "$_RESET" >&2
   cov_script="$VALIDATORS_DIR/$COVERAGE"
   if [[ ! -f "$cov_script" ]]; then
-    gap "coverage" "coverage validator not found: $COVERAGE"
-    validator_exit
+    gate_fail "coverage" "coverage validator not found: $COVERAGE" \
+      "pass a validator that exists in $VALIDATORS_DIR, or drop --coverage"
   fi
   if bash "$cov_script" "$ROOT" > /dev/null 2>&1; then
     pass "coverage gate clean ($COVERAGE)"
   else
     bash "$cov_script" "$ROOT" 2>&1 | tail -30 >&2 || true
-    gap "coverage" "$COVERAGE reported gaps"
-    validator_exit
+    gate_fail "coverage" "$COVERAGE reported gaps" \
+      "close the coverage gaps listed above"
   fi
 else
   printf '\n%s== GATE: COVERAGE ==%s (skipped -- no --coverage arg)\n' "$_BOLD" "$_RESET" >&2
@@ -173,8 +193,8 @@ if bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" > /dev/null 2>&1; th
   pass "tracker gate clean"
 else
   bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" 2>&1 | tail -20 >&2 || true
-  gap "tracker" "work changed but no tracker file updated -- see validate-tracker-fresh.sh output"
-  validator_exit
+  gate_fail "tracker" "work changed but no tracker file updated" \
+    "record this step in SDLC_TRACKER.md / PROGRESS.md / DELEGATION_LOG.md / CHANGELOG.md"
 fi
 
 # ── Gate 5: runtime (only when --runtime passed — coding-agent handoffs) ───
