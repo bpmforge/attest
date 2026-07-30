@@ -151,3 +151,50 @@ export function testGateOutputContract(root: string, ok: Ok, fail: Fail) {
     );
   }
 }
+
+/**
+ * A file in `plugins/` must export EXACTLY ONE thing: its Plugin.
+ *
+ * OpenCode's loader calls every export of a plugin file as a plugin factory.
+ * expert-hooks.ts exported its Plugin plus four helpers, so the loader invoked
+ * `globToRegExpForTier` with its own context object and the whole plugin failed:
+ *
+ *     failed to load plugin .../expert-hooks.ts
+ *     error="glob.replace is not a function"
+ *
+ * It failed on EVERY session for an unknown period, silently disabling the
+ * dangerous-bash blocklist, the .env/credential write guard, post-edit
+ * format/lint/typecheck/secret-scan, telemetry and the session-model receipt.
+ * Nothing surfaced it — the log line was the only evidence, and nothing read the
+ * log. The control case is resume-anchor.ts, which exports only its Plugin and
+ * has never failed to load.
+ *
+ * Helpers belong in scripts/lib/, which the plugin imports.
+ */
+export function testPluginExportContract(root: string, ok: Ok, fail: Fail) {
+  const dir = path.join(root, "plugins");
+  if (!fs.existsSync(dir)) {
+    ok("plugin-export contract: no plugins/ directory");
+    return;
+  }
+  const offenders: string[] = [];
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith(".ts") && !f.endsWith(".mjs") && !f.endsWith(".js")) continue;
+    const src = fs.readFileSync(path.join(dir, f), "utf8");
+    // Top-level exports, ignoring `export type`/`export interface` (erased).
+    const names = [...src.matchAll(/^export\s+(?:const|function|async function|class|let|var)\s+(\w+)/gm)]
+      .map((m) => m[1]);
+    if (names.length !== 1) {
+      offenders.push(`${f} exports ${names.length} (${names.join(", ") || "none"}) — expected exactly 1 (the Plugin)`);
+    }
+  }
+  if (offenders.length === 0) {
+    ok("plugin-export contract: every plugins/ file exports exactly its Plugin and nothing else");
+  } else {
+    fail(
+      "plugin-export contract: every plugins/ file exports exactly its Plugin and nothing else",
+      offenders.join("; ") +
+        " — OpenCode calls every export as a plugin factory, so an extra export takes the whole plugin down. Move helpers to scripts/lib/.",
+    );
+  }
+}
