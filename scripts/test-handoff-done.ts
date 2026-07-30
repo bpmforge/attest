@@ -99,10 +99,12 @@ export async function testHandoffDone(root: string, ok: Ok, fail: Fail) {
       );
     }
 
-    // -- 2/7. The escape hatch must not become a bypass: a HANDOFF that ships
-    //         source with no ```verify fence fails ON the missing fence.
+    // -- 2/9. The escape hatch must not become a bypass: a HANDOFF that ships
+    //         source with no ```verify fence fails ON the missing fence, once
+    //         the repo has something a fence could actually run.
     write("docs/work/HANDOFF_code.md", CODE_HANDOFF);
     write("src/index.ts", "export const a = 1\n");
+    write("package.json", '{"name":"fixture","scripts":{"test":"true"}}\n');
     const noFence = run("docs/work/HANDOFF_code.md", "--no-push-check");
     if (
       noFence.status === 1 &&
@@ -199,10 +201,57 @@ export async function testHandoffDone(root: string, ok: Ok, fail: Fail) {
       );
     }
 
-    // -- 7/7. A missing PRODUCE file is still RED — the check that backstops
+    // -- 7/9. A path with a space must still be attributed. If the porcelain
+    //         parse mangles it, an uncommitted in-scope file silently becomes a
+    //         warn — a false GREEN in exactly the direction check 3 guards.
+    write(
+      "docs/work/HANDOFF_spaced.md",
+      "SDLC-TASK for researcher:\n\nWRITE-SCOPE (exclusive):\n" +
+        "- `docs/research/`\n\nPRODUCE\n" +
+        "- `docs/research/my findings.md`\n\n" +
+        'When done, print "RESEARCH COMPLETE".\n',
+    );
+    write("docs/research/my findings.md", "notes\n");
+    const spaced = run("docs/work/HANDOFF_spaced.md");
+    if (
+      spaced.status === 1 &&
+      /\[FAIL\].*uncommitted changes to files this HANDOFF owns/.test(
+        spaced.stdout,
+      )
+    ) {
+      ok(
+        "handoff-done: an uncommitted in-scope path containing a space is RED",
+      );
+    } else {
+      fail(
+        "handoff-done: an uncommitted in-scope path containing a space is RED",
+        `exit ${spaced.status}; stdout: ${spaced.stdout}`,
+      );
+    }
+    git("add", "-A");
+    git("commit", "-qm", "spaced");
+
+    // -- 8/9. A repo with no runnable verify target cannot be fenced, so the
+    //         missing-fence FAIL would be the same unwinnable gate one size
+    //         smaller. It warns until something is runnable.
+    fs.rmSync(path.join(fixture, "package.json"));
+    fs.rmSync(path.join(fixture, "docs/work/VERIFY_REPORT.md"));
+    const noTarget = run("docs/work/HANDOFF_code.md", "--no-push-check");
+    if (/\[warn\].*no runnable verify target yet/.test(noTarget.stdout)) {
+      ok(
+        "handoff-done: missing fence warns when the repo has nothing runnable",
+      );
+    } else {
+      fail(
+        "handoff-done: missing fence warns when the repo has nothing runnable",
+        `exit ${noTarget.status}; stdout: ${noTarget.stdout}`,
+      );
+    }
+    write("package.json", '{"name":"fixture","scripts":{"test":"true"}}\n');
+
+    // -- 9/9. A missing PRODUCE file is still RED — the check that backstops
     //         the softened WRITE-SCOPE and verify-fence rules.
     fs.rmSync(path.join(fixture, "docs/research/FEASIBILITY.md"));
-    fs.rmSync(path.join(fixture, "docs/work/VERIFY_REPORT.md"));
     const missing = run("docs/work/HANDOFF_researcher.md");
     if (
       missing.status === 1 &&
