@@ -1,4 +1,4 @@
-# bpm-opencode-experts — Improvement Backlog
+# attest — Improvement Backlog
 
 Generated: 2026-05-19
 Source: Expert system audit + gap analysis
@@ -654,7 +654,7 @@ descriptions or record cited exceptions, as `SKILL_PARITY_EXCEPTIONS` already do
 registry verification wired into library **pick** (phase-3 TECH_STACK), **research**
 (researcher version claims) and **code** (coding-agent Law 2) · `skill-scripts-ship` gate ·
 installer path fix · a pre-existing `steward` defect (it instructed readers to run a script
-that was never generated into claude-experts).
+that was never generated into attest-claude).
 
 **Order:** J1 (makes the shipped principle true everywhere) → J2 (cheap, high leverage) →
 J5 (structural, blocks adoption of everything script-backed) → J3 → J4 → J6/J7 (hygiene).

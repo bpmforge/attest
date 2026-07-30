@@ -33,8 +33,8 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 ## Install
 
 ```bash
-git clone https://github.com/bpmforge/bpm-opencode-experts.git
-cd bpm-opencode-experts
+git clone https://github.com/bpmforge/attest.git
+cd attest
 ./install.sh                  # copies agents, skills, tools into ~/.config/opencode/
 ./install.sh --link           # symlink instead of copy (for development — edits apply immediately)
 ./install.sh --semgrep        # also auto-install Semgrep + community rule repos

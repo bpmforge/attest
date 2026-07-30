@@ -1,7 +1,7 @@
 # SDLC State Audit
 
 **Scanned:** 2026-07-14T00:59:03Z
-**Project root:** /Users/user/Code/bpm-opencode-experts
+**Project root:** /Users/user/Code/attest
 **Status:** fresh
 
 ## Phase Status

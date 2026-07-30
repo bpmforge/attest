@@ -295,11 +295,11 @@ One-line addition; keeps the deliberate no-repo-map design.
 
 ## 6. Execution notes for the implementing agent
 
-- Repo: `~/Code/bpm-opencode-experts`, branch `main` (docs+agents edits; follow repo
+- Repo: `~/Code/attest`, branch `main` (docs+agents edits; follow repo
   convention — read `AGENTS.md` first). **This repo is CANONICAL**: after any change to
   `agents/**` or `references/**`, run `npm run build:claude`; if it reports changed files,
-  commit + tag `claude-experts` too. Push BOTH repos to BOTH remotes (origin=Gitea,
-  github). Never hand-edit generated files in claude-experts.
+  commit + tag `attest-claude` too. Push BOTH repos to BOTH remotes (origin=Gitea,
+  github). Never hand-edit generated files in attest-claude.
 - Line numbers cited above are from the 2026-07-01 audit — **locate by quoted phrase**,
   they will drift.
 - Validators: copy the discovery/enforcement style of

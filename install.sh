@@ -30,8 +30,8 @@ case "$(uname -s)" in
     echo "  https://learn.microsoft.com/en-us/windows/wsl/install" >&2
     echo "" >&2
     echo "Then from inside WSL:" >&2
-    echo "  git clone https://github.com/bpmforge/bpm-opencode-experts.git" >&2
-    echo "  cd bpm-opencode-experts && ./install.sh" >&2
+    echo "  git clone https://github.com/bpmforge/attest.git" >&2
+    echo "  cd attest && ./install.sh" >&2
     exit 2
     ;;
   *)
@@ -244,7 +244,7 @@ done
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   echo ""
-  echo "bpm-opencode-experts v1.6.0 — Installation"
+  echo "attest v1.6.0 — Installation"
   echo "==========================================="
   echo ""
   echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"

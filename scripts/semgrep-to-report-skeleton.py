@@ -373,7 +373,7 @@ def main():
     report = f"""# Security Audit Report
 **Date:** {today}
 **Project:** {args.project}
-**Auditor:** AI Security Auditor (claude-experts / bpm-opencode-experts)
+**Auditor:** AI Security Auditor (attest-claude / attest)
 **Scope:** Full repository scan
 
 ---
