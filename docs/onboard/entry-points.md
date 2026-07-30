@@ -1,6 +1,6 @@
 # Entry Points
 
-This document traces every entry point in the bpm-opencode-experts repository — HTTP routes, CLI commands, tools, and agents.
+This document traces every entry point in the attest repository — HTTP routes, CLI commands, tools, and agents.
 
 ---
 
@@ -10,7 +10,7 @@ These are the primary entry points exposed via `npm run <command>`:
 
 ### `npm test`
 - **Script**: `scripts/test.ts`
-- **Description**: Comprehensive validation for bpm-opencode-experts
+- **Description**: Comprehensive validation for attest
 - **Passes**:
   - Tools: Dynamically import each .ts tool, verify runtime shape
   - Skills: Parse YAML frontmatter, check required fields + cross-refs
@@ -34,11 +34,11 @@ These are the primary entry points exposed via `npm run <command>`:
 
 ### `npm run build:claude`
 - **Script**: `scripts/build-target-claude.mjs --write`
-- **Description**: Generate claude-experts copies from canonical bpm-opencode-experts source
+- **Description**: Generate attest-claude copies from canonical attest source
 
 ### `npm run build:claude:check`
 - **Script**: `scripts/build-target-claude.mjs --check`
-- **Description**: Verify generated claude-experts files match canonical source
+- **Description**: Verify generated attest-claude files match canonical source
 
 ### `npm run evals`
 - **Script**: `scripts/run-evals.mjs`
@@ -347,7 +347,7 @@ These scripts expose command-line interfaces:
 - Usage: `node scripts/build-agents.mjs --check | --fix | --compact`
 
 ### `scripts/build-target-claude.mjs`
-- CLI entry point for claude-experts sync
+- CLI entry point for attest-claude sync
 - Usage: `node scripts/build-target-claude.mjs --check [--out <path>] | --write [--out <path>]`
 
 ### `scripts/run-evals.mjs`

@@ -230,6 +230,61 @@ export function testClaimVsEvidence(root: string, ok: Ok, fail: Fail) {
       );
     }
 
+    // -- H. A manifest must not end the turn with a menu. The rule is in every
+    //    agent file and a specialist broke it anyway; the conversational turn is
+    //    out of a validator's reach but the manifest — where the menu was
+    //    actually written — is not. Phrase-based, because a manifest
+    //    legitimately contains numbered lists (Known issues, Decisions).
+    setReport("## Command 1\nnpx vitest run\n**VERIFY: ALL GREEN (1/1)**\n");
+    const menuBody = [
+      "# Completion Manifest",
+      "## Files produced",
+      "- `docs/work/out.ts`",
+      "## Decisions",
+      "- none",
+      "## Known issues",
+      "1. First deferred item",
+      "2. Second deferred item",
+      "## Verify result",
+      "- npx vitest run: all pass. Evidence: `docs/work/VERIFY_REPORT.md`",
+      "## Memory written",
+      "- None",
+      "Maker: coding-agent",
+      "Verifier: code-reviewer",
+    ];
+    fs.writeFileSync(
+      path.join(fixture, "menu.md"),
+      menuBody
+        .concat([
+          "If you want next:",
+          "1. I can open a PR against main for review, or",
+          "2. Run any additional checks you like, or",
+          "3. Revert or adjust any of the changes",
+          "Which of the above would you like me to do next?",
+        ])
+        .join("\n") + "\n",
+    );
+    fs.writeFileSync(
+      path.join(fixture, "nomenu.md"),
+      menuBody.concat(["coding-agent done — see docs/work/out.ts"]).join("\n") +
+        "\n",
+    );
+    const withMenu = run("menu.md");
+    const withoutMenu = run("nomenu.md");
+    if (
+      /manifest-asks-user-to-choose/.test(withMenu) &&
+      !/manifest-asks-user-to-choose/.test(withoutMenu)
+    ) {
+      ok(
+        "H: a manifest asking the user to choose is a gap; numbered Known-issues lists are not",
+      );
+    } else {
+      fail(
+        "H: a manifest asking the user to choose is a gap; numbered Known-issues lists are not",
+        `withMenu:\n${withMenu}\nwithoutMenu:\n${withoutMenu}`,
+      );
+    }
+
     // -- D6. Reading a cited artifact must obey the same traversal refusal as
     //    check 1. These checks OPEN the file, so an escaping citation being
     //    merely "not found" would be a read primitive.

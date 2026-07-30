@@ -4,13 +4,13 @@ Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert ag
 
 **Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
 
-Sibling project: [`claude-experts`](https://github.com/bpmforge/claude-experts) — same experts for Claude Code, generated from this repo.
+Sibling project: [`attest-claude`](https://github.com/bpmforge/attest-claude) — same experts for Claude Code, generated from this repo.
 
 ## Install
 
 ```bash
-git clone https://github.com/bpmforge/bpm-opencode-experts.git
-cd bpm-opencode-experts
+git clone https://github.com/bpmforge/attest.git
+cd attest
 ./install.sh
 ```
 
@@ -66,7 +66,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 - [docs/FEATURES.md](docs/FEATURES.md) — full agent, skill, validator, and protocol catalog
 - [docs/SDLC_GUIDE.md](docs/SDLC_GUIDE.md) — SDLC workflow, phases, git model, and traceability chain
 - [docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md) — running on local models (tiers, compact variants)
-- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for claude-experts)
+- [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for attest-claude)
 - [CHANGELOG.md](CHANGELOG.md) — release notes
 
 ## License

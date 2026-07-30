@@ -38,7 +38,7 @@ import { execFileSync } from "child_process";
  * `build-target-claude.mjs` copies scripts from an explicit six-entry allowlist
  * (`COPY_FILES`) plus `scripts/validators/*.sh` — NOT the whole directory. A new
  * script therefore ships to opencode via install.sh but silently never reaches
- * claude-experts. Caught when `--write` into a throwaway target produced a skill
+ * attest-claude. Caught when `--write` into a throwaway target produced a skill
  * referencing `api-surface.mjs` and no such file; nothing in the suite noticed,
  * because skills-parity compares skills and the build compares only what it
  * already knows to copy.
@@ -52,7 +52,7 @@ async function testSkillScriptsShip(
     await import(
       pathToFileURL(path.join(root, "scripts/build-target-claude.mjs")).href
     );
-  // Only skills that actually reach claude-experts impose a requirement on their
+  // Only skills that actually reach attest-claude impose a requirement on their
   // scripts. `reflow` and `steward` are opencode-only (documented exceptions and
   // tracked gaps), so the scripts they call need never be generated — they ship
   // to opencode through install.sh, which copies scripts/ wholesale.
@@ -89,7 +89,7 @@ async function testSkillScriptsShip(
   else
     fail(
       "skill-scripts-ship",
-      `referenced by a skill but never generated into claude-experts: ${missing.join(", ")}`,
+      `referenced by a skill but never generated into attest-claude: ${missing.join(", ")}`,
     );
 }
 

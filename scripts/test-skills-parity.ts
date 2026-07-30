@@ -3,11 +3,11 @@
  *
  * `skills/` is per-target hand-maintained content (build-target-claude.mjs
  * never generates it), so the "author skills in both repos" invariant had
- * no validator — drift between bpm-opencode-experts and claude-experts
+ * no validator — drift between attest and attest-claude
  * skills/ was silent. `skillsParity()` diffs skill IDENTITY (the SKILL.md
  * `name:`/`trigger:` frontmatter, not directory name — the two repos use
  * different directory-naming conventions for the same skill, e.g. opencode
- * `skills/git/` (`name: git-expert`) vs claude-experts `skills/git-expert/`
+ * `skills/git/` (`name: git-expert`) vs attest-claude `skills/git-expert/`
  * (`trigger: /git-expert`)) across the two repos, with a small cited
  * exceptions list for genuinely one-sided skills.
  *
@@ -44,7 +44,7 @@ export async function testSkillsParity(
     );
 
     // -- 1. live repo pair: resolver correctness + documented residual -----
-    const claudeRoot = path.join(root, "..", "claude-experts");
+    const claudeRoot = path.join(root, "..", "attest-claude");
     if (fs.existsSync(claudeRoot)) {
       const live = skillsParity(root, claudeRoot);
       const expectedMissingInClaude = [...KNOWN_MISSING_IN_CLAUDE].sort();
@@ -62,12 +62,12 @@ export async function testSkillsParity(
           `missingInClaude=${JSON.stringify(live.missingInClaude)} missingInOpencode=${JSON.stringify(live.missingInOpencode)}`,
         );
     } else {
-      // Soft-skip: CI's `npm test` step runs before the claude-experts
+      // Soft-skip: CI's `npm test` step runs before the attest-claude
       // sibling checkout (ci.yml checks it out later, only for
       // `build:claude:check`), so this path is legitimately absent there.
       // The RED/GREEN fixtures below still exercise the resolver itself.
       ok(
-        `skills-parity — live repo pair: skipped, claude-experts sibling not found at ${claudeRoot} (expected in CI's npm-test step; covered separately by build:claude:check)`,
+        `skills-parity — live repo pair: skipped, attest-claude sibling not found at ${claudeRoot} (expected in CI's npm-test step; covered separately by build:claude:check)`,
       );
     }
 

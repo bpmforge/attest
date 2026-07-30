@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 #
 # setup-dev-server.sh — provision (and re-provision) a remote Linux dev box for
-# opencode + the bpm-opencode-experts expert system, pointed at a local-LLM host.
+# opencode + the attest expert system, pointed at a local-LLM host.
 #
 # One command does the whole thing, and re-running it is a REFRESH: it pulls the
 # latest repo, re-installs the agents/skills/tools, and re-merges the LLM provider
 # config — safe to run as often as you like.
 #
 #   ssh you@dev-server
-#   git clone https://git.bpmforge.com/user/bpm-opencode-experts.git ~/Code/bpm-opencode-experts
-#   cd ~/Code/bpm-opencode-experts && ./scripts/setup-dev-server.sh
+#   git clone https://git.bpmforge.com/user/attest.git ~/Code/attest
+#   cd ~/Code/attest && ./scripts/setup-dev-server.sh
 #
 #   # later, to refresh:
-#   cd ~/Code/bpm-opencode-experts && ./scripts/setup-dev-server.sh
+#   cd ~/Code/attest && ./scripts/setup-dev-server.sh
 #
 # What it does, in order:
 #   1. git pull --ff-only  (the "refresh")
@@ -210,7 +210,7 @@ login_profile() {
 
 step "Shell environment (login shell rc)"
 PROFILE="$(login_profile)"
-MARK="bpm-opencode-experts: dev env"
+MARK="attest: dev env"
 touch "$PROFILE"
 # Rewrite our managed block idempotently: drop any prior block, append fresh.
 if grep -qF "$MARK" "$PROFILE"; then

@@ -49,6 +49,28 @@ It fails on a line past end-of-file, a path that does not exist at the reviewed 
 and a verdict with no citations at all — a finding that names no location cannot be
 checked, which is exactly how a fabricated one survives.
 
+Then check that your findings are **grounded**, which is a different failure:
+
+```bash
+node "$EXPERTS/delegation-gate.mjs" --grounding=<your-review-file>
+```
+
+Two findings this catches, both real (2026-07):
+
+1. **A requirement asserted by analogy.** A reviewer claimed `setPinned` needed a
+   system-snapshot guard, at 90% confidence. The lead read the SRS: FR-VER-07 (delete)
+   explicitly forbids deleting system snapshots; FR-VER-06 (pin) has no such clause, and
+   pinning destroys nothing. Two findings dropped — the second existed only to test the
+   first. **If you assert what a requirement says, cite the FR/NFR/US that says it.** A
+   requirement ID that appears nowhere in the SRS fails; arguing from "the requirement"
+   while citing no ID at all fails too. Reasoning by analogy from a neighbouring rule is
+   how a confident finding gets invented, and a confidence percentage is not evidence.
+2. **A methodology artifact demanded of the project.** A reviewer flagged
+   `scripts/validators/validate-tech-stack.sh` as missing in a project that has no
+   `scripts/validators/` at all. **This system's own scaffolding is not the reviewed
+   project's deliverable.** Its absence is never a finding against the project — reported
+   as a mismatch, not a defect, and the correct resolution is no action.
+
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
 
 A HANDOFF can reach you in three shapes. **All three mean: execute the task now.** Resolve this

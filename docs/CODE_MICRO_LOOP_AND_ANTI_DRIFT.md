@@ -1,7 +1,7 @@
 # Code Micro-Loop & Anti-Drift Design
 
 **Status:** Proposal — 2026-06-22
-**Audience:** `bpm-opencode-experts` (canonical), Foreman, and every consumer (Claude Code, OpenCode, local LLMs)
+**Audience:** `attest` (canonical), Foreman, and every consumer (Claude Code, OpenCode, local LLMs)
 **Thesis:** The process is the scaffolding that lets a *non-frontier* model behave like a frontier one. Frontier models self-correct drift mid-flight; Gemini and local small-parameter models drift *further* each step. So every correction a strong model does silently in its head must be externalized as an explicit, **individually checkable, recorded** micro-step. Micro-steps without tracking = more drift; micro-steps with a checkable gate + a written trace = a weak model that *cannot* wander off.
 
 ---
@@ -128,7 +128,7 @@ The pattern: frontier models already "have" most of this internally; the gates e
 | 3 | TRACK step + inventory-as-gate + manifest `Tracker updated` line | `MICRO_LOOP.md`, `coding-agent.md`, `validate-completion-manifest.sh` |
 | 4 | Build + `build:claude` + tests; verify each new gate trips on a planted defect (both directions) | — |
 
-Each new validator must be tested **both directions** (passes clean code, fails a planted defect) per the canonical validator convention. After landing, `npm run build:claude` propagates to claude-experts; Foreman picks it up via `build:foreman`.
+Each new validator must be tested **both directions** (passes clean code, fails a planted defect) per the canonical validator convention. After landing, `npm run build:claude` propagates to attest-claude; Foreman picks it up via `build:foreman`.
 
 ---
 

@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-23  
 **Auditor:** Security Auditor (Quick Mode)  
-**Scope:** bpm-opencode-experts framework repository  
+**Scope:** attest framework repository  
 
 ---
 

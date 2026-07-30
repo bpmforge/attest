@@ -1,7 +1,7 @@
-# Architecture Evolution Plan — claude-experts ↔ bpm-opencode-experts
+# Architecture Evolution Plan — attest-claude ↔ attest
 
 **Date:** 2026-06-09
-**Scope:** Both repos (`claude-experts`, `bpm-opencode-experts`) and the shared expert-agent architecture.
+**Scope:** Both repos (`attest-claude`, `attest`) and the shared expert-agent architecture.
 **Status:** Analysis complete; improvements proposed, not yet implemented.
 **Companion docs:** `IMPROVEMENT_BACKLOG.md` (28 tracked content items — this plan does not duplicate them), `docs/SYSTEM_REVIEW_2026-06-01.md`.
 
@@ -17,7 +17,7 @@ The core is genuinely shared:
 
 The file-based design is the right backbone for any-LLM portability: state lives on disk, not in one model's context. What differs is only the runtime shell:
 
-| Layer | claude-experts | bpm-opencode-experts |
+| Layer | attest-claude | attest |
 |---|---|---|
 | Install target | `~/.claude/` | `~/.config/opencode/` |
 | Automation | shell `hooks/` (9 scripts) | `plugins/expert-hooks.ts` (1 TS dispatcher) |
@@ -30,13 +30,13 @@ The file-based design is the right backbone for any-LLM portability: state lives
 
 ## Part 2 — Confirmed defects (verified, with citations)
 
-### D1. CRITICAL — claude-experts agents reference OpenCode paths
+### D1. CRITICAL — attest-claude agents reference OpenCode paths
 27 of 38 agent files (133 occurrences) instruct the model to read
-`~/.config/opencode/agents/shared/...` (e.g. `claude-experts/agents/db-architect.md:14`),
-but `claude-experts/install.sh` installs to `~/.claude/` and performs **no path rewriting**.
+`~/.config/opencode/agents/shared/...` (e.g. `attest-claude/agents/db-architect.md:14`),
+but `attest-claude/install.sh` installs to `~/.claude/` and performs **no path rewriting**.
 Every shared-protocol read fails on a Claude-only machine. It only works on a machine
 where both systems are installed. This proves the "sync" was done by copying OpenCode
-files into claude-experts wholesale.
+files into attest-claude wholesale.
 
 ### D2. Silent tier misdetection in the local-LLM layer
 `scripts/detect-model-context.sh`:
@@ -61,14 +61,14 @@ Context numbers appear 60+ times across the repo. One model update = four edits;
 Seven skill pairs (`git-expert`/`git`, `security-audit`/`security`, `db-architect`/`dba`,
 `container-expert`/`containers`, `researcher`/`research`, `ux-expert`/`ux`,
 `code-review`/`review-code`) differ in **both** trigger names and content —
-claude-experts kept structured YAML args; opencode rewrote as narrative.
+attest-claude kept structured YAML args; opencode rewrote as narrative.
 Five opencode skills (`design-options`, `explore`, `frontend`, `simplify`, `steward`)
-have never been back-ported (since April 2026). claude-experts-only: `memory`.
+have never been back-ported (since April 2026). attest-claude-only: `memory`.
 
 ### D6. Documentation/version skew
 - Both READMEs claim 36–38 validators; actual count is 43 in both repos.
-- claude-experts README: 25 skills claimed, 22 actual. opencode README: 24 claimed, 26 actual.
-- opencode CHANGELOG has a 1.0.4 entry; claude-experts stops at 1.0.3 — agent *content* is synced (byte-identical) but version metadata is not.
+- attest-claude README: 25 skills claimed, 22 actual. opencode README: 24 claimed, 26 actual.
+- opencode CHANGELOG has a 1.0.4 entry; attest-claude stops at 1.0.3 — agent *content* is synced (byte-identical) but version metadata is not.
 
 ### D7. No sync tooling
 The dual-repo sync rule is purely manual. D1 proves manual sync produces corruption, not just lag.
@@ -349,7 +349,7 @@ re-read because a fact answered the question*.
 
 | # | Item | Why first | Effort |
 |---|---|---|---|
-| 1 | D1 fix: path rewrite in claude-experts install.sh (tactical) | system is broken on Claude-only installs today | S |
+| 1 | D1 fix: path rewrite in attest-claude install.sh (tactical) | system is broken on Claude-only installs today | S |
 | 2 | A: single-source build step | removes the defect class; prerequisite for everything staying fixed | M |
 | 3 | B + C: capability probing + canonical tier table | local-model reliability floor | S–M |
 | 4 | 4.10 + E: schema-constrained output + text fallback | kills the JSON failure mode | S |

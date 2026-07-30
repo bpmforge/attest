@@ -650,7 +650,7 @@ async function json(url, headers = {}) {
     // policy); the others ignore it. Sent everywhere so one adapter is not a
     // special case.
     const res = await fetch(url, {
-      headers: { "user-agent": "bpm-opencode-experts api-surface (version currency check)", ...headers },
+      headers: { "user-agent": "attest api-surface (version currency check)", ...headers },
     });
     return res.ok ? await res.json() : null;
   } catch {

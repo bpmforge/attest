@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * test.ts — comprehensive validation for bpm-opencode-experts. Pass 1-3 are
+ * test.ts — comprehensive validation for attest. Pass 1-3 are
  * inline (tools/skills/agents); every later pass is a chapter module in its
  * own scripts/test-*.ts file (see CODE_BOOK_PROTOCOL.md) imported above and
  * invoked below, each with its own rationale in its own header.
@@ -53,6 +53,7 @@ import {
   testDelegationGate,
   testDelegationMetrics,
   testInvariants,
+  testFindingGrounding,
 } from "./test-delegation-gate.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
@@ -73,7 +74,10 @@ import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
-import { testRetryBudgets, testClaimVsEvidence } from "./test-retry-and-claims.ts";
+import {
+  testRetryBudgets,
+  testClaimVsEvidence,
+} from "./test-retry-and-claims.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -447,8 +451,8 @@ console.log(
 await testReflowLaneClaim(root, ok, fail);
 
 // Pass 24: Skills parity (T22.12) — build-target-claude.mjs's skillsParity()
-// diffs skill IDENTITY (name/trigger, not directory) across bpm-opencode-experts
-// and claude-experts skills/, cited exceptions for one-sided skills, red
+// diffs skill IDENTITY (name/trigger, not directory) across attest
+// and attest-claude skills/, cited exceptions for one-sided skills, red
 // fixture proves a one-sided skill fails the check.
 console.log(
   "\n[Pass 24] Skills parity — cross-repo skills/ identity diff, red/green fixtures",
@@ -648,6 +652,7 @@ console.log(
 testDelegationGate(root, ok, fail);
 testDelegationMetrics(root, ok, fail);
 testInvariants(root, ok, fail);
+testFindingGrounding(root, ok, fail);
 
 // Unwinnable gates: a RED an agent cannot clear turns finished work into a
 // permanent stall. Both halves of the 2026-07 a new-project trace are pinned here.

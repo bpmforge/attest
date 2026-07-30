@@ -13,7 +13,7 @@ sequenceDiagram
     participant NPM as npm
     participant SEMP as semgrep (optional)
 
-    U->>GH: git clone bpm-opencode-experts
+    U->>GH: git clone attest
     U->>IS: ./install.sh [--project] [--link] [--semgrep] [--pullmd]
 
     IS->>IS: Platform check (macOS/Linux/WSL only)

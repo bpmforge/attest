@@ -1,19 +1,19 @@
 #!/usr/bin/env node
 // build-target-claude.mjs — single-source build step (evolution plan improvement A).
 //
-// THIS repo (bpm-opencode-experts) is the canonical source for agents,
+// THIS repo (attest) is the canonical source for agents,
 // references, validators, and shared tooling. This script generates the
-// claude-experts copies: mechanical path rewrites + a small set of prose
+// attest-claude copies: mechanical path rewrites + a small set of prose
 // rewrites + whole-file overrides for runtime-flavored docs.
 //
-//   node scripts/build-target-claude.mjs --check [--out ../claude-experts]
-//   node scripts/build-target-claude.mjs --write [--out ../claude-experts]
+//   node scripts/build-target-claude.mjs --check [--out ../attest-claude]
+//   node scripts/build-target-claude.mjs --write [--out ../attest-claude]
 //
 // --check diffs the generated output against the target repo and exits 1 on
 // drift — this REPLACES the manual "apply every change to both repos" sync
 // rule with a verifiable gate. --write applies the generated files.
 //
-// Per-target ownership (NOT generated — maintained in claude-experts):
+// Per-target ownership (NOT generated — maintained in attest-claude):
 //   skills/, hooks/, docs/, install.sh, uninstall.sh, doctor.sh, README,
 //   CHANGELOG, CLAUDE.md. Everything this script generates is stamped as
 //   generated in the build manifest it writes.
@@ -26,7 +26,7 @@ const argv = process.argv.slice(2);
 const MODE = argv.includes('--write') ? 'write' : 'check';
 const OUT = (() => {
   const i = argv.indexOf('--out');
-  return i === -1 ? join(ROOT, '..', 'claude-experts') : argv[i + 1];
+  return i === -1 ? join(ROOT, '..', 'attest-claude') : argv[i + 1];
 })();
 
 // ── what gets generated ─────────────────────────────────────────────────
@@ -37,7 +37,7 @@ export const COPY_GLOBS = [
   ['scripts/validators', '.sh'],
   ['dist/compact-agents', '.md'],
   // The shared library behind the generated scripts. `gen-status-report.mjs`
-  // (invoked by the steward skill, which DOES ship to claude-experts) imports
+  // (invoked by the steward skill, which DOES ship to attest-claude) imports
   // ./lib/tickets.mjs, ./lib/user-stories.mjs and ./lib/status-report.mjs;
   // without these the skill's instruction resolves to a module-not-found. The
   // directory is self-contained — every import inside it is a lib/ sibling.
@@ -63,8 +63,8 @@ const PROSE = [
   ['The opencode built-in `webfetch` and `websearch` tools are **disabled at the config layer** in this project (see `examples/opencode.json` → `"tools": { "webfetch": false, "websearch": false }`). You cannot call them; attempts return an error.',
    'Prefer the `playwright-search` MCP tools below over any built-in webfetch/websearch tools — they extract cleaner content and dedupe across engines. If the MCP server is unavailable, built-in WebFetch/WebSearch are the fallback, not an error.'],
   // OWASP methodology install pointers
-  ["Re-run `install.sh` (or `install.sh --project`) from the `bpm-opencode-experts` repo. The rules are stored in the user's personal OpenCode store",
-   "Re-run `install.sh` from the `claude-experts` repo. The rules are stored in the user's personal store at `~/.claude/.semgrep/`"],
+  ["Re-run `install.sh` (or `install.sh --project`) from the `attest` repo. The rules are stored in the user's personal OpenCode store",
+   "Re-run `install.sh` from the `attest-claude` repo. The rules are stored in the user's personal store at `~/.claude/.semgrep/`"],
   ['(inside the OpenCode project, not the audited repo)',
    '(inside the project running the audit, not the audited repo)'],
   ["(or the checklist file wherever OpenCode installs references for your setup)",
@@ -96,9 +96,9 @@ export function transform(text) {
 // `skills/` is per-target hand-maintained content (see file header), never
 // generated, so the "author skills in BOTH repos" invariant had no
 // validator — drift was silent. This diffs skill IDENTITY (not directory
-// name — opencode dirs and claude-experts dirs use different naming
+// name — opencode dirs and attest-claude dirs use different naming
 // conventions for the same skill, e.g. opencode `skills/git/` has
-// `name: git-expert`, claude-experts `skills/git-expert/` has
+// `name: git-expert`, attest-claude `skills/git-expert/` has
 // `trigger: /git-expert` — both resolve to id `git-expert`).
 //
 // Every exception below is cited so an unjustified gap can never hide here
@@ -106,11 +106,11 @@ export function transform(text) {
 // claimant"). Anything NOT listed here is real, uncited drift and MUST fail.
 export const SKILL_PARITY_EXCEPTIONS = new Set([
   // Opencode-only "wrapper" skills: the underlying agent ships in
-  // claude-experts/agents/ (confirmed: challenger.md, migration-planner.md,
+  // attest-claude/agents/ (confirmed: challenger.md, migration-planner.md,
   // documentation-gap-finder.md, frontend-design.md,
   // llm-integration-engineer.md, end-user-simulator.md, release-manager.md
   // all exist there) and is reached via the Task tool instead of a skill
-  // trigger. Cited: claude-experts CHANGELOG.md v1.26.0-v1.26.3
+  // trigger. Cited: attest-claude CHANGELOG.md v1.26.0-v1.26.3
   // (2026-07-01), e.g. "the wrapper skills are opencode-only; in Claude
   // Code these agents are reached via the Task tool."
   'challenge', 'migration-planner', 'documentation-gap-finder', 'frontend',
@@ -126,7 +126,7 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
   'user-guide',
   // Claude-only: a usage cheat sheet for the claude-memory MCP tool surface
   // (memory_store/memory_recall/session_restore/...), which has no
-  // opencode-side equivalent skill trigger. Cited: claude-experts
+  // opencode-side equivalent skill trigger. Cited: attest-claude
   // skills/memory/SKILL.md content (entirely MCP tool-call examples, no
   // frontmatter/slash trigger at all).
   'memory',
@@ -139,10 +139,10 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // test-skills-parity.ts's live-pair assertion, which expects exactly this
 // set) — only the CLI --check exit code below treats them as a known,
 // tracked warning instead of a hard failure, pending a follow-up ticket to
-// actually port them into claude-experts/skills/. Removing an id here
+// actually port them into attest-claude/skills/. Removing an id here
 // without porting the skill first will correctly go red again.
 // v2.0.0: emptied — the four documented gaps (design-options, explore,
-// simplify, steward) plus game-asset-pipeline were ported to claude-experts
+// simplify, steward) plus game-asset-pipeline were ported to attest-claude
 // for the v2 release; parity is now exact. Add entries here ONLY with a
 // tracked follow-up ticket.
 export const KNOWN_MISSING_IN_CLAUDE = new Set([]);
@@ -247,8 +247,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // manifest of generated files
   const manifest = [...outputs.keys()].sort();
   outputs.set('GENERATED_FILES.txt',
-    '# Generated by bpm-opencode-experts/scripts/build-target-claude.mjs — DO NOT EDIT THESE FILES HERE.\n' +
-    '# Edit the canonical source in bpm-opencode-experts, then run: npm run build:claude\n' +
+    '# Generated by attest/scripts/build-target-claude.mjs — DO NOT EDIT THESE FILES HERE.\n' +
+    '# Edit the canonical source in attest, then run: npm run build:claude\n' +
     '# Per-target files (skills/, hooks/, docs/, install.sh, doctor.sh, README, CHANGELOG) are owned by this repo.\n\n' +
     manifest.join('\n') + '\n');
 
@@ -278,10 +278,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const knownMissingInClaude = parity.missingInClaude.filter((id) => KNOWN_MISSING_IN_CLAUDE.has(id));
   const newMissingInClaude = parity.missingInClaude.filter((id) => !KNOWN_MISSING_IN_CLAUDE.has(id));
   if (knownMissingInClaude.length) {
-    console.log(`  [known gap, tracked] ${knownMissingInClaude.length} skill(s) missing from claude-experts, follow-up pending: ${knownMissingInClaude.join(', ')}`);
+    console.log(`  [known gap, tracked] ${knownMissingInClaude.length} skill(s) missing from attest-claude, follow-up pending: ${knownMissingInClaude.join(', ')}`);
   }
   if (newMissingInClaude.length) {
-    console.log(`SKILLS DRIFT (${newMissingInClaude.length} skill(s) missing from claude-experts):`);
+    console.log(`SKILLS DRIFT (${newMissingInClaude.length} skill(s) missing from attest-claude):`);
     for (const id of newMissingInClaude) console.log('  ' + id);
   }
   if (parity.missingInOpencode.length) {
@@ -305,7 +305,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     if (drift.length > 0) {
       // Dual-repo release hygiene: a canonical release that changes generated
       // files needs a MATCHING tag + release in the generated repo — a step
-      // that has been silently skipped before (e.g. claude-experts v1.23.0).
+      // that has been silently skipped before (e.g. attest-claude v1.23.0).
       console.log(
         `\n⚠ ${drift.length} generated file(s) changed in the Claude target. After you tag this repo,` +
         `\n  commit the regenerated files there AND create a matching tag + GitHub/Gitea release` +
