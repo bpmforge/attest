@@ -359,6 +359,7 @@ never a success report). There are four verdicts, and only one of them means "fi
 | `VERIFY: RED — exit N from: <cmd>` | a real failure in reach | fix it inside the repo, re-run |
 | `VERIFY: RED — fence command matched nothing (path/config defect…)` | the command tested **nothing** — an excluded path, a bad glob, a stale directory name. Not your code. | do NOT edit code. Report the fence/config defect as `BLOCKED: <verdict>` so the orchestrator fixes the fence |
 | `VERIFY: BASELINE_RED — …0 new` | every failure already failed at the baseline commit | **not yours to fix** — the contract forbids touching it. Name the pre-existing failures in your completion report and continue to the done-gate, which treats this as a warning |
+| `VERIFY: RED — pass-count regressed: N < baseline M (the K failing signature(s) themselves pre-date this work — the missing passes do not)` | tests **disappeared**, and separately the failures that remain are pre-existing | fix the deletion — restore the missing tests or justify their removal. The pre-existing failures are still not yours; the vanished passes are |
 
 An `ALL GREEN` line ending in `— BASELINE NOT CHECKED` means no baseline was stored, so a test
 you deleted would not have been caught. Say so in your report rather than claiming a clean run. Append the generated
