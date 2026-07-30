@@ -201,6 +201,34 @@ export async function testHandoffDone(root: string, ok: Ok, fail: Fail) {
       );
     }
 
+    // -- 6b. The verdict must NAME its blockers, not merely count them.
+    //         Observed 2026-07-30: a specialist read a gate carrying 1 [FAIL]
+    //         and 4 [warn] lines and reported the two warnings as its blockers
+    //         ("lacks a verify fence and changes are uncommitted/unpushed"),
+    //         when both were warnings and the single blocker was its own
+    //         uncommitted deliverable.
+    {
+      // Leaves shared fixture state untouched — a later case owns VERIFY_REPORT.md.
+      fs.writeFileSync(path.join(fixture, "docs/research/NEW.md"), "x\n");
+      const named = run("docs/work/HANDOFF_researcher.md");
+      const tail = named.stdout.slice(named.stdout.indexOf("DONE-CHECK: RED"));
+      if (
+        /Warnings above are NOT blockers/.test(tail) &&
+        /uncommitted changes to files this HANDOFF owns/.test(tail) &&
+        !/no git remote configured/.test(tail)
+      ) {
+        ok(
+          "done-gate: the RED verdict names its blocking items and excludes the warnings",
+        );
+      } else {
+        fail(
+          "done-gate: the RED verdict names its blocking items and excludes the warnings",
+          tail || named.stdout,
+        );
+      }
+      fs.rmSync(path.join(fixture, "docs/research/NEW.md"), { force: true });
+    }
+
     // -- 7/9. A path with a space must still be attributed. If the porcelain
     //         parse mangles it, an uncommitted in-scope file silently becomes a
     //         warn — a false GREEN in exactly the direction check 3 guards.
