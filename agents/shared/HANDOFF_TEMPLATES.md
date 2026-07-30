@@ -310,7 +310,7 @@ The orchestrator waits for every HANDOFF to print its completion phrase, then ru
 After EVERY HANDOFF returns, before accepting the work, the orchestrator runs:
 
 ```bash
-./scripts/validators/run-handoff-gates.sh \
+~/.config/opencode/scripts/validators/run-handoff-gates.sh \
   --scope <assigned-dir> [--scope <dir2> ...] \
   --manifest <manifest-path> \
   [--coverage <validate-<name>.sh>]
@@ -400,7 +400,7 @@ Then stop. Do not ask for follow-up.
 ```
 
 After "frontend done":
-1. Run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest docs/work/MANIFEST_design_system_<date>.md --coverage validate-design-system.sh`
+1. Run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest docs/work/MANIFEST_design_system_<date>.md --coverage validate-design-system.sh`
 2. All gaps fixed → Wave 0 complete → feature coding waves may begin
 
 ---
@@ -453,7 +453,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 After "architecture-designer done":
-1. Run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_architecture_design_<date>.md --coverage validate-module-design.sh`
+1. Run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_architecture_design_<date>.md --coverage validate-module-design.sh`
 2. If gaps remain, return specific gaps to architecture-designer for REVISE
 3. After gate passes, db-architect and api-designer may start (they both read MODULE_DESIGN.md)
 
@@ -504,7 +504,7 @@ Then stop.
 ---
 ```
 
-After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs/INFRASTRUCTURE.md --manifest docs/reviews/MANIFEST_infrastructure_<date>.md --coverage validate-infrastructure.sh`
+After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs/INFRASTRUCTURE.md --manifest docs/reviews/MANIFEST_infrastructure_<date>.md --coverage validate-infrastructure.sh`
 
 ---
 
@@ -555,7 +555,7 @@ Then stop.
 ---
 ```
 
-After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh`
+After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh`
 
 ---
 
@@ -604,7 +604,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 After "security done":
-1. Run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_security_controls_<date>.md --coverage validate-security-controls.sh`
+1. Run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_security_controls_<date>.md --coverage validate-security-controls.sh`
 2. If gate passes, issue update HANDOFFs to db-architect and api-designer (use standard Template 1, scope = their respective docs + source dirs)
 3. After both update HANDOFFs return and pass, synthesize final ARCHITECTURE.md
 
@@ -666,7 +666,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 After "test-design done":
-1. Run `./scripts/validators/run-handoff-gates.sh --scope docs/testing --manifest docs/reviews/MANIFEST_test_design_<date>.md --coverage validate-test-design.sh`
+1. Run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs/testing --manifest docs/reviews/MANIFEST_test_design_<date>.md --coverage validate-test-design.sh`
 2. If gaps remain, iterate via coverage loop (max 3 times, then escalation)
 3. After gate passes, emit **Human Approval Gate B** and wait for user confirmation before Phase 4
 

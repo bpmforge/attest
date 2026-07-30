@@ -18,7 +18,7 @@ Read `docs/work/sdlc-state.md` to confirm which agent was delegated and what it 
 For every HANDOFF return, run the gate orchestrator:
 
 ```bash
-./scripts/validators/run-handoff-gates.sh \
+~/.config/opencode/scripts/validators/run-handoff-gates.sh \
   --scope <assigned-dir> [--scope <dir2> ...] \
   --manifest <manifest-path> \
   [--coverage <validate-something.sh>]

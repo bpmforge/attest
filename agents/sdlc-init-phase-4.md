@@ -119,7 +119,7 @@ Sequential mode processes one module at a time, but **each module goes through t
 **Round 1 — Code:**
 Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
 ```bash
-./scripts/validators/run-handoff-gates.sh \
+~/.config/opencode/scripts/validators/run-handoff-gates.sh \
   --scope src/<module> \
   --manifest docs/reviews/MANIFEST_<module>_<date>.md \
   --runtime
@@ -182,7 +182,7 @@ Next after resume: run handoff gates (validate-design-system), then test strateg
 
 Use **Template 10** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "frontend done": run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
+→ After "frontend done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
 
 **Wave 0 must pass before Wave 1 coding begins.** The design system is the foundation for all feature UI — no exceptions.
 
@@ -621,7 +621,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
+→ After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
 
 **6. CI/CD pipeline:**
 

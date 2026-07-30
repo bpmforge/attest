@@ -180,7 +180,7 @@ Next after resume: run handoff gates (validate-module-design), then db-architect
 
 Use **Template 7** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "architecture-designer done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
+→ After "architecture-designer done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
 
 **Git checkpoint — save MODULE_DESIGN + INFRASTRUCTURE:**
 ```
@@ -231,7 +231,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "db done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
+→ After "db done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
 
 **Git checkpoint — save DATABASE.md:**
 ```
@@ -295,7 +295,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "api done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
+→ After "api done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
 
 **Git checkpoint — save API_DESIGN + OpenAPI spec:**
 ```
@@ -352,7 +352,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "security done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
+→ After "security done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
 
 **Git checkpoint — save THREAT_MODEL.md:**
 ```
@@ -417,7 +417,7 @@ Next after resume: run handoff gates (validate-infrastructure), then ARCHITECTUR
 
 Use **Template 8** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
+→ After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
 
 **Git checkpoint — save INFRASTRUCTURE.md:**
 ```
@@ -522,7 +522,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 After "ux done":
 1. Verify all three files exist and are >50 lines each
 2. Run the **Research Findings Review Protocol** — check for conflicts with TECH_STACK, USER_PERSONAS, or DESIGN_CONTEXT
-3. **Run handoff gates:** `./scripts/validators/run-handoff-gates.sh --scope docs/design --manifest <manifest> --coverage validate-ux-spec.sh`
+3. **Run handoff gates:** `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs/design --manifest <manifest> --coverage validate-ux-spec.sh`
    - Gate uses Track 1 (validate-ux-spec.sh) — objective coverage, not confidence scoring
    - If gaps: return specific gap to ux-engineer with REVISE status (up to 3 iterations)
    - All gaps closed → mark DONE
