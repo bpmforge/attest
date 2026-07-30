@@ -181,15 +181,87 @@ if [[ -n "$verify_body" ]]; then
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
     verify_artifacts=$((verify_artifacts + 1))
-    if [[ ! -e "$ROOT/$p" ]]; then
-      gap "verify-artifact-not-found" "'Verify result' cites '$p' -- does not exist at $ROOT/$p"
-    fi
+    # Routed through resolve_in_root like check 1: the 2b/2c checks below READ
+    # these files, and reading an escaping path is strictly worse than stat'ing
+    # one. Same "refused, never read" rule.
+    case "$(resolve_in_root "$p")" in
+      ok) : ;;
+      escapes)
+        gap "verify-artifact-escapes-root" "'Verify result' cites '$p' -- resolves outside $ROOT (traversal or symlink escape); refused, never read" ;;
+      *)
+        gap "verify-artifact-not-found" "'Verify result' cites '$p' -- does not exist at $ROOT/$p" ;;
+    esac
   done < <(printf '%s\n' "$verify_body" | extract_paths)
 fi
 if [[ -n "$verify_body" && "$verify_artifacts" -eq 0 ]]; then
   gap "verify-no-artifact" "'Verify result' section has no concrete artifact reference (a backtick-quoted path to a test log, receipt, or VERIFY_*.md) -- a bare claim like 'tests pass' isn't checkable"
 elif [[ "$verify_artifacts" -gt 0 ]]; then
   pass "checked $verify_artifacts cited verify artifact(s) against disk"
+fi
+
+# -- 2b/2c. The cited evidence must not CONTRADICT the claim -----------------
+# v2 closed "you cited nothing" and "you cited something that isn't there". It
+# left open the more expensive failure: citing a real artifact that says the
+# OPPOSITE of the claim. Field trace 2026-07 (downstream project), caught by hand three
+# times in one project:
+#   * a report claiming `npx tsc --noEmit` -> "no TypeScript errors" when a
+#     re-run showed 2 real errors,
+#   * a report whose unit-suite output "was never pasted -- only integration",
+#   * a "blocked on DB permissions" claim that was FABRICATED: the integration
+#     tests then ran clean with zero manual setup.
+# Reading a verdict out of the artifact the manifest itself points at is neither
+# a re-run nor an injection vector, so the v2 reasoning above is preserved.
+if [[ "$verify_artifacts" -gt 0 ]]; then
+  # NOTE for anyone extending this file: _lib.sh sets `set -euo pipefail`, so a
+  # bare `grep ... && var=1` ABORTS the validator when grep finds nothing (and a
+  # `var=$(grep ... | tail -1)` aborts via pipefail). Every probe below is an
+  # explicit `if`, or ends in `|| true`, for that reason.
+  claims_pass=0
+  if printf '%s\n' "$verify_body" \
+    | grep -qiE '(all )?(pass|passed|passing|green|clean|success|no (errors|failures)|0 (errors|failures))'; then
+    claims_pass=1
+  fi
+
+  while IFS= read -r p; do
+    [[ -z "$p" ]] && continue
+    # Only paths proven inside ROOT are opened — an escaping citation was
+    # already reported above and must never be read.
+    [[ "$(resolve_in_root "$p")" == "ok" ]] || continue
+
+    # 2b. A verdict line in the cited artifact outranks any prose claim.
+    artifact_verdict="$(grep -hoE 'VERIFY: (ALL GREEN|BASELINE_RED|RED)[^*]*' "$ROOT/$p" 2>/dev/null | tail -n 1 || true)"
+    case "$artifact_verdict" in
+      *"ALL GREEN"*|*"BASELINE_RED"*|'') ;;
+      *RED*)
+        if [[ "$claims_pass" -eq 1 ]]; then
+          gap "claim-contradicts-evidence" "'Verify result' claims a pass, but the artifact it cites ('$p') ends in '${artifact_verdict}'. The artifact wins -- fix the failure or report it, never narrate past it"
+        fi ;;
+    esac
+
+    # 2c. A named check claimed as passing must appear among the commands the
+    # cited artifact actually ran. "tsc clean" with no tsc command anywhere in
+    # the evidence is an unevidenced claim, not a verification.
+    if [[ "$claims_pass" -eq 1 ]]; then
+      for chk in tsc typecheck lint biome eslint vitest jest pytest; do
+        if ! printf '%s\n' "$verify_body" | grep -qiE "\b${chk}\b"; then continue; fi
+        if grep -qiE "\b${chk}\b" "$ROOT/$p" 2>/dev/null; then continue; fi
+        gap "claim-not-in-evidence" "'Verify result' names '${chk}' as passing, but '${chk}' appears nowhere in the cited artifact '$p' -- the check either never ran under the harness or its output was not captured. Put it in the \`\`\`verify fence so the evidence is generated, not asserted"
+      done
+    fi
+  done < <(printf '%s\n' "$verify_body" | extract_paths)
+fi
+
+# -- 2d. A BLOCKED claim needs evidence too ---------------------------------
+# The inverse failure, and the one that reads as caution: an invented blocker
+# costs a full round-trip and looks responsible while doing it.
+if grep -qiE '^[[:space:]]*(#+[[:space:]]*)?(\**)?BLOCKED\b|(^|[[:space:]])BLOCKED:' "$MANIFEST" 2>/dev/null; then
+  blocked_line="$(grep -hiE 'BLOCKED' "$MANIFEST" | head -n 1 || true)"
+  if [[ -z "$(printf '%s\n' "$blocked_line" | extract_paths)" ]] \
+     && ! printf '%s\n' "$blocked_line" | grep -qE '(exit [0-9]+|error|denied|not found|unreachable|refused|timeout|E[A-Z]{4,})'; then
+    gap "blocked-without-evidence" "the manifest declares BLOCKED without citing an artifact path or quoting a concrete error ('$blocked_line'). A blocker with no evidence is indistinguishable from a fabricated one -- quote the failing command's output or the artifact that shows it"
+  else
+    pass "BLOCKED claim carries an artifact or a quoted error"
+  fi
 fi
 
 # -- 3. Maker / Verifier identity: both present, must differ ----------------
