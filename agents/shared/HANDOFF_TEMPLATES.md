@@ -137,6 +137,25 @@ context packet inside a fenced block whose opening line is "```verify" -- one
 command per line, verbatim. Then require:
   bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file> --baseline   (BEFORE first edit)
   bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file>              (loop until ALL GREEN)
+
+YOU RUN THE --baseline PASS YOURSELF, BEFORE DISPATCH. You wrote the fence, so
+its defects are yours to find, and the pre-change state only exists now. That
+one run does three things a specialist cannot do for you:
+  * proves every command actually runs here. A command that matched NOTHING
+    (excluded path, bad glob, a `scripts/` dir the project's linter config
+    ignores) comes back as "fence command matched nothing (path/config defect)"
+    -- at your desk, not as a stalled specialist. Field trace 2026-07: a fence
+    ran `biome check scripts/conductor` against a config that excludes it; the
+    specialist could not fix the config (out of scope) and could not go green,
+    so it stopped with the work done and unreported.
+  * records the pre-existing failures, so a failure the specialist did not cause
+    comes back as BASELINE_RED instead of being blamed on its work.
+  * flags any fence line whose every path lies outside the WRITE-SCOPE you just
+    wrote -- a failure the specialist is forbidden to fix. Scope the fence to
+    what the HANDOFF owns, or say in the packet that the command is a cross-check
+    whose failures are reported, not repaired.
+A repo-wide command (`pnpm test`) is still fine and often right; it is the
+baseline pass that keeps someone else's failure from landing on this specialist.
 The harness runs each command exactly as written, keeps output tails, checks
 the pass-count baseline, and writes docs/work/VERIFY_REPORT.md itself -- the
 specialist pastes that file into the completion report instead of retyping
