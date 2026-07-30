@@ -338,6 +338,59 @@ export async function testVerifyVerdicts(root: string, ok: Ok, fail: Fail) {
       }
     }
 
+    // -- B. Fence scope advisory. The lead authors the fence; the specialist is
+    //    bound by WRITE-SCOPE, so a fence line targeting only paths it does not
+    //    own hands it a failure it is forbidden to fix.
+    {
+      const d = track(mk());
+      fs.mkdirSync(path.join(d, "src", "auth"), { recursive: true });
+      fs.mkdirSync(path.join(d, "packages", "shared"), { recursive: true });
+      fs.writeFileSync(path.join(d, "src/auth/a.ts"), "x\n");
+      fs.writeFileSync(path.join(d, "packages/shared/b.ts"), "x\n");
+
+      const packet = (scope: string) =>
+        `SDLC-TASK for coding-agent:\n\n${scope}\n\n\`\`\`verify\n` +
+        'ls src/auth && echo "Tests 5 passed"\n' +
+        'ls packages/shared && echo "Tests 3 passed"\n' +
+        'ls src/auth packages/shared && echo "Tests 4 passed"\n' +
+        'echo "Tests 9 passed"\n' +
+        "```\n";
+
+      fs.writeFileSync(
+        path.join(d, "docs", "work", "packet.md"),
+        packet("WRITE-SCOPE (exclusive):\n- src/auth/"),
+      );
+      const scoped = run(d, ["docs/work/packet.md"]);
+      const rep = report(d);
+      const notes = (
+        scoped.stdout.match(/NOTE: every path here is outside/g) ?? []
+      ).length;
+
+      // No WRITE-SCOPE section at all → nothing to compare against, no advisory.
+      fs.writeFileSync(
+        path.join(d, "docs", "work", "none.md"),
+        packet("Do the thing."),
+      );
+      const unscoped = run(d, ["docs/work/none.md"]);
+
+      if (
+        // exactly one command flagged: the packages/shared-only one. The mixed
+        // command (both paths) and the path-free command must NOT be flagged.
+        notes === 1 &&
+        /Outside WRITE-SCOPE.*packages\/shared/.test(rep) &&
+        !/NOTE: every path here is outside/.test(unscoped.stdout)
+      ) {
+        ok(
+          "B: a fence line whose every path is out of WRITE-SCOPE is flagged; mixed, path-free, and unscoped packets are not",
+        );
+      } else {
+        fail(
+          "B: a fence line whose every path is out of WRITE-SCOPE is flagged; mixed, path-free, and unscoped packets are not",
+          `notes=${notes} scoped:\n${scoped.stdout}\nunscoped:\n${unscoped.stdout}`,
+        );
+      }
+    }
+
     // -- The done-gate must agree with the harness, not override it. --------
     {
       const doneScript = path.join(root, "scripts", "handoff-done.sh");

@@ -137,6 +137,64 @@ extract_failures() {
     | sort -u
 }
 
+# --- fence scope advisory ----------------------------------------------------
+# The lead authors the fence; the specialist is bound by WRITE-SCOPE. A fence
+# line that targets ONLY paths the HANDOFF does not own hands the specialist a
+# failure it is forbidden to fix (field trace 2026-07: a fence ran the whole
+# monorepo's tests and failed in `packages/shared`, "outside WRITE-SCOPE", and
+# the specialist stalled). Run at --baseline time this is an authoring-time
+# check; the WRITE-SCOPE parser is duplicated from handoff-done.sh on purpose —
+# both scripts stay standalone so an agent can run either one alone.
+#
+# Deliberately narrow: this fires only when EVERY path in a command is out of
+# scope. A repo-wide command (`pnpm test`, `biome check .`) names no out-of-scope
+# path and is often correct, so it is not flagged here — pre-existing failures it
+# surfaces are handled by baseline attribution instead.
+SCOPE_PATHS=""
+if [ -n "$FILE" ]; then
+  SCOPE_PATHS=$(awk '
+    /^(WRITE-SCOPE|## WRITE-SCOPE)/ { in_p = 1; next }
+    in_p && /^[[:space:]]*-[[:space:]]/ {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+      if (match(line, /`[^`]+`/)) { path = substr(line, RSTART + 1, RLENGTH - 2) }
+      else { split(line, a, /[[:space:]]/); path = a[1] }
+      if (path ~ /[\/.]/ && path !~ /^</) print path
+      next
+    }
+    in_p && !/^[[:space:]]*$/ && !/^[[:space:]]*-/ { in_p = 0 }
+  ' "$FILE" | sort -u)
+fi
+
+# Callers guard on SCOPE_PATHS being non-empty, so this has no empty-scope case
+# on purpose. handoff-done.sh's same-named helper answers "not attributable"
+# (return 1) for empty scope; an inverted twin of it here would be a silent
+# false-attribution the next time someone copies one into the other.
+path_in_scope() {
+  while IFS= read -r s; do
+    [ -n "$s" ] || continue
+    s=${s%\*\*}; s=${s%/}
+    case "$1" in
+      "$s"|"$s"/*) return 0 ;;
+    esac
+  done <<INNER
+$SCOPE_PATHS
+INNER
+  return 1
+}
+
+# Path-looking tokens from a command that actually exist on disk.
+fence_paths() {
+  printf '%s\n' "$1" | tr ' \t' '\n\n' | sed "s/^[\"']//; s/[\"']$//" | while IFS= read -r t; do
+    case "$t" in
+      -*|''|.|./|'&&'|'||'|';') continue ;;
+      */*|*.ts|*.js|*.json|*.md|*.py|*.go) ;;
+      *) continue ;;
+    esac
+    [ -e "$t" ] && printf '%s\n' "${t%/}"
+  done | sort -u
+}
+
 # --- auto-baseline -----------------------------------------------------------
 # A baseline is only meaningful pre-change. If none is stored, store one
 # automatically WHEN we can prove this run is pre-change: clean working tree
@@ -206,6 +264,22 @@ for cmd in "${CMDS[@]}"; do
 
   extract_failures "$LOG" >> "$FAIL_CUR"
 
+  # Every path this command names is outside the HANDOFF's WRITE-SCOPE.
+  CMD_OUT_OF_SCOPE=""
+  if [ -n "$SCOPE_PATHS" ]; then
+    CMD_PATHS=$(fence_paths "$cmd")
+    if [ -n "$CMD_PATHS" ]; then
+      ANY_IN=0
+      while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        if path_in_scope "$p"; then ANY_IN=1; break; fi
+      done <<EOF
+$CMD_PATHS
+EOF
+      [ "$ANY_IN" -eq 0 ] && CMD_OUT_OF_SCOPE=$(printf '%s' "$CMD_PATHS" | tr '\n' ' ')
+    fi
+  fi
+
   {
     echo "## Command $N"
     echo ""
@@ -216,6 +290,7 @@ for cmd in "${CMDS[@]}"; do
     echo "- Exit code: **$CODE**"
     [ "$CMD_PASSED" -gt 0 ] && echo "- Pass-count mentions summed: $CMD_PASSED"
     [ "$CMD_EMPTY" -eq 1 ] && echo "- **Matched nothing**: the output says no files/tests were processed and zero tests passed. This is a fence/path/config defect, not a code defect."
+    [ -n "$CMD_OUT_OF_SCOPE" ] && echo "- **Outside WRITE-SCOPE**: every path this command names ($CMD_OUT_OF_SCOPE) is outside this HANDOFF's write scope. A failure here is not the specialist's to fix — scope the fence to what the HANDOFF owns, or state that this command is a cross-check whose failures are reported, not repaired."
     echo "- Output TAIL (last 15 lines — the summary end; full log: $LOG):"
     echo ""
     echo '```'
@@ -231,6 +306,7 @@ for cmd in "${CMDS[@]}"; do
     echo "    exit $CODE  <-- RED"
     if [ -z "$RED_CMD" ]; then RED_CMD="$cmd"; RED_CODE=$CODE; fi
   fi
+  [ -n "$CMD_OUT_OF_SCOPE" ] && echo "    NOTE: every path here is outside WRITE-SCOPE ($CMD_OUT_OF_SCOPE) — scope the fence, or say these failures are reported not repaired"
 done
 
 CUR_FAILS=$(sort -u "$FAIL_CUR" 2>/dev/null | grep -c . | tr -d ' ')
