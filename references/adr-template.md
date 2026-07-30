@@ -74,7 +74,7 @@ deciding factor, "we picked X because Y, and Y is true because Z" is.>
    external claim *asserted* as settled fact with no tag at all.
 3. **Every asserted external mandate gets the marker, verbatim.** Use the
    literal string `**External rationale (needs verification):**` — this
-   exact text is what `scripts/validators/validate-challenger-gate.sh`
+   exact text is what `~/.config/opencode/scripts/validators/validate-challenger-gate.sh`
    scans for. A paraphrase ("this is required externally") will not be
    detected.
 

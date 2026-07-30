@@ -117,7 +117,7 @@ Output file: `docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md`
 # Challenge Report — <artifact name>
 **Date:** <YYYY-MM-DD> | **Artifact:** <path> | **Challenger:** challenger agent
 
-> **Artifact field is load-bearing (T22.20):** `scripts/validators/validate-challenger-gate.sh`
+> **Artifact field is load-bearing (T22.20):** `~/.config/opencode/scripts/validators/validate-challenger-gate.sh`
 > parses this field to correlate a challenge report back to the specific
 > source report it challenges. Always set `<path>` to the actual
 > ROOT-relative path of the artifact being challenged (e.g.

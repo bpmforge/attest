@@ -458,7 +458,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`, verify your deliverables
 
 **Run the validator:**
 ```bash
-bash scripts/validators/validate-module-design.sh .
+bash ~/.config/opencode/scripts/validators/validate-module-design.sh .
 ```
 If gaps reported → fix them → re-run until exit 0.
 

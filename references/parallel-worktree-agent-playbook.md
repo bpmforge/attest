@@ -47,8 +47,8 @@ git fetch github main -q && git push origin github/main:main
 `--base main` silently resolves to nothing in a fresh worktree that has no local `main` branch (only `origin/main`/`github/main` remote-tracking refs) — this produces a **false-clean** result on `validate-no-reinvent.sh`/`validate-tracker-fresh.sh`, not an error. Always use:
 
 ```bash
-bash scripts/validators/validate-no-reinvent.sh --base origin/main .
-bash scripts/validators/validate-tracker-fresh.sh --base origin/main .
+bash ~/.config/opencode/scripts/validators/validate-no-reinvent.sh --base origin/main .
+bash ~/.config/opencode/scripts/validators/validate-tracker-fresh.sh --base origin/main .
 ```
 
 ## attest-claude regeneration: always pass `--out` explicitly
@@ -70,7 +70,7 @@ If you maintain a local clone of attest-claude for this, keep it fetched/fast-fo
 
 ## File-size discipline
 
-`scripts/test.ts` has a hard 400-line cap (`scripts/validators/validate-file-size.sh`). Every new Pass module goes in its own `scripts/test-<topic>.ts` chapter file — `test.ts` only imports and calls it. If a merge with `origin/main` pushes `test.ts` over the cap (picking up another ticket's new Pass alongside yours), trim comment blocks first (the detailed rationale can live in the chapter module's own header) before considering a deeper restructure.
+`scripts/test.ts` has a hard 400-line cap (`~/.config/opencode/scripts/validators/validate-file-size.sh`). Every new Pass module goes in its own `scripts/test-<topic>.ts` chapter file — `test.ts` only imports and calls it. If a merge with `origin/main` pushes `test.ts` over the cap (picking up another ticket's new Pass alongside yours), trim comment blocks first (the detailed rationale can live in the chapter module's own header) before considering a deeper restructure.
 
 ## Fixture convention
 

@@ -38,7 +38,7 @@ but never written down. This skill fixes that.
    - **Generated status artifacts stale? (T29.3, H7/C-1):** if the project has a `docs/work/plan.json`
      module layer and a generated `docs/work/STATUS.md`
      (`scripts/gen-status-report.mjs`), run
-     `scripts/validators/validate-status-freshness.sh` — it flags the artifact
+     `~/.config/opencode/scripts/validators/validate-status-freshness.sh` — it flags the artifact
      stale when its embedded numbers mismatch a live recompute against
      `plan.json`, or the plan has a work event (a module/story closing) newer
      than the artifact's own `generatedAt`. A stale STATUS.md is exactly the

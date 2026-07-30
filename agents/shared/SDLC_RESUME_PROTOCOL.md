@@ -24,8 +24,8 @@ If it's stale (>1 day or the repo changed), re-run `detect-sdlc-state.sh`.
 claim.** A doc *existing* is not a phase *passing*:
 
 ```
-bash(command="bash scripts/validators/validate-phase-gate.sh phase-0 . ; \
-              bash scripts/validators/validate-phase-gate.sh phase-1 . ; ...")
+bash(command="bash ~/.config/opencode/scripts/validators/validate-phase-gate.sh phase-0 . ; \
+              bash ~/.config/opencode/scripts/validators/validate-phase-gate.sh phase-1 . ; ...")
 ```
 (run per completed phase, lowest → highest; each prints a JSON gap summary)
 

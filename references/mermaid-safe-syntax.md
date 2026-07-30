@@ -2,7 +2,7 @@
 
 Read this before generating any Mermaid diagram. These are the rules that
 prevent the parse errors LLM generation reliably introduces. Validated by
-`scripts/validators/validate-mermaid.sh`; mechanical issues auto-repairable
+`~/.config/opencode/scripts/validators/validate-mermaid.sh`; mechanical issues auto-repairable
 with `node scripts/mermaid-fix.mjs <file> --write`.
 
 ## The seven rules
@@ -48,7 +48,7 @@ After writing a diagram, before marking the deliverable done:
 
 ```
 node scripts/mermaid-fix.mjs <file> --write          # auto-repair mechanical issues
-bash scripts/validators/validate-mermaid.sh . <dir>  # gate (uses mmdc to truly render if installed)
+bash ~/.config/opencode/scripts/validators/validate-mermaid.sh . <dir>  # gate (uses mmdc to truly render if installed)
 ```
 
 If `@mermaid-js/mermaid-cli` (`mmdc`) is installed, the validator renders every

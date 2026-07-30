@@ -119,7 +119,7 @@ grep -rn "throw new Error.*not implemented\|throw new Error.*TODO\|// TODO.*impl
 [ -f CLAUDE.md -o -f AGENTS.md -o -f .claude ] && echo "AI-assisted project detected" || echo "No AI markers"
 
 # R-30: Library-shaped reimplementation — run the dedicated validator
-bash scripts/validators/validate-vendor-provenance.sh 2>/dev/null
+bash ~/.config/opencode/scripts/validators/validate-vendor-provenance.sh 2>/dev/null
 ```
 
 ### Phase 2 — Rule-by-Rule Pass (all 30)

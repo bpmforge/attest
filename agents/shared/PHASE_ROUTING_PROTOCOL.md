@@ -43,7 +43,7 @@ The boundary: Mode 4 is for "what should we improve about this **system**". Sing
 
 ## Validation Gate System
 
-Every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>` which chains the relevant validators. Phases are **ordered** — the gate writes a lock file on success and checks for the prior phase's lock before running.
+Every phase advance calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh <phase>` which chains the relevant validators. Phases are **ordered** — the gate writes a lock file on success and checks for the prior phase's lock before running.
 
 | Phase | Validators run | Gate type |
 |-------|---------------|-----------|

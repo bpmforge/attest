@@ -1,6 +1,6 @@
 ---
 name: onboard-verify
-description: 'Ralph Wiggum deep-onboard: Step D3 — run all onboard validators and report uncovered inventory rows. Thin wrapper over scripts/validators/validate-phase-gate.sh onboard-deep.'
+description: 'Ralph Wiggum deep-onboard: Step D3 — run all onboard validators and report uncovered inventory rows. Thin wrapper over ~/.config/opencode/scripts/validators/validate-phase-gate.sh onboard-deep.'
 ---
 
 # Onboard Verify
@@ -15,7 +15,7 @@ Runs every onboard-relevant validator and reports which inventory rows are uncov
 ## What it runs
 
 ```bash
-./scripts/validators/validate-phase-gate.sh onboard-deep
+~/.config/opencode/scripts/validators/validate-phase-gate.sh onboard-deep
 ```
 
 Which chains:

@@ -768,7 +768,7 @@ This step exists so that reverse-engineering never has to happen again.
    `node scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
    — a clean run links 0 stragglers; this is what keeps linkage continuous
    instead of a one-time retrofit.
-4. Run `scripts/validators/validate-tracker-integrity.sh` — chained at the
+4. Run `~/.config/opencode/scripts/validators/validate-tracker-integrity.sh` — chained at the
    Phase 3 gate (spec must exist before any snapshot does) and the Phase 4
    gate (item-level integrity: unlabeled items, unlinked stories, untagged
    strays polluting scope math, once a snapshot exists).

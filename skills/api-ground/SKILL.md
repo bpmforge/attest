@@ -42,17 +42,19 @@ Shape 2 is the reason a passing build is not evidence of correctness here.
 ## Locating the script
 
 A global install puts it beside the other expert scripts; a project-mode install
-does not ship `scripts/` at all. Resolve it once, then use `$EXPERTS` below:
+puts them under `.opencode/scripts/` (install.sh copies `scripts/` in BOTH modes —
+skipping it in project mode was a bug, because every script-backed skill names a
+path under the install dir). Resolve it once, then use `$EXPERTS` below:
 
 ```bash
-for d in ~/.config/opencode/scripts ~/.claude/scripts ./scripts ./frontend/scripts; do
+for d in ~/.config/opencode/scripts ~/.claude/scripts ./.opencode/scripts ./scripts ./frontend/scripts; do
   [ -f "$d/api-surface.mjs" ] && EXPERTS="$d" && break
 done
 [ -n "$EXPERTS" ] && echo "using $EXPERTS/api-surface.mjs" || echo "NOT INSTALLED — vendor it (below)"
 ```
 
-**If that prints NOT INSTALLED**, you are on a project-mode install, which does
-not ship `scripts/` at all. Copy `api-surface.mjs` from the expert-system repo
+**If that prints NOT INSTALLED**, the expert scripts are not reachable from here.
+Copy `api-surface.mjs` from the expert-system repo
 into the target project (`scripts/` or `frontend/scripts/`), commit it, and set
 `EXPERTS` to that directory.
 

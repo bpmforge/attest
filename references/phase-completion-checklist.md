@@ -1,7 +1,7 @@
 # Phase Completion Checklists
 
 What "done" means per SDLC phase: the validator gate (automated — run
-`scripts/validators/validate-phase-gate.sh <phase>`) plus the human-judgment
+`~/.config/opencode/scripts/validators/validate-phase-gate.sh <phase>`) plus the human-judgment
 checks no script can make. Advance only when BOTH columns are satisfied.
 The gate proves the documents are complete; the judgment items prove they
 are TRUE.

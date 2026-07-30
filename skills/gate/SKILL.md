@@ -1,6 +1,6 @@
 ---
 name: gate
-description: 'SDLC phase gate — runs the automated validators for the current phase and reports gaps. Use after completing all deliverables for a phase. Wraps scripts/validators/validate-phase-gate.sh.'
+description: 'SDLC phase gate — runs the automated validators for the current phase and reports gaps. Use after completing all deliverables for a phase. Wraps ~/.config/opencode/scripts/validators/validate-phase-gate.sh.'
 ---
 
 # SDLC Gate Management
@@ -18,7 +18,7 @@ Check or manage phase gate requirements for the current SDLC project.
 2. Run the automated validator:
 
    ```bash
-   ./scripts/validators/validate-phase-gate.sh <phase>
+   ~/.config/opencode/scripts/validators/validate-phase-gate.sh <phase>
    ```
 
    where `<phase>` is one of:

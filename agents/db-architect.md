@@ -248,9 +248,9 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 
 **Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
-- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- `scripts/validators/validate-erd-coverage.sh` — domain coverage (auto-run when relevant)
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `~/.config/opencode/scripts/validators/validate-erd-coverage.sh` — domain coverage (auto-run when relevant)
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
 
@@ -318,7 +318,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 
 **Run the validator:**
 ```bash
-bash scripts/validators/validate-erd-coverage.sh .
+bash ~/.config/opencode/scripts/validators/validate-erd-coverage.sh .
 ```
 If gaps reported → fix → re-run until exit 0.
 

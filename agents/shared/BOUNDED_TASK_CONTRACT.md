@@ -150,7 +150,7 @@ Before creating OR overwriting any file:
 2. **Diff against canonical** — if the file is generated, vendored, or sourced from a canonical repo, confirm your change is real and superior by `diff`-ing against that source. **An audit that claims a file is "missing", "wrong", or "a stub" MUST be confirmed with `ls`/`diff`/`grep` against the source before you act on it.** A perception error (false "missing") that triggers a rewrite is the most expensive drift there is.
 3. **Never hand-edit generated files** — anything in `GENERATED_FILES.txt` is a build output; regenerate it via the build, never edit it directly.
 
-Enforced by `scripts/validators/validate-no-reinvent.sh` (hard-fails edits to `GENERATED_FILES.txt` paths; warns on wholesale rewrites of tracked files). This rule exists because a Mode-4 audit once falsely reported canonical loop-engineering files as "missing" and overwrote 6 of them with inferior stubs — a regression a single `diff` would have prevented.
+Enforced by `~/.config/opencode/scripts/validators/validate-no-reinvent.sh` (hard-fails edits to `GENERATED_FILES.txt` paths; warns on wholesale rewrites of tracked files). This rule exists because a Mode-4 audit once falsely reported canonical loop-engineering files as "missing" and overwrote 6 of them with inferior stubs — a regression a single `diff` would have prevented.
 
 ## Rule 10 — Phase-gated checkpoint/revert (B7)
 

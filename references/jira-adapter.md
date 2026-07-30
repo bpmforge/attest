@@ -86,7 +86,7 @@ so unattended runs mirror without any per-caller hooks.
 | Configured but unreachable | local verb still succeeds; op queued; drain later with `reconcile`. |
 | Configured and healthy | mirror applied inline (real-time). |
 
-The gate `scripts/validators/validate-jira-hygiene.sh` (active only when
+The gate `~/.config/opencode/scripts/validators/validate-jira-hygiene.sh` (active only when
 `TRACKER_BACKEND=jira`) flags unmirrored work (pending outbox ops) and modules
 that advanced without a Jira sync. Live drift (epic open with all children done,
 in-progress issue with no assignee, plan-done-but-Jira-not) is reported by

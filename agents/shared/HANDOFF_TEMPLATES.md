@@ -732,7 +732,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ```
 
 After "reconciliation done": run
-`./scripts/validators/validate-requirement-closure.sh` — it fails Phase 5 on any missing row or
+`~/.config/opencode/scripts/validators/validate-requirement-closure.sh` — it fails Phase 5 on any missing row or
 any `OUTSTANDING` verdict (a `PARTIAL` verdict is allowed through; it's a disclosed gap, not a
 silently-missing one). An `OUTSTANDING` row is a real signal to go implement that story, or to
 explicitly descope it out of `docs/USER_STORIES.md` with the T29.7 scope-cut protocol (never just
