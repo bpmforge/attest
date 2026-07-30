@@ -132,6 +132,51 @@ export async function testVerifyVerdicts(root: string, ok: Ok, fail: Fail) {
       }
     }
 
+    // -- Pass-count extraction across runner formats. Runners disagree about
+    //    word order, and node's built-in runner puts the count AFTER the word
+    //    ("ℹ pass 8"). Until 2026-07-30 the extractor matched only "<n> passed",
+    //    so every `node --test` project scored 0 and its deletion check was
+    //    silently inert — tests could vanish and the count check would not care.
+    //    Found by running a real coding HANDOFF against a node --test project.
+    {
+      const d = track(mk());
+      const nodeFmt = run(d, [
+        "-c",
+        'printf "\\342\\204\\271 tests 8\\n\\342\\204\\271 pass 8\\n\\342\\204\\271 fail 0\\n"',
+        "--baseline",
+      ]);
+      const d2 = track(mk());
+      const tap = run(d2, [
+        "-c",
+        'printf "# pass 5\\n# fail 0\\n"',
+        "--baseline",
+      ]);
+      // The guard: prose containing "Pass <n>" must NOT be counted. This repo's
+      // own suite prints "[Pass 49] …" headers 54 times per run; an unanchored
+      // pattern would add them to the baseline.
+      const d3 = track(mk());
+      const prose = run(d3, [
+        "-c",
+        'printf "[Pass 49] Gate-output contract\\n[Pass 52] Another\\nTests 3 passed\\n"',
+        "--baseline",
+      ]);
+      const got = (s: string) => (s.match(/baseline stored: (\d+)/) ?? [])[1];
+      if (
+        got(nodeFmt.stdout) === "8" &&
+        got(tap.stdout) === "5" &&
+        got(prose.stdout) === "3"
+      ) {
+        ok(
+          "pass-count: node --test and TAP are counted; '[Pass NN]' prose is not",
+        );
+      } else {
+        fail(
+          "pass-count: node --test and TAP are counted; '[Pass NN]' prose is not",
+          `node=${got(nodeFmt.stdout)} tap=${got(tap.stdout)} prose=${got(prose.stdout)} (expected 8, 5, 3)`,
+        );
+      }
+    }
+
     // -- V-04. No baseline means no regression check — the verdict says so. -
     {
       const d = track(mk());
