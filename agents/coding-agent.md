@@ -350,8 +350,18 @@ prose steps, first copy them into a ` ```verify ` fence in the context packet, c
 character, one command per line), runs each EXACTLY as written, captures full output + exit
 codes, keeps the summary TAIL, compares pass counts against the stored baseline, writes
 `docs/work/VERIFY_REPORT.md` itself, and prints one verdict line. Your loop is just:
-run → read `VERIFY: ALL GREEN` or `VERIFY: RED — <command>` → fix inside the repo → re-run
-(3-strike cap per LOOP_PREVENTION → `BLOCKED`, never a success report). Append the generated
+run → read the verdict → act on it → re-run (3-strike cap per LOOP_PREVENTION → `BLOCKED`,
+never a success report). There are four verdicts, and only one of them means "fix your code":
+
+| Verdict | What it means | What you do |
+|---|---|---|
+| `VERIFY: ALL GREEN` | every command passed | proceed to the done-gate |
+| `VERIFY: RED — exit N from: <cmd>` | a real failure in reach | fix it inside the repo, re-run |
+| `VERIFY: RED — fence command matched nothing (path/config defect…)` | the command tested **nothing** — an excluded path, a bad glob, a stale directory name. Not your code. | do NOT edit code. Report the fence/config defect as `BLOCKED: <verdict>` so the orchestrator fixes the fence |
+| `VERIFY: BASELINE_RED — …0 new` | every failure already failed at the baseline commit | **not yours to fix** — the contract forbids touching it. Name the pre-existing failures in your completion report and continue to the done-gate, which treats this as a warning |
+
+An `ALL GREEN` line ending in `— BASELINE NOT CHECKED` means no baseline was stored, so a test
+you deleted would not have been caught. Say so in your report rather than claiming a clean run. Append the generated
 VERIFY_REPORT.md contents to your completion report — never retype or summarize outputs by
 hand. The rules below are what the harness enforces; they bind you fully whenever you run any
 verify command manually:
