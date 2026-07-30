@@ -248,10 +248,23 @@ for cmd in "${CMDS[@]}"; do
   ( cd "$ROOT" && bash -c "$cmd" ) > "$LOG" 2>&1
   CODE=$?
 
-  # Sum every "<n> passed"/"<n> passing" occurrence (vitest/jest/go styles).
+  # Runners disagree about word order, so sum two shapes:
+  #   "<n> passed" / "<n> passing"  — vitest, jest, mocha, pytest, go
+  #   "pass <n>"                    — node --test and TAP, count AFTER the word
   # The sum is only compared against a baseline produced by the same commands,
   # so double-counting ("Test Files 69 passed" + "Tests 1152 passed") is stable.
-  CMD_PASSED=$(grep -Eo '[0-9]+ pass(ed|ing)' "$LOG" 2>/dev/null | grep -Eo '[0-9]+' | awk '{ s += $1 } END { print s + 0 }')
+  #
+  # The second shape is anchored to the reporter's line-leading glyph — node
+  # prints "ℹ pass 8", TAP prints "# pass 8". An unanchored /pass +[0-9]+/ also
+  # matches ordinary prose, including this repo's own "[Pass 49]" test headers,
+  # and would silently inflate the baseline. Before this, a node --test project
+  # scored 0, so its deletion check was inert and tests could vanish unnoticed
+  # (found 2026-07-30 running a real HANDOFF against a node --test project).
+  CMD_PASSED=$(
+    { grep -Eo '[0-9]+ pass(ed|ing)' "$LOG" 2>/dev/null | grep -Eo '^[0-9]+' || true
+      grep -Eo '^[#ℹ][[:space:]]*pass[[:space:]]+[0-9]+' "$LOG" 2>/dev/null | grep -Eo '[0-9]+$' || true
+    } | awk '{ s += $1 } END { print s + 0 }'
+  )
   TOTAL_PASSED=$((TOTAL_PASSED + CMD_PASSED))
 
   # Matched-nothing detection. Both conditions are required: an emptiness string
