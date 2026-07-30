@@ -121,9 +121,15 @@ export function testClaimVsEvidence(root: string, ok: Ok, fail: Fail) {
     return name;
   };
 
-  const run = (m: string) =>
-    spawnSync("bash", [validator, m, "."], { cwd: fixture, encoding: "utf8" })
-      .stdout ?? "";
+  // Both streams: the validator writes its human-readable [ok]/[x] lines to
+  // stderr and the JSON summary to stdout, and these cases assert on both.
+  const run = (m: string) => {
+    const r = spawnSync("bash", [validator, m, "."], {
+      cwd: fixture,
+      encoding: "utf8",
+    });
+    return `${r.stdout ?? ""}${r.stderr ?? ""}`;
+  };
 
   try {
     // -- D1. A pass claim against a RED artifact. The artifact wins. --------
@@ -288,19 +294,73 @@ export function testClaimVsEvidence(root: string, ok: Ok, fail: Fail) {
     // -- D6. Reading a cited artifact must obey the same traversal refusal as
     //    check 1. These checks OPEN the file, so an escaping citation being
     //    merely "not found" would be a read primitive.
-    const v = fs.readFileSync(validator, "utf8");
+    //    Asserted behaviourally rather than by grepping the source. The earlier
+    //    version pinned the literal `resolve_in_root "$p")" == "ok"` and broke
+    //    the moment containment moved earlier in the pipeline — even though the
+    //    property it guards still held.
+    setReport("**VERIFY: ALL GREEN (1/1)**\n");
+    // The target must live OUTSIDE the project root, or nothing escapes.
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "escape-target-"));
+    const secret = path.join(outside, "secret.txt");
+    fs.writeFileSync(secret, "SENTINEL-SECRET\n");
+    fs.symlinkSync(secret, path.join(fixture, "docs/work/leak.md"));
+    const escaped = run(manifest("Evidence: `docs/work/leak.md`", "escape.md"));
+    fs.rmSync(outside, { recursive: true, force: true });
     if (
-      /verify-artifact-escapes-root/.test(v) &&
-      /resolve_in_root "\$p"\)" == "ok"/.test(v)
+      /verify-artifact-escapes-root/.test(escaped) &&
+      !/SENTINEL-SECRET/.test(escaped)
     ) {
       ok(
-        "D6: cited artifacts are resolved inside ROOT before being read, not just stat'd",
+        "D6: a cited symlink resolving outside ROOT is refused, and never read",
       );
     } else {
       fail(
-        "D6: cited artifacts are resolved inside ROOT before being read, not just stat'd",
-        "the verify-artifact path does not route through resolve_in_root",
+        "D6: a cited symlink resolving outside ROOT is refused, and never read",
+        escaped,
       );
+    }
+
+    // -- D7. A backticked token containing "/" is not necessarily a path.
+    //    Field failure 2026-07-30: a git-expert manifest citing the branch it
+    //    created (`sdlc/setup`) and a directory it had deliberately REMOVED
+    //    (`.code-search/`) was blocked as "artifacts not found" — and the
+    //    agent's own proposed remedies were to weaken the manifest or mkdir an
+    //    inert directory to satisfy the gate.
+    {
+      const g = (...a: string[]) =>
+        spawnSync("git", a, { cwd: fixture, encoding: "utf8" });
+      g("init", "-q", ".");
+      g("config", "user.email", "t@t");
+      g("config", "user.name", "t");
+      g("add", "-A");
+      g("commit", "-qm", "seed");
+      g("branch", "sdlc/setup");
+      setReport("**VERIFY: ALL GREEN (1/1)**\n");
+      const refCase = run(
+        manifest(
+          "Branch `sdlc/setup` created from main. Removed `.code-search/` per the HANDOFF. Evidence: `docs/work/VERIFY_REPORT.md`",
+          "refs.md",
+        ),
+      );
+      const stillFails = run(
+        manifest("Evidence: `docs/work/NEVER_WRITTEN.md`", "missing.md"),
+      );
+      if (
+        /git ref 'sdlc\/setup'/.test(refCase) &&
+        /'\.code-search\/' as removed/.test(refCase) &&
+        !/verify-artifact-not-found/.test(refCase) &&
+        // …and a genuinely absent artifact must still fail.
+        /verify-artifact-not-found/.test(stillFails)
+      ) {
+        ok(
+          "D7: a git ref and a removal claim are not missing artifacts; a real miss still fails",
+        );
+      } else {
+        fail(
+          "D7: a git ref and a removal claim are not missing artifacts; a real miss still fails",
+          `refCase:\n${refCase}\nstillFails:\n${stillFails}`,
+        );
+      }
     }
   } finally {
     fs.rmSync(fixture, { recursive: true, force: true });
