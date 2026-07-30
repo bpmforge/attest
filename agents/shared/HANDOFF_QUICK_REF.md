@@ -68,9 +68,17 @@ It produces: <report path>   ← come back with this
 ──────────────────────────────────────────────
 ```
 
-## Before every HANDOFF — two mandatory steps
+## Before every HANDOFF — three mandatory steps
 1. Save state: `write(filePath="docs/work/sdlc-state.md", content="Mode/Phase/Awaiting/Next")`
 2. Write context packet: `write(filePath="docs/work/context-for-<agent>.md", content="<400 words max>")`
+3. **Code tasks with a ` ```verify ` fence — probe the fence yourself, now:**
+   `bash ~/.config/opencode/scripts/verify-handoff.sh docs/work/context-for-<agent>.md --baseline`
+   You wrote the fence, so its defects are yours. This one run proves each command
+   actually runs here (a `matched nothing` verdict = an excluded path or bad glob —
+   fix it before dispatch), records the pre-existing failures so the specialist is
+   not blamed for them, and flags any fence line whose paths all sit outside the
+   WRITE-SCOPE you just wrote. Dispatching an unprobed fence is how a specialist
+   ends up with the work done, green unreachable, and nothing delivered.
 
 ## Context packet template (400 word cap)
 ```markdown
