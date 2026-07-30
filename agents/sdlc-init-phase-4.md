@@ -793,6 +793,9 @@ Per-wave verification:
   Every module has RUNTIME_<module>_<date>.md with PASS verdict: ✓/✗
   Every module FIX_BACKLOG has 0 open CRITICAL/HIGH: ✓/✗
   Every module PR has CI checks green (gh pr checks / tea pr view): ✓/✗
+    (local-only repo — `git remote` empty: no PR and no CI exist, so this row is
+     N/A. Substitute `VERIFY: ALL GREEN` + the module's review docs. An
+     impossible row is never a blocker and never an unearned ✓.)
 
 Infrastructure wave:
   IaC scaffolding: ✓/✗ DONE (infra/ exists, validate-iac.sh passes)

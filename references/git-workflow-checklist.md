@@ -153,7 +153,7 @@ All of the following must be true. git-expert --feature enforces this:
 - [ ] `FIX_BACKLOG_<branch>_<date>.md` "Merge-blocking" section is **empty** OR every row has PASS in latest `VERIFY_*`
 - [ ] `CODE_REVIEW_*_<date>.md` verdict: **APPROVED** or **APPROVED WITH SUGGESTIONS**
 - [ ] `SECURITY_*_<date>.md` verdict: **APPROVED** or **READY** (if security surface exists)
-- [ ] **CI pipeline green** — every check on the PR must be passing (not just the manual runtime gate)
+- [ ] **CI pipeline green** — every check on the PR must be passing (not just the manual runtime gate). **Local-only repo (`git remote` empty):** there is no PR and no CI, so this row is satisfied by `VERIFY: ALL GREEN` from the verify harness plus the review documents above — record it as `N/A (local-only) — verify fence GREEN, reviews present`. Never mark it ✓ on the strength of nothing, and never treat an impossible row as a blocker.
 - [ ] No open CRITICAL/HIGH in any review without a signed waiver in `WAIVERS_*_<date>.md`
 - [ ] Branch is up to date with main (no conflicts)
 
