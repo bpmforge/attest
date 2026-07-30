@@ -95,7 +95,7 @@ Run audit, then apply fixes:
 
 ### Cross-installation lesson intake
 
-`docs/work/LESSONS.md` in this repo (bpm-opencode-experts, the canonical expert-system repo)
+`docs/work/LESSONS.md` in this repo (attest, the canonical expert-system repo)
 is **THE single intake table** for cross-installation lessons — field reports from other
 installations, another repo's own loop escalations, anything shaped "we learned X the hard
 way." This is not a preference; it is a direct fix for a fragmentation this program's VISION
@@ -167,7 +167,7 @@ step 9 reminds you), on a cloud-tier model.
 ```
 ▶ Phase 3: Apply + verify
 ```
-4. Make the edits in the CANONICAL repo (bpm-opencode-experts), one commit per
+4. Make the edits in the CANONICAL repo (attest), one commit per
    agent touched, each commit message citing the evidence row.
 5. Re-run `npm run evals` (deterministic) — protocol edits must not regress
    the golden tasks. If agent-mode eval data motivated a change, re-run that

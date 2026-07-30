@@ -36,7 +36,7 @@ Point them at the in-house packs with `RULEPACKS_DIR=/path/to/bpm-rulepacks/pack
 ```bash
 # Opengrep (preferred) — official installer (no Homebrew formula exists)
 curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
-# or run: ./install.sh --opengrep  (from bpm-opencode-experts)
+# or run: ./install.sh --opengrep  (from attest)
 
 # Semgrep (fallback, dev only)
 brew install semgrep     # or: pip install semgrep

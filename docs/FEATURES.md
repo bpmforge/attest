@@ -394,7 +394,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 
 ## Shared protocols
 
-Canonical reference files in `agents/shared/`. Single source of truth — update once in this canonical repo; `npm run build:claude` regenerates the claude-experts copies.
+Canonical reference files in `agents/shared/`. Single source of truth — update once in this canonical repo; `npm run build:claude` regenerates the attest-claude copies.
 
 | File | Purpose |
 |------|---------|
@@ -595,7 +595,7 @@ Deterministic scaffolding in `scripts/` — these own control flow and verificat
 | `fix-verify.mjs` | Deterministic re-verify gate — `snapshot`/`verify` a finding source (`semgrep` or any `validate-*.sh`), diff by fingerprint, report CLOSED / STILL-OPEN / NEW, exit non-zero if anything remains or a fix regressed |
 | `mermaid-fix.mjs` | Mechanical Mermaid autofixer (`--write`) — smart quotes→ASCII, em-dash→hyphen, unicode arrows→`-->`, quote labels with specials, `//`→`%%` |
 | `build-agents.mjs` | Single-source boilerplate — `--check`/`--fix`/`--compact` (generates `dist/compact-agents/` tier=small variants) |
-| `build-target-claude.mjs` | Generates the claude-experts copies from this canonical repo (`npm run build:claude[:check]`) |
+| `build-target-claude.mjs` | Generates the attest-claude copies from this canonical repo (`npm run build:claude[:check]`) |
 | `check-tools.sh` | Detects (and `--install`s) the optional analysis tools: semgrep, knip, ts-prune, jscpd, vulture, radon, lizard, staticcheck, trufflehog, mmdc. Never sudo: installs npm/pipx tools (retrying into `~/.npm-global` on EACCES), prints the real error for failures, and lists remaining system prerequisites as commands for you to run. `mmdc` is report-only — see SETUP.md |
 | `doctor.sh` | Post-install self-check — structure, deps, config permission, model backend, tier detection, agent discovery, tool presence |
 | `detect-model-context.sh` | Writes `docs/work/.model-context` (type/provider/model/context/tier + `has_task_tool`/`mcp_in_subagents` flags) |
@@ -701,7 +701,7 @@ Slash command definitions in `commands/` — subcommands of `/sdlc`:
 | `tool.execute.before` | **Block dangerous bash** (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl\|bash`, etc.). **Block writes to credential files** (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Throws to abort the call. |
 | `tool.execute.after` (write/edit only) | **format → lint → type-check → secret-scan**, all in parallel: prettier / black+isort / gofmt / rustfmt; eslint / ruff; `tsc --noEmit`; regex scan for hardcoded API keys, AWS creds, PEM keys, DB connection strings. Findings surface via `console.warn` — informational, never block. Missing formatters silently skipped. |
 
-Ports the high-value subset of the claude-experts hook catalog. **Not** ported (different abstractions): `commit-validator.sh` (use a project-level git pre-commit hook), `test-on-stop.sh` (no clean opencode session-idle semantic), `session-start.sh` (opencode lacks a UserPromptSubmit equivalent).
+Ports the high-value subset of the attest-claude hook catalog. **Not** ported (different abstractions): `commit-validator.sh` (use a project-level git pre-commit hook), `test-on-stop.sh` (no clean opencode session-idle semantic), `session-start.sh` (opencode lacks a UserPromptSubmit equivalent).
 
 ---
 

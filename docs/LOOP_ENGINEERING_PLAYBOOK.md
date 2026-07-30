@@ -1,7 +1,7 @@
 # Loop Engineering Playbook
 
 **Status:** Living document — compiled 2026-06-22, primary sources verified via WebFetch
-**Audience:** the expert system (`bpm-opencode-experts` / `claude-experts`), **Foreman** (the program formerly known as Jarvis), and anyone building autonomous agent loops
+**Audience:** the expert system (`attest` / `attest-claude`), **Foreman** (the program formerly known as Jarvis), and anyone building autonomous agent loops
 **Purpose:** Reconcile how *we* orchestrate agents today (the HANDOFF pattern) with the discipline of **loop engineering** (Addy Osmani, Sabrina Ramonov) and how **Boris Cherny + Cat Wu** (creators of Claude Code) design agentic loops — then turn the gaps into a concrete backlog wired to Foreman.
 
 ---
@@ -159,7 +159,7 @@ The parts people skip, and the failure mode:
 
 **Jarvis is now Foreman.** Not a rename for branding — a change in role: the human *"stops being the scheduler and becomes the reviewer of an approval queue."* Foreman = the expert system's **discipline** (70 experts, HANDOFF contracts, 48 validators, rubric gate scoring) executing inside Jarvis's **runtime** (24/7 Fastify orchestrator, WorkflowEngine, cron, dashboard, approval queue).
 
-**Three locked decisions:** (1) Name = Foreman; (2) canonical content stays `bpm-opencode-experts`, a new `npm run build:foreman` target generates expert specs — *one source, three consumers* (OpenCode, Claude Code, Foreman), never hand-edited in the runtime; (3) **autonomy = auto-with-approval-queue** — phases/handoffs/validators/revisions/feature-commits run unattended; only **deploys, merges to main, and destructive ops** pause for human approval.
+**Three locked decisions:** (1) Name = Foreman; (2) canonical content stays `attest`, a new `npm run build:foreman` target generates expert specs — *one source, three consumers* (OpenCode, Claude Code, Foreman), never hand-edited in the runtime; (3) **autonomy = auto-with-approval-queue** — phases/handoffs/validators/revisions/feature-commits run unattended; only **deploys, merges to main, and destructive ops** pause for human approval.
 
 **Success picture (from VISION):** *"You say 'add OAuth login to project X' at 11pm. By morning: a feature branch with design docs, implementation, passing tests, a validator report; the delegation log shows which experts ran, their scores, one revision cycle on the DBA's schema; the cost ledger shows $4.20 of a $15 budget; and one card waits in the approval queue: 'merge feat/oauth-login to main?'"*
 
@@ -275,4 +275,4 @@ This is exactly the shape Foreman runs unattended: a tree of self-verifying micr
 
 **opencode:** https://opencode.ai/docs/agents/ · #20059 (closed) / #16491 / #18001 / #11232 (open) on github.com/anomalyco/opencode · https://opencode.ai/changelog
 
-**Internal:** `ai-assistant-agent/docs/foreman/{VISION,ARCHITECTURE,USER_STORIES,TASKS}.md` · `bpm-opencode-experts/agents/shared/*` (HANDOFF, GATE_SCORING, RALPH_WIGGUM, FIX_VERIFY, CHALLENGER, EXECUTOR_SELECTION) · `memory/opencode-phase6-blocker-status.md`, `memory/foreman-project-decisions.md`
+**Internal:** `ai-assistant-agent/docs/foreman/{VISION,ARCHITECTURE,USER_STORIES,TASKS}.md` · `attest/agents/shared/*` (HANDOFF, GATE_SCORING, RALPH_WIGGUM, FIX_VERIFY, CHALLENGER, EXECUTOR_SELECTION) · `memory/opencode-phase6-blocker-status.md`, `memory/foreman-project-decisions.md`

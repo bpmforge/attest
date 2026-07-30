@@ -1,6 +1,6 @@
 # Parallel Worktree Agent Playbook
 
-Reference for briefing multiple agents to ship separate tickets concurrently in this repo (or claude-experts, its generated sibling). Everything here was learned from real incidents dispatching parallel batches — not theoretical. Point a dispatch prompt at this file instead of re-deriving these gotchas inline each time.
+Reference for briefing multiple agents to ship separate tickets concurrently in this repo (or attest-claude, its generated sibling). Everything here was learned from real incidents dispatching parallel batches — not theoretical. Point a dispatch prompt at this file instead of re-deriving these gotchas inline each time.
 
 ---
 
@@ -51,16 +51,16 @@ bash scripts/validators/validate-no-reinvent.sh --base origin/main .
 bash scripts/validators/validate-tracker-fresh.sh --base origin/main .
 ```
 
-## claude-experts regeneration: always pass `--out` explicitly
+## attest-claude regeneration: always pass `--out` explicitly
 
-`node scripts/build-target-claude.mjs --check` (or `--write`) defaults `--out` to `join(ROOT, '..', 'claude-experts')` — a path relative to wherever the script is actually running from. In an isolated worktree (or any location that isn't the canonical sibling-directory layout), this resolves to the WRONG path and reports a spurious "everything missing" result. Always pass the real path explicitly:
+`node scripts/build-target-claude.mjs --check` (or `--write`) defaults `--out` to `join(ROOT, '..', 'attest-claude')` — a path relative to wherever the script is actually running from. In an isolated worktree (or any location that isn't the canonical sibling-directory layout), this resolves to the WRONG path and reports a spurious "everything missing" result. Always pass the real path explicitly:
 
 ```bash
-node scripts/build-target-claude.mjs --check --out /Users/user/Code/claude-experts
-node scripts/build-target-claude.mjs --write --out /Users/user/Code/claude-experts
+node scripts/build-target-claude.mjs --check --out /Users/user/Code/attest-claude
+node scripts/build-target-claude.mjs --write --out /Users/user/Code/attest-claude
 ```
 
-If you maintain a local clone of claude-experts for this, keep it fetched/fast-forwarded — a stale local clone produces the same false-drift symptom (files that already merged on the remote showing as "different" against your outdated local copy). `git fetch origin main -q && git merge --ff-only origin/main` before trusting a `--check` result.
+If you maintain a local clone of attest-claude for this, keep it fetched/fast-forwarded — a stale local clone produces the same false-drift symptom (files that already merged on the remote showing as "different" against your outdated local copy). `git fetch origin main -q && git merge --ff-only origin/main` before trusting a `--check` result.
 
 ## Portability gotchas (macOS stock tools)
 

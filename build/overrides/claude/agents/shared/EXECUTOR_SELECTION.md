@@ -20,7 +20,7 @@ if a protocol mentions checking those flags, read them as already true.
 | **C** | **Manual HANDOFF paste (fallback)** — print the HANDOFF block as text; the user opens a new session, types the skill, pastes | Task dispatch failed twice, or the user wants to watch a specialist run as a first-class conversation |
 
 (Executor B — subprocess spawning — is an OpenCode mechanism; it does not
-apply on Claude Code. See the sibling repo bpm-opencode-experts for that
+apply on Claude Code. See the sibling repo attest for that
 runtime's capability probing.)
 
 ## Rules regardless of executor

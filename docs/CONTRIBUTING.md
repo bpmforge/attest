@@ -117,11 +117,11 @@ Read `my-checklist.md` for the systematic checklist.
 5. Verify scope-boundary fires for out-of-scope asks
 6. Test with at least 2 different LLM providers
 
-## Keeping `claude-experts` in sync (the generated repo)
+## Keeping `attest-claude` in sync (the generated repo)
 
-`claude-experts` is **generated** from this repo (`npm run build:claude`). Two rules keep it sane under parallel/automated work:
+`attest-claude` is **generated** from this repo (`npm run build:claude`). Two rules keep it sane under parallel/automated work:
 
-- **Do NOT run `build:claude` or touch `../claude-experts` inside a ticket/executor session.** Regeneration is a **single post-merge step**, run once after source PRs land — never per-executor. Parallel executors each regenerating into the one shared sibling race each other: one leaves a stray skill that spuriously fails another's local `skills-parity` test, and a regen committed at a different moment than it was generated ships a *stale* generated file that fails CI (both observed 2026-07-13).
+- **Do NOT run `build:claude` or touch `../attest-claude` inside a ticket/executor session.** Regeneration is a **single post-merge step**, run once after source PRs land — never per-executor. Parallel executors each regenerating into the one shared sibling race each other: one leaves a stray skill that spuriously fails another's local `skills-parity` test, and a regen committed at a different moment than it was generated ships a *stale* generated file that fails CI (both observed 2026-07-13).
 - **After merging source PRs to `main`, run `scripts/regen-claude-target.sh` once.** It regenerates, commits the fresh output, pushes both remotes, and gates on `build:claude:check`. `build:claude:check` runs in CI **only on `main` push** (post-merge) — it is unsatisfiable on a feature branch that adds a skill/agent/script, so it does not gate PRs; `npm test` does.
 - **`skills/` is hand-maintained per target** (not generated) — a new skill must be authored in *both* repos. `build:claude` regenerates agents/references/validators/scripts; it does not create skill directories.
 

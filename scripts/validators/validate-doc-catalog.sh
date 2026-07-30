@@ -5,7 +5,7 @@
 # validate-doc-counts.sh checks the NUMBERS in docs; this checks the BODY: every
 # real artifact (validator, shared protocol, reference) is actually listed in the
 # catalog (FEATURES.md). It catches the body-drift that count-checking misses --
-# e.g. claude-experts' FEATURES listing 16 of 23 shared protocols, or a new
+# e.g. attest-claude' FEATURES listing 16 of 23 shared protocols, or a new
 # validator that ships undocumented.
 #
 # No false positives: a category is only checked if the catalog ALREADY documents

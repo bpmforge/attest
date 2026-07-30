@@ -27,6 +27,7 @@
  *   node delegation-gate.mjs --coverage [--base=origin/main]
  *   node delegation-gate.mjs --patterns
  *   node delegation-gate.mjs --citations=docs/work/REVIEW_T-123.md
+ *   node delegation-gate.mjs --grounding=docs/work/REVIEW_T-123.md
  *   node delegation-gate.mjs --all
  */
 import { readFileSync, existsSync } from "node:fs";
@@ -214,6 +215,116 @@ function citations(file, ref) {
   return 1;
 }
 
+
+// ── finding grounding ──────────────────────────────────────────────────────
+// Two ways a reviewer raises a finding that should never have been raised.
+// Field trace 2026-07 (downstream project), both from one review:
+//
+//   F. A requirement asserted by ANALOGY. The reviewer claimed setPinned needed a
+//      system-snapshot guard at 90% confidence. The lead read the SRS: FR-VER-07
+//      (delete) explicitly forbids deleting system snapshots; FR-VER-06 (pin) has
+//      no such clause, and pinning destroys nothing. "The reviewer's 90%-confidence
+//      claim is an analogy from delete's guard, not a grounded requirement." Two
+//      findings dropped — the second only existed to test the first.
+//
+//   G. A METHODOLOGY artifact demanded of the project. The reviewer flagged
+//      `scripts/validators/validate-tech-stack.sh` as missing; that project "genuinely
+//      has no scripts/validators/ directory at all". Our own scaffolding is not the
+//      reviewed project's deliverable.
+//
+// Neither is caught by --citations: F cites nothing to resolve, and G is a claim
+// about a file's ABSENCE, which has no line number to check.
+const REQ_ID = /\b(?:FR|NFR|US|AC|REQ)-[A-Z0-9]{2,}(?:-\d+)?\b/g;
+// Requirement-INVOKING language, deliberately not a bare "must" — reviews say
+// "must be awaited" about plain code all day. These phrasings claim the spec.
+const REQ_LANGUAGE =
+  /\b(requirement|SRS|SHALL|acceptance criteri|per the spec|the spec (?:says|requires)|user stor(?:y|ies))\b/i;
+// Directories that belong to the expert system, not to a reviewed project.
+const METHODOLOGY_DIR = /^(scripts\/validators|agents|references|exemplars|docs\/work)\//;
+const ABSENCE = /\b(missing|absent|does not exist|doesn't exist|not present|should (?:exist|be (?:created|added)))\b/i;
+
+function grounding(file) {
+  const p = isAbsolute(file) ? file : join(ROOT, file);
+  if (!existsSync(p)) {
+    console.error(`delegation-gate: no such review file: ${file}`);
+    return 2;
+  }
+  const text = readFileSync(p, "utf8");
+  let rc = 0;
+
+  // -- F1. Every requirement ID invoked must exist in the requirement docs. --
+  const ids = [...new Set(text.match(REQ_ID) ?? [])];
+  const reqDocs = [
+    "docs/SRS.md",
+    "docs/sdlc/SRS.md",
+    "docs/USER_STORIES.md",
+    "docs/sdlc/USER_STORIES.md",
+    "SRS.md",
+  ]
+    .map((d) => join(ROOT, d))
+    .filter((d) => existsSync(d));
+  const corpus = reqDocs.map((d) => readFileSync(d, "utf8")).join("\n");
+
+  if (ids.length && !reqDocs.length) {
+    console.log(
+      `delegation-gate: review invokes ${ids.length} requirement ID(s) but no SRS/USER_STORIES\n` +
+        `  was found to check them against — grounding UNVERIFIED, not confirmed.`,
+    );
+  } else if (ids.length) {
+    const missing = ids.filter((id) => !corpus.includes(id));
+    console.log(
+      `delegation-gate: ${ids.length} requirement ID(s) checked against ${reqDocs.length} requirement doc(s)`,
+    );
+    if (missing.length) {
+      for (const m of missing) console.error(`  NOT IN REQUIREMENTS: ${m}`);
+      console.error(
+        `\n${missing.length} requirement ID(s) appear nowhere in the requirement docs. A finding\n` +
+          `resting on a requirement that does not exist is confabulated, however confident\n` +
+          `the confidence score.`,
+      );
+      rc = 1;
+    } else {
+      console.log("  all resolve");
+    }
+  }
+
+  // -- F2. Arguing FROM requirements while citing none at all. --------------
+  if (!ids.length && REQ_LANGUAGE.test(text)) {
+    const hit = (text.match(REQ_LANGUAGE) ?? [])[0];
+    console.error(
+      `delegation-gate: this review argues from requirements (matched "${hit}") but cites no\n` +
+        `  requirement ID anywhere. That is the shape of a requirement inferred by analogy\n` +
+        `  from a neighbouring rule — cite the FR/NFR/US that says it, or drop the claim.`,
+    );
+    rc = 1;
+  }
+
+  // -- G. Methodology artifacts demanded of the reviewed project. -----------
+  const paths = [...new Set([...text.matchAll(/`([\w./-]+\.[a-zA-Z]{1,5})`/g)].map((m) => m[1]))];
+  // Test the METHODOLOGY prefix itself (e.g. "scripts/validators"), not just the
+  // top level: the traced project had no "scripts/validators/" while plausibly
+  // having a "scripts/", and a top-level-only check would have missed it.
+  const mismatched = paths.filter((x) => {
+    const m = x.match(METHODOLOGY_DIR);
+    return m ? !existsSync(join(ROOT, m[1])) : false;
+  });
+  if (mismatched.length && ABSENCE.test(text)) {
+    console.log(
+      `\nMETHODOLOGY/PROJECT MISMATCH — ${mismatched.length} path(s) belong to the expert system,\n` +
+        `  not to this project, and the directory they live in does not exist here:`,
+    );
+    for (const m of mismatched) console.log(`    ${m}`);
+    console.log(
+      "  Our own scaffolding is not the reviewed project's deliverable. Drop these findings;\n" +
+        "  they are a generic-methodology artifact, not a defect in the work under review.",
+    );
+    // Advisory: the correct resolution is "no action needed", so this names the
+    // class rather than blocking a review that is otherwise sound.
+  }
+
+  return rc;
+}
+
 // ── entry ──────────────────────────────────────────────────────────────────
 if (!sh("git rev-parse --git-dir")) {
   console.error(`delegation-gate: ${ROOT} is not a git repository`);
@@ -221,11 +332,14 @@ if (!sh("git rev-parse --git-dir")) {
 }
 
 const cite = opt("citations");
+const ground = opt("grounding");
 const wantAll = argv.includes("--all");
 let rc = 0;
 
 if (cite) {
   rc |= citations(cite, opt("ref", "HEAD"));
+} else if (ground) {
+  rc |= grounding(ground);
 } else if (wantAll || argv.includes("--coverage") || argv.includes("--patterns")) {
   const base = mergeBase();
   if (!base) {
@@ -235,7 +349,9 @@ if (cite) {
   if (wantAll || argv.includes("--coverage")) rc |= coverage(base);
   if (wantAll || argv.includes("--patterns")) rc |= patterns(base);
 } else {
-  console.error("delegation-gate: pass --coverage, --patterns, --citations=<file>, or --all");
+  console.error(
+    "delegation-gate: pass --coverage, --patterns, --citations=<file>, --grounding=<file>, or --all",
+  );
   process.exit(2);
 }
 process.exit(rc ? 1 : 0);

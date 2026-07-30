@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-01 | **Version:** v0.11.1 | **Reviewer:** Claude Code (automated + manual)
 
-This book documents the architecture, internals, and quality findings for the bpm-opencode-experts system.
+This book documents the architecture, internals, and quality findings for the attest system.
 
 ---
 

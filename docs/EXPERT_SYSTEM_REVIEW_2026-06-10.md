@@ -1,6 +1,6 @@
 # Expert System Review — 2026-06-10
 
-**Scope:** All expert agents in bpm-opencode-experts (applies equally to claude-experts — content is shared). Four questions: (1) what is each expert's true goal and how does it actually work, (2) is the Ralph Wiggum + Challenger flow really wired or just prose, (3) is every expert a proper portable prompt + standard handoff usable by any LLM, (4) which experts are missing. Plus: current state of OpenCode subagent support (the original reason for the repo split).
+**Scope:** All expert agents in attest (applies equally to attest-claude — content is shared). Four questions: (1) what is each expert's true goal and how does it actually work, (2) is the Ralph Wiggum + Challenger flow really wired or just prose, (3) is every expert a proper portable prompt + standard handoff usable by any LLM, (4) which experts are missing. Plus: current state of OpenCode subagent support (the original reason for the repo split).
 **Companion:** `docs/ARCHITECTURE_EVOLUTION_PLAN.md` (Parts 1–7), `IMPROVEMENT_BACKLOG.md` (28 items — not duplicated here).
 
 ---

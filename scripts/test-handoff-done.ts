@@ -1,8 +1,8 @@
 // Pass 48 — unwinnable gates: handoff-done.sh's RED conditions an agent cannot
 // clear, and the file tools that refused to create a file.
 //
-// WHY: two field traces from the same 2026-07 run (a new-project bootstrap from a
-// other-project session) both ended in a permanent stall, not a wrong answer:
+// WHY: two field traces from the same 2026-07 run (new-project bootstrap from a
+// a different project’s session) both ended in a permanent stall, not a wrong answer:
 //
 //   1. sdlc-lead: "the available update tool only overwrites existing files;
 //      all four required new handoff/state files failed with 'File does not

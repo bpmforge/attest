@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
 //
-// Ports the high-value subset of claude-experts' hooks to opencode's
+// Ports the high-value subset of attest-claude' hooks to opencode's
 // plugin surface. Four phases:
 //
 //   tool.execute.before   block dangerous bash commands; block writes to

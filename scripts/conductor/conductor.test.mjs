@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // scripts/conductor
-const REPO_ROOT = resolve(HERE, '..', '..');                     // bpm-opencode-experts
+const REPO_ROOT = resolve(HERE, '..', '..');                     // attest
 const CONDUCTOR = resolve(HERE, 'conductor.mjs');
 const GATES_SH = resolve(REPO_ROOT, 'scripts/validators/run-handoff-gates.sh');
 
