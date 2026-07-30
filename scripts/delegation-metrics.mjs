@@ -27,6 +27,20 @@
  * outcome is matched case-insensitively: DONE/ACCEPT/PASS count as accepted;
  * REDO/REVISE/FAIL/REJECT count as corrections; PENDING/WIP are excluded from
  * the denominator rather than silently counted as successes.
+ *
+ * LEAD-FIXED is a correction too, and it is the one this metric was blindest to.
+ * Field trace 2026-07 (downstream project): the lead repeatedly closed a specialist's gaps
+ * itself — "I already know exactly what's needed and it's mechanical, I'll close
+ * these directly rather than a round-trip", "~90% correct though — I'll finish
+ * the small remaining gaps directly rather than risk another confused
+ * round-trip", "both small/mechanical — lead fixed directly" — and logged the
+ * row DONE. Rework happened; only the identity of who did it changed. Logging it
+ * as accepted made the models generating the most rework look the cleanest,
+ * which is precisely backwards for a metric whose stated purpose is "if one tier
+ * carries most of the corrections, that is a config change, not an escalation".
+ * DONE-LEAD-FIXED / LEAD-FIXED counts as a correction AND is reported as its own
+ * subtotal, because "the specialist got another attempt" and "the lead silently
+ * finished the work" call for different remedies.
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join, isAbsolute } from "node:path";
@@ -44,6 +58,34 @@ const LOG = (() => {
 
 const ACCEPTED = /^(done|accept(ed)?|pass(ed)?|ok|merged)$/i;
 const CORRECTION = /^(redo|revise[d]?|fail(ed)?|reject(ed)?|blocked)$/i;
+// Absorbed-by-lead. Separate pattern so it can be counted twice: once as a
+// correction (it is one) and once as its own subtotal (it means something else).
+const LEAD_FIXED = /^(done.?lead.?fixed|lead.?fixed|accepted.?with.?lead.?fix)$/i;
+const isCorrection = (o) => CORRECTION.test(o) || LEAD_FIXED.test(o);
+
+// The outcome column is self-reported, so a lead that absorbs work and writes a
+// plain DONE bypasses the count entirely. What saves us is that leads DESCRIBE
+// what they did: all three absorptions in the 2026-07 trace were self-narrated
+// ("I'll close these directly rather than a round-trip", "I'll finish the small
+// remaining gaps directly", "both small/mechanical — lead fixed directly"). An
+// accepted row whose own notes say the lead did the work is a mislabelled row,
+// and that is mechanically checkable against the artifact — no judgement needed.
+// Distinctive lead-absorption phrasings only. Deliberately NOT a bare "I fixed":
+// the notes column can carry the specialist's own words, and "fixed the failing
+// test" is ordinary specialist work, not absorption. A false positive here is a
+// warning asking you to check a row, so the pattern leans specific over eager.
+const LEAD_DID_IT = new RegExp(
+  [
+    "lead[- ]?fix",                                    // "lead fixed directly"
+    "fix(?:ed|ing)? (?:it|them|these|those) (?:my|our)self", // "fixed them myself"
+    "clos(?:e|ed|ing) (?:it|them|these|those) directly", // "close these directly"
+    "finish(?:ed|ing)? the (?:small |remaining )*gaps?", // "finish the small remaining gaps"
+    "did it myself",
+    "rather than .{0,40}round.?trip",                  // "...rather than risk another confused round-trip"
+    "instead of (?:a |another )?round.?trip",
+  ].join("|"),
+  "i",
+);
 const EXCLUDED = /^(pending|wip|in.?flight|in.?progress)$/i;
 
 function parse(text) {
@@ -70,6 +112,12 @@ function parse(text) {
       agent: cols.agent >= 0 ? cells[cols.agent] || "(unrecorded)" : "(unrecorded)",
       model: cols.model >= 0 ? cells[cols.model] || "(unrecorded)" : "(unrecorded)",
       outcome: cells[cols.outcome] ?? "",
+      // The whole row, minus the outcome cell. The mislabel check below scans
+      // this rather than a named notes column: the canonical log template
+      // (GATE_SCORING_PROTOCOL Step 5) puts the self-description in a trailing
+      // notes column with no header this parser keys off, and a lead may just as
+      // easily narrate the absorption in the task-summary cell.
+      raw: cells.filter((_, i) => i !== cols.outcome).join(" | "),
     });
   }
   return { rows, cols };
@@ -79,10 +127,13 @@ function tally(rows, key) {
   const by = new Map();
   for (const r of rows) {
     const k = r[key] || "(unrecorded)";
-    if (!by.has(k)) by.set(k, { accepted: 0, corrections: 0 });
+    if (!by.has(k)) by.set(k, { accepted: 0, corrections: 0, leadFixed: 0 });
     const t = by.get(k);
     if (ACCEPTED.test(r.outcome)) t.accepted++;
-    else if (CORRECTION.test(r.outcome)) t.corrections++;
+    else if (isCorrection(r.outcome)) {
+      t.corrections++;
+      if (LEAD_FIXED.test(r.outcome)) t.leadFixed++;
+    }
   }
   return by;
 }
@@ -102,7 +153,11 @@ function report(label, by) {
     const n = t.accepted + t.corrections;
     const rate = ((t.corrections / n) * 100).toFixed(0);
     // A rate over a handful of samples is noise; say so rather than ranking on it.
-    const note = n < 10 ? "  (n<10, not yet meaningful)" : "";
+    let note = n < 10 ? "  (n<10, not yet meaningful)" : "";
+    // Surfaced inline: a key whose corrections are mostly lead-fixed is not a
+    // specialist that keeps failing, it is one whose work keeps getting quietly
+    // finished — a routing/scoping signal, not a gate signal.
+    if (t.leadFixed > 0) note += `  (${t.leadFixed} lead-fixed)`;
     console.log("  " + k.slice(0, 24).padEnd(26) + String(n).padStart(5) + String(t.corrections).padStart(14) + `  ${rate}%${note}`);
   }
 }
@@ -121,7 +176,11 @@ if (!rows.length) {
 }
 
 const accepted = rows.filter((r) => ACCEPTED.test(r.outcome)).length;
-const corrections = rows.filter((r) => CORRECTION.test(r.outcome)).length;
+const corrections = rows.filter((r) => isCorrection(r.outcome)).length;
+const leadFixed = rows.filter((r) => LEAD_FIXED.test(r.outcome)).length;
+const mislabelled = rows.filter(
+  (r) => ACCEPTED.test(r.outcome) && LEAD_DID_IT.test(r.raw ?? ""),
+);
 const excluded = rows.filter((r) => EXCLUDED.test(r.outcome)).length;
 const scored = accepted + corrections;
 
@@ -132,6 +191,8 @@ if (argv.includes("--json")) {
         scored,
         accepted,
         corrections,
+        leadFixed,
+        mislabelled: mislabelled.length,
         excluded,
         correctionRate: scored ? corrections / scored : null,
         byModel: Object.fromEntries(tally(rows, "model")),
@@ -148,10 +209,27 @@ console.log(`${LOG.replace(ROOT + "/", "")} — ${rows.length} row(s)\n`);
 console.log(`  scored          ${scored}`);
 console.log(`  accepted        ${accepted}`);
 console.log(`  corrections     ${corrections}`);
+console.log(
+  `  ├─ lead-fixed   ${leadFixed}` +
+    (leadFixed > 0
+      ? "  (the lead closed the gap itself — rework that used to log as DONE)"
+      : ""),
+);
 console.log(`  in flight       ${excluded}  (excluded from the denominator, not counted as passes)`);
 console.log(
   `  correction rate ${scored ? ((corrections / scored) * 100).toFixed(1) : "—"}%`,
 );
+
+if (mislabelled.length) {
+  console.log(
+    `\n⚠ ${mislabelled.length} row(s) are marked accepted but their own notes say the lead\n` +
+      `  did the work. Those are corrections — outcome DONE-LEAD-FIXED, not DONE.\n` +
+      `  Counted as accepted here, so every rate below is flattered by them:`,
+  );
+  for (const r of mislabelled.slice(0, 10)) {
+    console.log(`    ${r.agent} / ${r.model} — "${(r.raw ?? "").slice(0, 90)}"`);
+  }
+}
 
 report("model", tally(rows, "model"));
 report("agent", tally(rows, "agent"));
