@@ -73,6 +73,26 @@ export function testRetryBudgets(root: string, ok: Ok, fail: Fail) {
       "the ledger tracks them between attempts",
       /Retry budgets: tooling <n>\/2/,
     ],
+    // The distinction that decides whether the budget helps or strangles: a
+    // strike is a repeat, not an attempt. The first version counted attempts and
+    // a coding agent making real progress hit "retry budget exhausted" at three
+    // fixes (2026-07-30).
+    [
+      "a counter charges REPEATS, not attempts",
+      /A counter counts REPEATS, not attempts/,
+    ],
+    [
+      "progress is explicitly never charged",
+      /signature set \*\*changed\*\*[\s\S]{0,80}none — this is progress/,
+    ],
+    [
+      "the repeat test is mechanical, off failure signatures",
+      /identical\*\*[\s\S]{0,60}one strike/,
+    ],
+    [
+      "a fallback exists when signatures are unavailable",
+      /same error text twice\s+in a row is a repeat/,
+    ],
   ];
   const missing = needed.filter(([, re]) => !re.test(lp)).map(([l]) => l);
   if (missing.length === 0) {

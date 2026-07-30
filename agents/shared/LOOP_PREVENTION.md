@@ -168,19 +168,47 @@ not fix, hit the single 3-strike cap, and stopped with the implementation
 finished and unreported. One counter cannot tell "I typed the command wrong" from
 "the code is wrong", so the cheapest failure exhausts the budget for the real one.
 
+### A counter counts REPEATS, not attempts
+
+**This is the part that decides whether the budget helps or strangles you.** A
+strike is an attempt that produced **no new information** — the same failure
+signature you already had. An attempt that *changes* the failure is progress, and
+progress is never charged, however many times it takes.
+
+Field failure 2026-07-30: the first version of this section counted attempts, so
+a coding agent doing ordinary fix → verify → fix → verify work — each pass fixing
+a real defect and surfacing a different one — exhausted `code_remediation` at
+three and reported "retry budget exhausted" while actively making progress. That
+inverted the original Class-1 rule above, which has always been about the *same*
+error repeating. Being stuck is the thing worth stopping; iterating is the job.
+
+**The test is mechanical, from the verify report's failure signatures (v2.44.0):**
+
+| Between two attempts | Charge |
+|---|---|
+| the failing signature set **changed** (different failures, or fewer) | none — this is progress |
+| the failing signature set is **identical** | one strike on the matching counter |
+| the command now **passes** | none, obviously |
+
+So "3" does not mean three fixes. It means three consecutive attempts that moved
+nothing. If you cannot obtain signatures (no verify fence, a tool that prints no
+comparable output), fall back to the Class-1 rule above: the same error text twice
+in a row is a repeat.
+
 Keep **four independent counters** per HANDOFF, plus the existing schema counter:
 
 | Counter | Budget | What it covers |
 |---|---|---|
 | `tooling_retries` | 2 | the command/flag/path is wrong, or the tool's own config excludes the target |
 | `environment_retries` | 2 | the machine is not ready — missing dep, service down, port taken, unauthenticated |
-| `code_remediation_retries` | 3 | a real defect in code you own |
+| `code_remediation_retries` | 3 | a real defect in code you own — charged only when a fix changes nothing |
 | `review_retries` | 3 | rework demanded by a reviewer |
 | `schema_retries` | 2 | malformed tool args (Class 2 above — unchanged) |
 
-**Global cap: 8 attempts total per HANDOFF, whatever the mix.** Four counters buy
-the right *kind* of attempt; they do not buy unlimited attempts. Hitting the cap
-stops you exactly like a single counter would.
+**Global cap: 8 attempts total per HANDOFF, whatever the mix** — again counting
+only the no-progress ones. Four counters buy the right *kind* of strike; they do
+not buy unlimited spinning. Hitting the cap stops you exactly like a single
+counter would.
 
 ### Classification is read off evidence, never judged
 
@@ -210,7 +238,9 @@ verify report rather than memory:
 
 ```
 tooling 0/2 · environment 0/2 · code 1/3 · review 0/3 · schema 0/2 · total 1/8
-Last charge: code — "VERIFY: RED — exit 1 from: npx vitest run" (2 NEW failures)
+Last charge: code — identical signature set to the previous attempt:
+              "FAIL src/auth.test.ts > rejects an expired token"
+(An attempt that changed the failing set is NOT charged — record it as progress.)
 ```
 
 When any single counter or the global cap is exhausted, stop with
