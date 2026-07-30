@@ -223,7 +223,10 @@ export async function testVerifyHandoff(root: string, ok: Ok, fail: Fail) {
     if (
       stale.status === 1 &&
       /changed AFTER the verify run/.test(stale.stdout) &&
-      /uncommitted changes outside docs\/work/.test(stale.stdout) &&
+      // src/thing.ts is in the packet's PRODUCE list, so the gate attributes it
+      // to this HANDOFF and demands the commit (see Pass 48 for the converse:
+      // a dirty file the HANDOFF does not own only warns).
+      /uncommitted changes to files this HANDOFF owns/.test(stale.stdout) &&
       /Do NOT print the completion phrase/.test(stale.stdout)
     ) {
       ok(
