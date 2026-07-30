@@ -177,21 +177,57 @@ fi
 # -- 2. Verify result: must cite >=1 artifact, every cited artifact exists --
 verify_body="$(section_body '(verify[[:space:]]+result|verification|test[[:space:]]+result|tests?)')"
 verify_artifacts=0
+
+# Not every backticked token containing "/" is a file path, and calling one a
+# missing artifact blocks a HANDOFF that did nothing wrong. Field failure
+# 2026-07-30: a git-expert manifest said "Branch `sdlc/setup` created from main"
+# and "Removed `.code-search/` per the HANDOFF". Both were reported missing, and
+# the agent's own proposed remedies were to weaken the manifest or to `mkdir` an
+# inert directory purely to satisfy the check — the gate driving the evidence
+# instead of the other way round. Two mechanical discriminators:
+#
+#   1. A token that resolves as a git ref is a REF citation, not a path claim.
+#   2. A citation on a line stating the thing was REMOVED is a claim about
+#      absence; demanding it exist inverts the claim being made.
+is_git_ref() {
+  git -C "$ROOT" rev-parse --verify --quiet "refs/heads/$1"   >/dev/null 2>&1 && return 0
+  git -C "$ROOT" rev-parse --verify --quiet "refs/tags/$1"    >/dev/null 2>&1 && return 0
+  git -C "$ROOT" rev-parse --verify --quiet "refs/remotes/$1" >/dev/null 2>&1 && return 0
+  return 1
+}
+REMOVAL_RE='(removed|deleted|excluded|dropped|no longer|untracked|purged|reverted)'
+
+# Paths that survive filtering — reused by the 2b/2c evidence checks below.
+VERIFY_PATHS=""
 if [[ -n "$verify_body" ]]; then
-  while IFS= read -r p; do
-    [[ -z "$p" ]] && continue
-    verify_artifacts=$((verify_artifacts + 1))
-    # Routed through resolve_in_root like check 1: the 2b/2c checks below READ
-    # these files, and reading an escaping path is strictly worse than stat'ing
-    # one. Same "refused, never read" rule.
-    case "$(resolve_in_root "$p")" in
-      ok) : ;;
-      escapes)
-        gap "verify-artifact-escapes-root" "'Verify result' cites '$p' -- resolves outside $ROOT (traversal or symlink escape); refused, never read" ;;
-      *)
-        gap "verify-artifact-not-found" "'Verify result' cites '$p' -- does not exist at $ROOT/$p" ;;
-    esac
-  done < <(printf '%s\n' "$verify_body" | extract_paths)
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    removal=0
+    if printf '%s' "$line" | grep -qiE "$REMOVAL_RE"; then removal=1; fi
+    while IFS= read -r p; do
+      [[ -z "$p" ]] && continue
+      verify_artifacts=$((verify_artifacts + 1))
+      if is_git_ref "$p"; then
+        pass "'Verify result' cites git ref '$p' (a branch/tag, not a file)"
+        continue
+      fi
+      if [[ "$removal" -eq 1 ]]; then
+        pass "'Verify result' cites '$p' as removed -- absence is the claim, not a missing artifact"
+        continue
+      fi
+      # Routed through resolve_in_root like check 1: the 2b/2c checks below READ
+      # these files, and reading an escaping path is strictly worse than stat'ing
+      # one. Same "refused, never read" rule.
+      case "$(resolve_in_root "$p")" in
+        ok) VERIFY_PATHS="$VERIFY_PATHS$p
+" ;;
+        escapes)
+          gap "verify-artifact-escapes-root" "'Verify result' cites '$p' -- resolves outside $ROOT (traversal or symlink escape); refused, never read" ;;
+        *)
+          gap "verify-artifact-not-found" "'Verify result' cites '$p' -- does not exist at $ROOT/$p" ;;
+      esac
+    done < <(printf '%s\n' "$line" | extract_paths)
+  done < <(printf '%s\n' "$verify_body")
 fi
 if [[ -n "$verify_body" && "$verify_artifacts" -eq 0 ]]; then
   gap "verify-no-artifact" "'Verify result' section has no concrete artifact reference (a backtick-quoted path to a test log, receipt, or VERIFY_*.md) -- a bare claim like 'tests pass' isn't checkable"
@@ -224,9 +260,8 @@ if [[ "$verify_artifacts" -gt 0 ]]; then
 
   while IFS= read -r p; do
     [[ -z "$p" ]] && continue
-    # Only paths proven inside ROOT are opened — an escaping citation was
-    # already reported above and must never be read.
-    [[ "$(resolve_in_root "$p")" == "ok" ]] || continue
+    # VERIFY_PATHS holds only citations already proven ok inside ROOT — git refs,
+    # removal claims, escapes and missing files were all filtered out above.
 
     # 2b. A verdict line in the cited artifact outranks any prose claim.
     artifact_verdict="$(grep -hoE 'VERIFY: (ALL GREEN|BASELINE_RED|RED)[^*]*' "$ROOT/$p" 2>/dev/null | tail -n 1 || true)"
@@ -248,7 +283,9 @@ if [[ "$verify_artifacts" -gt 0 ]]; then
         gap "claim-not-in-evidence" "'Verify result' names '${chk}' as passing, but '${chk}' appears nowhere in the cited artifact '$p' -- the check either never ran under the harness or its output was not captured. Put it in the \`\`\`verify fence so the evidence is generated, not asserted"
       done
     fi
-  done < <(printf '%s\n' "$verify_body" | extract_paths)
+  done <<VERIFYPATHS
+$VERIFY_PATHS
+VERIFYPATHS
 fi
 
 # -- 2e. The manifest must not end the turn with a menu ----------------------
