@@ -246,7 +246,7 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
 5. **Stop means stop** — after the completion phrase, end
 
-**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
+**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
 - `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
 - `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase

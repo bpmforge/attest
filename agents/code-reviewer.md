@@ -284,7 +284,7 @@ Work on ONE unit at a time (one file, one module, one pass). Write findings imme
 
 Covered by the SDLC Handoff gate above. Additional references:
 - Scope rules: `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`
-- Post-HANDOFF gates: `scripts/validators/run-handoff-gates.sh` (scope, manifest, code-health)
+- Post-HANDOFF gates: `~/.config/opencode/scripts/validators/run-handoff-gates.sh` (scope, manifest, code-health)
 - Findings flow to `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` — do NOT apply fixes yourself
 
 ---
