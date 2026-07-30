@@ -15,9 +15,20 @@ import { execFileSync } from "child_process";
 const git = (cwd: string, ...a: string[]) =>
   execFileSync("git", a, { cwd, stdio: ["ignore", "pipe", "pipe"] });
 
-function run(script: string, cwd: string, args: string[]): { code: number; out: string } {
+function run(
+  script: string,
+  cwd: string,
+  args: string[],
+): { code: number; out: string } {
   try {
-    return { code: 0, out: execFileSync("node", [script, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+    return {
+      code: 0,
+      out: execFileSync("node", [script, ...args], {
+        cwd,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"],
+      }),
+    };
   } catch (e: any) {
     return { code: e.status ?? 1, out: `${e.stdout ?? ""}${e.stderr ?? ""}` };
   }
@@ -38,7 +49,10 @@ export function testDelegationGate(
   try {
     const p = path.join(tmp, "p");
     fs.mkdirSync(path.join(p, "src"), { recursive: true });
-    fs.writeFileSync(path.join(p, "src/a.test.js"), 'it("a",()=>{});\nit("b",()=>{});\nit("c",()=>{});\n');
+    fs.writeFileSync(
+      path.join(p, "src/a.test.js"),
+      'it("a",()=>{});\nit("b",()=>{});\nit("c",()=>{});\n',
+    );
     fs.writeFileSync(path.join(p, "src/a.js"), "x\n");
     git(p, "init", "-qb", "main");
     git(p, "config", "user.email", "t@t");
@@ -49,38 +63,85 @@ export function testDelegationGate(
 
     // Observed shape: one test file loses cases while a new one is added, so the
     // net total is unchanged. A net-only check passes this; that was the first bug.
-    fs.writeFileSync(path.join(p, "src/a.test.js"), 'it("a",()=>{});\nit("new",()=>{});\n');
+    fs.writeFileSync(
+      path.join(p, "src/a.test.js"),
+      'it("a",()=>{});\nit("new",()=>{});\n',
+    );
     fs.mkdirSync(path.join(p, "src/__tests__"), { recursive: true });
-    fs.writeFileSync(path.join(p, "src/__tests__/b.test.js"), 'it("z",()=>{});\n');
+    fs.writeFileSync(
+      path.join(p, "src/__tests__/b.test.js"),
+      'it("z",()=>{});\n',
+    );
     git(p, "add", "-A");
     git(p, "commit", "-qm", "add tests");
 
     const cov = run(script, p, ["--coverage", "--base=main"]);
     if (cov.code === 1 && /lost cases/.test(cov.out))
-      ok("delegation-gate — RED: an existing test file losing cases is caught even when the net total holds");
-    else fail("delegation-gate — RED coverage shrink", `exit=${cov.code} out=${cov.out.trim()}`);
+      ok(
+        "delegation-gate — RED: an existing test file losing cases is caught even when the net total holds",
+      );
+    else
+      fail(
+        "delegation-gate — RED coverage shrink",
+        `exit=${cov.code} out=${cov.out.trim()}`,
+      );
 
     const pat = run(script, p, ["--patterns", "--base=main"]);
     if (pat.code === 0 && /__tests__/.test(pat.out))
-      ok("delegation-gate — WARN: a directory name with no precedent is surfaced, advisory not fatal");
-    else fail("delegation-gate — pattern novelty", `exit=${pat.code} out=${pat.out.trim()}`);
+      ok(
+        "delegation-gate — WARN: a directory name with no precedent is surfaced, advisory not fatal",
+      );
+    else
+      fail(
+        "delegation-gate — pattern novelty",
+        `exit=${pat.code} out=${pat.out.trim()}`,
+      );
 
-    git(p, "commit", "-q", "--allow-empty", "-m", "chore: dedupe\n\nCoverage-removed: b and c duplicated b.test.js");
+    git(
+      p,
+      "commit",
+      "-q",
+      "--allow-empty",
+      "-m",
+      "chore: dedupe\n\nCoverage-removed: b and c duplicated b.test.js",
+    );
     const covOk = run(script, p, ["--coverage", "--base=main"]);
     if (covOk.code === 0)
-      ok("delegation-gate — GREEN: a declared Coverage-removed: justification clears the shrink");
-    else fail("delegation-gate — GREEN justified removal", `exit=${covOk.code} out=${covOk.out.trim()}`);
+      ok(
+        "delegation-gate — GREEN: a declared Coverage-removed: justification clears the shrink",
+      );
+    else
+      fail(
+        "delegation-gate — GREEN justified removal",
+        `exit=${covOk.code} out=${covOk.out.trim()}`,
+      );
 
     // A verdict is only evidence if the code it names exists.
-    fs.writeFileSync(path.join(p, "R_ok.md"), "VERDICT: REJECT\n- src/a.js:1 — missing wiring.\n");
-    fs.writeFileSync(path.join(p, "R_bad.md"), "VERDICT: REJECT\n- src/a.js:9000 — missing.\n- src/nope.js:12 — missing.\n");
-    fs.writeFileSync(path.join(p, "R_vague.md"), "VERDICT: REJECT — wiring omitted somewhere.\n");
+    fs.writeFileSync(
+      path.join(p, "R_ok.md"),
+      "VERDICT: REJECT\n- src/a.js:1 — missing wiring.\n",
+    );
+    fs.writeFileSync(
+      path.join(p, "R_bad.md"),
+      "VERDICT: REJECT\n- src/a.js:9000 — missing.\n- src/nope.js:12 — missing.\n",
+    );
+    fs.writeFileSync(
+      path.join(p, "R_vague.md"),
+      "VERDICT: REJECT — wiring omitted somewhere.\n",
+    );
 
     const cOk = run(script, p, ["--citations=R_ok.md"]);
     const cBad = run(script, p, ["--citations=R_bad.md"]);
     const cVague = run(script, p, ["--citations=R_vague.md"]);
-    if (cOk.code === 0 && cBad.code === 1 && /UNRESOLVABLE/.test(cBad.out) && cVague.code === 1)
-      ok("delegation-gate — citations: resolvable passes; fabricated line/file and citation-free verdicts both fail");
+    if (
+      cOk.code === 0 &&
+      cBad.code === 1 &&
+      /UNRESOLVABLE/.test(cBad.out) &&
+      cVague.code === 1
+    )
+      ok(
+        "delegation-gate — citations: resolvable passes; fabricated line/file and citation-free verdicts both fail",
+      );
     else
       fail(
         "delegation-gate — citations",
@@ -123,21 +184,115 @@ export function testDelegationMetrics(
     const j = JSON.parse(r.out);
     // 3 scored (PENDING excluded), 1 correction => 33.3%. Counting PENDING as a
     // pass would report 25% and flatter the number.
-    if (j.scored === 3 && j.corrections === 1 && j.excluded === 1 && j.byModel["Haiku 4.5"].corrections === 1)
-      ok("delegation-metrics — in-flight rows excluded from the denominator, not counted as passes");
-    else fail("delegation-metrics — denominator", JSON.stringify({ scored: j.scored, excluded: j.excluded }));
+    if (
+      j.scored === 3 &&
+      j.corrections === 1 &&
+      j.excluded === 1 &&
+      j.byModel["Haiku 4.5"].corrections === 1
+    )
+      ok(
+        "delegation-metrics — in-flight rows excluded from the denominator, not counted as passes",
+      );
+    else
+      fail(
+        "delegation-metrics — denominator",
+        JSON.stringify({ scored: j.scored, excluded: j.excluded }),
+      );
+
+    // Lead-absorbed rework is a correction, and it used to log as DONE. Field
+    // trace 2026-07: the lead closed specialist gaps itself three times ("both
+    // small/mechanical — lead fixed directly") and logged DONE each time, so the
+    // model producing the most rework scored the cleanest — backwards for a
+    // metric meant to say when a tier change beats another gate. Counted as a
+    // correction AND reported as its own subtotal, because "the specialist got
+    // another attempt" and "the lead quietly finished it" need different fixes.
+    const absorbed = path.join(tmp, "absorbed.md");
+    fs.writeFileSync(
+      absorbed,
+      "| Ticket | Agent | Model | Outcome |\n|---|---|---|---|\n" +
+        "| T-1 | coding-agent | Haiku 4.5 | DONE |\n" +
+        "| T-2 | coding-agent | Haiku 4.5 | DONE-LEAD-FIXED |\n" +
+        "| T-3 | coding-agent | Haiku 4.5 | LEAD-FIXED |\n" +
+        "| T-4 | coding-agent | Haiku 4.5 | REDO |\n",
+    );
+    const a = JSON.parse(run(script, tmp, [`--log=${absorbed}`, "--json"]).out);
+    // Under the old vocabulary this log read 1 correction of 4 (25%). The two
+    // absorbed rows are rework, so it is 3 of 4 (75%), 2 of them lead-fixed.
+    if (
+      a.scored === 4 &&
+      a.corrections === 3 &&
+      a.leadFixed === 2 &&
+      a.byModel["Haiku 4.5"].corrections === 3 &&
+      a.byModel["Haiku 4.5"].leadFixed === 2
+    )
+      ok(
+        "delegation-metrics — lead-absorbed rework counts as a correction, with its own subtotal",
+      );
+    else
+      fail(
+        "delegation-metrics — lead-absorbed rework counts as a correction, with its own subtotal",
+        JSON.stringify({
+          scored: a.scored,
+          corrections: a.corrections,
+          leadFixed: a.leadFixed,
+        }),
+      );
+
+    // …and a plain DONE must NOT be swept up by the lead-fixed pattern.
+    if (a.accepted === 1)
+      ok("delegation-metrics — a clean DONE is still accepted, not relabelled");
+    else
+      fail(
+        "delegation-metrics — a clean DONE is still accepted, not relabelled",
+        `accepted=${a.accepted} (expected 1)`,
+      );
+
+    // The outcome column is self-reported, so a lead that absorbs work and
+    // writes plain DONE evades the count. What catches it is that leads NARRATE
+    // the absorption — these three notes are verbatim from the 2026-07 trace.
+    // A specialist-voice note about ordinary work must not be swept up.
+    const narrated = path.join(tmp, "narrated.md");
+    fs.writeFileSync(
+      narrated,
+      "| timestamp | agent | task summary | outcome | score | re-ran independently | notes |\n" +
+        "|---|---|---|---|---|---|---|\n" +
+        "| t1 | coding-agent | typeahead | DONE | 8/10 | vitest 335 pass | both small/mechanical — lead fixed directly |\n" +
+        "| t2 | coding-agent | description | DONE | 9/10 | vitest 1153 pass | clean; specialist fixed the failing test itself |\n" +
+        "| t3 | researcher | feasibility | DONE | 8/10 | n/a | ~90% correct — I'll finish the small remaining gaps directly rather than risk another confused round-trip |\n" +
+        "| t4 | coding-agent | autosave | DONE | 8/10 | vitest 311 pass | it's mechanical, I'll close these directly |\n",
+    );
+    const nz = JSON.parse(
+      run(script, tmp, [`--log=${narrated}`, "--json"]).out,
+    );
+    if (nz.mislabelled === 3 && nz.accepted === 4)
+      ok(
+        "delegation-metrics — accepted rows whose notes narrate a lead fix are flagged; a specialist-voice note is not",
+      );
+    else
+      fail(
+        "delegation-metrics — accepted rows whose notes narrate a lead fix are flagged; a specialist-voice note is not",
+        `mislabelled=${nz.mislabelled} (expected 3), accepted=${nz.accepted} (expected 4)`,
+      );
 
     const noModel = path.join(tmp, "nm.md");
-    fs.writeFileSync(noModel, "| Ticket | Agent | Outcome |\n|---|---|---|\n| T-1 | coding-agent | DONE |\n");
+    fs.writeFileSync(
+      noModel,
+      "| Ticket | Agent | Outcome |\n|---|---|---|\n| T-1 | coding-agent | DONE |\n",
+    );
     const r2 = run(script, tmp, [`--log=${noModel}`]);
     if (r2.code === 0 && /No model column/.test(r2.out))
-      ok("delegation-metrics — a log with no model column says so instead of reporting an empty split");
-    else fail("delegation-metrics — missing model column", `exit=${r2.code} out=${r2.out.trim()}`);
+      ok(
+        "delegation-metrics — a log with no model column says so instead of reporting an empty split",
+      );
+    else
+      fail(
+        "delegation-metrics — missing model column",
+        `exit=${r2.code} out=${r2.out.trim()}`,
+      );
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
-
 
 /**
  * validate-invariants.sh — declared cross-cutting rules.
@@ -161,7 +316,14 @@ export function testInvariants(
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "invariants-"));
   const sh = (cwd: string, args: string[]) => {
     try {
-      return { code: 0, out: execFileSync("bash", [script, ...args], { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }) };
+      return {
+        code: 0,
+        out: execFileSync("bash", [script, ...args], {
+          cwd,
+          encoding: "utf8",
+          stdio: ["ignore", "pipe", "pipe"],
+        }),
+      };
     } catch (e: any) {
       return { code: e.status ?? 1, out: `${e.stdout ?? ""}${e.stderr ?? ""}` };
     }
@@ -174,31 +336,65 @@ export function testInvariants(
       path.join(p, ".sdlc/invariants.json"),
       JSON.stringify({
         invariants: [
-          { name: "audited seam", files: "src/api/*.ts", require: "withAuditedTx", exclude: "health\\.ts", why: "ADR-014" },
-          { name: "no local auth", files: "src/api/*.ts", forbid: "function getAuthUser", why: "import it" },
+          {
+            name: "audited seam",
+            files: "src/api/*.ts",
+            require: "withAuditedTx",
+            exclude: "health\\.ts",
+            why: "ADR-014",
+          },
+          {
+            name: "no local auth",
+            files: "src/api/*.ts",
+            forbid: "function getAuthUser",
+            why: "import it",
+          },
         ],
       }),
     );
-    fs.writeFileSync(path.join(p, "src/api/good.ts"), "withAuditedTx(() => {});\n");
-    fs.writeFileSync(path.join(p, "src/api/bad.ts"), "db.update();\nfunction getAuthUser(){}\n");
-    fs.writeFileSync(path.join(p, "src/api/health.ts"), 'export const h = "ok";\n');
+    fs.writeFileSync(
+      path.join(p, "src/api/good.ts"),
+      "withAuditedTx(() => {});\n",
+    );
+    fs.writeFileSync(
+      path.join(p, "src/api/bad.ts"),
+      "db.update();\nfunction getAuthUser(){}\n",
+    );
+    fs.writeFileSync(
+      path.join(p, "src/api/health.ts"),
+      'export const h = "ok";\n',
+    );
 
     const red = sh(p, [p]);
-    const missingReq = /bad\.ts: missing required 'withAuditedTx'/.test(red.out);
-    const hitForbid = /bad\.ts: contains forbidden 'function getAuthUser'/.test(red.out);
+    const missingReq = /bad\.ts: missing required 'withAuditedTx'/.test(
+      red.out,
+    );
+    const hitForbid = /bad\.ts: contains forbidden 'function getAuthUser'/.test(
+      red.out,
+    );
     const excluded = !/health\.ts/.test(red.out);
     if (red.code === 1 && missingReq && hitForbid && excluded)
-      ok("validate-invariants — RED: require and forbid both fire on the right file; exclude honoured");
+      ok(
+        "validate-invariants — RED: require and forbid both fire on the right file; exclude honoured",
+      );
     else
       fail(
         "validate-invariants — RED",
         `exit=${red.code} req=${missingReq} forbid=${hitForbid} excluded=${excluded}`,
       );
 
-    fs.writeFileSync(path.join(p, "src/api/bad.ts"), "withAuditedTx(() => {});\n");
+    fs.writeFileSync(
+      path.join(p, "src/api/bad.ts"),
+      "withAuditedTx(() => {});\n",
+    );
     const green = sh(p, [p]);
-    if (green.code === 0) ok("validate-invariants — GREEN: clean once the violation is fixed");
-    else fail("validate-invariants — GREEN", `exit=${green.code} out=${green.out.trim()}`);
+    if (green.code === 0)
+      ok("validate-invariants — GREEN: clean once the violation is fixed");
+    else
+      fail(
+        "validate-invariants — GREEN",
+        `exit=${green.code} out=${green.out.trim()}`,
+      );
 
     const none = path.join(tmp, "none");
     fs.mkdirSync(none, { recursive: true });
