@@ -62,7 +62,15 @@ fi
 
 FAILS=0
 WARNS=0
-red()  { echo "  [FAIL] $1"; FAILS=$((FAILS + 1)); }
+# Blocking items are also accumulated so the verdict can NAME them. Observed
+# 2026-07-30: a specialist read a gate with 1 [FAIL] and 4 [warn] lines and
+# reported the two warnings as its blockers — "lacks a verify fence and changes
+# are uncommitted/unpushed" — when the fence and the push were both warnings and
+# the single blocker was its own uncommitted deliverable. A model summarising the
+# tail should not have to scroll back up to find what actually blocked it.
+BLOCKERS=""
+red()  { echo "  [FAIL] $1"; FAILS=$((FAILS + 1)); BLOCKERS="$BLOCKERS  - $1
+"; }
 grn()  { echo "  [ok]   $1"; }
 wrn()  { echo "  [warn] $1"; WARNS=$((WARNS + 1)); }
 
@@ -268,7 +276,9 @@ fi
 # -- verdict -------------------------------------------------------------------
 echo ""
 if [ "$FAILS" -gt 0 ]; then
-  echo "DONE-CHECK: RED — $FAILS blocking item(s) above. Fix them, then re-run this check. Do NOT print the completion phrase."
+  echo "DONE-CHECK: RED — $FAILS blocking item(s). Warnings above are NOT blockers; these are:"
+  printf '%s' "$BLOCKERS"
+  echo "Fix those, then re-run this check. Do NOT print the completion phrase."
   exit 1
 fi
 PHRASE=$(grep -oiE '(reply|print)[^"]*"[^"]{5,120}"' "$FILE" 2>/dev/null | head -n 1 | sed 's/^[^"]*"//; s/"$//')
