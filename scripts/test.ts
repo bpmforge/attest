@@ -71,6 +71,7 @@ import { testAgentReachability } from "./test-agent-reachability.ts";
 import { testToolPreflight } from "./test-tool-preflight.ts";
 import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
+import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -653,6 +654,13 @@ console.log(
 );
 await testHandoffDone(root, ok, fail);
 await testFileToolUpsert(root, ok, fail);
+
+// Wrong-verdict channels: the harness exists so a verdict cannot be narrated
+// away, so a verdict that is itself wrong is the deepest defect class here.
+console.log(
+  "\n[Pass 49] Wrong-verdict channels — matched-nothing, failure attribution, unchecked baseline",
+);
+await testVerifyVerdicts(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
