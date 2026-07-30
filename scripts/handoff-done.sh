@@ -15,9 +15,10 @@
 #
 # Checks:
 #   1. VERIFY_REPORT.md exists and its verdict line is ALL GREEN. A HANDOFF with
-#      no ```verify fence whose PRODUCE list is documents only warns instead —
-#      demanding a report the HANDOFF cannot produce is an unwinnable gate. If
-#      PRODUCE ships source files, the missing fence itself is the failure.
+#      no ```verify fence warns instead when its PRODUCE list is documents only,
+#      or when the repo has no runnable verify target yet — demanding a report
+#      the HANDOFF cannot produce is an unwinnable gate. If PRODUCE ships source
+#      and something IS runnable, the missing fence itself is the failure.
 #   2. Freshness: no tracked file modified AFTER the report (fix-after-verify
 #      without a re-run is a red flag, not a formality)
 #   3. Working tree committed — files this HANDOFF owns (WRITE-SCOPE ∪ PRODUCE)
@@ -117,6 +118,17 @@ INNER
 # its own HANDOFF made impossible.
 HAS_FENCE=0
 grep -qE '^```verify[[:space:]]*$' "$FILE" && HAS_FENCE=1
+# …and is there anything in this repo a fence could even run? Demanding a fence
+# where no build/test target exists yet rebuilds the same unwinnable gate one
+# size smaller, so that case warns and the HANDOFF that adds the target owns the
+# fence.
+HAS_VERIFY_TARGET=0
+if [ -f package.json ] && grep -qE '"(test|build|lint|typecheck|check)"[[:space:]]*:' package.json; then
+  HAS_VERIFY_TARGET=1
+elif [ -f Makefile ] || [ -f makefile ] || [ -f pyproject.toml ] || \
+     [ -f Cargo.toml ] || [ -f go.mod ] || [ -f build.gradle ] || [ -f pom.xml ]; then
+  HAS_VERIFY_TARGET=1
+fi
 SHIPS_CODE=0
 while IFS= read -r p; do
   [ -n "$p" ] || continue
@@ -132,6 +144,8 @@ EOF
 if [ ! -f "$REPORT" ]; then
   if [ "$HAS_FENCE" -eq 0 ] && [ "$SHIPS_CODE" -eq 0 ]; then
     wrn "no verify report — this HANDOFF has no \`\`\`verify fence and PRODUCEs documents only; nothing runnable to verify"
+  elif [ "$HAS_FENCE" -eq 0 ] && [ "$HAS_VERIFY_TARGET" -eq 0 ]; then
+    wrn "no verify report — PRODUCE ships source but this repo has no runnable verify target yet (no package.json script, Makefile, pyproject.toml, Cargo.toml, go.mod); say so in your report. The HANDOFF that adds the target owns the \`\`\`verify fence."
   elif [ "$HAS_FENCE" -eq 0 ]; then
     red "PRODUCE ships source files but $FILE has no \`\`\`verify fence — add one (build/lint/test commands), then run: bash ~/.config/opencode/scripts/verify-handoff.sh $FILE"
   else
