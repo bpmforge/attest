@@ -251,6 +251,26 @@ if [[ "$verify_artifacts" -gt 0 ]]; then
   done < <(printf '%s\n' "$verify_body" | extract_paths)
 fi
 
+# -- 2e. The manifest must not end the turn with a menu ----------------------
+# BOUNDED_TASK_CONTRACT: a turn ends three ways — more work, the completion
+# phrase, or BLOCKED: <evidence>. Never a menu of options or a confirm-request;
+# asking again stalls an unattended pipeline while looking cooperative. Every
+# agent file already carries that rule, and a specialist broke it anyway (field
+# trace 2026-07, verbatim): "If you want next: 1. I can open a PR against main
+# ... 2. Run any additional checks ... 3. Revert or adjust any of the changes ...
+# Which of the above would you like me to do next?"
+#
+# The conversational turn is not reachable from a validator, but the completion
+# manifest IS — and that is where the menu was written. Phrase-based on purpose: a
+# manifest legitimately contains numbered lists (Known issues, Decisions), so
+# keying on "a numbered list" would fire on every honest report. What is never
+# legitimate is asking the user to choose.
+MENU_RE='would you like me to|which of the above|shall i (proceed|continue|go ahead|start)|do you want me to|let me know (which|if you|whether)|which would you (like|prefer)|if you want next|options?:[[:space:]]*$'
+if grep -qiE "$MENU_RE" "$MANIFEST" 2>/dev/null; then
+  menu_hit="$(grep -hioE "$MENU_RE" "$MANIFEST" | head -n 1 || true)"
+  gap "manifest-asks-user-to-choose" "the manifest asks the user to choose ('${menu_hit}'). A HANDOFF turn ends three ways — more work, the completion phrase, or BLOCKED: <evidence> — never a menu. The HANDOFF already answered which mode/scope/step to run; asking again stalls an unattended pipeline while looking cooperative. Pick the documented default, state it in one line, and finish"
+fi
+
 # -- 2d. A BLOCKED claim needs evidence too ---------------------------------
 # The inverse failure, and the one that reads as caution: an invented blocker
 # costs a full round-trip and looks responsible while doing it.

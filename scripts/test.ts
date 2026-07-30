@@ -53,6 +53,7 @@ import {
   testDelegationGate,
   testDelegationMetrics,
   testInvariants,
+  testFindingGrounding,
 } from "./test-delegation-gate.ts";
 import { testResumeAnchor } from "./test-resume-anchor.ts";
 import { testVerifyHandoff } from "./test-verify-handoff.ts";
@@ -73,7 +74,10 @@ import { testSdlcModeClarity } from "./test-sdlc-mode-clarity.ts";
 import { testHandoffDone, testFileToolUpsert } from "./test-handoff-done.ts";
 import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
-import { testRetryBudgets, testClaimVsEvidence } from "./test-retry-and-claims.ts";
+import {
+  testRetryBudgets,
+  testClaimVsEvidence,
+} from "./test-retry-and-claims.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -648,6 +652,7 @@ console.log(
 testDelegationGate(root, ok, fail);
 testDelegationMetrics(root, ok, fail);
 testInvariants(root, ok, fail);
+testFindingGrounding(root, ok, fail);
 
 // Unwinnable gates: a RED an agent cannot clear turns finished work into a
 // permanent stall. Both halves of the 2026-07 a new-project trace are pinned here.

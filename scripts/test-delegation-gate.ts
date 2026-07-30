@@ -152,12 +152,139 @@ export function testDelegationGate(
   }
 }
 /**
- * Appended to test-delegation-gate.ts — delegation-metrics shares its subject
- * (the delegation loop) and its evidence base.
+ * Finding grounding — two ways a reviewer raises a finding that should never have
+ * been raised, neither of which --citations can catch.
+ *
+ * F: a requirement asserted by ANALOGY. A reviewer claimed setPinned needed a
+ *    system-snapshot guard at 90% confidence; the SRS gives delete that guard
+ *    (FR-VER-07) and pin none (FR-VER-06), and pinning destroys nothing. Nothing
+ *    to resolve, because the claim cited nothing.
+ * G: a METHODOLOGY artifact demanded of the project — scripts/validators/
+ *    validate-tech-stack.sh flagged missing in a project that has no such
+ *    directory. A claim about a file's ABSENCE has no line number to check.
+ */
+export function testFindingGrounding(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const script = path.join(root, "scripts/delegation-gate.mjs");
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "finding-grounding-"));
+  const git = (...a: string[]) => {
+    try {
+      execFileSync("git", a, { cwd: tmp, stdio: "ignore" });
+    } catch {
+      /* fixture setup only */
+    }
+  };
+  try {
+    fs.mkdirSync(path.join(tmp, "docs"), { recursive: true });
+    fs.mkdirSync(path.join(tmp, "scripts"), { recursive: true });
+    git("init", "-q", ".");
+    fs.writeFileSync(
+      path.join(tmp, "docs/SRS.md"),
+      "# SRS\n- FR-VER-06: Named snapshots MAY be pinned.\n- FR-VER-07: System-generated named snapshots SHALL NOT be deletable.\n",
+    );
+    fs.writeFileSync(path.join(tmp, "scripts/build.sh"), "x\n");
+
+    const review = (body: string, name: string) => {
+      fs.writeFileSync(path.join(tmp, name), body);
+      return run(script, tmp, [`--grounding=${name}`]);
+    };
+
+    // F1 — a requirement ID that exists nowhere in the SRS.
+    const ghost = review(
+      "# Review\n\nFinding 1: setPinned must be guarded per FR-VER-99.\n",
+      "ghost.md",
+    );
+    if (
+      ghost.code === 1 &&
+      /NOT IN REQUIREMENTS: FR-VER-99/.test(ghost.out)
+    )
+      ok(
+        "finding-grounding — a requirement ID absent from the SRS fails the review",
+      );
+    else
+      fail(
+        "finding-grounding — ghost requirement ID",
+        `code=${ghost.code} ${ghost.out}`,
+      );
+
+    // F2 — the downstream project case: argues from requirements, cites no ID at all.
+    const analogy = review(
+      "# Review\n\nFinding 1: setPinned is missing a system-snapshot guard (90% confidence).\n" +
+        "The requirement for delete implies the same restriction should apply to pin.\n",
+      "analogy.md",
+    );
+    if (
+      analogy.code === 1 &&
+      /cites no\s*\n?\s*requirement ID/.test(analogy.out)
+    )
+      ok(
+        "finding-grounding — arguing from requirements while citing no requirement ID fails",
+      );
+    else
+      fail(
+        "finding-grounding — analogy claim",
+        `code=${analogy.code} ${analogy.out}`,
+      );
+
+    // F-negative — a finding that cites a real requirement passes.
+    const grounded = review(
+      "# Review\n\nFinding 1: pin is allowed for named snapshots per FR-VER-06; no guard needed.\n",
+      "grounded.md",
+    );
+    if (grounded.code === 0 && /all resolve/.test(grounded.out))
+      ok("finding-grounding — a finding citing a real requirement passes");
+    else
+      fail(
+        "finding-grounding — grounded claim",
+        `code=${grounded.code} ${grounded.out}`,
+      );
+
+    // G — our own scaffolding demanded of the project. Note the fixture HAS a
+    // scripts/ dir but no scripts/validators/, which is the shape that a
+    // top-level-only check would have missed.
+    const methodology = review(
+      "# Review\n\nFinding 5: `scripts/validators/validate-tech-stack.sh` is missing per FR-VER-06.\n",
+      "methodology.md",
+    );
+    if (
+      /METHODOLOGY\/PROJECT MISMATCH/.test(methodology.out) &&
+      methodology.code === 0
+    )
+      ok(
+        "finding-grounding — a demanded methodology artifact is named as a mismatch, advisory not blocking",
+      );
+    else
+      fail(
+        "finding-grounding — methodology mismatch",
+        `code=${methodology.code} ${methodology.out}`,
+      );
+
+    // G-negative — a real project path flagged missing is not a mismatch.
+    const realPath = review(
+      "# Review\n\nFinding 5: `src/auth/guard.ts` is missing per FR-VER-06.\n",
+      "realpath.md",
+    );
+    if (!/METHODOLOGY\/PROJECT MISMATCH/.test(realPath.out))
+      ok(
+        "finding-grounding — a missing project file is a defect, not a methodology mismatch",
+      );
+    else fail("finding-grounding — real path misclassified", realPath.out);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+/**
+ * delegation-metrics shares its subject (the delegation loop) and its evidence
+ * base, so it lives in this chapter too.
  *
  * The properties worth pinning: PENDING rows must not be counted as successes
- * (that silently flatters the rate), and a missing model column must say so
- * rather than reporting a split it cannot produce.
+ * (that silently flatters the rate), a missing model column must say so rather
+ * than reporting a split it cannot produce, and lead-absorbed rework must count
+ * as a correction rather than as a clean delivery.
  */
 export function testDelegationMetrics(
   root: string,
