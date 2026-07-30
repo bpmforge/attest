@@ -4,7 +4,7 @@
 end design; this matrix is the checklist. ✅ = shipped/verified · 🔶 = partial · ⬜ = planned
 (owning tracker item in parentheses). Release order: **opencode v2.x → Shipwright → Foreman**.
 
-| # | End-design capability | bpm-opencode-experts (v2.0.0) | Shipwright (23/65) | Jarvis/Foreman (master) |
+| # | End-design capability | attest (v2.0.0) | Shipwright (23/65) | Jarvis/Foreman (master) |
 |---|---|---|---|---|
 | 1 | Expert library: 85 experts · 66 validators · 26 protocols, exact parity | ✅ canonical | ✅ `content/` imported (⬜ re-sync from v2.x at resume — SW-R1) | ⬜ `build:foreman` port (FM-W3) |
 | 2 | Receipts-not-flags: content+hash gate receipts, two-way re-verify, signed waivers | ✅ T27.1/T27.2 | ✅ W0-05 (keyed-HMAC anchor) | 🔶 locks/logs only (FM-W3/W4) |
@@ -20,7 +20,7 @@ end design; this matrix is the checklist. ✅ = shipped/verified · 🔶 = parti
 | 12 | Field-report intake → lessons → playbook (M29 loop) | ✅ intake merged · ⬜ T29.x automation (OC-R1) | ⬜ W7-05 | ⬜ loop-learn exists; wire to intake (FM-W6) |
 
 **Divergence rules:** (a) protocols/validators change in THIS repo first, then flow: build:claude
-→ claude-experts, import-content re-run → Shipwright, build:foreman → Foreman. (b) Runtime
+→ attest-claude, import-content re-run → Shipwright, build:foreman → Foreman. (b) Runtime
 mechanisms proven in Shipwright/Jarvis flow BACK as field reports (M29) before protocol edits.
 (c) A capability is "aligned" only when its row is ✅ in all three AND covered by a real test in
 each repo (suite/fixture/E2E — see each tracker's Test-truth section).

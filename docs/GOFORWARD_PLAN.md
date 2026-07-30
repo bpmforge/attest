@@ -4,7 +4,7 @@
 
 > **Summary of completed work:** All 8 tasks executed. Micro-agent architecture live. Challenger, security/code-review/performance micro-agent clusters, SDLC onboard specialists, code-search MCP, memory MCP, playwright-mcp, MCP_GUIDE, and BROWSER_TESTING deployed to both repos. Task 6 (auto-dispatch) gated on OpenCode #16491.
 
-This document captures the agreed architecture evolution and phased build plan for the bpm-opencode-experts system. It supersedes the current HANDOFF-centric design in favour of a three-layer micro-agent architecture that works reliably on both cloud and local LLMs (including LM Studio).
+This document captures the agreed architecture evolution and phased build plan for the attest system. It supersedes the current HANDOFF-centric design in favour of a three-layer micro-agent architecture that works reliably on both cloud and local LLMs (including LM Studio).
 
 ---
 
@@ -226,7 +226,7 @@ After the pattern is proven in Phases 3 and 4, apply to remaining fat agents. Pr
 
 ## Memory Integration (Cross-Phase)
 
-`bpm-memory-mcp` MCP is already built (Jarvis project). Wire into bpm-opencode-experts:
+`bpm-memory-mcp` MCP is already built (Jarvis project). Wire into attest:
 
 - Add to `install.sh`: configure bpm-memory-mcp MCP in `opencode.jsonc`
 - Add to `agents/shared/SESSION_PRIMER.md`: session startup calls `memory_recall({ query: "project decisions constraints" })`
@@ -243,7 +243,7 @@ Embedding provider for memory: same config as code-search (`code-search-config.j
 - **Gate validator scripts** — not touched; Challenger runs alongside them
 - **Book protocol** — unchanged; applies to all deliverables
 - **Mermaid rules** — unchanged; `validate-mermaid.sh` continues to run
-- **Dual-repo sync** — all changes apply to both `bpm-opencode-experts` and `claude-experts`
+- **Dual-repo sync** — all changes apply to both `attest` and `attest-claude`
 
 ---
 

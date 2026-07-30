@@ -113,7 +113,7 @@ When `detect-model-context.sh` runs, it records a **hop** (model-decision event)
 **Prerequisites:**
 - Node.js must be on PATH (the shim skips gracefully if unavailable)
 - The escalation-ledger package must be built: run `npm run build` in `bpm-agent-amplifier/` to generate `packages/escalation-ledger/dist/`
-- Both repos must be sibling directories (bpm-opencode-experts and bpm-agent-amplifier)
+- Both repos must be sibling directories (attest and bpm-agent-amplifier)
 
 **Failure behavior:**
 - If the ledger write fails (DB locked, missing package, etc.), the shim exits silently with code 0

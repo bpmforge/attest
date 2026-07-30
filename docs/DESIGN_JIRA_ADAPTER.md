@@ -285,4 +285,4 @@ the DC Epic Link custom field. No caller changes.
    `docs/TICKET_SCHEMA.md` cross-link.
 5. Wire the mirror hooks into `tickets-lifecycle.mjs` behind the backend check
    (no-op when disabled) — smallest possible touch to the SoT engine.
-6. Regen claude-experts, dual-remote push, tag, release as **v2.6.0**.
+6. Regen attest-claude, dual-remote push, tag, release as **v2.6.0**.

@@ -1,23 +1,23 @@
 #!/usr/bin/env bash
 #
 # regen-claude-target.sh — the SINGLE post-merge step that regenerates the
-# generated claude-experts repo from bpm-opencode-experts and commits + pushes it.
+# generated attest-claude repo from attest and commits + pushes it.
 #
 # Run this ONCE after merging source PRs to main — NEVER per-executor. Parallel
-# executors each running `build:claude` into the shared ../claude-experts sibling
+# executors each running `build:claude` into the shared ../attest-claude sibling
 # race each other: one leaves a stray skill that spuriously fails another's local
 # tests, and a regen committed at a different moment than it was generated ships a
 # STALE generated file that fails CI (both observed 2026-07-13). Generating and
 # committing in one atomic step here is what prevents that.
 #
-# Usage:  scripts/regen-claude-target.sh [sibling-path]   (default ../claude-experts)
+# Usage:  scripts/regen-claude-target.sh [sibling-path]   (default ../attest-claude)
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
-SIBLING="${1:-../claude-experts}"
+SIBLING="${1:-../attest-claude}"
 
 if [[ ! -d "$SIBLING/.git" ]]; then
-  echo "✗ no git repo at $SIBLING — clone claude-experts as a sibling first" >&2
+  echo "✗ no git repo at $SIBLING — clone attest-claude as a sibling first" >&2
   exit 2
 fi
 
@@ -48,7 +48,7 @@ fi
 
 echo "→ $changed generated file(s) changed; committing the fresh output"
 git -C "$SIBLING" add -A
-git -C "$SIBLING" commit -q -m "build: regen claude target from bpm-opencode-experts $(git rev-parse --short HEAD)"
+git -C "$SIBLING" commit -q -m "build: regen claude target from attest $(git rev-parse --short HEAD)"
 git -C "$SIBLING" push --quiet origin main
 git -C "$SIBLING" push --quiet github main
 

@@ -1,6 +1,6 @@
 # Local LLM Guide
 
-**How to get the most out of bpm-opencode-experts with local models.**
+**How to get the most out of attest with local models.**
 
 ---
 

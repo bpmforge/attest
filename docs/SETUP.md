@@ -22,8 +22,8 @@ Optional but recommended:
 ## 2. Install
 
 ```bash
-git clone https://github.com/bpmforge/bpm-opencode-experts.git ~/Code/bpm-opencode-experts
-cd ~/Code/bpm-opencode-experts
+git clone https://github.com/bpmforge/attest.git ~/Code/attest
+cd ~/Code/attest
 ./install.sh
 ```
 

@@ -9,7 +9,7 @@ mode: "all"
 The `code-search` MCP maintains a per-project index (`.code-search/index.db`,
 gitignored) that answers structural questions `grep` can't: where a symbol is
 **defined**, everywhere it is **referenced**, and a file's **outline**. It is
-auto-installed by `bpm-opencode-experts` / `claude-experts` `install.sh`.
+auto-installed by `attest` / `attest-claude` `install.sh`.
 
 The short form agents carry inline is `agents/shared/blocks/code-search.md`; this
 is the full reference.

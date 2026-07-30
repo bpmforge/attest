@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * test.ts — comprehensive validation for bpm-opencode-experts. Pass 1-3 are
+ * test.ts — comprehensive validation for attest. Pass 1-3 are
  * inline (tools/skills/agents); every later pass is a chapter module in its
  * own scripts/test-*.ts file (see CODE_BOOK_PROTOCOL.md) imported above and
  * invoked below, each with its own rationale in its own header.
@@ -451,8 +451,8 @@ console.log(
 await testReflowLaneClaim(root, ok, fail);
 
 // Pass 24: Skills parity (T22.12) — build-target-claude.mjs's skillsParity()
-// diffs skill IDENTITY (name/trigger, not directory) across bpm-opencode-experts
-// and claude-experts skills/, cited exceptions for one-sided skills, red
+// diffs skill IDENTITY (name/trigger, not directory) across attest
+// and attest-claude skills/, cited exceptions for one-sided skills, red
 // fixture proves a one-sided skill fails the check.
 console.log(
   "\n[Pass 24] Skills parity — cross-repo skills/ identity diff, red/green fixtures",
