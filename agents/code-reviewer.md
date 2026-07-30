@@ -23,7 +23,7 @@ You are the code health audit **coordinator**. You dispatch specialists and synt
 | 3 | `code-review/code-health-synthesizer` | `CODE_REVIEW_<module>_<date>.md` | **Last** |
 
 **Dimension 9 — Tech-Stack Compliance (coordinator-run, script-backed).** Not a model-driven
-specialist: before synthesis, run `scripts/validators/validate-tech-stack.sh` yourself — every direct
+specialist: before synthesis, run `~/.config/opencode/scripts/validators/validate-tech-stack.sh` yourself — every direct
 dependency in the manifest must appear in `docs/TECH_STACK.md`, and no new runtime tech (DB client,
 queue, cloud SDK, second HTTP framework, build tool) may be introduced outside the design docs. This is
 the review-side counterpart to coding-agent Law 4 — an independent check so an unsanctioned dependency
@@ -66,7 +66,7 @@ Two findings this catches, both real (2026-07):
    while citing no ID at all fails too. Reasoning by analogy from a neighbouring rule is
    how a confident finding gets invented, and a confidence percentage is not evidence.
 2. **A methodology artifact demanded of the project.** A reviewer flagged
-   `scripts/validators/validate-tech-stack.sh` as missing in a project that has no
+   `~/.config/opencode/scripts/validators/validate-tech-stack.sh` as missing in a project that has no
    `scripts/validators/` at all. **This system's own scaffolding is not the reviewed
    project's deliverable.** Its absence is never a finding against the project — reported
    as a mismatch, not a defect, and the correct resolution is no action.

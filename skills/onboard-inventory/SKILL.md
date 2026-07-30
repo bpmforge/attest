@@ -32,4 +32,4 @@ Produces `docs/onboard/INVENTORY.md` — the authoritative list of units that mu
 
 ## When done
 
-Run `./scripts/validators/validate-inventory.sh` to confirm the inventory itself is well-formed (parseable table, valid categories).
+Run `~/.config/opencode/scripts/validators/validate-inventory.sh` to confirm the inventory itself is well-formed (parseable table, valid categories).

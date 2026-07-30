@@ -124,7 +124,7 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
 - Follow `references/mermaid-safe-syntax.md` when writing Mermaid (quote labels with specials, ASCII only, no `end` node id). Auto-repair with `node scripts/mermaid-fix.mjs <file> --write`, then gate with `validate-mermaid.sh` (renders via mmdc when installed).
 
-This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
 - **Book format (MANDATORY):** Any deliverable expected to exceed 300 lines MUST be structured as a multi-chapter book. Read `agents/shared/BOOK_PROTOCOL.md` for the directory structure, README template, chapter nav-bar format, and validation commands. Run `validate-book-structure.sh`, `validate-mermaid.sh`, and `validate-doc-render-health.sh` on every book before marking the deliverable DONE.
 
@@ -151,7 +151,7 @@ Never call the `skill` tool for delegation. If git operations are simple (one co
 | `/sdlc improve ["<focus>"]` | MODE 4: Audit & Improve | `agents/sdlc-improve-mode.md` |
 | `/sdlc status` | Show current state | (in-line) |
 | `/sdlc resume` | Continue after clearing context | reads `docs/work/STATE.md` (see `agents/shared/CHECKPOINT_STATE.md`) |
-| `/sdlc gate` | Check phase exit criteria | calls `scripts/validators/validate-phase-gate.sh` |
+| `/sdlc gate` | Check phase exit criteria | calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh` |
 
 ## `/sdlc resume` — pick up after a context clear
 
@@ -160,7 +160,7 @@ reconstruct state from chat scrollback — rehydrate from disk:
 
 1. Read `docs/work/STATE.md` (the compact checkpoint: Done / In flight / Next / catch-up list).
 2. **Drift check (T27.4)** — before trusting `Next`, run
-   `bash scripts/validators/validate-state-drift.sh . docs/work/STATE.md`. This cross-checks every
+   `bash ~/.config/opencode/scripts/validators/validate-state-drift.sh . docs/work/STATE.md`. This cross-checks every
    phase `STATE.md`'s Done section claims against a real gate receipt
    (`docs/work/gates/<phase>-receipt.json`, T27.1) — cheap (no re-run of the phase itself), and it's
    the same check `run-until-done.sh`'s outer loop uses to decide completion. If it reports gaps,
@@ -364,7 +364,7 @@ Load the full phase gate table, HANDOFF coverage validator table, two-track gate
 read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
 ```
 
-Quick summary: every phase advance calls `scripts/validators/validate-phase-gate.sh <phase>`. Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
+Quick summary: every phase advance calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh <phase>`. Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
 
 ---
 

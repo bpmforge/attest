@@ -111,4 +111,4 @@ M9), wiring this into `researcher.md` gives every Jarvis research unit the same
 
 New or edited vault pages: `validateLinks()` (Op 3) must report zero broken links before
 you call an ingest done. New or edited files in this repo: run
-`scripts/validators/validate-no-ascii-art.sh` and `scripts/validators/validate-file-size.sh`.
+`~/.config/opencode/scripts/validators/validate-no-ascii-art.sh` and `~/.config/opencode/scripts/validators/validate-file-size.sh`.

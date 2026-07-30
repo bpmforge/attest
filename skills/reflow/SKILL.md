@@ -133,7 +133,7 @@ claimed modules can be worked **in parallel** in separate sessions without clobb
 `verify` command that was actually re-run, the manifest path, a timestamp). That receipt pasted verbatim
 into the module's Completion Manifest is the durable proof `accept()` checks — a manifest that only ever
 says "`<id> done -- ...`" with no receipt block is refused (`scripts/lib/tickets-lifecycle.mjs`'s
-`manifestHasCloseReceipt()`, exercised by `scripts/validators/validate-close-receipt.sh` and its
+`manifestHasCloseReceipt()`, exercised by `~/.config/opencode/scripts/validators/validate-close-receipt.sh` and its
 `evals/fixtures/validators/validate-close-receipt/{red,green}` fixtures). The evidence in the receipt
 (branch + every commit) must match what `close()` actually recorded — a hand-typed block that merely
 looks like the receipt is rejected too.

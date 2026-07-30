@@ -14,7 +14,7 @@ Performs a professional security assessment following OWASP, NIST, and industry-
 | Flag | Scope | Time |
 |------|-------|------|
 | `/security` / `/security --quick` | Phases 1-3: understand, automated scan, one-pass OWASP | ~10 min |
-| `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom SAST rule file walked (Opengrep + bpm-rulepacks), iterative attack-chain until stable. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
+| `/security --deep` | Full Ralph Wiggum loop (see `agents/shared/RALPH_WIGGUM_LOOP.md`): every OWASP category iterated to confidence >= 7, every custom SAST rule file walked (Opengrep + bpm-rulepacks), iterative attack-chain until stable. Blocks until `~/.config/opencode/scripts/validators/validate-phase-gate.sh security-deep` exits clean. | ~45-90 min |
 
 ## Fix mode
 

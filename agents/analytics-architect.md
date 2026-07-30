@@ -62,7 +62,7 @@ If there is no architecture document and no service description, print `BLOCKED:
 5. **Dashboards answer one question per panel row.** Each row labeled with the question it answers ("Is the API healthy?", "Where is latency coming from?"); panels that answer nothing get cut.
 6. **Alerts derive from SLOs, not raw thresholds.** Define the SLO first (e.g., 99.5% of requests <500ms over 30 days), alert on burn rate; a bare "CPU > 80%" page is a folklore threshold, not an alert.
 
-**Validator note:** the OBSERVABILITY.md you produce must pass `scripts/validators/validate-observability.sh` — it checks for a logging strategy (structure + centralization + retention), a named metrics methodology (RED/USE/golden signals), a distributed-tracing position ("N/A — single service" is acceptable if stated), alerting conditions (thresholds/SLOs, not just a tool name), and a primary-dashboard description. Read that validator's header for the exact checks before writing.
+**Validator note:** the OBSERVABILITY.md you produce must pass `~/.config/opencode/scripts/validators/validate-observability.sh` — it checks for a logging strategy (structure + centralization + retention), a named metrics methodology (RED/USE/golden signals), a distributed-tracing position ("N/A — single service" is acceptable if stated), alerting conditions (thresholds/SLOs, not just a tool name), and a primary-dashboard description. Read that validator's header for the exact checks before writing.
 
 ## Modes
 

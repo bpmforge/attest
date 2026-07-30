@@ -39,7 +39,7 @@ direction only — Figma → tokens.json → code; never push design back.
 
 ## Gate
 
-`scripts/validators/validate-design-tokens.sh` (offline; skips clean unless
+`~/.config/opencode/scripts/validators/validate-design-tokens.sh` (offline; skips clean unless
 `figma-snapshot.json` exists): **dropped-token** — a Figma color missing from
 `tokens.json` (a design token silently dropped); **snapshot-without-tokens** —
 pulled but never derived; **value-drift** (advisory) — a color diverged between

@@ -170,9 +170,9 @@ After writing all book files, run:
 
 ```bash
 node scripts/mermaid-fix.mjs docs/<deliverable-slug>/ --write   # auto-repair mechanical Mermaid issues first
-bash scripts/validators/validate-book-structure.sh docs/<deliverable-slug>/
-bash scripts/validators/validate-mermaid.sh . docs/<deliverable-slug>/
-bash scripts/validators/validate-doc-render-health.sh . docs/<deliverable-slug>/
+bash ~/.config/opencode/scripts/validators/validate-book-structure.sh docs/<deliverable-slug>/
+bash ~/.config/opencode/scripts/validators/validate-mermaid.sh . docs/<deliverable-slug>/
+bash ~/.config/opencode/scripts/validators/validate-doc-render-health.sh . docs/<deliverable-slug>/
 ```
 
 All three validators must exit 0 before the deliverable is marked DONE. Authoring rules: `references/mermaid-safe-syntax.md`.

@@ -101,5 +101,5 @@ Handling: <"deleted immediately after tracker setup" | "kept as
    `scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
    as a re-runnable straggler sweep (idempotent — a clean second run links
    0 stragglers).
-4. Run `scripts/validators/validate-tracker-integrity.sh` any session, or
+4. Run `~/.config/opencode/scripts/validators/validate-tracker-integrity.sh` any session, or
    let it ride the Phase 3 / Phase 4 gates automatically.

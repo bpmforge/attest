@@ -285,7 +285,7 @@ Below is the actionable summary of R-01 through R-20; the full definitions, scor
 ### Vendoring (R-30)
 - **Generate vendored code from the real source, never from memory** — when a task says "vendor/copy-paste library X" (e.g. a shadcn-style component pull), run the library's actual CLI/registry/repo command. Never hand-write X-flavored files from training data and call them X.
 - **Record provenance** — a vendored directory gets a `VENDORED.md` (source, tool/registry, version, exact file/variant list pulled). If you had to approximate from memory instead, state that explicitly in the same file as a declared divergence — an undeclared "we use X" claim over memory-generated code is the R-30 violation.
-- Run `bash scripts/validators/validate-vendor-provenance.sh` before finishing any task that touches a vendored directory.
+- Run `bash ~/.config/opencode/scripts/validators/validate-vendor-provenance.sh` before finishing any task that touches a vendored directory.
 
 ---
 
@@ -441,7 +441,7 @@ Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts).
 
 ```bash
 # Run the script-level checks now:
-bash scripts/validators/validate-code-health.sh .
+bash ~/.config/opencode/scripts/validators/validate-code-health.sh .
 # Must exit 0 before proceeding to Phase 6
 ```
 
@@ -494,10 +494,10 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 
 **Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
-- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- `scripts/validators/validate-code-health.sh` — code hygiene (slop pattern enforcement)
-- `scripts/validators/validate-tech-stack.sh` — every direct dependency you added must appear in `docs/TECH_STACK.md` (Law 4 enforced, not just self-scored — an unlisted library fails the gate)
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `~/.config/opencode/scripts/validators/validate-code-health.sh` — code hygiene (slop pattern enforcement)
+- `~/.config/opencode/scripts/validators/validate-tech-stack.sh` — every direct dependency you added must appear in `docs/TECH_STACK.md` (Law 4 enforced, not just self-scored — an unlisted library fails the gate)
 - `--runtime` flag — build + lint must pass
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
@@ -605,7 +605,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] No hardcoded credentials, API keys, or secrets in source files
 - [ ] No unlisted dependencies introduced (check against TECH_STACK.md)
 - [ ] All functions ≤50 lines (flag exceptions in manifest deferred section)
-- [ ] **Every source file ≤ size cap (default 400 lines).** A file that would exceed it is decomposed UP FRONT (PLAN-SHAPE) into a directory — an index/barrel + chapter modules, one concern each — per `agents/shared/CODE_BOOK_PROTOCOL.md`; never write a monolith to refactor later. Gate: `bash scripts/validators/validate-file-size.sh .` exits 0.
+- [ ] **Every source file ≤ size cap (default 400 lines).** A file that would exceed it is decomposed UP FRONT (PLAN-SHAPE) into a directory — an index/barrel + chapter modules, one concern each — per `agents/shared/CODE_BOOK_PROTOCOL.md`; never write a monolith to refactor later. Gate: `bash ~/.config/opencode/scripts/validators/validate-file-size.sh .` exits 0.
 - [ ] Completion Manifest `Test result:` line shows actual command output with pass count
 
 **Run build + tests + code health now (do not skip):**
@@ -621,7 +621,7 @@ fi
 $PM run build && $PM test        # e.g. pnpm run build && pnpm test
 # or the equivalent commands from docs/TECH_STACK.md (go test ./..., pytest, cargo test)
 
-bash scripts/validators/validate-code-health.sh .
+bash ~/.config/opencode/scripts/validators/validate-code-health.sh .
 ```
 If build/tests fail → fix before printing completion phrase. Test failures are not "deferred".
 If code-health gaps → fix slop patterns → re-run until exit 0.

@@ -6,7 +6,7 @@ mode: "all"
 
 # CODE_BOOK_PROTOCOL.md — book-style code sizing
 
-**The doc book protocol applied to code.** A documentation deliverable over 300 lines becomes a book (`BOOK_PROTOCOL.md`). Likewise, **a source file over the cap becomes a directory** — an index/barrel + chapter modules, one concern each. Enforced by `scripts/validators/validate-file-size.sh`.
+**The doc book protocol applied to code.** A documentation deliverable over 300 lines becomes a book (`BOOK_PROTOCOL.md`). Likewise, **a source file over the cap becomes a directory** — an index/barrel + chapter modules, one concern each. Enforced by `~/.config/opencode/scripts/validators/validate-file-size.sh`.
 
 **Why (and why it matters most for weak models):** a file a model can't hold in context is a file it edits blind — it re-reads fragments, loses the through-line, and drifts. Frontier models have the context budget to absorb a 1,000-line file; small/local models do not. Capping file size is therefore not a style preference — it is the difference between a non-frontier model converging and drifting.
 
