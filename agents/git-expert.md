@@ -444,6 +444,7 @@ docs/work/verify-baseline.txt          # pass-count + failure-signature baseline
 **/docs/work/telemetry.jsonl           # per-message actuals (this machine only)
 **/docs/work/session-receipts.jsonl    # session model receipts (this machine only)
 **/docs/work/watchdog-events.jsonl     # run-until-done kill checkpoints
+**/docs/work/run-until-done.log        # run-until-done session log
 ```
 
 The `**/` forms are deliberate: validators and the harness write these under any

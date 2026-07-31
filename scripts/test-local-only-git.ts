@@ -112,6 +112,12 @@ export function testLocalOnlyGit(root: string, ok: Ok, fail: Fail) {
       "**/docs/work/telemetry.jsonl",
       "**/docs/work/session-receipts.jsonl",
       "**/docs/work/watchdog-events.jsonl",
+      // run-until-done.sh writes its session log into the TARGET repo. Left
+      // tracked, it dirties the tree, and conductor.mjs then refuses to start
+      // ("working tree not clean") — so the SDLC phase silently blocks the
+      // Phase 4 phase that follows it. The list already carried this runner's
+      // sibling artifact (watchdog-events.jsonl) and missed the log itself.
+      "**/docs/work/run-until-done.log",
     ];
     const missing = required.filter((r) => !g.includes(r));
     if (missing.length === 0 && /runtime artifacts/i.test(g)) {

@@ -129,6 +129,7 @@ function stage() {
     '**/docs/work/telemetry.jsonl',
     '**/docs/work/session-receipts.jsonl',
     '**/docs/work/watchdog-events.jsonl',
+    '**/docs/work/run-until-done.log',
     '',
     '# Conductor run artifacts',
     '.conductor-worktrees/',
@@ -226,7 +227,23 @@ function bridge() {
 // 4. Phase B — Phase 4 module tickets via the conductor
 // ---------------------------------------------------------------------------
 
+// The handoff itself. A human does this by hand between "the SDLC finished
+// planning" and "start the executor": commit whatever the phase left loose,
+// because conductor.mjs refuses to start on a dirty tree. Automating the path
+// means automating this too — and it must be LOUD, because silently committing
+// an agent's uncommitted work is how unreviewed changes get laundered into a
+// baseline. Anything still dirty here is reported before it is committed.
+function commitPhaseOutput() {
+  const dirty = sh('git', ['status', '--porcelain'], { cwd: PROJ }).stdout.trim();
+  if (!dirty) { log('handoff: tree already clean'); return; }
+  log(`handoff: committing ${dirty.split('\n').length} pending path(s) left by phase A:`);
+  for (const l of dirty.split('\n')) log(`    ${l}`);
+  sh('git', ['add', '-A'], { cwd: PROJ });
+  sh('git', ['commit', '-q', '-m', 'chore(sdlc): commit phase 0-3 output before Phase 4 handoff'], { cwd: PROJ });
+}
+
 function phaseB(planPath) {
+  commitPhaseOutput();
   // The conductor resolves role models from the TARGET project's models.json
   // when it has one, so write it here rather than mutating the repo's.
   writeFileSync(join(PROJ, 'models.json'), JSON.stringify({
