@@ -210,6 +210,16 @@ const DEFAULT_CONFIG = {
   branchSuffix: '-conductor',
   worktreeDir: '.conductor-worktrees',
   remotes: ['github', 'origin'],
+  // Command run inside each freshly created worktree, before any session.
+  // A git worktree is a bare checkout — it has no node_modules/vendor/target,
+  // so any `verify` that shells through a package manager ("pnpm check")
+  // cannot resolve its binaries and fails for reasons that have nothing to do
+  // with the ticket. Field-found on pilot run 1 (2026-07-31): every attempt
+  // failed on `Command "biome" not found` while the actual edits were correct
+  // and had already passed code review. null = no setup step (previous
+  // behaviour, unchanged for projects that need none).
+  setup: null,
+  setupTimeoutMs: 15 * 60_000,
 };
 const CONFIG = (() => {
   const f = resolve(ROOT, 'conductor.config.json');
@@ -321,7 +331,25 @@ function makeWorktree(m) {
   try { git('branch', '-D', branch); } catch {}
   mkdirSync(WT_BASE, { recursive: true });
   git('worktree', 'add', '-q', '-b', branch, wt, 'main');
+  runWorktreeSetup(wt, m);
   return { branch, wt };
+}
+
+/**
+ * Prepare a fresh worktree so the ticket's `verify` command can actually run.
+ * Failure is fatal on purpose: continuing would spend two full sessions
+ * producing correct work that the runtime gate then rejects for a reason the
+ * agent cannot see or fix from inside the worktree.
+ */
+function runWorktreeSetup(wt, m) {
+  if (!CONFIG.setup) return;
+  log('worktree.setup', { ticket: m.id, msg: CONFIG.setup });
+  try {
+    sh('bash', ['-lc', CONFIG.setup], { cwd: wt, timeout: CONFIG.setupTimeoutMs });
+  } catch (e) {
+    const out = String(e.stderr || e.stdout || e.message).trim().split('\n').slice(-4).join(' | ');
+    throw new Error(`worktree setup failed (${CONFIG.setup}): ${out.slice(0, 400)}`);
+  }
 }
 function removeWorktree(wt) {
   try { git('worktree', 'remove', '--force', wt); } catch {}
