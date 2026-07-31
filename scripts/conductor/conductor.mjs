@@ -203,9 +203,27 @@ function persistPlan(plan, message) {
  * violation diffs. The second run of the day then died on
  * `target repo working tree not clean` because of a file the FIRST run created.
  * Anything the conductor writes into the target repo it must also commit.
+ *
+ * UNLESS git already ignores it. v3.0.4 put `docs/work/` in the bootstrap
+ * .gitignore precisely because it holds this system's runtime artifacts — and
+ * every path this function is given lives there. An ignored file never appears
+ * in `git status --porcelain`, so it cannot dirty the tree, so the entire
+ * reason to commit it is gone; `git add` on it just hard-fails ("paths are
+ * ignored by one of your .gitignore files"), which took down the halt path —
+ * the LAST thing a run does — in every project that follows our own bootstrap.
+ * Same drift as v3.0.1/3.0.4/3.0.6/3.1.0: a requirement moved, its consumer
+ * did not. Forcing the add with -f would be the wrong repair; it would commit
+ * runtime noise that v3.0.4 deliberately excluded.
  */
 function commitArtifact(absPath, message) {
   if (DRY || !existsSync(absPath)) return;
+  // `git check-ignore` exits 0 when the path IS ignored, 1 when it is not.
+  let ignored = false;
+  try { git('check-ignore', '-q', absPath); ignored = true; } catch { ignored = false; }
+  if (ignored) {
+    log('artifact.ignored', { msg: `${absPath} is covered by .gitignore — written but not committed (an ignored file cannot dirty the tree)` });
+    return;
+  }
   try {
     git('add', absPath);
     git('commit', '-q', '-m', message);
@@ -786,7 +804,16 @@ async function main() {
     const wanted = [...new Set(Object.values(ROLE_MODELS).filter(Boolean).map(String))];
     let known = null;
     try {
-      known = new Set(sh(OPENCODE_BIN, ['models']).split('\n').map((s) => s.trim()).filter(Boolean));
+      const listed = new Set(sh(OPENCODE_BIN, ['models']).split('\n').map((s) => s.trim()).filter(Boolean));
+      // An enumeration that succeeds and returns NOTHING is not evidence that
+      // nothing resolves — it is evidence the enumeration did not work (an
+      // `opencode` too old for the subcommand, a wrapper that swallows it, a
+      // stub). Treating empty as authoritative makes this gate refuse every
+      // model in the config and blame the config: the same shape of defect
+      // this gate was written to catch, turned on its author. Absent evidence
+      // is not evidence of absence, so fall through to the un-enumerable path.
+      if (listed.size > 0) known = listed;
+      else log('gate.model-resolve', { msg: `\`${OPENCODE_BIN} models\` returned an empty list — treating as un-enumerable, not as "no model resolves"; skipping resolution check` });
     } catch {
       log('gate.model-resolve', { msg: `could not enumerate models via \`${OPENCODE_BIN} models\` — skipping resolution check` });
     }

@@ -45,6 +45,9 @@ Tracker updated: CHANGELOG.md
 ## Verify result
 - \`${scope}/hello.txt\` written and present
 
+## Memory written
+- None — nothing durable
+
 ${id} done -- wrote ${scope}/hello.txt.
 `;
 }
@@ -70,6 +73,12 @@ function setupFixture(ticketId, scope) {
     }],
   };
   writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  // Own models.json — otherwise the fallback is this repo's root models.json
+  // and the resume tests would depend on the developer's authenticated
+  // providers rather than on resume behavior.
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
   for (const d of [scope, 'docs/reviews']) {
     mkdirSync(resolve(target, d), { recursive: true });
     writeFileSync(resolve(target, d, '.gitkeep'), '');
@@ -88,6 +97,16 @@ function setupFixture(ticketId, scope) {
   const argsLog = resolve(base, 'stub-args.log');
   writeFileSync(stub, `#!/usr/bin/env bash
 set -euo pipefail
+# G4b (v3.1.1) enumerates models at startup, before resume decides anything.
+# That is a preflight, not a coder session, so it answers and returns without
+# touching the args log — the log's emptiness is this test's entire proof that
+# no duplicate session was spawned, and a preflight in it would be a false
+# positive. Answering (rather than exiting silently) also keeps the gate from
+# reading an empty list as "no model resolves" and refusing before resume runs.
+if [[ "\${1:-}" == "models" ]]; then
+  printf '%s\\n' fixture/coder-model fixture/reviewer-model
+  exit 0
+fi
 echo "invoked $*" >> ${JSON.stringify(argsLog)}
 exit 0
 `);
@@ -151,14 +170,20 @@ test('conductor.mjs resume: leftover committed work is re-verified, never re-run
       env: { ...process.env, OPENCODE_BIN: stub },
     });
 
-    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
-    const m = plan.modules.find((x) => x.id === TICKET);
-    assert.equal(m.status, 'done', 'resume should land the ticket using the leftover committed work');
-
-    assert.equal(existsSync(argsLog), false, 'the opencode stub must never be invoked — resume must not spawn a duplicate coder session');
-
+    // Read the receipts BEFORE asserting on status: when resume declines to
+    // land the ticket, the status alone ('ready') says only that something
+    // refused, never which gate — and the temp fixture is destroyed in the
+    // finally block, taking the evidence with it. Attaching the trail to the
+    // assertion message is the difference between a diagnosis and a re-run.
     const log = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
       .trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const trail = () => log.map((r) => `${r.kind} ${r.ticket || ''} — ${(r.msg || '').slice(0, 300)}`).join('\n');
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    const m = plan.modules.find((x) => x.id === TICKET);
+    assert.equal(m.status, 'done', `resume should land the ticket using the leftover committed work\n--- receipts ---\n${trail()}`);
+
+    assert.equal(existsSync(argsLog), false, 'the opencode stub must never be invoked — resume must not spawn a duplicate coder session');
     assert.ok(log.some((r) => r.kind === 'resume.reverify' && r.ticket === TICKET), 'should log a resume.reverify entry');
     assert.ok(log.some((r) => r.kind === 'ticket.receipt' && r.ticket === TICKET && /resume/i.test(r.msg || '')), 'the close receipt should be logged as coming from resume, not a fresh session');
     assert.equal(log.filter((r) => r.kind === 'resume.drift-refused').length, 0, 'a genuinely reconcilable resume must not be flagged as drift');
