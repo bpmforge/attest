@@ -28,7 +28,7 @@ task-decomposer `nodes[]`. A plan with only `nodes[]` stays valid (backward comp
 | `owner` | string \| null | yes | Free-text handle (`"brad"`) or agent name (`"coding-agent"`); `null` = unclaimed |
 | `status` | enum | yes | `blocked` \| `ready` \| `claimed` \| `in_progress` \| `in_review` \| `done` |
 | `interface` | string (path) | recommended | The contract other modules code against (enables interface-first parallelism) |
-| `write_scope` | string[] (globs), non-empty | yes | Exclusive edit territory. Disjoint across concurrently-workable modules |
+| `write_scope` | string[] (globs), non-empty | yes | Exclusive edit territory. Disjoint across concurrently-workable modules. **Must include the test files for every implementation file it lists** — either a glob that covers them (`src/**`) or the explicit siblings (`src/parse.js` *and* `src/parse.test.js`). A scope that names implementation alone while acceptance demands tests is unsatisfiable: the agent is required to write tests and forbidden from writing them, and its only honest moves are to self-block or delete the tests it just wrote. Both have happened in the field; `testSiblingWarnings()` flags it at plan time |
 | `depends_on` | string[] (module ids) | yes | DAG edges. Satisfied when each referenced module is `done` |
 | `acceptance` | string[], non-empty | yes | Jira-style checkable criteria = the module's PRODUCE contract |
 | `verify` | string (path) | recommended | The gate that closes the ticket (validator script / challenger) |

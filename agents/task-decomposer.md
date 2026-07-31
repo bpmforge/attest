@@ -96,6 +96,18 @@ contract (`lane`, `write_scope`, `interface`, `acceptance`, `verify`,
 `depends_on`), not a single bounded job — an owner decomposes their own
 module into `nodes[]` once they claim it, using this same agent.
 
+**Every `write_scope` must cover its own tests.** If a module's acceptance
+asks for tests — and it almost always does — the scope has to permit writing
+them: either a glob (`src/**`) or the explicit siblings (`src/parse.js` AND
+`src/parse.test.js`). Listing implementation alone produces a ticket that
+cannot be satisfied: the acceptance demands tests, the scope gate refuses
+them, and the agent's only honest moves are to self-block or to delete the
+tests it just wrote. Both happen in practice — one field session wrote 120
+lines of implementation plus 214 lines of tests and lost the entire attempt to
+"tests/parse.test.js written outside assigned scope". Run
+`node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` and
+clear every `[!] ... no test file in the same directory` before finishing.
+
 **When to split into modules instead of (or in addition to) a flat node
 DAG:** the request has 2+ slices that (a) touch disjoint file trees and (b)
 could genuinely be worked in parallel by different owners. A single-file
