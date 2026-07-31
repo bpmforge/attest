@@ -113,6 +113,9 @@ Tracker updated: CHANGELOG.md
 ## Verify result
 - \\\`\${scope}/hello.txt\\\` written and present
 
+## Memory written
+- None — nothing durable
+
 \${id} done -- wrote \${scope}/hello.txt.
 EOF
 }
@@ -133,7 +136,7 @@ exit 0
 test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, never advances it', { timeout: 180_000 }, () => {
   const { base, target, stub } = setupFixture();
   try {
-    sh('node', [CONDUCTOR, '--root', target, '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });
@@ -183,7 +186,7 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
     // invocation retries it — and, the stub still being broken, fails it
     // the same way again. Proves the failure path is stable across runs,
     // not just within a single process's in-memory skip-set.
-    sh('node', [CONDUCTOR, '--root', target, '--max-attempts', '2', '--no-push'], {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '2', '--no-push'], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });
@@ -272,6 +275,9 @@ Tracker updated: CHANGELOG.md
 ## Verify result
 - \\\`a/hello.txt\\\` written and present
 
+## Memory written
+- None — nothing durable
+
 TICK-ROLE done -- wrote a/hello.txt.
 EOF
 exit 0
@@ -284,7 +290,7 @@ exit 0
 test('conductor.mjs: T28.2 role routing — resolved coder-role model reaches the real opencode spawn', { timeout: 60_000 }, () => {
   const { base, target, stub, argsLog } = setupRoleRoutingFixture();
   try {
-    sh('node', [CONDUCTOR, '--root', target, '--max-attempts', '1', '--no-push'], {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });

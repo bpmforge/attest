@@ -146,7 +146,7 @@ test('conductor.mjs resume: leftover committed work is re-verified, never re-run
     // 4. Fresh conductor invocation — this IS the resume. The stub must
     // never be invoked for TICKET: the whole point is not re-running the
     // coder session on top of already-committed, already-gated-worthy work.
-    sh('node', [CONDUCTOR, '--root', target, '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });
@@ -194,7 +194,7 @@ test('conductor.mjs resume: a hand-doctored plan.json with no receipt trail is r
 
     let threw = null;
     try {
-      sh('node', [CONDUCTOR, '--root', target, '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '2', '--no-push'], {
         cwd: target,
         env: { ...process.env, OPENCODE_BIN: stub },
       });
