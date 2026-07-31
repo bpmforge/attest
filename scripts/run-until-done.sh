@@ -167,10 +167,20 @@ resume_preamble() {
   # an instruction whose object is missing, and the session has to guess. Ask
   # for the checkpoint instead -- run-until-done, validate-state-drift and
   # /sdlc resume all key off it, so a run without one cannot resume at all.
+  # ...and on a fresh project it must not say "/sdlc resume" AT ALL. That
+  # command told the session to resume work that does not exist, while the
+  # caller's own prompt said to start something new — a contradiction the
+  # session then has to adjudicate. One model silently picked a side and got on
+  # with it; another correctly refused to guess, wrote "Resolve brownfield
+  # /sdlc resume vs explicit /sdlc init instruction; obtain confirmation" into
+  # STATE.md, and stalled for its entire session budget. The second behaviour is
+  # the right one, which is what makes this the preamble's bug: an unattended
+  # runner must not hand a session two conflicting instructions and rely on it
+  # to ignore one of them.
   if [[ -f "$STATE" ]]; then
     printf '/sdlc resume\nRead %s and continue from its Next step.' "$STATE"
   else
-    printf '/sdlc resume\nThere is no checkpoint at %s yet. Create it per agents/shared/CHECKPOINT_STATE.md before you finish this session -- the resume loop and the drift gate both read that exact path, and without it no later session can pick up where you stopped.' "$STATE"
+    printf 'This is the FIRST session for this project -- there is nothing to resume, so follow the task below as written.\nWrite a checkpoint to %s per agents/shared/CHECKPOINT_STATE.md before you finish -- the resume loop and the drift gate both read that exact path, and without it no later session can pick up where you stopped.' "$STATE"
   fi
   printf ' When the whole task is finished, emit the exact token %s.\n' "$PROMISE"
 
@@ -570,8 +580,10 @@ STUB2
     # (a) no checkpoint yet -> ask for one, never point at a missing file
     STATE="$tmp/absent-STATE.md"; rm -f "$STATE"; LAST_GAPS=""
     out="$(resume_preamble)"
-    if grep -qF "There is no checkpoint at" <<<"$out" && ! grep -qF "continue from its Next step" <<<"$out"; then
-      echo "self-test scenario 5a PASS (a missing checkpoint is requested, not silently referenced)"
+    if grep -qF "FIRST session for this project" <<<"$out" \
+       && ! grep -qF "continue from its Next step" <<<"$out" \
+       && ! grep -qF "/sdlc resume" <<<"$out"; then
+      echo "self-test scenario 5a PASS (a fresh project is told to start, never to resume)"
     else
       echo "self-test scenario 5a FAIL: preamble still points at a checkpoint that does not exist"; scenario5_ok=0
     fi
