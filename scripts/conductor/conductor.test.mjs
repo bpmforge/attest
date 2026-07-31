@@ -62,6 +62,13 @@ function setupFixture() {
     ],
   };
   writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  // The fixture carries its OWN models.json so the run is hermetic. Without
+  // one, MODELS_JSON_PATH falls back to this repo's root models.json and the
+  // suite's outcome depends on which providers the developer happens to have
+  // authenticated — a real source of "passes on my machine".
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
   // Pre-create scope dirs + docs/reviews as TRACKED — matches real projects
   // (a ticket's write_scope dir usually already exists). This matters for
   // validate-scope.sh: `git status --porcelain` collapses a wholly-NEW
@@ -85,6 +92,15 @@ function setupFixture() {
   const stub = resolve(binDir, 'opencode-stub.sh');
   writeFileSync(stub, `#!/usr/bin/env bash
 set -euo pipefail
+# G4b (v3.1.1) preflights \`opencode models\` before any ticket runs. A stub
+# that answers nothing is indistinguishable from an install that resolves
+# nothing, so it must enumerate exactly the ids this fixture's models.json
+# configures — that keeps the gate genuinely exercised on the happy path
+# instead of bypassed with --model-gate off.
+if [[ "\${1:-}" == "models" ]]; then
+  printf '%s\\n' fixture/coder-model fixture/reviewer-model
+  exit 0
+fi
 [[ "\${1:-}" == "run" ]] || exit 0
 PROMPT="$2"; shift 2
 DIR=""
@@ -205,7 +221,7 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
 // `opencode run --model <...>` spawn (not just resolved and logged), and
 // that a fully-distinct roles map lands the ticket normally (the routing
 // gate itself never blocks a clean config).
-function setupRoleRoutingFixture() {
+function setupRoleRoutingFixture({ stubModels = ['fixture/coder-model', 'fixture/reviewer-model'] } = {}) {
   const base = mkdtempSync(resolve(tmpdir(), 'conductor-t28-2-'));
   const target = resolve(base, 'target-repo');
   mkdirSync(target, { recursive: true });
@@ -248,6 +264,13 @@ function setupRoleRoutingFixture() {
   const argsLog = resolve(base, 'stub-args.log');
   writeFileSync(stub, `#!/usr/bin/env bash
 set -euo pipefail
+# G4b's model enumeration is a preflight, not a session — it must answer the
+# configured ids without landing in the argv log, which the assertions below
+# read as "what the coder session was spawned with".
+if [[ "\${1:-}" == "models" ]]; then
+  ${stubModels.length ? `printf '%s\\n' ${stubModels.join(' ')}` : 'true'}
+  exit 0
+fi
 echo "$@" >> ${JSON.stringify(argsLog)}
 [[ "\${1:-}" == "run" ]] || exit 0
 DIR=""
@@ -314,6 +337,61 @@ test('conductor.mjs: T28.2 role routing — resolved coder-role model reaches th
 
     const sessionStarts = log.filter((r) => r.kind === 'session.start');
     assert.ok(sessionStarts.length > 0 && sessionStarts.every((r) => r.role === 'coder' && r.model === 'fixture/coder-model'), 'every session.start entry must be tagged with the coder role + its resolved model');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// G4b (v3.1.1) — the gate must still BITE. `opencode run --model <unknown>`
+// does not error; it falls back to the agent's own model, so an unresolvable
+// id makes the maker/verifier split fiction while every log line reports the
+// configured ids. This is the negative case v3.1.1 shipped without: paired
+// with the empty-list case below, it pins the gate between the two ways it can
+// be wrong — refusing everything, or refusing nothing.
+test('conductor.mjs: G4b refuses a models.json naming a model this install cannot resolve', { timeout: 60_000 }, () => {
+  // The stub enumerates the reviewer id but NOT the coder id.
+  const { base, target, stub, argsLog } = setupRoleRoutingFixture({ stubModels: ['fixture/reviewer-model'] });
+  try {
+    let err = null;
+    try {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
+        cwd: target,
+        env: { ...process.env, OPENCODE_BIN: stub },
+      });
+    } catch (e) { err = e; }
+
+    assert.ok(err, 'an unresolvable role model must refuse the run, not proceed');
+    assert.equal(err.status, 2, 'G4b refusal exits 2');
+    assert.match(String(err.stderr), /fixture\/coder-model/, 'the refusal must name the id that does not resolve');
+    assert.equal(existsSync(argsLog), false, 'no coder session may be spawned when the gate refuses');
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'ready', 'a refused run must leave the board untouched');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// The other half: an enumeration that SUCCEEDS and returns nothing is not
+// evidence that nothing resolves — it is evidence the enumeration did not
+// work (an `opencode` too old for the subcommand, a wrapper that swallows it).
+// Treating empty as authoritative made G4b refuse every model in the config
+// and blame the config, which took the whole conductor suite RED at v3.1.1.
+test('conductor.mjs: G4b treats an empty model list as un-enumerable, not as "nothing resolves"', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture({ stubModels: [] });
+  try {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'done', 'an un-enumerable install must not block the run');
+
+    const log = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const skipped = log.find((r) => r.kind === 'gate.model-resolve' && /empty list/i.test(r.msg || ''));
+    assert.ok(skipped, 'the skip must be logged — a gate that silently stops checking is worse than one that refuses');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

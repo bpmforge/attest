@@ -36,13 +36,41 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   plan.json plays the STATE.md role here (T27.4's drift-check pattern —
   claims vs receipts vs disk — applied to this ticket lifecycle instead of
   the SDLC's phase-based STATE.md, which this Conductor doesn't use).
-- `models.json` — per-role model routing. **Not yet wired into
-  `conductor.mjs`** — T28.2 (`blocked(T28.1)`) is scoped to pass `--model`
-  per role and mechanically enforce maker != reviewer model. Today
-  `conductor.mjs` accepts one flat `--model` for every session, and the
-  maker/reviewer split in the Completion Manifest (`Maker:`/`Verifier:`
-  lines) is identity-enforced only (same model, different declared names) —
-  a known, intentional limitation of this ticket's scope.
+- Per-role model routing lives in the **repo-root `models.json`**
+  (`roles.coder` / `roles.reviewer` / `roles.challenger`), or in a
+  `models.json` at the target project's root, or wherever `--models` points.
+  There is no `models.json` in this directory — one used to sit here
+  describing a `maker`/`cheap`/`cheapLanes` schema that nothing has ever
+  parsed, and it cost real debugging time as a decoy. Two startup gates guard
+  the routing: **G4** refuses a config whose coder and reviewer/challenger are
+  the same model (`--role-gate warn` downgrades it), and **G4b** refuses a
+  config naming a model this opencode install cannot resolve
+  (`--model-gate warn|off`).
+
+## Before you point it at a repo
+
+Two properties of the target repo are load-bearing, and both fail in ways
+that look like an agent problem:
+
+1. **The models must resolve.** `opencode run --model <unknown>` does not
+   error — it silently falls back to the agent's own model. A `models.json`
+   naming a provider you have not authenticated therefore runs every role on
+   one model while the log, the receipts and the manifest all report the ids
+   you configured. G4b now refuses this at startup; check `opencode models`
+   for the ids your install actually serves.
+2. **The baseline must be formatter-clean.** The post-edit hook runs
+   `rustfmt`/`prettier`/`black` on files a session touches. If a file is
+   committed unformatted, the first session to touch anything reformats it,
+   it lands outside the ticket's `write_scope`, and the scope gate refuses —
+   correctly, and unavoidably, no matter how disciplined the agent is. Run
+   your formatter and commit before the first run. When a violation is
+   whitespace-only the conductor now says so explicitly
+   (`gates.evidence-cosmetic`) instead of leaving you to guess.
+
+When the scope gate does fail, the offending diff is preserved at
+`docs/work/scope-violation-<TICKET>-attempt<N>.diff` in the target repo —
+the worktree that held it is destroyed immediately after, so this file is the
+only record of what actually changed.
 
 ## Test
 
@@ -53,9 +81,16 @@ in-scope files + a valid Completion Manifest) and fails the third
 (out-of-scope write), then runs `conductor.mjs` against it end-to-end: real
 `tickets.mjs` lifecycle, real `run-handoff-gates.sh` +
 `validate-completion-manifest.sh` + `validate-scope.sh`, real git worktrees
-and merges. Not wired into `scripts/test.ts`'s Pass-N suite (out of this
-ticket's `scripts/conductor/**` write scope) — run it standalone or as a
-fast-follow adds a new Pass.
+and merges. Two further cases pin **G4b** from both sides — it must refuse a
+role model the install cannot resolve, and it must *not* read an empty
+`opencode models` list as "nothing resolves" (v3.1.2). Every fixture carries
+its own `models.json` and every stub answers `models`, so the suite never
+depends on which providers the developer has authenticated.
+
+Not wired into `scripts/test.ts`'s Pass-N suite (out of the original ticket's
+`scripts/conductor/**` write scope) — run it standalone. **This is why v3.1.1
+shipped with all four conductor tests RED and nothing said so**; wiring these
+two files into a Pass is the outstanding fast-follow.
 
 `node --test scripts/conductor/resume.test.mjs` (T28.5) — same
 real-fixture style: one case hand-reconstructs a killed-mid-ticket state
