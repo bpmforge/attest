@@ -68,8 +68,25 @@ export function validatePlan(plan) {
     // "required for close", not required to exist, and close() already refuses
     // clearly when it is absent. Requiring it here would invalidate boards
     // that are legitimately mid-draft.
-    if (m.manifest !== undefined && (typeof m.manifest !== 'string' || !m.manifest.trim()))
+    if (m.manifest !== undefined && (typeof m.manifest !== 'string' || !m.manifest.trim())) {
       errors.push(`${where}: manifest must be a non-empty string path to the Completion Manifest (got ${Array.isArray(m.manifest) ? 'array' : typeof m.manifest})`);
+    } else if (typeof m.manifest === 'string' && m.manifest.trim()) {
+      // A string is not enough — the path has to point at a DOCUMENT, because
+      // the executor instructs its session to "Write a Completion Manifest at
+      // <module.manifest>". Point it at a source file and the agent dutifully
+      // overwrites that file with markdown: the ticket's own code or test is
+      // destroyed, and `verify` then runs node --test against a markdown file.
+      // The failure does not look like a bad path; it looks like the agent
+      // wrecking its own deliverable. Observed 2026-07-31 — an SDLC board set
+      // manifest to `tests/parse.test.js`, a file the same ticket had to
+      // create, after a type-only check let the agent pick the nearest string
+      // it had.
+      if (!/\.md$/i.test(m.manifest.trim()))
+        errors.push(`${where}: manifest must be a .md document (conventionally docs/reviews/MANIFEST_${m.id}.md) — the executor WRITES the Completion Manifest to this path, so a non-document path is overwritten`);
+      const scope = Array.isArray(m.write_scope) ? m.write_scope : [];
+      if (scope.some((s) => typeof s === 'string' && s.trim() === m.manifest.trim()))
+        errors.push(`${where}: manifest '${m.manifest}' is also in write_scope — the manifest is written to that path and would clobber the ticket's own deliverable`);
+    }
     if (m.verify !== undefined && (typeof m.verify !== 'string' || !m.verify.trim()))
       errors.push(`${where}: verify must be a non-empty string command (got ${Array.isArray(m.verify) ? 'array' : typeof m.verify})`);
     for (const nid of (m.nodes || [])) if (!nodeIds.has(nid)) errors.push(`${where}: references node '${nid}' not in plan.nodes`);
