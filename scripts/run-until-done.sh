@@ -161,8 +161,27 @@ if [[ -z "$MAX_SESSIONS" ]]; then
 fi
 
 resume_preamble() {
-  printf '/sdlc resume\nRead %s and continue from its Next step. When the whole task is finished, emit the exact token %s.\n\n%s\n' \
-    "$STATE" "$PROMISE" "$PROMPT"
+  # The checkpoint may not exist yet (first session of a fresh project, or an
+  # agent that never wrote one). Telling a session to "continue from its Next
+  # step" in a file that is not there is worse than saying nothing: it reads as
+  # an instruction whose object is missing, and the session has to guess. Ask
+  # for the checkpoint instead -- run-until-done, validate-state-drift and
+  # /sdlc resume all key off it, so a run without one cannot resume at all.
+  if [[ -f "$STATE" ]]; then
+    printf '/sdlc resume\nRead %s and continue from its Next step.' "$STATE"
+  else
+    printf '/sdlc resume\nThere is no checkpoint at %s yet. Create it per agents/shared/CHECKPOINT_STATE.md before you finish this session -- the resume loop and the drift gate both read that exact path, and without it no later session can pick up where you stopped.' "$STATE"
+  fi
+  printf ' When the whole task is finished, emit the exact token %s.\n' "$PROMISE"
+
+  # Feed the refusal back. Truncated: this rides in front of the real prompt on
+  # every restart, and a validator dump can be long.
+  if [[ -n "$LAST_GAPS" ]]; then
+    printf '\nYOUR PREVIOUS SESSION EMITTED %s AND WAS REFUSED. The token is a request to evaluate completion, not proof of it, and objective state disagreed:\n\n%s\n\nFix exactly these before emitting the token again. Do not re-emit it with them outstanding.\n' \
+      "$PROMISE" "$(printf '%s' "$LAST_GAPS" | head -c 4000)"
+  fi
+
+  printf '\n%s\n' "$PROMPT"
 }
 
 # -- shared hygiene checks (T27.4, reused by both is_complete() post-hoc and
@@ -172,17 +191,39 @@ validators_dir() {
   cd "$(dirname "${BASH_SOURCE[0]}")/validators" 2>/dev/null && pwd
 }
 
+# Why a session was REFUSED, carried into the next session's preamble.
+#
+# Both checks used to send the validator's output to /dev/null, so the gap text
+# reached this script's log and nothing else. resume_preamble() rebuilds the
+# next session from $STATE and the ORIGINAL $PROMPT only — meaning a session
+# whose promise token was rejected got no signal that it had been rejected, let
+# alone why. It would re-emit the same work, be refused identically, and the
+# loop would burn to its cap or trip the stall detector. Observed in this
+# repo's own docs/work/run-until-done.log: two consecutive sessions rejected
+# for the same single drift gap, then "session cap 3 reached".
+#
+# conductor.mjs already learned this in v3.1.1 — it preserves the scope
+# violation diff and feeds it into the retry, because "the previous attempt's
+# mistake was described to it in the abstract but never shown". Same fix here.
+LAST_GAPS=""
+
 state_drift_clean() {
-  local vdir; vdir="$(validators_dir)"
+  local vdir out; vdir="$(validators_dir)"
   [[ -n "$vdir" && -x "$vdir/validate-state-drift.sh" ]] || return 0
-  "$vdir/validate-state-drift.sh" "$ROOT" "$STATE" >/dev/null 2>>"$LOG"
+  if out="$("$vdir/validate-state-drift.sh" "$ROOT" "$STATE" 2>&1)"; then return 0; fi
+  printf '%s\n' "$out" >>"$LOG"
+  LAST_GAPS="$out"
+  return 1
 }
 
 tickets_clean() {
-  local vdir plan="${1:-$ROOT/docs/work/plan.json}"
+  local vdir out plan="${1:-$ROOT/docs/work/plan.json}"
   vdir="$(validators_dir)"
   [[ -n "$vdir" && -x "$vdir/validate-tickets.sh" && -f "$plan" ]] || return 0
-  "$vdir/validate-tickets.sh" "$ROOT" "$plan" >/dev/null 2>>"$LOG"
+  if out="$("$vdir/validate-tickets.sh" "$ROOT" "$plan" 2>&1)"; then return 0; fi
+  printf '%s\n' "$out" >>"$LOG"
+  LAST_GAPS="$out"
+  return 1
 }
 
 is_complete() {
@@ -516,8 +557,49 @@ STUB2
   fi
   ROOT="$saved_root"
 
-  if [[ "$scenario1_ok" == "1" && "$scenario2_ok" == "1" && "$scenario3_ok" == "1" && "$scenario4_ok" == "1" ]]; then
-    echo "self-test PASS (session-restart completion + refuse-to-select-next-work gate + stall-2-then-escalate + tier-aware default)"
+  # -- Scenario 5: the refusal must reach the next session ------------------
+  # A rejected promise token is only actionable if the NEXT session is told it
+  # was rejected and why. Without this the loop re-runs the same work, is
+  # refused identically, and burns to the cap -- which is what this repo's own
+  # run-until-done.log recorded before the gaps were wired through.
+  scenario5_ok=1
+  {
+    saved_state="$STATE"; saved_prompt="$PROMPT"; saved_gaps="$LAST_GAPS"
+    PROMPT="do the thing"
+
+    # (a) no checkpoint yet -> ask for one, never point at a missing file
+    STATE="$tmp/absent-STATE.md"; rm -f "$STATE"; LAST_GAPS=""
+    out="$(resume_preamble)"
+    if grep -qF "There is no checkpoint at" <<<"$out" && ! grep -qF "continue from its Next step" <<<"$out"; then
+      echo "self-test scenario 5a PASS (a missing checkpoint is requested, not silently referenced)"
+    else
+      echo "self-test scenario 5a FAIL: preamble still points at a checkpoint that does not exist"; scenario5_ok=0
+    fi
+
+    # (b) a refusal carries its gap text into the next session
+    STATE="$tmp/present-STATE.md"; echo "# STATE" > "$STATE"
+    LAST_GAPS='  [x] module '"'"'parse'"'"': kind must be "module"'
+    out="$(resume_preamble)"
+    if grep -qF "WAS REFUSED" <<<"$out" && grep -qF 'kind must be "module"' <<<"$out" && grep -qF "do the thing" <<<"$out"; then
+      echo "self-test scenario 5b PASS (the refusal, its gaps, and the original prompt all reach the next session)"
+    else
+      echo "self-test scenario 5b FAIL: gap text did not reach the preamble"; scenario5_ok=0
+    fi
+
+    # (c) a clean run must not grow a phantom refusal notice
+    LAST_GAPS=""
+    out="$(resume_preamble)"
+    if ! grep -qF "WAS REFUSED" <<<"$out" && grep -qF "continue from its Next step" <<<"$out"; then
+      echo "self-test scenario 5c PASS (no refusal text when nothing was refused)"
+    else
+      echo "self-test scenario 5c FAIL: clean restart carries a refusal notice"; scenario5_ok=0
+    fi
+
+    STATE="$saved_state"; PROMPT="$saved_prompt"; LAST_GAPS="$saved_gaps"
+  }
+
+  if [[ "$scenario1_ok" == "1" && "$scenario2_ok" == "1" && "$scenario3_ok" == "1" && "$scenario4_ok" == "1" && "$scenario5_ok" == "1" ]]; then
+    echo "self-test PASS (session-restart completion + refuse-to-select-next-work gate + stall-2-then-escalate + tier-aware default + refusal feedback)"
     exit 0
   else
     echo "self-test FAIL"
