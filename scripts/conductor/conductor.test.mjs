@@ -449,6 +449,42 @@ test('conductor.mjs: validate-scope classifies files in a BRAND-NEW directory ag
   }
 });
 
+// G6 (v3.1.14): the manifest must sit where the scope gate permits writes.
+//
+// The session is told to WRITE the Completion Manifest at module.manifest, and
+// validate-scope.sh allows only docs/work/ and docs/reviews/. A manifest
+// anywhere else is written exactly as instructed and then flagged out-of-scope,
+// failing a ticket that did nothing wrong. `manifests/M-parse.md` — a .md, not
+// in write_scope, so every schema rule passed it — killed a run on its first
+// ticket. Conductor-specific: a human driving the lifecycle by hand has no
+// scope gate, which is why this is not a validatePlan() error.
+test('conductor.mjs: G6 refuses a manifest outside the always-writable dirs, before any session', { timeout: 60_000 }, () => {
+  const { base, target, stub, argsLog } = setupRoleRoutingFixture();
+  try {
+    const planPath = resolve(target, 'plan.json');
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'));
+    plan.modules[0].manifest = 'manifests/TICK-ROLE.md';
+    writeFileSync(planPath, JSON.stringify(plan, null, 2) + '\n');
+    sh('git', ['add', '-A'], { cwd: target });
+    sh('git', ['commit', '-q', '-m', 'point the manifest somewhere unwritable'], { cwd: target });
+
+    let err = null;
+    try {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
+        cwd: target,
+        env: { ...process.env, OPENCODE_BIN: stub },
+      });
+    } catch (e) { err = e; }
+
+    assert.ok(err, 'an unwritable manifest location must refuse the run');
+    assert.equal(err.status, 2, 'G6 refusal exits 2');
+    assert.match(String(err.stderr), /manifests\/TICK-ROLE\.md/, 'the refusal must name the offending path');
+    assert.equal(existsSync(argsLog), false, 'no coding session may be spawned — the whole point is refusing before the work');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 // Plan discovery (v3.1.4): the Phase 3 -> Phase 4 seam. The SDLC writes its
 // module board to docs/work/plan.json; this executor defaulted to
 // <root>/plan.json, which no producer has ever written. Pointing the conductor
