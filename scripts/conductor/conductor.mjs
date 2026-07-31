@@ -56,7 +56,7 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
@@ -394,6 +394,44 @@ function scopeGate(wt, writeScope) {
  * and a bounded excerpt goes back into the retry prompt — the previous attempt's
  * mistake was described to it in the abstract but never shown.
  */
+/**
+ * Preserve a FAILED attempt's review + runtime documents before its worktree
+ * and branch are destroyed.
+ *
+ * makeWorktree() force-removes the worktree and `branch -D`s the branch at the
+ * start of every attempt, so everything rounds 2-3 wrote — the reviewers'
+ * findings and the runtime verdict, the only records of WHY the attempt failed
+ * — is gone by the time anyone reads the log. The operator is left with
+ * "round 3: runtime verdict FAIL (docs/reviews/RUNTIME_T-decimal.md)" naming a
+ * file that no longer exists anywhere.
+ *
+ * Same lesson as the scope-violation diff in v3.1.1: a gate that deletes its
+ * own evidence forces the next person to reproduce the failure to understand
+ * it. On a 50-ticket board that is the difference between reading why three
+ * tickets failed and re-running them to find out.
+ *
+ * Best-effort by design — losing evidence must never fail a ticket that would
+ * otherwise pass, so every step is swallowed.
+ */
+function preserveAttemptEvidence(m, attempt, wt) {
+  const kept = [];
+  try {
+    const srcDir = resolve(wt, 'docs/reviews');
+    if (!existsSync(srcDir)) return kept;
+    const outDir = resolve(ROOT, `docs/work/attempt-evidence/${m.id}-attempt${attempt}`);
+    mkdirSync(outDir, { recursive: true });
+    for (const f of readdirSync(srcDir)) {
+      if (!f.endsWith(`_${m.id}.md`) && !f.includes(m.id)) continue;
+      try {
+        writeFileSync(resolve(outDir, f), readFileSync(resolve(srcDir, f), 'utf8'));
+        kept.push(f);
+      } catch { /* one unreadable doc must not lose the others */ }
+    }
+    if (kept.length) log('gates.evidence-kept', { ticket: m.id, msg: `attempt ${attempt}: ${kept.join(', ')} -> docs/work/attempt-evidence/${m.id}-attempt${attempt}/` });
+  } catch { /* never let evidence capture break the run */ }
+  return kept;
+}
+
 function captureScopeEvidence(m, attempt, wt) {
   const rel = `docs/work/scope-violation-${m.id}-attempt${attempt}.diff`;
   let result = { feedback: null, path: null, abs: null };
@@ -659,6 +697,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
         const gaps = [`round 2: reviewer produced no document (${missing.join(', ')})`];
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        preserveAttemptEvidence(m, attempt, wt);
         comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
         persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
         removeWorktree(wt);
@@ -669,6 +708,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
         const gaps = [`round 2: still blocking after ${fixed.iterations} fix iteration(s): ${(fixed.blocking || []).join(', ')}`];
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        preserveAttemptEvidence(m, attempt, wt);
         comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
         persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
         removeWorktree(wt);
@@ -679,6 +719,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
         const gaps = [`round 3: runtime verdict ${!runtime.present ? 'missing' : 'FAIL'} (${runtime.doc})`];
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        preserveAttemptEvidence(m, attempt, wt);
         comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
         persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
         removeWorktree(wt);
