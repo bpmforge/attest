@@ -44,9 +44,10 @@ import {
   crossLaneCollisions,
   scopeCoverageWarnings,
   storyCoverageWarnings,
+  testSiblingWarnings,
   requirementClosure,
 } from './tickets-graph.mjs';
-export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions, scopeCoverageWarnings, storyCoverageWarnings, requirementClosure };
+export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, laneOf, UNASSIGNED_LANE, writeScopeCollisions, crossLaneCollisions, scopeCoverageWarnings, storyCoverageWarnings, testSiblingWarnings, requirementClosure };
 // T29.2: story ids come from docs/USER_STORIES.md, an external doc — this is
 // the only file in the lib/ chapter set that ever reads a *doc*, not just
 // plan.json, since story-coverage/requirement-closure are inherently
@@ -126,6 +127,7 @@ if (isMain) {
     for (const c of collisions) console.log(`  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`);
     // Advisory [!] lines — surfaced to humans/leads; validate-tickets.sh gates on [x] only.
     for (const w of scopeCoverageWarnings(plan)) console.log(`  [!] ${w.msg}`);
+    for (const w of testSiblingWarnings(plan)) console.log(`  [!] ${w.msg}`);
     // T29.2: story-coverage is advisory too, UNLESS STORY_COVERAGE_STRICT
     // promotes it to a gate (docs/TICKET_SCHEMA.md's "configurable gap").
     // Only runs when a USER_STORIES.md path was actually passed — a caller

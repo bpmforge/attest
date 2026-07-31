@@ -87,6 +87,12 @@ export function validatePlan(plan) {
       if (scope.some((s) => typeof s === 'string' && s.trim() === m.manifest.trim()))
         errors.push(`${where}: manifest '${m.manifest}' is also in write_scope — the manifest is written to that path and would clobber the ticket's own deliverable`);
     }
+    // `verify` is type-checked only. A BARE PATH is valid here and is in fact
+    // this repo's own convention — examples/tickets-plan.sample.json uses
+    // `scripts/validators/validate-migrations.sh`, and the ai-daytrader
+    // fixture uses `tests/unit/learning/test_pit_bars.py`. A rule rejecting
+    // single-token paths as "not a command" was tried and reverted: it failed
+    // six existing tests, because the premise was wrong, not the tests.
     if (m.verify !== undefined && (typeof m.verify !== 'string' || !m.verify.trim()))
       errors.push(`${where}: verify must be a non-empty string command (got ${Array.isArray(m.verify) ? 'array' : typeof m.verify})`);
     for (const nid of (m.nodes || [])) if (!nodeIds.has(nid)) errors.push(`${where}: references node '${nid}' not in plan.nodes`);
@@ -209,6 +215,53 @@ export function scopeCoverageWarnings(plan) {
       const covered = scopes.some(s => p === s || p.startsWith(s + '/'));
       if (!covered) out.push({ id: m.id, path: p, msg: `module '${m.id}': acceptance names '${p}' in its own area but no write_scope glob covers it` });
     }
+  }
+  return out;
+}
+
+// testSiblingWarnings: a ticket whose write_scope carries implementation files
+// but no test file cannot add tests without tripping the scope gate.
+//
+// The agent is asked for tests by its acceptance criteria and forbidden from
+// writing them by its write_scope, and the only honest moves left are to
+// self-block or to delete the tests it just wrote. Both have happened for real:
+// kryptkeeper's W6-01 wrote five table-driven tests, verified them, then
+// deleted them rather than self-amend its own scope; and on 2026-07-31 an
+// SDLC-generated board here scoped `src/parse.js` alone while its acceptance
+// demanded tests — the session wrote 214 lines of them and lost the whole
+// attempt to "tests/parse.test.js written outside assigned scope".
+//
+// ADVISORY, not an error. examples/tickets-plan.sample.json has zero of five
+// modules with a test in scope, so gating on this would invalidate this repo's
+// own canonical board. (A stricter `verify`-shape rule was tried the same day
+// and reverted for exactly this reason — the fixtures encode the convention,
+// and a rule that fails them is usually wrong about the convention.)
+//
+// Same-directory, not exact-sibling naming: foo.test.js, foo.spec.ts,
+// foo_test.go and test_foo.py are all legitimate layouts, and demanding one
+// filename produces false warnings on real trees.
+const TEST_PATH_RE = /(^|\/)(tests?|__tests__|spec)\//i;
+const TEST_FILE_RE = /((\.|_|-)(test|spec)s?\.[a-z]+$)|((^|\/)test_[^/]+$)|(_test\.[a-z]+$)|(Test\.[a-z]+$)/i;
+const SOURCE_FILE_RE = /\.(js|mjs|cjs|jsx|ts|tsx|py|go|rs|rb|java|kt|swift|php|cs|scala)$/i;
+
+export function testSiblingWarnings(plan) {
+  const out = [];
+  const isTest = (f) => TEST_PATH_RE.test(f) || TEST_FILE_RE.test(f);
+  const dirOf = (f) => f.slice(0, f.lastIndexOf('/') + 1);
+  for (const m of plan.modules || []) {
+    // A settled ticket's scope is history; warning on it every run buries the
+    // actionable ones (27 of 29 warnings on a real board).
+    if (m.status === 'done') continue;
+    const scope = (m.write_scope || []).filter((f) => typeof f === 'string');
+    // Glob scopes (`src/**`) already admit any test file under them.
+    const impl = scope.filter((f) => !f.includes('*') && SOURCE_FILE_RE.test(f) && !isTest(f));
+    if (!impl.length) continue;
+    const testDirs = new Set(scope.filter(isTest).map(dirOf));
+    const globDirs = scope.filter((f) => f.includes('*')).map((f) => f.slice(0, f.indexOf('*')));
+    const uncovered = impl.filter((f) =>
+      !testDirs.has(dirOf(f)) && !globDirs.some((g) => f.startsWith(g)));
+    if (uncovered.length)
+      out.push({ id: m.id, msg: `module '${m.id}': write_scope has implementation (${uncovered.join(', ')}) but no test file in the same directory — the agent cannot add tests for it without an out-of-scope gate failure` });
   }
   return out;
 }

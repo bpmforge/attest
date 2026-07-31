@@ -130,6 +130,61 @@ export async function testTicketsGraph(
         );
     }
 
+    {
+      // testSiblingWarnings: implementation in scope with no test file means
+      // the agent is required to write tests and forbidden from doing so. It is
+      // ADVISORY — the canonical sample board would fail a hard gate, and a
+      // rule that fails this repo's own fixtures is usually wrong about the
+      // convention rather than right about the board.
+      const noSibling = {
+        modules: [
+          {
+            id: "M-a",
+            kind: "module",
+            title: "A",
+            lane: "core",
+            owner: null,
+            status: "ready",
+            write_scope: ["src/parse.js"],
+            depends_on: [],
+            acceptance: ["parses"],
+          },
+        ],
+      };
+      const w = tickets.testSiblingWarnings(noSibling);
+      if (w.length === 1 && /cannot add tests/.test(w[0].msg))
+        ok("tickets — implementation with no test sibling raises an advisory");
+      else
+        fail(
+          "tickets — test-sibling advisory",
+          `got ${w.length}: ${JSON.stringify(w).slice(0, 200)}`,
+        );
+
+      // A glob scope already admits any test under it — must stay silent.
+      const globbed = JSON.parse(JSON.stringify(noSibling));
+      globbed.modules[0].write_scope = ["src/**"];
+      // ...as does an explicit sibling in the same directory.
+      const sibling = JSON.parse(JSON.stringify(noSibling));
+      sibling.modules[0].write_scope = ["src/parse.js", "src/parse.test.js"];
+      // ...and a settled ticket is history, not an action item.
+      const settled = JSON.parse(JSON.stringify(noSibling));
+      settled.modules[0].status = "done";
+      const quiet =
+        tickets.testSiblingWarnings(globbed).length === 0 &&
+        tickets.testSiblingWarnings(sibling).length === 0 &&
+        tickets.testSiblingWarnings(settled).length === 0 &&
+        tickets.testSiblingWarnings(tickets.loadPlan(samplePath)).length === 0;
+      if (quiet)
+        ok(
+          "tickets — test-sibling advisory stays silent on globs, real siblings, done tickets and the sample board",
+        );
+      else
+        fail(
+          "tickets — test-sibling advisory false positives",
+          `glob=${tickets.testSiblingWarnings(globbed).length} sibling=${tickets.testSiblingWarnings(sibling).length} done=${tickets.testSiblingWarnings(settled).length} sample=${tickets.testSiblingWarnings(tickets.loadPlan(samplePath)).length}`,
+        );
+    }
+
     // negative: a cycle must be caught
     const cyc = tickets.loadPlan(samplePath);
     cyc.modules.find(
