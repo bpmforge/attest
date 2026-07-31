@@ -796,6 +796,33 @@ async function main() {
     );
     process.exit(1);
   }
+  // G6: every ticket's manifest must sit where the scope gate permits writes.
+  //
+  // The session is told "Write a Completion Manifest at <module.manifest>", and
+  // validate-scope.sh's always-allowed list is exactly docs/work/ and
+  // docs/reviews/. A manifest anywhere else is written as instructed and then
+  // flagged out-of-scope, failing a ticket that did precisely what it was told.
+  // `manifests/M-parse.md` did this on 2026-07-31 — a .md, not in write_scope,
+  // so every schema rule passed it — and took down a whole run on its first
+  // ticket. Conductor-specific by nature: a human driving the lifecycle by hand
+  // has no scope gate, so this is not a schema error (see tickets-graph.mjs).
+  {
+    const MANIFEST_OK = ['docs/work/', 'docs/reviews/'];
+    const offenders = (loadPlan(PLAN_PATH).modules || [])
+      .filter((m) => typeof m.manifest === 'string' && m.manifest.trim())
+      .map((m) => ({ id: m.id, path: m.manifest.trim().replace(/^\.\//, '') }))
+      .filter((x) => !MANIFEST_OK.some((d) => x.path.startsWith(d)));
+    if (offenders.length) {
+      console.error(
+        `${offenders.length} ticket(s) put the Completion Manifest outside the always-writable dirs (${MANIFEST_OK.join(', ')}):\n` +
+        offenders.map((x) => `  - ${x.id}: ${x.path}`).join('\n') +
+        `\nThe session writes the manifest to that path and the scope gate then refuses the ticket.` +
+        `\nUse docs/reviews/MANIFEST_<id>.md.`,
+      );
+      process.exit(2);
+    }
+  }
+
   // G5: the board must be committable. persistPlan() does a raw `git add` on it
   // after EVERY lifecycle transition, so a gitignored board does not degrade —
   // it hard-fails on the first claim, after the run has already started. The

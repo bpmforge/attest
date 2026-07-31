@@ -83,6 +83,12 @@ export function validatePlan(plan) {
       // it had.
       if (!/\.md$/i.test(m.manifest.trim()))
         errors.push(`${where}: manifest must be a .md document (conventionally docs/reviews/MANIFEST_${m.id}.md) — the executor WRITES the Completion Manifest to this path, so a non-document path is overwritten`);
+      // NOTE: whether the manifest sits somewhere the SCOPE GATE allows is a
+      // conductor-specific constraint, not a schema one, and it is checked in
+      // conductor.mjs (G6) rather than here. validatePlan serves every caller,
+      // including a human driving the lifecycle by hand with a `manifest.md`
+      // at the project root — perfectly valid, no scope gate involved. Making
+      // it a schema error broke 19 lifecycle tests; the tests were right.
       const scope = Array.isArray(m.write_scope) ? m.write_scope : [];
       if (scope.some((s) => typeof s === 'string' && s.trim() === m.manifest.trim()))
         errors.push(`${where}: manifest '${m.manifest}' is also in write_scope — the manifest is written to that path and would clobber the ticket's own deliverable`);
