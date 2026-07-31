@@ -81,6 +81,7 @@ import {
   testGateOutputContract,
   testPluginExportContract,
 } from "./test-gate-output-contract.ts";
+import { testConductorSuite } from "./test-conductor-suite.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
   testRetryBudgets,
@@ -699,6 +700,14 @@ console.log(
 );
 testGateOutputContract(root, ok, fail);
 testPluginExportContract(root, ok, fail);
+
+// The conductor's own E2E suite. Standalone until v3.1.2 — which is why
+// v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this
+// harness reported green. Runs last: it is the slowest Pass (~6s, real git).
+console.log(
+  "\n[Pass 53] Conductor E2E — the unattended executor's own suite, wired in",
+);
+testConductorSuite(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

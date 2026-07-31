@@ -87,10 +87,14 @@ role model the install cannot resolve, and it must *not* read an empty
 its own `models.json` and every stub answers `models`, so the suite never
 depends on which providers the developer has authenticated.
 
-Not wired into `scripts/test.ts`'s Pass-N suite (out of the original ticket's
-`scripts/conductor/**` write scope) — run it standalone. **This is why v3.1.1
-shipped with all four conductor tests RED and nothing said so**; wiring these
-two files into a Pass is the outstanding fast-follow.
+Both files now run inside `npm test` as **Pass 53**
+(`scripts/test-conductor-suite.ts`), which shells out to `node --test` with the
+TAP reporter pinned and fails the suite by name when any conductor test goes
+red. Until v3.1.2 they were standalone — out of the original ticket's
+`scripts/conductor/**` write scope — which is exactly how v3.1.0 and v3.1.1
+both shipped with all four of these tests RED while `npm test` reported green.
+A zero-test run is treated as a failure too: an empty match must never read as
+a pass.
 
 `node --test scripts/conductor/resume.test.mjs` (T28.5) — same
 real-fixture style: one case hand-reconstructs a killed-mid-ticket state
