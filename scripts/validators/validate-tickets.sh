@@ -47,8 +47,34 @@ if [[ -z "$PLAN" || ! -f "$PLAN" ]]; then
 fi
 
 # Only check plans that actually carry a modules[] layer.
-if ! grep -q '"kind"[[:space:]]*:[[:space:]]*"module"' "$PLAN"; then
-  note "plan $PLAN has no module tickets -- nothing to check"
+#
+# GROUND TRUTH IS `modules[]`, NOT the `kind` string. This grepped for
+# `"kind": "module"` and skipped the whole check when it found none -- so a
+# board whose entries are MISSING `kind` (itself a schema violation, and the
+# single most common one an agent produces) registered as "no module tickets"
+# and passed clean. The malformation hid the tickets from the validator whose
+# job is to catch that malformation, and run-until-done.sh's completion gate
+# consequently green-lit a board the conductor cannot execute. Observed
+# 2026-07-31: a 4-module board, 16 real schema errors, "nothing to check".
+#
+# So: a non-empty `modules[]` means this plan HAS module tickets, whatever
+# shape they are in. Only a plan with no modules layer at all is out of scope.
+# (jq is not assumed -- node is already a hard dependency of tickets.mjs,
+# which this script shells to below.)
+HAS_MODULES=$(node -e '
+  const fs = require("fs");
+  try {
+    const p = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    process.stdout.write(Array.isArray(p.modules) && p.modules.length ? "yes" : "no");
+  } catch { process.stdout.write("unreadable"); }
+' "$PLAN" 2>/dev/null || echo unreadable)
+
+if [[ "$HAS_MODULES" == "unreadable" ]]; then
+  gap "ticket-invariant" "${PLAN#"$ROOT"/}: not readable as JSON -- a board that cannot be parsed cannot be verified"
+  validator_exit; exit $?
+fi
+if [[ "$HAS_MODULES" == "no" ]]; then
+  note "plan $PLAN has no modules[] layer -- nothing to check"
   validator_exit; exit $?
 fi
 

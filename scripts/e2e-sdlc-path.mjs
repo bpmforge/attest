@@ -167,7 +167,12 @@ function phaseA() {
     `modules[] array per docs/TICKET_SCHEMA.md — one module per independently`,
     `buildable piece, each with an exclusive write_scope, depends_on, acceptance,`,
     `verify and manifest fields. Validate it with`,
-    `\`node scripts/lib/tickets.mjs validate docs/work/plan.json\` before finishing.`,
+    // Install-qualified on purpose. The first run of this harness handed the
+    // agent the bare project-relative path; it looked in the project, found
+    // nothing, and wrote its own validator against a schema it invented.
+    `\`node ~/.config/opencode/scripts/lib/tickets.mjs validate docs/work/plan.json\``,
+    `before finishing, and FIX what it reports — a board that does not validate`,
+    `cannot be executed by the Phase 4 conductor.`,
     `Keep the docs short — this is a small project, not an enterprise program.`,
   ].join('\n');
 

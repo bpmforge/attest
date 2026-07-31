@@ -16,7 +16,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { execFileSync } from "child_process";
+import { execFileSync, spawnSync } from "child_process";
 
 export async function testTruthfulCompletion(
   root: string,
@@ -27,20 +27,20 @@ export async function testTruthfulCompletion(
     script: string,
     args: string[],
   ): { exitCode: number; stdout: string; stderr: string } {
-    try {
-      const stdout = execFileSync("/bin/bash", [script, ...args], {
-        encoding: "utf8",
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      return { exitCode: 0, stdout, stderr: "" };
-    } catch (err: unknown) {
-      const e = err as { status?: number; stdout?: string; stderr?: string };
-      return {
-        exitCode: e.status ?? 1,
-        stdout: e.stdout ?? "",
-        stderr: e.stderr ?? "",
-      };
-    }
+    // spawnSync, not execFileSync: these validators print their JSON receipt to
+    // stdout and their human progress/skip NOTES to stderr, and execFileSync
+    // surfaces stderr only on a THROW. The previous shape hardcoded
+    // `stderr: ""` on success, so any assertion about why a validator passed
+    // was silently unassertable — you could only inspect a failing run.
+    const r = spawnSync("/bin/bash", [script, ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    return {
+      exitCode: r.status ?? 1,
+      stdout: r.stdout ?? "",
+      stderr: r.stderr ?? "",
+    };
   }
 
   try {
@@ -260,6 +260,91 @@ export async function testTruthfulCompletion(
           "validate-tickets — green fixture",
           `exit=${r.exitCode} stdout=${r.stdout.slice(0, 300)}`,
         );
+    }
+
+    // A board whose modules are all MISSING `kind` must not read as "no module
+    // tickets". The detector grepped the raw file for `"kind": "module"`, so the
+    // single most common agent malformation — omitting `kind` — hid every ticket
+    // from the validator whose job is to catch it, and run-until-done.sh's
+    // completion gate green-lit a board the conductor cannot execute. Found by
+    // scripts/e2e-sdlc-path.mjs on 2026-07-31: 4 modules, 16 real schema errors,
+    // reported "nothing to check". Ground truth is a non-empty modules[].
+    {
+      const dir = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-tickets-kindless-"),
+      );
+      try {
+        fs.mkdirSync(path.join(dir, "docs/work"), { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, "docs/work/plan.json"),
+          JSON.stringify(
+            {
+              goal: "kindless board",
+              modules: [
+                {
+                  id: "parse",
+                  name: "Parser",
+                  write_scope: ["src/parse.js"],
+                  depends_on: [],
+                  acceptance: ["parses"],
+                },
+              ],
+            },
+            null,
+            2,
+          ),
+        );
+        // Match unquoted: the gap text reaches stdout inside the JSON receipt,
+        // where the inner quotes are backslash-escaped.
+        const r = run(ticketsValidator, [dir]);
+        if (r.exitCode === 1 && /kind must be/.test(r.stdout))
+          ok(
+            "validate-tickets — a modules[] board with no `kind` is checked, not skipped",
+          );
+        else
+          fail(
+            "validate-tickets — kindless modules[] must not vacuously pass",
+            `exit=${r.exitCode} stdout=${r.stdout.slice(0, 300)}`,
+          );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
+
+    // The other side of that change: a plan with genuinely no modules[] layer
+    // is still legitimately out of scope, and must stay silent rather than
+    // becoming a new false positive for every node-only task-decomposer plan.
+    {
+      const dir = fs.mkdtempSync(
+        path.join(fs.realpathSync(root), ".tmp-tickets-nomodules-"),
+      );
+      try {
+        fs.mkdirSync(path.join(dir, "docs/work"), { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, "docs/work/plan.json"),
+          JSON.stringify(
+            { goal: "node-only plan", nodes: [{ id: "n1" }] },
+            null,
+            2,
+          ),
+        );
+        // The skip NOTE goes to stderr (progress stream); stdout carries only
+        // the JSON receipt. Assert on both: clean receipt, and the reason.
+        const r = run(ticketsValidator, [dir]);
+        if (
+          r.exitCode === 0 &&
+          r.stdout.includes('"gaps":0') &&
+          `${r.stdout}${r.stderr}`.includes("no modules[] layer")
+        )
+          ok("validate-tickets — a node-only plan is still out of scope");
+        else
+          fail(
+            "validate-tickets — node-only plan should stay out of scope",
+            `exit=${r.exitCode} stdout=${r.stdout.slice(0, 300)}`,
+          );
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
     }
 
     // -- 3. run-handoff-gates.sh Tracker gate, end-to-end through a real git repo
