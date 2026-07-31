@@ -22,16 +22,93 @@
 /** Matches the verdict line the round-3 prompt asks for, tolerantly. */
 export const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
 
+/** "This project does not define that command" — absent tooling, not a failure. */
+const MISSING_TOOLING_RE =
+  /(missing script|command not found|: not found|\bENOENT\b|no such file or directory|is not recognized as an internal)/i;
+
+/** A real test/build failure, as opposed to a non-zero exit from a missing command. */
+const REAL_FAILURE_RE = /(\bnot ok\b|AssertionError|\bFAILED\b|✖|✗|#\s*fail\s+[1-9])/i;
+
 /**
  * Does this runtime report actually EVIDENCE a failure, or merely assert one?
  *
- * Grounded: a non-zero exit code, a TAP `not ok`, or a runner's failure summary
- * (`# fail 2`, `✖`, `FAILED`). Ungrounded: "I am not confident", "this may have
- * edge cases", or a report whose only negative note is that a command was
- * skipped — none of which is a failing command.
+ * Grounded: a TAP `not ok`, an AssertionError, a runner's failure summary, or a
+ * non-zero exit that is not merely a missing command. Ungrounded: "I am not
+ * confident", "this may have edge cases", or a non-zero exit whose only cause
+ * is tooling this project never defined.
  */
 export function isGroundedFailure(body) {
   const b = String(body || '');
-  return /exit(ed)?\s*(code)?\s*[:=]?\s*[1-9]/i.test(b)
-    || /\b(not ok|FAILED|failing|✖|✗)\b/.test(b);
+
+  // A genuine test failure always grounds the verdict.
+  if (REAL_FAILURE_RE.test(b)) return true;
+
+  const nonZeroExit = /exit(ed)?\s*(code)?\s*[:=]?\s*[1-9]/i.test(b);
+  if (!nonZeroExit) return false;
+
+  // A non-zero exit whose ONLY cause is a command the project never defined is
+  // absent tooling, not failing code. `npm run build` in a package with no
+  // build script exits 1 with "Missing script: build" — which reads exactly
+  // like a failure to a regex counting exit codes.
+  //
+  // This is not hypothetical: on 2026-07-31 a ticket was failed twice this way.
+  // The agent's own report said "the project's declared test command passed all
+  // five tests. The package does not define build, lint, or type-check
+  // scripts" — correct code, passing tests, ticket refused, because three
+  // missing npm scripts each exited 1. The prompt now tells agents a missing
+  // command is SKIPPED; this makes the harness robust to the ones that still
+  // report it, rather than trusting every model to have read that instruction.
+  if (MISSING_TOOLING_RE.test(b)) return false;
+
+  return true;
+}
+
+/**
+ * Pull the agent's own explanation of a failure out of its report.
+ *
+ * A bare "RUNTIME: FAIL" in the log tells an operator that something went
+ * wrong and nothing about what — and the document holding the detail lives in
+ * a worktree that is deleted moments later. So the prompt asks for a
+ * "## Why it failed" section and this lifts it into the receipts, the retry
+ * prompt and the ticket's plan.json comment, where it survives.
+ *
+ * Falls back progressively rather than returning nothing: the explicit
+ * section, else the first line that looks like a failing command or assertion,
+ * else the lines around the verdict. An agent that ignores the section heading
+ * still gets its reasoning captured.
+ */
+export function extractFailureReason(body, { maxLen = 600 } = {}) {
+  const b = String(body || '');
+  if (!b.trim()) return null;
+
+  // 1. The section the prompt asks for. Extracted line-wise rather than with a
+  // single regex: the obvious pattern wants a "to the next heading OR end of
+  // input" terminator, and JS has no \Z — writing one silently matches a
+  // literal 'Z' and the section is never found.
+  const lines = b.split('\n');
+  const start = lines.findIndex((l) => /^#{1,6}\s*why\s+it\s+failed\s*$/i.test(l.trim()));
+  if (start >= 0) {
+    const body = [];
+    for (let i = start + 1; i < lines.length; i++) {
+      if (/^#{1,6}\s/.test(lines[i])) break;   // next heading ends the section
+      body.push(lines[i]);
+    }
+    if (body.join(' ').trim()) return squash(body.join(' '), maxLen);
+  }
+
+  // 2. Otherwise the strongest evidence line we can find.
+  const trimmed = lines.map((l) => l.trim()).filter(Boolean);
+  const evidence = trimmed.filter((l) =>
+    /exit(ed)?\s*(code)?\s*[:=]?\s*[1-9]/i.test(l) || /\b(not ok|FAILED|✖|✗|AssertionError|Error:)\b/.test(l));
+  if (evidence.length) return squash(evidence.slice(0, 6).join(' | '), maxLen);
+
+  // 3. Last resort: whatever the agent wrote immediately before its verdict.
+  const vIdx = trimmed.findIndex((l) => /(runtime|verdict)\s*[:\-]?\s*\**\s*(FAIL|CHANGES REQUESTED)/i.test(l));
+  if (vIdx > 0) return squash(trimmed.slice(Math.max(0, vIdx - 4), vIdx).join(' | '), maxLen);
+  return null;
+}
+
+function squash(s, maxLen) {
+  const t = String(s).replace(/\s+/g, ' ').trim();
+  return t.length > maxLen ? `${t.slice(0, maxLen)}…` : t;
 }

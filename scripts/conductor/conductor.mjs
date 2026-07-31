@@ -60,7 +60,7 @@ import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmS
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
-import { isGroundedFailure } from '../lib/runtime-verdict.mjs';
+import { isGroundedFailure, extractFailureReason } from '../lib/runtime-verdict.mjs';
 import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
@@ -641,6 +641,17 @@ WHAT COUNTS AS FAIL — apply these literally, do not use judgement:
   that you did not cause is PRE-EXISTING: record it, and do not fail on it.
 - Uncertainty is not failure. If you could not run something, say so and skip it.
 
+IF YOU FAIL, EXPLAIN WHY. Include a section exactly titled:
+
+## Why it failed
+
+and in it state, in plain sentences: which command failed and its exit code,
+the specific output line that shows the failure, what you believe is actually
+wrong, and whether the cause is this ticket's code or something pre-existing in
+the environment. "Tests failed" is not an explanation. Someone reading only
+this section, without the rest of the document, must understand the problem
+well enough to act on it.
+
 End with a single line "RUNTIME: PASS" or "RUNTIME: FAIL". A FAIL line MUST be
 accompanied by the failing command and its non-zero exit code somewhere in this
 document — an unsupported FAIL is treated as unsubstantiated and overridden by
@@ -679,8 +690,15 @@ the ticket's own verify command.`;
     }
   }
 
-  log('round3.runtime.verdict', { ticket: m.id, msg: !body ? 'NO DOCUMENT' : pass ? 'PASS' : 'FAIL' });
-  return { present: Boolean(body), pass, doc };
+  // Lift the agent's own explanation into the receipts. Without this the log
+  // says "FAIL" and the reasoning lives only in a worktree that is deleted
+  // seconds later — so "why did this ticket fail?" needed a re-run to answer.
+  const reason = pass ? null : extractFailureReason(body);
+  log('round3.runtime.verdict', {
+    ticket: m.id,
+    msg: `${!body ? 'NO DOCUMENT' : pass ? 'PASS' : 'FAIL'}${reason ? ` — ${reason}` : ''}`,
+  });
+  return { present: Boolean(body), pass, doc, reason };
 }
 
 /** Run the ticket's own verify command from OUTSIDE the session, as close() will. */
@@ -787,7 +805,10 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       }
       const runtime = await runRuntimeRound(m, wt);
       if (!runtime.present || !runtime.pass) {
-        const gaps = [`round 3: runtime verdict ${!runtime.present ? 'missing' : 'FAIL'} (${runtime.doc})`];
+        const gaps = [
+          `round 3: runtime verdict ${!runtime.present ? 'missing' : 'FAIL'} (${runtime.doc})` +
+          (runtime.reason ? `\nWhy it failed (from the runtime report): ${runtime.reason}` : ''),
+        ];
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
         preserveAttemptEvidence(m, attempt, wt);
