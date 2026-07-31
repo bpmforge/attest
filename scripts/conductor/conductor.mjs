@@ -177,6 +177,27 @@ const REVIEW_AGENTS = {
 };
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode'; // overridable so tests/CI can stub it
 
+// Security review Finding 3 (docs/reviews/SECURITY_jira-board-driver_2026-07-31.md): spawnSync
+// with no `env` inherits the FULL parent environment, including JIRA_API_TOKEN if the operator
+// exported it (the conductor itself reads JIRA_BASE_URL directly, so that's plausible). The
+// coder/reviewer session's prompt is built partly from JIRA content an unattended agent reads and
+// acts on — an injected instruction that dumps env or embeds a var in a commit message would
+// exfiltrate the token. Only jira-tickets.mjs's own `runJira` (which shells to jira.sh) may see
+// the credential; every session spawned here gets an explicit allowlist instead of the ambient
+// environment. PATH/HOME/SHELL/TMPDIR are what a normal CLI process needs to run at all; the
+// LC_*/LANG pair avoids locale-dependent CLI output; the rest are model-provider auth opencode
+// itself may read from env (its own config file, keyed off HOME, covers the common case, but some
+// provider setups read the key from env directly) — none of these are JIRA-shaped.
+const SESSION_ENV_ALLOWLIST = [
+  'PATH', 'HOME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'USER',
+  'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'GITHUB_COPILOT_TOKEN',
+];
+function sessionEnv() {
+  const env = {};
+  for (const k of SESSION_ENV_ALLOWLIST) if (process.env[k] !== undefined) env[k] = process.env[k];
+  return env;
+}
+
 // ---------- config (target-project-specific; script itself stays repo-agnostic) ----------
 const DEFAULT_CONFIG = {
   branchSuffix: '-conductor',
@@ -337,6 +358,7 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     if (model) runArgs.push('--model', String(model));
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
+      env: sessionEnv(),
     });
     const out = `${res.stdout || ''}\n${res.stderr || ''}`;
     if (res.error) return { out: `${out}\n${res.error.message}`, code: 1 };

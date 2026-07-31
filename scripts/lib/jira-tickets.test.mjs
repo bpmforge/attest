@@ -22,6 +22,7 @@ import {
 //   STUB_BLOCKERS_<K>  -> stdout + exit code for `blockers <K>`, "code:text"
 //   STUB_CLAIM_CODE    -> exit code for `claim`
 //   STUB_CLAIM_OUT     -> stdout/stderr text for `claim`
+//   STUB_MINE          -> stdout for `mine`
 function writeStubCli(dir) {
   const path = resolve(dir, 'jira.sh');
   writeFileSync(
@@ -41,6 +42,9 @@ case "$cmd" in
     text="\${val#*:}"
     printf '%s\\n' "$text"
     exit "$code"
+    ;;
+  mine)
+    printf '%s\\n' "\${STUB_MINE:-(nothing in progress assigned to you)}"
     ;;
   claim)
     printf '%s\\n' "\${STUB_CLAIM_OUT:-CLAIMED ok}" >&2
@@ -159,6 +163,35 @@ test('accept() still refuses when actor === owner', () => {
   const result = accept(plan, 'PROJ-1', 'me', { cwd: process.cwd() });
   assert.equal(result.ok, false);
   assert.match(result.error, /cannot accept their own work/);
+});
+
+test('a ticket already claimed in JIRA (absent from ready) is recovered via mine, not lost', () => {
+  const { dir, cli, scopeMapPath } = setupFixture({
+    'PROJ-5': {
+      title: 'Orphaned after crash',
+      write_scope: ['src/orphan/**'],
+      acceptance: ['does the orphaned thing'],
+      verify: 'true',
+      manifest: 'docs/reviews/MANIFEST_PROJ-5.md',
+    },
+  });
+  try {
+    const plan = withEnv(
+      {
+        JIRA_CLI: cli,
+        TICKET_SCOPE_MAP: scopeMapPath,
+        STUB_READY: '',
+        STUB_MINE: 'PROJ-5  [In Progress]  Orphaned after crash',
+      },
+      () => loadPlan(dir),
+    );
+    assert.equal(plan.modules.length, 1);
+    assert.equal(plan.modules[0].id, 'PROJ-5');
+    assert.equal(plan.modules[0].status, 'in_progress');
+    assert.equal(plan.omitted.length, 0);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('savePlan() writes no plan.json', () => {
