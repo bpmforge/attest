@@ -313,6 +313,21 @@ function verify() {
   const srcFiles = sh('git', ['ls-files', 'src/'], { cwd: PROJ }).stdout.trim().split('\n').filter((s) => s && !s.endsWith('.gitkeep'));
   check('source files committed', srcFiles.length > 0, `${srcFiles.length} file(s): ${srcFiles.slice(0, 6).join(', ')}`);
 
+  // Did the BOARD finish, not just "did anything land". Without this the
+  // scorecard reported 9/9 on a run where one of five tickets was refused and
+  // released back to `ready` — every check it happened to make passed, and the
+  // one that mattered was not being made. A measurement instrument that
+  // over-reports is worse than a missing one.
+  if (b.ok) {
+    const plan = JSON.parse(readFileSync(at(b.path), 'utf8'));
+    const mods = plan.modules || [];
+    const done = mods.filter((m) => m.status === 'done');
+    const unfinished = mods.filter((m) => m.status !== 'done');
+    check('every ticket landed', unfinished.length === 0,
+      `${done.length}/${mods.length} done` +
+      (unfinished.length ? ` — outstanding: ${unfinished.map((m) => `${m.id}(${m.status})`).join(', ')}` : ''));
+  }
+
   // Run node --test directly with the reporter PINNED rather than going
   // through `npm test`, whose script we do not control. node --test picks
   // `spec` on a TTY and `tap` otherwise, and the two summarise differently
