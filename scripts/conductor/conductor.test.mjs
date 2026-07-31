@@ -16,6 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
+import { isGroundedFailure, RUNTIME_PASS_RE } from '../lib/runtime-verdict.mjs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -479,6 +480,36 @@ test('review triggers: the diff decides, and a declared reviewer still runs', ()
   // An unknown declared name is ignored rather than crashing runReviewRound.
   assert.deepEqual(t({ reviews: ['nonsense'] }, '+const x = 1;'),
     ['code-reviewer'], 'an unknown reviewer name is dropped');
+});
+
+// Round 3 must be model-agnostic (v3.1.21). Its PASS/FAIL was pure model
+// judgement and it gates BEFORE close() runs `verify` deterministically, so a
+// cautious model could fail a ticket the authoritative gate would pass. A FAIL
+// now has to be GROUNDED in a non-zero exit or a real test failure; an
+// ungrounded one defers to verify.
+test('runtime verdict: a FAIL must be evidenced, not merely asserted', () => {
+  // Ungrounded — opinion, not evidence. These defer to `verify`.
+  for (const body of [
+    'I am not confident this is correct.\nRUNTIME: FAIL',
+    'The implementation may have edge cases.\nRUNTIME: FAIL',
+    'No build script defined — skipped.\nRUNTIME: FAIL',
+  ]) assert.equal(isGroundedFailure(body), false, `should be ungrounded: ${body.split('\n')[0]}`);
+
+  // Grounded — a command actually failed. These stand.
+  for (const body of [
+    '$ node --test src/decimal.test.js\nexit code: 1\nRUNTIME: FAIL',
+    'not ok 3 - decimalAdd rounds correctly\nRUNTIME: FAIL',
+    '# fail 2\n✖ failing tests\nRUNTIME: FAIL',
+    'npm run build\nexited 2\nRUNTIME: FAIL',
+  ]) assert.equal(isGroundedFailure(body), true, `should be grounded: ${body.split('\n')[0]}`);
+
+  // A clean report must never read as grounded failure.
+  assert.equal(isGroundedFailure('all commands exited 0\nRUNTIME: PASS'), false);
+
+  // The verdict matcher stays tolerant of formatting across model families.
+  for (const ok of ['RUNTIME: PASS', '**RUNTIME: PASS**', 'runtime verdict - pass', 'Runtime : PASS'])
+    assert.match(ok, RUNTIME_PASS_RE, `should match: ${ok}`);
+  assert.doesNotMatch('RUNTIME: FAIL', RUNTIME_PASS_RE);
 });
 
 // G6 (v3.1.14): the manifest must sit where the scope gate permits writes.

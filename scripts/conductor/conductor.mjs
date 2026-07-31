@@ -60,6 +60,7 @@ import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmS
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
+import { isGroundedFailure } from '../lib/runtime-verdict.mjs';
 import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
@@ -628,15 +629,68 @@ PRODUCE
 - \`${doc}\`
 
 Run the project's real build, lint/type-check and test commands. Paste each
-command and its actual output. Do NOT edit implementation files; if something
-fails, record it. End with a single line "RUNTIME: PASS" or "RUNTIME: FAIL".`;
+command, its actual output, AND its exit code. Do NOT edit implementation files.
+
+WHAT COUNTS AS FAIL — apply these literally, do not use judgement:
+- FAIL if any command you ran exited NON-ZERO. Quote that command and its exit code.
+- PASS if every command you ran exited zero.
+- A command this project does not define (no build script, no linter) is SKIPPED,
+  not a failure. Say it was skipped.
+- Lint/type WARNINGS are not failures. Only a non-zero exit is.
+- A failure in code OUTSIDE this ticket's write_scope (${(m.write_scope || []).join(', ')})
+  that you did not cause is PRE-EXISTING: record it, and do not fail on it.
+- Uncertainty is not failure. If you could not run something, say so and skip it.
+
+End with a single line "RUNTIME: PASS" or "RUNTIME: FAIL". A FAIL line MUST be
+accompanied by the failing command and its non-zero exit code somewhere in this
+document — an unsupported FAIL is treated as unsubstantiated and overridden by
+the ticket's own verify command.`;
   log('round3.runtime.start', { ticket: m.id, role: 'coder', agent: CODER_AGENT });
   await runSession(prompt, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'runtime' });
   const abs = resolve(wt, doc);
   const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
-  const pass = RUNTIME_PASS_RE.test(body);
+  let pass = RUNTIME_PASS_RE.test(body);
+
+  // EVIDENCE OUTRANKS THE CLAIM (the v2.47.0 principle, applied to this round).
+  //
+  // The verdict was pure model judgement, and it gates the ticket BEFORE
+  // close() runs the ticket's `verify` deterministically from outside the
+  // session. So a cautious model could fail a ticket that the authoritative
+  // gate would have passed, and the run would report a runtime failure with
+  // nothing behind it. That is not model-agnostic: the same code lands or does
+  // not depending on how conservative the reviewer happens to be.
+  //
+  // A FAIL must now be GROUNDED — the document has to show a non-zero exit
+  // somewhere. When it does not, this round defers to the same command close()
+  // will run: if the ticket's own verify passes, an unsupported FAIL is
+  // downgraded and logged. A grounded FAIL still fails, and a verify that
+  // genuinely fails still fails, so the gate never gets weaker — only harder
+  // to trip on an opinion.
+  if (body && !pass) {
+    const grounded = isGroundedFailure(body);
+    if (!grounded) {
+      const v = m.verify ? runVerifyDirect(m, wt) : null;
+      if (v && v.ok) {
+        log('round3.runtime.unsubstantiated', { ticket: m.id, msg: `RUNTIME: FAIL cites no non-zero exit, and \`${m.verify}\` passes from outside the session — treating as PASS` });
+        pass = true;
+      } else if (v) {
+        log('round3.runtime.confirmed', { ticket: m.id, msg: `FAIL upheld — \`${m.verify}\` also fails (exit ${v.code})` });
+      }
+    }
+  }
+
   log('round3.runtime.verdict', { ticket: m.id, msg: !body ? 'NO DOCUMENT' : pass ? 'PASS' : 'FAIL' });
   return { present: Boolean(body), pass, doc };
+}
+
+/** Run the ticket's own verify command from OUTSIDE the session, as close() will. */
+function runVerifyDirect(m, wt) {
+  try {
+    const r = spawnSync('bash', ['-lc', m.verify], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000 });
+    return { ok: r.status === 0, code: r.status ?? -1 };
+  } catch (e) {
+    return { ok: false, code: -1, error: String(e.message) };
+  }
 }
 
 async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MAX_ATTEMPTS } = {}) {
