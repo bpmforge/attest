@@ -558,6 +558,25 @@ test('failure reason: the agent explanation reaches the receipts', () => {
   assert.equal(isGroundedFailure(missingScripts), false,
     'a missing npm script must not ground a FAIL — absent tooling is not failing code');
 
+  // A CLEAN run whose verdict line says FAIL must stay ungrounded. The first
+  // version of this predicate used /\bFAILED\b/i, which matches "0 failed",
+  // "no tests FAILED" and "Tests: 0 failed, 5 passed" — so a passing run would
+  // have been treated as evidenced and blocked the ticket, the exact case this
+  // predicate exists to catch.
+  for (const clean of [
+    '# pass 5\n# fail 0\nRUNTIME: FAIL',
+    'all tests passed, 0 failed\nRUNTIME: FAIL',
+    'Summary: no tests FAILED.\nRUNTIME: FAIL',
+    'Tests: 0 failed, 5 passed\nRUNTIME: FAIL',
+  ]) assert.equal(isGroundedFailure(clean), false, `a clean run must not ground a FAIL: ${clean.split('\n')[0]}`);
+
+  // Real runner output across ecosystems must still ground it.
+  for (const real of [
+    'Tests: 2 failed, 3 passed\nRUNTIME: FAIL',
+    'FAILED tests/test_x.py::test_y\nRUNTIME: FAIL',
+    'FAIL src/decimal.test.js\nRUNTIME: FAIL',
+  ]) assert.equal(isGroundedFailure(real), true, `real failure output must ground: ${real.split('\n')[0]}`);
+
   // ...but a real failure alongside a missing script still grounds it.
   assert.equal(isGroundedFailure(`${missingScripts}\nnot ok 2 - rounds correctly`), true,
     'a genuine test failure still grounds the verdict');

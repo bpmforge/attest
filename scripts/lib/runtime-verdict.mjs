@@ -26,8 +26,26 @@ export const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
 const MISSING_TOOLING_RE =
   /(missing script|command not found|: not found|\bENOENT\b|no such file or directory|is not recognized as an internal)/i;
 
-/** A real test/build failure, as opposed to a non-zero exit from a missing command. */
-const REAL_FAILURE_RE = /(\bnot ok\b|AssertionError|\bFAILED\b|✖|✗|#\s*fail\s+[1-9])/i;
+/**
+ * A real test/build failure, as opposed to a non-zero exit from a missing
+ * command — or from a runner cheerfully reporting that nothing failed.
+ *
+ * A bare /\bFAILED\b/i was the first attempt and it is wrong in the most
+ * embarrassing direction: it matches "0 failed", "no tests FAILED" and
+ * "Tests: 0 failed, 5 passed". A CLEAN run whose verdict line says FAIL would
+ * therefore be treated as evidenced and block the ticket — precisely the
+ * unsubstantiated-FAIL case this predicate exists to catch. Every pattern below
+ * requires a non-zero count or a per-failure marker.
+ */
+const REAL_FAILURE_RE = new RegExp([
+  '\\bnot ok\\b',                                   // TAP failure line
+  'AssertionError',
+  '✖|✗',
+  '#\\s*fail\\s+[1-9]',                             // node --test summary
+  '\\b[1-9]\\d*\\s+(tests?\\s+)?fail(ed|ing)\\b',   // "2 failed", "3 tests failing"
+  '^FAILED\\s',                                     // pytest per-test line
+  '^\\s*FAIL\\s+\\S',                               // jest "FAIL src/x.test.js"
+].join('|'), 'im');
 
 /**
  * Does this runtime report actually EVIDENCE a failure, or merely assert one?
