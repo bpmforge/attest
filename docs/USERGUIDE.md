@@ -7,6 +7,7 @@ How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md
 - [Install](#install)
 - [Core concepts](#core-concepts)
 - [Typical workflows](#typical-workflows)
+- [Unattended Phase 4 execution](#unattended-phase-4-execution)
 - [Per-expert usage](#per-expert-usage)
   - [`/guide` — Concierge / front door](#guide)
   - [`/sdlc` — SDLC workflow (4 modes)](#sdlc)
@@ -268,6 +269,42 @@ Use the bisect harness or pickaxe (`-S` / `-G`) to find when a bug was introduce
 /git-expert --recover
 ```
 Inspects the reflog, explains the plan, then executes recovery with your confirmation.
+
+---
+
+## Unattended Phase 4 execution
+
+Once a board exists, the coding phase can run without you. The conductor claims
+a ticket, codes it in an isolated worktree, has a **different model** review it,
+verifies it at runtime, merges, and moves on.
+
+```bash
+# Preflight — free, seconds, and catches the mistakes that each cost a whole
+# coding session to discover
+TEST_SIBLING_STRICT=1 node ~/.config/opencode/scripts/lib/tickets.mjs \
+  validate docs/work/plan.json
+node ~/.config/opencode/scripts/conductor/conductor.mjs --root . --dry-run
+
+# A small batch first — never start with the whole board
+node ~/.config/opencode/scripts/conductor/conductor.mjs \
+  --root . --max-tickets 3 --max-attempts 2
+```
+
+Read the landing rate before scaling. 3/3 → drop `--max-tickets`. Otherwise read
+`docs/work/attempt-evidence/` — a failed attempt's review documents, runtime
+verdict and full diff are preserved there before its worktree is destroyed.
+
+Reviewers are chosen by what the diff touches: `code-reviewer` always, plus
+`security` for auth or input handling, `perf` for queries or loops, `ux` for UI.
+A ticket can also request them explicitly with `"reviews": ["security", "test"]`
+— a union with the triggers, not a replacement. Stop any time with `touch STOP`.
+
+**Planning is not part of this.** Every SDLC mode opens with a Discovery
+Interview marked NEVER-AUTO — it pauses for a human even in `autonomy: auto`.
+Plan interactively, then automate the coding.
+
+Full guide, including the five startup gates, Jira mirroring, and the board
+mistakes that waste sessions: **[UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md)**.
 
 ---
 
