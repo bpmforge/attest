@@ -64,8 +64,11 @@ import { isGroundedFailure, extractFailureReason } from '../lib/runtime-verdict.
 // Board is pluggable: plan.json (tickets.mjs) is the default; set
 // CONDUCTOR_BOARD=jira to select the JIRA board driver (jira-tickets.mjs)
 // instead — same 13 names, identical signatures (docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md).
-const { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } =
+const { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release, BOARD_IS_FILE_BACKED } =
   process.env.CONDUCTOR_BOARD === 'jira' ? await import('../lib/jira-tickets.mjs') : await import('../lib/tickets.mjs');
+// A board that keeps no plan file on disk must not be git-added/committed.
+// tickets.mjs exports no such flag -> undefined -> file-backed, unchanged.
+const PLAN_IS_FILE_BACKED = BOARD_IS_FILE_BACKED !== false;
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
 
@@ -80,6 +83,10 @@ const opt = (name, dflt) => {
   return i >= 0 ? (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true) : dflt;
 };
 const ROOT = resolve(String(opt('root', '.')));           // target project being conducted
+// Board drivers receive PLAN_PATH (a file) but may need the project root — the
+// JIRA driver resolves its scope map against it. Publish it unambiguously
+// rather than making a driver infer a directory from a file path.
+process.env.CONDUCTOR_ROOT = ROOT;
 
 // Where the module board lives, when --plan does not say.
 //
@@ -235,6 +242,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // (TRACKER_BACKEND=jira / JIRA_BASE_URL set). Best-effort: a Jira failure never
 // breaks the conductor — the next reconcile catches up (lossless outbox).
 function mirrorJira(reason) {
+  // When the JIRA board driver is active it owns JIRA outright; running this
+  // second, plan.json-shaped integration alongside it would have two writers
+  // reconciling the same tickets against a PLAN_JSON that does not exist.
+  if (process.env.CONDUCTOR_BOARD === 'jira') return;
   const backend = (process.env.TRACKER_BACKEND || 'auto').toLowerCase();
   const on = backend === 'jira' || (backend === 'auto' && process.env.JIRA_BASE_URL);
   if (!on) return;
@@ -251,6 +262,7 @@ function loadFreshPlan() { return loadPlan(PLAN_PATH); }
 function persistPlan(plan, message) {
   savePlan(PLAN_PATH, plan);
   if (DRY) return;
+  if (!PLAN_IS_FILE_BACKED) return;   // JIRA board: no plan file exists to add
   git('add', PLAN_PATH);
   try { git('commit', '-q', '-m', message); }
   catch (e) { if (!/nothing to commit/i.test(String(e.stdout || e.message))) throw e; }
@@ -957,7 +969,7 @@ async function main() {
   for (const bin of ['git']) {
     try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(1); }
   }
-  if (!existsSync(PLAN_PATH)) {
+  if (PLAN_IS_FILE_BACKED && !existsSync(PLAN_PATH)) {
     console.error(
       `no plan.json at ${PLAN_PATH}\n` +
       `Probed (in producer order): ${PLAN_CANDIDATES.join(', ')} — pass --plan to name one explicitly.`,
