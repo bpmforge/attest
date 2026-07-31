@@ -183,6 +183,11 @@ function phaseA() {
     `\`node ~/.config/opencode/scripts/lib/tickets.mjs validate docs/work/plan.json\``,
     `before finishing, and FIX what it reports — a board that does not validate`,
     `cannot be executed by the Phase 4 conductor.`,
+    `Give EVERY module \`"reviews": ["security", "perf", "test"]\` so the Phase 4`,
+    `executor runs the security-auditor, performance-engineer and test-engineer`,
+    `against each ticket in addition to the default code-reviewer. Without that`,
+    `field only one reviewer runs, and a ticket can land having been checked for`,
+    `code quality alone.`,
     `Keep the docs short — this is a small project, not an enterprise program.`,
   ].join('\n');
 
@@ -326,6 +331,32 @@ function verify() {
     check('every ticket landed', unfinished.length === 0,
       `${done.length}/${mods.length} done` +
       (unfinished.length ? ` — outstanding: ${unfinished.map((m) => `${m.id}(${m.status})`).join(', ')}` : ''));
+  }
+
+  // WHICH REVIEWERS ACTUALLY RAN. The conductor runs `code-reviewer` plus
+  // whatever each ticket opts into via `reviews: [...]`; a board that requests
+  // none gets exactly one reviewer, and a ticket can land checked for code
+  // quality alone. That is what happened on the first passing run, and the
+  // scorecard said nothing — "it landed" and "it was reviewed properly" are
+  // different claims and this file must not conflate them. Read from the
+  // receipts, not from the board's intent.
+  const receipts = at('docs/work/conductor-log.jsonl');
+  if (existsSync(receipts)) {
+    const ran = new Set();
+    for (const line of readFileSync(receipts, 'utf8').split('\n')) {
+      if (!line.trim()) continue;
+      try {
+        const r = JSON.parse(line);
+        if (r.kind === 'round2.review.start') {
+          const who = /^(\S+)\s*->/.exec(r.msg || '')?.[1];
+          if (who) ran.add(who);
+        }
+      } catch { /* partial line */ }
+    }
+    const wanted = ['code-reviewer', 'security', 'perf', 'test'];
+    const missing = wanted.filter((w) => !ran.has(w));
+    check('full reviewer set ran', ran.size > 0 && missing.length === 0,
+      `ran: ${[...ran].join(', ') || '(none)'}${missing.length ? ` — MISSING: ${missing.join(', ')}` : ''}`);
   }
 
   // Run node --test directly with the reporter PINNED rather than going

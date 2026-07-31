@@ -33,6 +33,7 @@ import {
   loadPlanAt,
   verbs,
 } from "./jira/jira.mjs";
+import { parseDescription } from "./jira/import-plan.mjs";
 import {
   backendConfigured,
   appendOutbox,
@@ -766,6 +767,69 @@ export async function testJiraAdapter(_root: string, ok: OK, fail: FAIL) {
       );
   } catch (e: any) {
     fail("cloud flavor", e.message + "\n" + e.stack);
+  }
+
+  // ── import-plan: the reverse direction must round-trip sync-plan's output ──
+  //
+  // sync-plan writes write_scope/acceptance/interface into the Jira DESCRIPTION
+  // as structured prose, and import-plan parses them back out. The two formats
+  // are a contract between two files that nothing else couples, so this pins
+  // them together: if acceptanceDescription() ever changes its shape, the
+  // importer silently starts recovering nothing and every imported ticket
+  // arrives with an empty write_scope — an unsatisfiable board, produced quietly.
+  try {
+    const mod = {
+      id: "M-parser",
+      kind: "module",
+      title: "Parser",
+      interface: "parse(text): Entry[]",
+      write_scope: ["src/parse.js", "src/parse.test.js"],
+      acceptance: ["parses valid lines", "rejects malformed lines with the line number"],
+      depends_on: [],
+      status: "ready",
+      lane: "src",
+      owner: null,
+    };
+    const dir = makeDir(tmp, "roundtrip");
+    const planPath = path.join(dir, "plan.json");
+    fs.writeFileSync(planPath, JSON.stringify({ modules: [mod] }, null, 2));
+
+    // Drive the real syncPlan against a mock that captures what it would POST.
+    let sentDescription: string | null = null;
+    const capture = new JiraClient(cfg);
+    (capture as any)._req = async (method: string, urlPath: string, body: any) => {
+      if (method === "POST" && urlPath === "/issue") {
+        sentDescription = body?.fields?.description ?? null;
+        return { key: "PROJ-1" };
+      }
+      if (method === "GET" && urlPath.startsWith("/search")) return { issues: [] };
+      if (method === "GET" && urlPath.startsWith("/field")) return [];
+      if (method === "GET" && urlPath.startsWith("/issue/")) return { fields: { issuelinks: [] } };
+      return {};
+    };
+    // Built directly, not via loadPlanAt: that returns a frozen object and
+    // syncPlan's callers set __path on the plan they pass.
+    const plan: any = { modules: [mod], __path: planPath };
+    await syncPlan(plan, capture as any, { write: false });
+
+    if (!sentDescription) {
+      fail("import-plan round-trip", "syncPlan did not POST a description to capture");
+    } else {
+      const back = parseDescription(sentDescription);
+      const okScope = JSON.stringify(back.write_scope) === JSON.stringify(mod.write_scope);
+      const okAcc = JSON.stringify(back.acceptance) === JSON.stringify(mod.acceptance);
+      const okIface = back.interface === mod.interface;
+      const okId = back.planId === mod.id;
+      if (okScope && okAcc && okIface && okId)
+        ok("import-plan — parseDescription round-trips exactly what sync-plan writes");
+      else
+        fail(
+          "import-plan round-trip",
+          `scope=${okScope} acceptance=${okAcc} interface=${okIface} planId=${okId} :: ${JSON.stringify(back)}`,
+        );
+    }
+  } catch (e: any) {
+    fail("import-plan round-trip", e.message + "\n" + e.stack);
   }
 
   fs.rmSync(tmp, { recursive: true, force: true });
