@@ -127,7 +127,18 @@ if (isMain) {
     for (const c of collisions) console.log(`  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`);
     // Advisory [!] lines — surfaced to humans/leads; validate-tickets.sh gates on [x] only.
     for (const w of scopeCoverageWarnings(plan)) console.log(`  [!] ${w.msg}`);
-    for (const w of testSiblingWarnings(plan)) console.log(`  [!] ${w.msg}`);
+    // Test-sibling coverage follows the same configurable-gap pattern as story
+    // coverage: advisory by default (examples/tickets-plan.sample.json would
+    // fail a hard gate), promoted to `[x]` by TEST_SIBLING_STRICT=1. An
+    // UNATTENDED executor should set it — documenting the rule was not enough
+    // on its own, since a board that merely warns still validates, still ships,
+    // and still burns a full coding session before the scope gate refuses it.
+    let siblingGaps = 0;
+    const siblingStrict = /^(1|true)$/i.test(process.env.TEST_SIBLING_STRICT || '');
+    for (const w of testSiblingWarnings(plan)) {
+      if (siblingStrict) { console.log(`  [x] ${w.msg}`); siblingGaps++; }
+      else console.log(`  [!] ${w.msg}`);
+    }
     // T29.2: story-coverage is advisory too, UNLESS STORY_COVERAGE_STRICT
     // promotes it to a gate (docs/TICKET_SCHEMA.md's "configurable gap").
     // Only runs when a USER_STORIES.md path was actually passed — a caller
@@ -142,8 +153,8 @@ if (isMain) {
         else console.log(`  [!] ${w.msg}`);
       }
     }
-    const clean = ok && collisions.length === 0 && storyGaps === 0;
-    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s), ${storyGaps} story gap(s)`);
+    const clean = ok && collisions.length === 0 && storyGaps === 0 && siblingGaps === 0;
+    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s), ${storyGaps} story gap(s), ${siblingGaps} test-sibling gap(s)`);
     process.exit(clean ? 0 : 1);
   } else if (cmd === 'requirement-status') {
     const storiesPath = rest[0];
