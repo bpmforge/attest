@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
+import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -447,6 +448,37 @@ test('conductor.mjs: validate-scope classifies files in a BRAND-NEW directory ag
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+// Reviewer triggering (v3.1.16). PARALLEL_WAVE_PROTOCOL Round 2 says security
+// fires "if auth or input handling touched", perf "if DB queries or loops
+// touched", ux "if UI components touched" — conditions evaluated against the
+// DIFF. The conductor read only the board's static `reviews` field, declared
+// before any code existed, so the conditions never ran and a ticket that turned
+// out to touch auth got one reviewer.
+test('review triggers: the diff decides, and a declared reviewer still runs', () => {
+  const KNOWN = { security: 'security-auditor', perf: 'performance-engineer', ux: 'ux-engineer', test: 'test-engineer' };
+  const t = (m, diff) => triggeredReviewers(m, diff, KNOWN).reviewers;
+
+  assert.deepEqual(t({}, '+function login(req){ jwt.sign(req.body.password) }'),
+    ['code-reviewer', 'security'], 'auth handling must trigger security with no board declaration');
+  assert.deepEqual(t({}, '+const rows = await prisma.user.findMany({ where: { id } })'),
+    ['code-reviewer', 'perf'], 'a DB query must trigger perf');
+  assert.deepEqual(t({}, '+++ b/src/components/Button.tsx'),
+    ['code-reviewer', 'ux'], 'a UI component must trigger ux');
+
+  // No false positives: pure arithmetic and docs get the default reviewer only.
+  assert.deepEqual(t({}, '+export function decimalAdd(a,b){ return String(BigInt(a)+BigInt(b)) }'),
+    ['code-reviewer'], 'pure arithmetic must not summon security/perf/ux');
+  assert.deepEqual(t({}, '+++ b/docs/NOTES.md\n+prose'), ['code-reviewer'], 'a docs-only diff triggers nothing extra');
+
+  // Union, not replacement — an explicit request runs even with an inert diff.
+  assert.deepEqual(t({ reviews: ['security', 'test'] }, '+const x = 1;'),
+    ['code-reviewer', 'security', 'test'], 'declared reviewers must still run');
+
+  // An unknown declared name is ignored rather than crashing runReviewRound.
+  assert.deepEqual(t({ reviews: ['nonsense'] }, '+const x = 1;'),
+    ['code-reviewer'], 'an unknown reviewer name is dropped');
 });
 
 // G6 (v3.1.14): the manifest must sit where the scope gate permits writes.

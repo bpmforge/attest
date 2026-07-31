@@ -59,6 +59,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
@@ -486,6 +487,14 @@ const APPROVED_RE = /verdict\s*[:\-]?\s*\**\s*(APPROVED|PASS)/i;
 const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
 
 /** Round 2 — one review session per triggered reviewer, on the REVIEWER model. */
+// Reviewer selection lives in ../lib/review-triggers.mjs (this file calls
+// main() at import time, so logic here cannot be unit-tested).
+function pickReviewers(m, diff) {
+  const { reviewers, reasons } = triggeredReviewers(m, diff, REVIEW_AGENTS);
+  log('round2.reviewers', { ticket: m.id, msg: `${reviewers.join(', ')}${reasons.length ? ` — triggered by ${reasons.join('; ')}` : ''}` });
+  return reviewers;
+}
+
 async function runReviewRound(m, wt, reviewers) {
   const verdicts = [];
   for (const r of reviewers) {
@@ -643,7 +652,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     // model that wrote it. A blocking verdict feeds a bounded fix loop; an
     // unresolved one fails the attempt exactly like a gate.
     if (ROUNDS >= 3) {
-      const reviewers = ['code-reviewer', ...(Array.isArray(m.reviews) ? m.reviews : [])];
+      const reviewers = pickReviewers(m, git('diff', `main...${branch}`));
       const verdicts = await runReviewRound(m, wt, reviewers);
       const missing = verdicts.filter((v) => !v.present).map((v) => v.reviewer);
       if (missing.length) {
