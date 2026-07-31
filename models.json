@@ -17,9 +17,9 @@
     "lmstudio/qwen3.6-35b-a3b": { "max_output_real": 10000 }
   },
   "roles": {
-    "coder": "google/gemini-2.5-flash",
-    "reviewer": "anthropic/claude-opus-4-8",
-    "challenger": "anthropic/claude-opus-4-8",
-    "advisor": "anthropic/claude-opus-4-8"
+    "coder": "github-copilot/claude-haiku-4.5",
+    "reviewer": "github-copilot/claude-sonnet-5",
+    "challenger": "github-copilot/gpt-5.4",
+    "advisor": "github-copilot/claude-sonnet-5"
   }
 }
