@@ -427,6 +427,23 @@ function preserveAttemptEvidence(m, attempt, wt) {
         kept.push(f);
       } catch { /* one unreadable doc must not lose the others */ }
     }
+    // ...and the CODE, which is otherwise lost too. The session's work is never
+    // committed to the branch — it lives in the worktree's dirty tree until the
+    // checkpoint commit, which a round-3 failure never reaches. So a failed
+    // attempt destroys the source and tests along with the verdict, and
+    // `git show <branch>` yields only the seed's .gitkeep. Without this, "the
+    // runtime said FAIL" cannot be paired with the code that failed.
+    try {
+      gitIn(wt, 'add', '-A');
+      const diff = gitIn(wt, 'diff', '--cached');
+      if (diff.trim()) {
+        writeFileSync(resolve(outDir, 'attempt.diff'),
+          `# ${m.id} attempt ${attempt} — everything the session produced\n` +
+          `# verify: ${m.verify ?? '(none)'}\n\n${diff.slice(0, 400_000)}\n`);
+        kept.push('attempt.diff');
+      }
+    } catch { /* a worktree already half-removed still yields the docs above */ }
+
     if (kept.length) log('gates.evidence-kept', { ticket: m.id, msg: `attempt ${attempt}: ${kept.join(', ')} -> docs/work/attempt-evidence/${m.id}-attempt${attempt}/` });
   } catch { /* never let evidence capture break the run */ }
   return kept;
