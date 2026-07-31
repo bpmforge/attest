@@ -199,10 +199,12 @@ function persistPlan(plan, message) {
  * Commit one run artifact the conductor itself wrote.
  *
  * WHY. main() refuses to start on a dirty target tree, and the conductor was
- * leaving its OWN output uncommitted — CONDUCTOR_HALT.md, and now the scope
- * violation diffs. The second run of the day then died on
- * `target repo working tree not clean` because of a file the FIRST run created.
- * Anything the conductor writes into the target repo it must also commit.
+ * leaving its OWN output uncommitted — CONDUCTOR_HALT.md. The second run of
+ * the day then died on `target repo working tree not clean` because of a file
+ * the FIRST run created. Anything the conductor writes into the target repo
+ * it must also commit. (Sole caller today: the halt notice. The scope-violation
+ * diffs captureScopeEvidence() writes are NOT routed through here — they live
+ * under the same ignored docs/work/, so they never dirty the tree either.)
  *
  * UNLESS git already ignores it. v3.0.4 put `docs/work/` in the bootstrap
  * .gitignore precisely because it holds this system's runtime artifacts — and
