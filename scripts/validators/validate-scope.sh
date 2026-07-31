@@ -77,7 +77,24 @@ fi
 CHANGED=$(mktemp -t "changed.XXXXXX")
 trap 'rm -f "$CHANGED"' EXIT
 
-git -C "$ROOT" status --porcelain 2>/dev/null | \
+# -uall is load-bearing on a GREENFIELD ticket.
+#
+# Plain `--porcelain` collapses a wholly-new untracked directory to a single
+# entry -- `?? tests/` -- instead of listing the files inside it. The
+# prefix match below then compares the literal string "tests/" against a
+# write_scope of "tests/parse.test.js", fails to classify it, and reports
+# "tests/ written outside assigned scope" on a ticket that wrote exactly what
+# it was assigned. Any ticket creating a directory that does not exist yet is
+# unpassable, which is every first ticket in a new project.
+#
+# This was known and worked around in the wrong place: conductor.test.mjs
+# pre-creates its scope directories as TRACKED, with a comment explaining the
+# collapse, so the fixture passed while the product stayed broken. Found for
+# real 2026-07-31 by scripts/e2e-sdlc-path.mjs on a fresh project.
+#
+# -uall lists each untracked file individually, which is what the matcher has
+# always assumed it was reading.
+git -C "$ROOT" status --porcelain -uall 2>/dev/null | \
   awk '
     # Two chars of status, space, path. Renames look like "R  old -> new".
     {

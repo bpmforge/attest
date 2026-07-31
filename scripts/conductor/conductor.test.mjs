@@ -22,6 +22,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));            // scripts/cond
 const REPO_ROOT = resolve(HERE, '..', '..');                     // attest
 const CONDUCTOR = resolve(HERE, 'conductor.mjs');
 const GATES_SH = resolve(REPO_ROOT, 'scripts/validators/run-handoff-gates.sh');
+const GATES_SCOPE = resolve(REPO_ROOT, 'scripts/validators/validate-scope.sh');
 
 function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -69,13 +70,21 @@ function setupFixture() {
   writeFileSync(resolve(target, 'models.json'), JSON.stringify({
     roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
   }, null, 2) + '\n');
-  // Pre-create scope dirs + docs/reviews as TRACKED — matches real projects
-  // (a ticket's write_scope dir usually already exists). This matters for
-  // validate-scope.sh: `git status --porcelain` collapses a wholly-NEW
-  // untracked directory into a single "?? dir/" line instead of listing the
-  // files inside it, which the validator's literal-prefix match can't
-  // classify — an already-tracked dir doesn't have that collapsing problem.
-  for (const d of ['a', 'b', 'c', 'docs/reviews']) {
+  // Scope dirs are deliberately NOT pre-created.
+  //
+  // They used to be, with a comment explaining why: `git status --porcelain`
+  // collapses a wholly-new untracked directory into one "?? dir/" entry
+  // instead of listing its files, which validate-scope.sh's prefix match could
+  // not classify. Pre-creating them as tracked dodged that — and in doing so
+  // made this suite pass over a product defect that made EVERY greenfield
+  // ticket unpassable, since a first ticket in a new project always creates
+  // its own directory. The workaround was in the test instead of the fix.
+  // validate-scope.sh now reads `--porcelain -uall`, so leaving these absent
+  // is what actually exercises the case (v3.1.8).
+  //
+  // docs/reviews is still pre-created: it holds manifests, is in ALWAYS_OK,
+  // and is not the thing under test here.
+  for (const d of ['docs/reviews']) {
     mkdirSync(resolve(target, d), { recursive: true });
     writeFileSync(resolve(target, d, '.gitkeep'), '');
   }
@@ -387,6 +396,54 @@ test('conductor.mjs: G4b refuses a models.json naming a model this install canno
 
     const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
     assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'ready', 'a refused run must leave the board untouched');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// validate-scope.sh greenfield case (v3.1.8), tested directly.
+//
+// `git status --porcelain` collapses a wholly-new untracked directory into one
+// "?? tests/" entry instead of listing its files. A write_scope of explicit
+// FILE paths — which is what the SDLC actually generates — then cannot match
+// it, and the ticket is failed for writing exactly what it was assigned. Any
+// first ticket in a new project creates its own directory, so this made every
+// greenfield ticket unpassable.
+//
+// A glob scope (`tests/**`) hides the bug, because the collapsed "tests/" still
+// prefix-matches it — which is why the conductor fixture above never caught
+// this. The file-path scope here is the real reproduction.
+test('conductor.mjs: validate-scope classifies files in a BRAND-NEW directory against file-path scopes', { timeout: 60_000 }, () => {
+  const base = mkdtempSync(resolve(tmpdir(), 'conductor-scope-'));
+  const target = resolve(base, 'repo');
+  mkdirSync(target, { recursive: true });
+  const git = (...a) => sh('git', a, { cwd: target });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'scope@example.com');
+  git('config', 'user.name', 'Scope Test');
+  git('config', 'commit.gpgsign', 'false');
+  writeFileSync(resolve(target, 'README.md'), 'seed\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'seed');
+
+  try {
+    // `tests/` does not exist in the seed — the session creates it.
+    mkdirSync(resolve(target, 'tests'), { recursive: true });
+    writeFileSync(resolve(target, 'tests/parse.test.js'), 'test\n');
+    mkdirSync(resolve(target, 'src'), { recursive: true });
+    writeFileSync(resolve(target, 'src/parse.js'), 'code\n');
+
+    const clean = sh('bash', [GATES_SCOPE, '--scope', 'src/parse.js', '--scope', 'tests/parse.test.js', '--root', '.'], { cwd: target });
+    assert.match(clean, /"gaps":0/, 'files in a brand-new directory must be classified against their file-path scopes, not reported out-of-scope');
+
+    // ...and a real violation in that same new directory is still caught, by
+    // NAME rather than as a collapsed directory entry.
+    writeFileSync(resolve(target, 'tests/sneaky.js'), 'nope\n');
+    let out = '';
+    try {
+      out = sh('bash', [GATES_SCOPE, '--scope', 'src/parse.js', '--scope', 'tests/parse.test.js', '--root', '.'], { cwd: target });
+    } catch (e) { out = String(e.stdout || ''); }
+    assert.match(out, /tests\/sneaky\.js written outside assigned scope/, 'a genuine violation must still fire, naming the file');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

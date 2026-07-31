@@ -67,6 +67,32 @@ export async function testTicketsGraph(
         );
     }
     {
+      // The executor WRITES the manifest to this path, so a source-file path
+      // means the agent overwrites its own deliverable with markdown and then
+      // runs `verify` against it. A type-only check permitted exactly this: an
+      // SDLC board set manifest to tests/parse.test.js, a file the same ticket
+      // had to create.
+      const bad = tickets.loadPlan(samplePath);
+      bad.modules[0].manifest = "tests/parse.test.js";
+      bad.modules[0].write_scope = ["src/parse.js", "tests/parse.test.js"];
+      const r = tickets.validatePlan(bad);
+      const hasDoc = r.errors.some((e: string) =>
+        /must be a \.md document/.test(e),
+      );
+      const hasClobber = r.errors.some((e: string) =>
+        /also in write_scope/.test(e),
+      );
+      if (!r.ok && hasDoc && hasClobber)
+        ok(
+          "tickets — a manifest pointing at a write_scope source file is rejected on both counts",
+        );
+      else
+        fail(
+          "tickets — manifest must not clobber a deliverable",
+          `ok=${r.ok} doc=${hasDoc} clobber=${hasClobber} errors=${r.errors.join("; ").slice(0, 200)}`,
+        );
+    }
+    {
       const bad = tickets.loadPlan(samplePath);
       bad.modules[0].verify = ["npm test", "npm run lint"];
       const r = tickets.validatePlan(bad);

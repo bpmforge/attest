@@ -92,7 +92,16 @@ A \`src/cli.js\` wires them: read a file path from argv, print the report.
 `;
 
 function stage() {
-  if (existsSync(PROJ) && !has('--keep')) rmSync(PROJ, { recursive: true, force: true });
+  if (existsSync(PROJ) && !has('--keep')) {
+    rmSync(PROJ, { recursive: true, force: true });
+    // The conductor puts worktrees in a SIBLING of the target
+    // (resolve(ROOT, '..', worktreeDir)), so wiping the project alone leaves
+    // them behind. Stale ones from a prior run then sit next to the new run's,
+    // each with git metadata pointing into a repo that no longer exists —
+    // harmless to the run, and exactly the kind of debris that makes a later
+    // "which worktree is this?" question take ten minutes.
+    rmSync(join(STAGE, '.conductor-worktrees'), { recursive: true, force: true });
+  }
   mkdirSync(PROJ, { recursive: true });
   const git = (...a) => {
     const r = sh('git', a, { cwd: PROJ });
