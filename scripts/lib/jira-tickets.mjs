@@ -41,6 +41,24 @@ import {
   close as lifecycleClose,
   accept as lifecycleAccept,
 } from './tickets-lifecycle.mjs';
+import {
+  validatePlan,
+  writeScopeCollisions,
+  claimable,
+} from './tickets-graph.mjs';
+
+export { validatePlan, writeScopeCollisions, claimable };
+
+// LANE: the scope map carries no lane data (write_scope + acceptance only —
+// see the header), and the task said not to invent per-ticket lanes from
+// JIRA fields (JIRA has no such concept). A single constant lane means every
+// module is compared against every other in writeScopeCollisions() — safe
+// but conservative: it can never under-detect a same-lane collision by
+// mis-partitioning tickets into lanes that don't reflect real parallel
+// safety. The cost is that unrelated tickets sharing no scope still pay the
+// comparison; the collision predicate itself (scope overlap + one side
+// ACTIVE) is what filters those out, not the lane.
+const JIRA_LANE = 'jira';
 
 function jiraCli() {
   const cli = process.env.JIRA_CLI;
@@ -97,6 +115,20 @@ function parseBlockerKeys(stdout) {
     .filter(Boolean);
 }
 
+// Parses `jira.sh mine` output lines of the form "KEY  [Status Name]  Summary".
+// Returns { key, statusName }. The "(nothing in progress...)" placeholder line
+// is filtered the same way as ready/blockers' own "(...)" placeholders.
+function parseMine(stdout) {
+  const out = [];
+  for (const line of stdout.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('(')) continue;
+    const m = trimmed.match(/^(\S+)\s+\[([^\]]+)\]/);
+    if (m) out.push({ key: m[1], statusName: m[2] });
+  }
+  return out;
+}
+
 // loadPlan: builds an in-memory ModuleTicket-shaped plan from JIRA + the
 // checked-in scope map. `path` is the conductor's --root (jira.sh and the
 // scope map are both resolved relative to it via env vars, per the
@@ -124,6 +156,7 @@ export function loadPlan(root) {
       title: contract.title,
       owner: null,
       status: blockers.code === 0 ? 'ready' : 'blocked',
+      lane: JIRA_LANE,
       write_scope: contract.write_scope,
       depends_on,
       acceptance: contract.acceptance,
@@ -132,6 +165,46 @@ export function loadPlan(root) {
       history: [],
     });
   }
+
+  // Recovery path for the HIGH review finding: a ticket `claim()` already
+  // moved to "In Progress" in JIRA is absent from `ready`'s output (it is no
+  // longer free) and, since savePlan() is a no-op, has no plan.json history
+  // for resume.mjs to diff against — a crash between claim() and start()
+  // otherwise makes the ticket invisible to every future loadPlan() call:
+  // not blocked, not claimed, just gone, and stuck "In Progress" in real
+  // JIRA until a human notices. `jira.sh mine` is scoped by the CLI's own
+  // authenticated identity (cmd_mine's `assignee = "$me"`), so folding it in
+  // here restores exactly the tickets THIS actor's credentials already own —
+  // no actor parameter needed, and no risk of surfacing someone else's
+  // in-flight ticket as if it were ours.
+  const seen = new Set(modules.map((m) => m.id));
+  const mine = runJira(['mine']);
+  if (mine.code === 0) {
+    for (const { key, statusName } of parseMine(mine.stdout)) {
+      if (seen.has(key)) continue;
+      const contract = scopeMap[key];
+      if (!contract) {
+        omitted.push({ id: key, reason: `no entry in TICKET_SCOPE_MAP for '${key}' — not claimable` });
+        continue;
+      }
+      modules.push({
+        id: key,
+        kind: 'module',
+        title: contract.title,
+        owner: 'me',
+        status: /review/i.test(statusName) ? 'in_review' : 'in_progress',
+        lane: JIRA_LANE,
+        write_scope: contract.write_scope,
+        depends_on: [],
+        acceptance: contract.acceptance,
+        verify: contract.verify,
+        manifest: contract.manifest,
+        history: [],
+      });
+      seen.add(key);
+    }
+  }
+
   return { goal: 'jira board', modules, omitted };
 }
 
@@ -141,39 +214,14 @@ export function savePlan() {
   // intentionally a no-op — see header
 }
 
-export function validatePlan(plan) {
-  const errors = [];
-  for (const m of plan.modules || []) {
-    if (!m.write_scope || m.write_scope.length === 0) errors.push(`'${m.id}' has no write_scope`);
-    if (!m.acceptance || m.acceptance.length === 0) errors.push(`'${m.id}' has no acceptance criteria`);
-  }
-  return { ok: errors.length === 0, errors };
-}
-
-export function writeScopeCollisions(plan) {
-  const collisions = [];
-  const modules = plan.modules || [];
-  for (let i = 0; i < modules.length; i++) {
-    for (let j = i + 1; j < modules.length; j++) {
-      const a = modules[i];
-      const b = modules[j];
-      for (const scope of a.write_scope || []) {
-        if ((b.write_scope || []).includes(scope)) collisions.push({ a: a.id, b: b.id, scope });
-      }
-    }
-  }
-  return collisions;
-}
-
-// recomputeStatus: a no-op here. JIRA is the sole authority for `status`
-// (via cmd_blockers/cmd_ready reflecting real-time issuelinks), recomputed
-// fresh on every loadPlan() call — there is no separate derived-status step.
+// recomputeStatus: a no-op here, re-exported under the shared name. JIRA is
+// the sole authority for `status` (via cmd_blockers/cmd_ready reflecting
+// real-time issuelinks), recomputed fresh on every loadPlan() call — there
+// is no separate derived-status step, so this driver does not delegate to
+// tickets-graph.mjs's recomputeStatus() (which would reset 'ready'/'blocked'
+// from depends_on, redundant with what loadPlan() just computed from JIRA).
 export function recomputeStatus(plan) {
   return plan;
-}
-
-export function claimable(plan) {
-  return (plan.modules || []).filter((m) => m.status === 'ready' && m.owner == null);
 }
 
 // claim: shells to `jira.sh claim <key>`. Honours RACED/SKIP — on either,
@@ -232,7 +280,13 @@ export function close(plan, id, actor, opts) {
   if (!r.ok) return r;
   const commented = runJira(['comment', id, r.receipt]);
   if (commented.code !== 0) {
-    return { ok: false, error: `local close gate passed but jira.sh comment failed: ${(commented.stderr || commented.stdout).trim()}` };
+    // The local gate already passed and produced r.receipt — the one artifact
+    // proving that — before the JIRA comment failed. savePlan() is a no-op for
+    // this board, so nothing else persists it; returning it here lets a caller
+    // (or a human) retry `jira.sh comment` with the already-produced text
+    // instead of re-running the whole close sequence (MEDIUM, code review
+    // 2026-07-31).
+    return { ok: false, error: `local close gate passed but jira.sh comment failed: ${(commented.stderr || commented.stdout).trim()}`, receipt: r.receipt };
   }
   return r;
 }
