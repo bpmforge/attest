@@ -221,7 +221,18 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
 // `opencode run --model <...>` spawn (not just resolved and logged), and
 // that a fully-distinct roles map lands the ticket normally (the routing
 // gate itself never blocks a clean config).
-function setupRoleRoutingFixture({ stubModels = ['fixture/coder-model', 'fixture/reviewer-model'] } = {}) {
+function setupRoleRoutingFixture({
+  stubModels = ['fixture/coder-model', 'fixture/reviewer-model'],
+  // Where the board lives. Defaults to the historical root location; the
+  // discovery tests move it to where the SDLC actually writes it.
+  planAt = 'plan.json',
+  // The fixture's full .gitignore. Default ignores docs/work/ wholesale, which
+  // is what G5 refuses; the discovery test overrides it with the canonical
+  // per-file list. It must be a REPLACEMENT, not an append: git cannot
+  // re-include a file inside an excluded directory, so `!docs/work/plan.json`
+  // under `docs/work/` is silently inert — the exact trap G5 exists to catch.
+  ignore = ['docs/work/', '.conductor-worktrees/'],
+} = {}) {
   const base = mkdtempSync(resolve(tmpdir(), 'conductor-t28-2-'));
   const target = resolve(base, 'target-repo');
   mkdirSync(target, { recursive: true });
@@ -243,7 +254,8 @@ function setupRoleRoutingFixture({ stubModels = ['fixture/coder-model', 'fixture
       verify: verifyFor('TICK-ROLE', 'a'), manifest: 'docs/reviews/MANIFEST_TICK-ROLE.md',
     }],
   };
-  writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  mkdirSync(dirname(resolve(target, planAt)), { recursive: true });
+  writeFileSync(resolve(target, planAt), JSON.stringify(plan, null, 2) + '\n');
   // Distinct, obviously-fake model ids -- this test only needs to prove they
   // route through, not that they're real opencode-recognized identifiers.
   writeFileSync(resolve(target, 'models.json'), JSON.stringify({
@@ -254,8 +266,16 @@ function setupRoleRoutingFixture({ stubModels = ['fixture/coder-model', 'fixture
     writeFileSync(resolve(target, d, '.gitkeep'), '');
   }
   mkdirSync(resolve(target, 'docs/work'), { recursive: true });
-  writeFileSync(resolve(target, '.gitignore'), 'docs/work/\n.conductor-worktrees/\n');
+  // NOTE: this fixture ignores docs/work/ wholesale, which is NOT the canonical
+  // bootstrap list (that ignores named files under it, because STATE.md and
+  // plan.json are tracked). Kept for the root-plan cases; the discovery cases
+  // below override it, since a board under an ignored directory is exactly what
+  // G5 now refuses.
+  writeFileSync(resolve(target, '.gitignore'), ignore.join('\n') + '\n');
   git('add', '-A');
+  // -f: a board staged under an ignored path must still reach the fixture's
+  // initial commit, or G5 would be testing a missing file instead of an ignored one.
+  git('add', '-f', planAt);
   git('commit', '-q', '-m', 'initial fixture');
 
   const binDir = resolve(base, 'bin');
@@ -367,6 +387,62 @@ test('conductor.mjs: G4b refuses a models.json naming a model this install canno
 
     const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
     assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'ready', 'a refused run must leave the board untouched');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// Plan discovery (v3.1.4): the Phase 3 -> Phase 4 seam. The SDLC writes its
+// module board to docs/work/plan.json; this executor defaulted to
+// <root>/plan.json, which no producer has ever written. Pointing the conductor
+// at a freshly-planned project therefore said "no plan.json" and read as the
+// SDLC having failed to produce one. Discovery closes that by hand-joining
+// nothing — the operator no longer has to know to pass --plan.
+test('conductor.mjs: finds the SDLC-written board at docs/work/plan.json without --plan', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture({
+    planAt: 'docs/work/plan.json',
+    // The CANONICAL bootstrap list: named per-machine files under docs/work/,
+    // never the directory — so the board itself stays tracked.
+    ignore: ['.conductor-worktrees/', 'docs/work/.model-context', 'docs/work/telemetry.jsonl'],
+  });
+  try {
+    // NOTE: no --plan argument. That is the whole point of the test.
+    const out = sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+    assert.match(out, /plan=.*docs\/work\/plan\.json/, 'the resolved board must be the docs/work one, not <root>/plan.json');
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'docs/work/plan.json'), 'utf8'));
+    assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'done',
+      'the discovered board must be the one actually driven and written back');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// G5 (v3.1.4). persistPlan() raw-`git add`s the board after every transition,
+// so an ignored board does not degrade — it hard-fails on the first claim, mid
+// run. `docs/work/` looks exactly like a directory worth ignoring wholesale,
+// which is why this needs to be caught rather than documented.
+test('conductor.mjs: G5 refuses a board that .gitignore covers, before claiming anything', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture({ planAt: 'docs/work/plan.json' });
+  try {
+    let err = null;
+    try {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-push'], {
+        cwd: target,
+        env: { ...process.env, OPENCODE_BIN: stub },
+      });
+    } catch (e) { err = e; }
+
+    assert.ok(err, 'an ignored board must refuse the run');
+    assert.equal(err.status, 2, 'G5 refusal exits 2');
+    assert.match(String(err.stderr), /covered by \.gitignore/, 'the refusal must name the actual cause');
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'docs/work/plan.json'), 'utf8'));
+    assert.equal(plan.modules.find((m) => m.id === 'TICK-ROLE').status, 'ready',
+      'nothing may be claimed when the board cannot be committed');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
