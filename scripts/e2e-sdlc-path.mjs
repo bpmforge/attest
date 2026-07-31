@@ -304,11 +304,19 @@ function verify() {
   const srcFiles = sh('git', ['ls-files', 'src/'], { cwd: PROJ }).stdout.trim().split('\n').filter((s) => s && !s.endsWith('.gitkeep'));
   check('source files committed', srcFiles.length > 0, `${srcFiles.length} file(s): ${srcFiles.slice(0, 6).join(', ')}`);
 
-  const t = sh('npm', ['test', '--silent'], { cwd: PROJ });
+  // Run node --test directly with the reporter PINNED rather than going
+  // through `npm test`, whose script we do not control. node --test picks
+  // `spec` on a TTY and `tap` otherwise, and the two summarise differently
+  // (`ℹ pass 6` vs `# pass 6`) — parsing one form silently misreports the
+  // other as "no tests passed". Pass 53 hit exactly this; the scorecard had
+  // the same bug, which would have scored a GREEN suite as a FAIL the moment
+  // the conductor actually landed tests. Accept either form regardless.
+  const t = sh('node', ['--test', '--test-reporter=tap'], { cwd: PROJ });
   const out = `${t.stdout || ''}${t.stderr || ''}`;
-  const passCount = /# pass (\d+)/.exec(out)?.[1];
-  check('project tests pass', t.status === 0 && Number(passCount || 0) > 0,
-    passCount ? `${passCount} test(s) passing` : out.trim().split('\n').slice(-3).join(' | '));
+  const passCount = /^# pass (\d+)$/m.exec(out)?.[1] ?? /ℹ pass (\d+)/.exec(out)?.[1];
+  const failCount = /^# fail (\d+)$/m.exec(out)?.[1] ?? /ℹ fail (\d+)/.exec(out)?.[1];
+  check('project tests pass', Number(passCount || 0) > 0 && Number(failCount || 0) === 0,
+    passCount ? `${passCount} passing, ${failCount ?? '?'} failing` : out.trim().split('\n').slice(-3).join(' | '));
 
   console.log('\n=== E2E SDLC PATH SCORECARD ===');
   for (const r of rows) console.log(`  ${r.pass ? 'PASS' : 'FAIL'}  ${r.label}${r.detail ? ` — ${r.detail}` : ''}`);
