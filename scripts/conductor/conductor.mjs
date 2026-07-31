@@ -74,7 +74,41 @@ const opt = (name, dflt) => {
   return i >= 0 ? (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true) : dflt;
 };
 const ROOT = resolve(String(opt('root', '.')));           // target project being conducted
-const PLAN_PATH = resolve(ROOT, String(opt('plan', 'plan.json')));
+
+// Where the module board lives, when --plan does not say.
+//
+// Nothing in this system agreed on that. task-decomposer writes
+// `docs/work/plan/plan.json`; sdlc-feature-mode writes `docs/work/plan.json`;
+// run-until-done.sh reads `docs/work/plan.json`; and this file defaulted to
+// `<root>/plan.json`, which NO producer has ever written. The join was a step
+// the operator had to know to make by hand (`--plan docs/work/plan.json`) with
+// nothing documenting it — so pointing the conductor at a project the SDLC had
+// just planned reported "no plan.json" and looked like the SDLC had failed to
+// produce one.
+//
+// Probing is ordered by producer, and a candidate only wins if it actually
+// carries a `modules[]` layer: `docs/work/plan/plan.json` is usually a
+// task-decomposer NODE dag, which this executor cannot run, and it must not
+// shadow a real module board sitting at the root. An explicit --plan always
+// wins and is never probed — an operator naming a file gets that file, or a
+// clean error about that file.
+const PLAN_CANDIDATES = ['docs/work/plan.json', 'docs/work/plan/plan.json', 'plan.json'];
+function discoverPlanPath() {
+  const explicit = opt('plan', null);
+  if (explicit) return resolve(ROOT, String(explicit));
+  const present = PLAN_CANDIDATES.filter((p) => existsSync(resolve(ROOT, p)));
+  for (const p of present) {
+    try {
+      const plan = JSON.parse(readFileSync(resolve(ROOT, p), 'utf8'));
+      if ((plan.modules || []).length) return resolve(ROOT, p);
+    } catch { /* unreadable/!JSON — let the normal load path report it */ }
+  }
+  // Nothing carried modules[]. Fall back to the first that exists so the
+  // existing "no plan.json at <path>" / schema errors still fire on a real
+  // file, and to the historical default when the project has none at all.
+  return resolve(ROOT, present[0] || 'plan.json');
+}
+const PLAN_PATH = discoverPlanPath();
 const ACTOR = String(opt('actor', 'conductor'));
 const REVIEWER_ACTOR = String(opt('reviewer-actor', 'conductor-review'));
 const MAX_ATTEMPTS = Number(opt('max-attempts', 2));       // MASTER_PROMPT.md rule 9: ~2 sessions before giving up
@@ -220,8 +254,11 @@ function persistPlan(plan, message) {
 function commitArtifact(absPath, message) {
   if (DRY || !existsSync(absPath)) return;
   // `git check-ignore` exits 0 when the path IS ignored, 1 when it is not.
+  // --no-index for the same reason G5 needs it: without it a tracked file under
+  // an ignored directory reports not-ignored, and the `git add` below then
+  // hard-fails on exactly the path this check was meant to skip.
   let ignored = false;
-  try { git('check-ignore', '-q', absPath); ignored = true; } catch { ignored = false; }
+  try { git('check-ignore', '-q', '--no-index', absPath); ignored = true; } catch { ignored = false; }
   if (ignored) {
     log('artifact.ignored', { msg: `${absPath} is covered by .gitignore — written but not committed (an ignored file cannot dirty the tree)` });
     return;
@@ -752,7 +789,37 @@ async function main() {
   for (const bin of ['git']) {
     try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(1); }
   }
-  if (!existsSync(PLAN_PATH)) { console.error(`no plan.json at ${PLAN_PATH}`); process.exit(1); }
+  if (!existsSync(PLAN_PATH)) {
+    console.error(
+      `no plan.json at ${PLAN_PATH}\n` +
+      `Probed (in producer order): ${PLAN_CANDIDATES.join(', ')} — pass --plan to name one explicitly.`,
+    );
+    process.exit(1);
+  }
+  // G5: the board must be committable. persistPlan() does a raw `git add` on it
+  // after EVERY lifecycle transition, so a gitignored board does not degrade —
+  // it hard-fails on the first claim, after the run has already started. The
+  // trap is specific and easy to fall into: the SDLC writes the board to
+  // docs/work/, and `docs/work/` looks like a runtime-artifact directory worth
+  // ignoring wholesale. It is not. The canonical bootstrap list ignores named
+  // per-machine FILES under docs/work/ precisely because STATE.md and plan.json
+  // are tracked artifacts. Caught here, before a single ticket is claimed.
+  // --no-index is load-bearing. `git check-ignore` without it answers "is this
+  // path ignored *given the index*", so a TRACKED file always reports
+  // not-ignored — while `git add` on that same tracked file still refuses when
+  // an ancestor DIRECTORY is ignored ("The following paths are ignored").
+  // Probing without --no-index therefore green-lights precisely the case this
+  // gate exists to catch. --no-index asks the question git add actually enforces.
+  let planIgnored = false;
+  try { git('check-ignore', '-q', '--no-index', PLAN_PATH); planIgnored = true; } catch { planIgnored = false; }
+  if (planIgnored) {
+    console.error(
+      `the board at ${PLAN_PATH} is covered by .gitignore.\n` +
+      `Every lifecycle transition commits it, so this run would fail on the first claim.\n` +
+      `Ignore the named per-machine files under docs/work/ (see agents/git-expert.md), not the directory.`,
+    );
+    process.exit(2);
+  }
   if (git('status', '--porcelain')) { console.error('target repo working tree not clean — commit or stash first'); process.exit(1); }
   if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'main') git('checkout', '-q', 'main');
 

@@ -169,7 +169,7 @@ When to use a chapter directory: if a single findings chapter would have 8+ sub-
 After writing all book files, run:
 
 ```bash
-node scripts/mermaid-fix.mjs docs/<deliverable-slug>/ --write   # auto-repair mechanical Mermaid issues first
+node ~/.config/opencode/scripts/mermaid-fix.mjs docs/<deliverable-slug>/ --write   # auto-repair mechanical Mermaid issues first
 bash ~/.config/opencode/scripts/validators/validate-book-structure.sh docs/<deliverable-slug>/
 bash ~/.config/opencode/scripts/validators/validate-mermaid.sh . docs/<deliverable-slug>/
 bash ~/.config/opencode/scripts/validators/validate-doc-render-health.sh . docs/<deliverable-slug>/

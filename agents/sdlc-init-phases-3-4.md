@@ -765,7 +765,7 @@ This step exists so that reverse-engineering never has to happen again.
    from the live tracker (API script, CSV export, ...).
 3. Link each new story to its phase **at creation time**, and re-run the
    idempotent straggler sweep any session:
-   `node scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
+   `node ~/.config/opencode/scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
    — a clean run links 0 stragglers; this is what keeps linkage continuous
    instead of a one-time retrofit.
 4. Run `~/.config/opencode/scripts/validators/validate-tracker-integrity.sh` — chained at the

@@ -44,7 +44,7 @@ but never written down. This skill fixes that.
      than the artifact's own `generatedAt`. A stale STATUS.md is exactly the
      class of drift this skill exists to catch: numbers a human trusts that no
      longer match reality. Report any stale finding under "Stale" below and
-     regenerate with `node scripts/gen-status-report.mjs` as the fix, never
+     regenerate with `node ~/.config/opencode/scripts/gen-status-report.mjs` as the fix, never
      hand-edit the artifact.
 
 ```
@@ -141,7 +141,7 @@ step 9 reminds you), on a cloud-tier model.
 ```
 ▶ Phase 1: Gather the evidence
 ```
-1. `npm run telemetry:report` (or `node scripts/telemetry-report.mjs --days 30`) —
+1. `npm run telemetry:report` (or `node ~/.config/opencode/scripts/telemetry-report.mjs --days 30`) —
    token/duration distributions per agent×model, retry + escalation rates,
    validator gap rates. No data → say so and stop; the loop needs evidence.
 2. Read `docs/work/EVAL_RESULTS.json` (latest eval run) and, if present,

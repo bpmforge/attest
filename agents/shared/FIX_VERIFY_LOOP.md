@@ -101,13 +101,13 @@ verdict that can't be faked:
 
 ```
 # baseline BEFORE the fix (Step 3), per finding source:
-node scripts/fix-verify.mjs snapshot semgrep                 # SAST findings
-node scripts/fix-verify.mjs snapshot validate-dead-code.sh   # dead/stub code
-node scripts/fix-verify.mjs snapshot validate-deps.sh        # dependency CVEs
-node scripts/fix-verify.mjs snapshot validate-contract-conformance.sh  # O2.5: interface drift a fix may introduce (caught in-loop, not only at phase-5)
+node ~/.config/opencode/scripts/fix-verify.mjs snapshot semgrep                 # SAST findings
+node ~/.config/opencode/scripts/fix-verify.mjs snapshot validate-dead-code.sh   # dead/stub code
+node ~/.config/opencode/scripts/fix-verify.mjs snapshot validate-deps.sh        # dependency CVEs
+node ~/.config/opencode/scripts/fix-verify.mjs snapshot validate-contract-conformance.sh  # O2.5: interface drift a fix may introduce (caught in-loop, not only at phase-5)
 
 # AFTER the fix:
-node scripts/fix-verify.mjs verify semgrep --floor ERROR
+node ~/.config/opencode/scripts/fix-verify.mjs verify semgrep --floor ERROR
 ```
 
 `fix-verify` re-runs the scan and diffs by fingerprint (rule + file + matched
@@ -181,7 +181,7 @@ On escalation, capture the lesson so the same fix doesn't fail the same way next
 (Cherny's "write it down, don't re-prompt"):
 
 ```
-node scripts/loop-learn.mjs \
+node ~/.config/opencode/scripts/loop-learn.mjs \
   --symptom "fix-verify stuck: <row, finding>" \
   --cause   "<why the fix keeps failing re-verify>" \
   --rule    "<the durable correction>" \

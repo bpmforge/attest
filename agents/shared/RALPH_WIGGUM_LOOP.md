@@ -234,7 +234,7 @@ fix the inventory, the validator, or the gap-fill strategy, not iterate again.
 - Record the gap list to `docs/work/COVERAGE_LOOP_<phase>_<date>.md`
 - **Capture the lesson** so the same stall is not repeated next week (Cherny's "write it down, don't re-prompt"):
   ```
-  node scripts/loop-learn.mjs \
+  node ~/.config/opencode/scripts/loop-learn.mjs \
     --symptom "<phase> stuck: <which rows, what gap>" \
     --cause   "<why the gap-fill HANDOFFs didn't close it>" \
     --rule    "<what to do differently — fix inventory / validator / strategy>" \

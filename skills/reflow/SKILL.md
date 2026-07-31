@@ -24,14 +24,14 @@ so the module graph exists). Then:
 
 1. **Mark done.** A module reaches `done` ONLY through `accept()` (T26.1/T26.3) — never hand-set. If a
    module is sitting `in_review` with its owner's work actually reviewed, run
-   `node scripts/lib/tickets.mjs accept docs/work/plan.json <id> <reviewer>` (reviewer ≠ owner). Do not
+   `node ~/.config/opencode/scripts/lib/tickets.mjs accept docs/work/plan.json <id> <reviewer>` (reviewer ≠ owner). Do not
    mark done on hope — `accept()` itself refuses unless the module's Completion Manifest has the
    `close()` receipt pasted into it (see "Close receipt = the only accepted completion signal" below).
 2. **Recompute + collision check (deterministic):**
    ```
-   node scripts/lib/tickets.mjs validate docs/work/plan.json   # graph integrity + write-scope collisions
-   node scripts/lib/tickets.mjs status   docs/work/plan.json   # resolve blocked/ready, list claimable
-   node scripts/gen-tickets-board.mjs    docs/work/plan.json   # regenerate docs/work/TICKETS.md
+   node ~/.config/opencode/scripts/lib/tickets.mjs validate docs/work/plan.json   # graph integrity + write-scope collisions
+   node ~/.config/opencode/scripts/lib/tickets.mjs status   docs/work/plan.json   # resolve blocked/ready, list claimable
+   node ~/.config/opencode/scripts/gen-tickets-board.mjs    docs/work/plan.json   # regenerate docs/work/TICKETS.md
    ```
    If `validate` reports a **write-scope collision** involving an active module, STOP and surface it —
    do not hand off the overlapping module until the user resolves the scope overlap. Two people in the
@@ -48,14 +48,14 @@ so the module graph exists). Then:
    ledger. The `validate-jira-hygiene.sh` gate flags unmirrored work, but only when a
    backend is configured.
 3. **Refuse-to-select-next-work gate (T26.3).** Before claiming, confirm it's actually safe to hand out
-   MORE work: `node scripts/lib/tickets.mjs claim docs/work/plan.json <id> <actor>` enforces this itself
+   MORE work: `node ~/.config/opencode/scripts/lib/tickets.mjs claim docs/work/plan.json <id> <actor>` enforces this itself
    and refuses with a clear `[x]` reason if either holds —
    - **hygiene is red**: the same collision/graph-integrity check from step 2 is red (`claim` re-checks
      it immediately before mutating, not just here) — fix the graph before handing out anything else;
    - **the actor's previous ticket is still open**: `claim`'s built-in WIP=1 check (T26.1) refuses if
      `<actor>` already owns another `claimed`/`in_progress` module elsewhere. An `in_review` ticket does
      NOT count as open — it has already been **closed** via a `close()` receipt (see below), the actor
-     is just waiting on a reviewer's `accept()`. `node scripts/lib/tickets.mjs open-for docs/work/plan.json
+     is just waiting on a reviewer's `accept()`. `node ~/.config/opencode/scripts/lib/tickets.mjs open-for docs/work/plan.json
      <actor>` answers this read-only, without attempting a claim, if you want to check first.
    Do not work around a refusal by hand-editing `plan.json` — fix the graph, or close/release the open
    ticket, then retry the real command.
@@ -68,7 +68,7 @@ so the module graph exists). Then:
 
 ## Claiming a module → emit a HANDOFF (follow handoff rules)
 
-On `/reflow claim <id>`: run `node scripts/lib/tickets.mjs claim docs/work/plan.json <id> <owner>` (this
+On `/reflow claim <id>`: run `node ~/.config/opencode/scripts/lib/tickets.mjs claim docs/work/plan.json <id> <owner>` (this
 IS the sanctioned way to set `owner`/`status: claimed` — step 3's gate runs automatically), regenerate
 the board, then **emit a HANDOFF** for the module (per `agents/shared/EXECUTOR_SELECTION.md` — never
 assume a spawn). The claimed module's contract becomes the HANDOFF contract:
@@ -80,7 +80,7 @@ HANDOFF → <owner/agent>  |  run by: <owner/agent> via /<skill>   (default /cod
 SDLC-TASK for <agent>:
 
 STAGE 0 — before any work: run
-`node scripts/lib/tickets.mjs start docs/work/plan.json <id> <owner>`
+`node ~/.config/opencode/scripts/lib/tickets.mjs start docs/work/plan.json <id> <owner>`
 and paste the printed "── start receipt: <id> ──" block verbatim, right here, before proceeding.
 A HANDOFF that skips this stage has not proven it actually started the claimed ticket.
 
@@ -95,7 +95,7 @@ VERIFY before completing: run <module.verify>; all acceptance criteria met.
 Completion Manifest at docs/work/manifests/<id>.md.
 
 FINAL STAGE — completion signal (T26.3): once VERIFY passes, run
-`node scripts/lib/tickets.mjs close docs/work/plan.json <id> <owner> --branch <b> --commits <c1,c2,...>`
+`node ~/.config/opencode/scripts/lib/tickets.mjs close docs/work/plan.json <id> <owner> --branch <b> --commits <c1,c2,...>`
 and paste the printed "── close receipt: <id> ──" block VERBATIM into the Completion Manifest AND as
 your last message. This receipt — not a self-asserted "<id> done" string — is the ONLY accepted
 completion signal: `accept()` refuses to move the ticket to `done` without it pasted into the manifest,
@@ -147,7 +147,7 @@ mode answers the reverse question a post-incident cleanup actually needs — cod
 correspondence — and is a manually-invoked recovery tool, not a chained gate:
 
 ```
-node scripts/lib/reflow-audit.mjs <plan.json> [--repo <path>] [--out <path>] [--skip-verify]
+node ~/.config/opencode/scripts/lib/reflow-audit.mjs <plan.json> [--repo <path>] [--out <path>] [--skip-verify]
 ```
 
 Grades every non-`blocked` module against real git history, independent of what `status` claims:

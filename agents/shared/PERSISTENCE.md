@@ -34,8 +34,8 @@ pause (`AUTONOMY_PROTOCOL.md`) is a legitimate stop, not an early end.
 "Keep going until the task is completely handled" means finish the unit of work you are ON — it
 never means reach past a red gate to grab a NEW ticket. Before selecting/claiming the next ticket
 (`/reflow claim`, or `run-until-done.sh` starting a fresh session's worth of work), two conditions
-must both hold, and this is code-enforced, not just prose: hygiene is clean (`node scripts/lib/
-tickets.mjs claim` itself refuses on a red ticket-graph check; `run-until-done.sh`'s
+must both hold, and this is code-enforced, not just prose: hygiene is clean (`node ~/.config/opencode/scripts/lib/tickets.mjs claim`
+itself refuses on a red ticket-graph check; `run-until-done.sh`'s
 `next_work_gate_ok()` refuses to start at all if `validate-state-drift.sh`/`validate-tickets.sh` are
 red), and your own previous ticket is actually closed — a `close()` receipt exists (`in_review` or
 later), not merely claimed/in_progress (`tickets.mjs open-for <plan> <actor>` / claim's built-in
