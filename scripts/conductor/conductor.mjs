@@ -61,7 +61,11 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, extractFailureReason } from '../lib/runtime-verdict.mjs';
-import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
+// Board is pluggable: plan.json (tickets.mjs) is the default; set
+// CONDUCTOR_BOARD=jira to select the JIRA board driver (jira-tickets.mjs)
+// instead — same 13 names, identical signatures (docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md).
+const { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } =
+  process.env.CONDUCTOR_BOARD === 'jira' ? await import('../lib/jira-tickets.mjs') : await import('../lib/tickets.mjs');
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
 
