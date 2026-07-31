@@ -16,7 +16,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
-import { isGroundedFailure, RUNTIME_PASS_RE } from '../lib/runtime-verdict.mjs';
+import { isGroundedFailure, RUNTIME_PASS_RE, extractFailureReason } from '../lib/runtime-verdict.mjs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
@@ -510,6 +510,61 @@ test('runtime verdict: a FAIL must be evidenced, not merely asserted', () => {
   for (const ok of ['RUNTIME: PASS', '**RUNTIME: PASS**', 'runtime verdict - pass', 'Runtime : PASS'])
     assert.match(ok, RUNTIME_PASS_RE, `should match: ${ok}`);
   assert.doesNotMatch('RUNTIME: FAIL', RUNTIME_PASS_RE);
+});
+
+// A negative verdict must explain itself (v3.1.22). BOUNDED_TASK_CONTRACT rule 9
+// requires a diagnosis, not a label; this lifts it into the receipts so the
+// reason survives the worktree that held it.
+test('failure reason: the agent explanation reaches the receipts', () => {
+  // 1. The section the prompt asks for wins.
+  const withSection = [
+    '# Runtime — T-decimal',
+    '## Commands',
+    '$ node --test src/decimal.test.js',
+    'exit code: 1',
+    '## Why it failed',
+    'decimalAdd returns "0.3" but the test asserts "0.30" — the implementation',
+    'does not pad to two decimal places. Cause is this ticket\'s code, not the environment.',
+    'RUNTIME: FAIL',
+  ].join('\n');
+  const r1 = extractFailureReason(withSection);
+  assert.match(r1, /does not pad to two decimal places/, 'the explicit section must be used');
+  assert.doesNotMatch(r1, /# Runtime/, 'must not drag in unrelated headings');
+
+  // 2. No section — fall back to the strongest evidence lines.
+  const noSection = '$ npm test\nnot ok 3 - rounds correctly\nAssertionError: expected 0.30\nRUNTIME: FAIL';
+  const r2 = extractFailureReason(noSection);
+  assert.match(r2, /not ok 3|AssertionError/, 'evidence lines must be captured when the section is missing');
+
+  // 3. Neither — fall back to what preceded the verdict, so SOMETHING is captured.
+  const bare = 'I could not get this working.\nIt seems wrong.\nRUNTIME: FAIL';
+  assert.ok(extractFailureReason(bare), 'even an unstructured report must yield something');
+
+  // 4. Nothing to explain.
+  assert.equal(extractFailureReason(''), null);
+
+  // 5. A non-zero exit from a command the project never defined is NOT a
+  // grounded failure. This is the exact report that failed a ticket twice on
+  // 2026-07-31 while every test passed.
+  const missingScripts = [
+    '## Summary',
+    'The declared test command passed all five tests. The package does not define',
+    'build, lint or type-check scripts.',
+    '### npm run build',
+    'npm error Missing script: "build"',
+    'Exit code: 1',
+    'RUNTIME: FAIL',
+  ].join('\n');
+  assert.equal(isGroundedFailure(missingScripts), false,
+    'a missing npm script must not ground a FAIL — absent tooling is not failing code');
+
+  // ...but a real failure alongside a missing script still grounds it.
+  assert.equal(isGroundedFailure(`${missingScripts}\nnot ok 2 - rounds correctly`), true,
+    'a genuine test failure still grounds the verdict');
+
+  // 5. Bounded — this rides into a retry prompt and a plan.json comment.
+  const huge = ['## Why it failed', 'x'.repeat(5000), 'RUNTIME: FAIL'].join('\n');
+  assert.ok(extractFailureReason(huge).length <= 601, 'must be truncated for the retry prompt');
 });
 
 // G6 (v3.1.14): the manifest must sit where the scope gate permits writes.
