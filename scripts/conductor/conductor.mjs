@@ -48,6 +48,7 @@
  *   node conductor.mjs --root <target-project> [--plan plan.json]
  *     [--actor conductor] [--reviewer-actor conductor-review]
  *     [--max-attempts 2] [--max-tickets N] [--model provider/model]
+ *     [--agent coding-agent] [--rounds 3|1] [--fix-iterations 3]
  *     [--models models.json] [--role-gate warn|block]
  *     [--no-merge] [--no-push] [--dry-run]
  *
@@ -80,6 +81,7 @@ const MAX_ATTEMPTS = Number(opt('max-attempts', 2));       // MASTER_PROMPT.md r
 const MAX_TICKETS = Number(opt('max-tickets', 999));
 const SESSION_MIN = Number(opt('session-minutes', 45));
 const MODEL = opt('model', null);
+const AGENT = opt('agent', null);
 const DO_MERGE = !args.includes('--no-merge');
 const DO_PUSH = !args.includes('--no-push');
 const DRY = args.includes('--dry-run');
@@ -100,6 +102,36 @@ const ROLE_MODELS = {
 };
 // Explicit --model always wins (interactive override); else route by role.
 const CODER_MODEL = MODEL || ROLE_MODELS.coder || null;
+
+// Role→AGENT routing. Until 2026-07-30 this file never passed `--agent` at all
+// (0 occurrences), so every ticket ran as opencode's default `build` agent —
+// without the HANDOFF intake rules, BOUNDED_TASK_CONTRACT, the anti-slop rules
+// or the verify-loop discipline. The conductor was driving a generic agent and
+// then judging it with expert-system gates. Routing mirrors the model routing
+// above: explicit --agent wins, else models.json `agents.<role>`, else the
+// expert-system default.
+const ROLE_AGENTS = MODELS_CONFIG?.agents ?? {};
+const CODER_AGENT = AGENT || ROLE_AGENTS.coder || 'coding-agent';
+const REVIEWER_AGENT = ROLE_AGENTS.reviewer || 'code-reviewer';
+const REVIEWER_MODEL = ROLE_MODELS.reviewer || CODER_MODEL;
+
+// ---------- Phase 4 mini-lifecycle (PARALLEL_WAVE_PROTOCOL) ----------
+// The protocol runs THREE rounds per module: code -> review -> runtime. Until
+// 2026-07-31 the conductor ran only round 1, so `roles.reviewer` was a routing
+// declaration with nothing behind it — maker != verifier was checked at startup
+// and then never exercised, because no reviewer session existed. ROUNDS=3 runs
+// the real loop: a review session on the REVIEWER model and agent (so the
+// verifier genuinely is not the maker), a bounded fix loop, then a runtime
+// verdict. ROUNDS=1 keeps the old coder-only behaviour for a bare run.
+const ROUNDS = Number(opt('rounds', 3));
+const FIX_ITERATIONS = Number(opt('fix-iterations', 3)); // protocol: up to 3
+// Optional extra reviewers per ticket via `reviews: ["security", ...]`.
+const REVIEW_AGENTS = {
+  security: 'security-auditor',
+  perf: 'performance-engineer',
+  ux: 'ux-engineer',
+  test: 'test-engineer',
+};
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode'; // overridable so tests/CI can stub it
 
 // ---------- config (target-project-specific; script itself stays repo-agnostic) ----------
@@ -181,14 +213,20 @@ function removeWorktree(wt) {
 // ---------- provider-limit-aware session runner ----------
 const LIMIT_RE = /(session limit|usage limit|rate.?limit|quota exceeded|overloaded|\b429\b|\b529\b)/i;
 
-async function runSession(prompt, wt) {
+async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL, role = 'coder' } = {}) {
   let backoff = 5 * 60_000;
   for (let attempt = 1; attempt <= 6; attempt++) {
     if (existsSync(STOPFILE)) throw new Error('STOP file present');
-    log('session.start', { msg: `attempt ${attempt}`, wt, role: 'coder', model: CODER_MODEL });
+    log('session.start', { msg: `attempt ${attempt}`, wt, role, agent, model });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
-    const runArgs = ['run', prompt, '--dir', wt, '--auto'];
-    if (CODER_MODEL) runArgs.push('--model', String(CODER_MODEL));
+    // NOTE: no `--auto` here. It is a TUI-only flag — `opencode run` accepts it
+    // silently and does nothing with it (verified 2026-07-30), so passing it
+    // bought false confidence that approvals were granted. Unattended runs get
+    // their permissions from opencode config (the agent's `permission` block),
+    // not from a flag; see the startup preflight below.
+    const runArgs = ['run', prompt, '--dir', wt];
+    if (agent) runArgs.push('--agent', String(agent));
+    if (model) runArgs.push('--model', String(model));
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
     });
@@ -245,7 +283,7 @@ ${feedback ? `\nA PREVIOUS ATTEMPT FAILED ITS GATES. Inspect the current tree fi
 Rules of engagement:
 - You are already in the correct working directory on an isolated branch. Do NOT run git commands and do NOT touch plan.json — the conductor commits your work and manages ticket status itself.
 - Implement the ticket fully within write_scope. Do not touch files outside it (docs/work/** and docs/reviews/** are always allowed for the manifest).
-- Write a Completion Manifest at \`${m.manifest}\` with these headings: "Files produced" (backtick-quoted paths, must exist), "Decisions", "Known issues", "Verify result" (a backtick-quoted path to real evidence — a test log or receipt), plus a \`Maker: ${ACTOR}\` line and a \`Verifier: ${REVIEWER_ACTOR}\` line (must differ from Maker), a \`Tracker updated: <file>\` line, and end the manifest with a completion phrase of the form "${m.id} done -- <one sentence>".
+- Write a Completion Manifest at \`${m.manifest}\` with these headings: "Files produced" (backtick-quoted paths, must exist), "Decisions", "Known issues", "Verify result" (a backtick-quoted path to real evidence — a test log or receipt), "Memory written" (durable decisions/errors/verified-facts you established, or exactly "None — nothing durable" — the section is REQUIRED and its absence fails the manifest gate), plus a \`Maker: ${ACTOR}\` line and a \`Verifier: ${REVIEWER_ACTOR}\` line (must differ from Maker), a \`Tracker updated: <file>\` line, and end the manifest with a completion phrase of the form "${m.id} done -- <one sentence>".
 - Include this claim receipt verbatim somewhere in the manifest as proof of provenance:\n${startReceipt}
 - Nothing you print is trusted — only the tree state and manifest are checked. When finished, stop; do not wait for further input.`;
 
@@ -256,6 +294,101 @@ Rules of engagement:
 // the module is no longer 'claimed'). `maxAttempts` lets a resumed ticket's
 // remaining budget be less than a full fresh MAX_ATTEMPTS, accounting for
 // attempts already spent before the crash (see reconcileOrphan in main()).
+// ---------- Phase 4 rounds 2-3 (PARALLEL_WAVE_PROTOCOL) ----------
+const reviewDoc  = (m, kind) => `docs/reviews/${kind}_${m.id}.md`;
+const APPROVED_RE = /verdict\s*[:\-]?\s*\**\s*(APPROVED|PASS)/i;
+const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
+
+/** Round 2 — one review session per triggered reviewer, on the REVIEWER model. */
+async function runReviewRound(m, wt, reviewers) {
+  const verdicts = [];
+  for (const r of reviewers) {
+    const agent = r === 'code-reviewer' ? REVIEWER_AGENT : REVIEW_AGENTS[r];
+    if (!agent) continue;
+    const doc = reviewDoc(m, r === 'code-reviewer' ? 'CODE_REVIEW' : r.toUpperCase());
+    const prompt = `SDLC-TASK for ${agent}:
+
+Review the work already committed in this worktree for ticket ${m.id} — "${m.title}".
+
+WRITE-SCOPE (exclusive):
+- ${doc}
+
+PRODUCE
+- \`${doc}\`
+
+Acceptance the work was meant to meet:
+${(m.acceptance || []).map((a) => `- ${a}`).join('\n')}
+
+Files the ticket was allowed to touch: ${(m.write_scope || []).join(', ')}
+
+Write your findings to \`${doc}\`. Cite file:line for every finding — an
+uncited finding is deleted before the report is written. End the document with a
+single line of the form "VERDICT: APPROVED" or "VERDICT: CHANGES REQUESTED"
+followed by the blocking findings.
+
+Do NOT edit the implementation. Do NOT run git. You are reviewing, not fixing.`;
+    log('round2.review.start', { ticket: m.id, msg: `${r} -> ${agent}`, role: 'reviewer', agent, model: REVIEWER_MODEL });
+    await runSession(prompt, wt, { agent, model: REVIEWER_MODEL, role: 'reviewer' });
+    const abs = resolve(wt, doc);
+    const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+    const ok = APPROVED_RE.test(body);
+    verdicts.push({ reviewer: r, doc, present: Boolean(body), approved: ok });
+    log('round2.review.verdict', { ticket: m.id, msg: `${r}: ${!body ? 'NO DOCUMENT' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` });
+  }
+  return verdicts;
+}
+
+/** Fix-Verify loop — bounded remediation by the CODER after a blocking review. */
+async function runFixLoop(m, wt, verdicts, startReceipt) {
+  for (let i = 1; i <= FIX_ITERATIONS; i++) {
+    const blocking = verdicts.filter((v) => !v.approved);
+    if (!blocking.length) return { ok: true, iterations: i - 1 };
+    const notes = blocking
+      .map((v) => `${v.doc}:\n${existsSync(resolve(wt, v.doc)) ? readFileSync(resolve(wt, v.doc), 'utf8').slice(0, 4000) : '(missing)'}`)
+      .join('\n\n');
+    log('round2.fix.start', { ticket: m.id, msg: `iteration ${i}/${FIX_ITERATIONS}` });
+    await runSession(`${handoffPrompt(m, startReceipt, null)}
+
+A reviewer rejected the previous attempt. Address every blocking finding below,
+then stop. Stay inside your write_scope — do not edit the review documents.
+
+${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
+    // Re-review only the reviewers that blocked.
+    const rerun = await runReviewRound(m, wt, blocking.map((v) => v.reviewer));
+    for (const nv of rerun) {
+      const idx = verdicts.findIndex((v) => v.reviewer === nv.reviewer);
+      if (idx >= 0) verdicts[idx] = nv;
+    }
+  }
+  const still = verdicts.filter((v) => !v.approved).map((v) => v.reviewer);
+  return { ok: still.length === 0, iterations: FIX_ITERATIONS, blocking: still };
+}
+
+/** Round 3 — runtime verdict (build/lint/smoke), by the coder agent. */
+async function runRuntimeRound(m, wt) {
+  const doc = reviewDoc(m, 'RUNTIME');
+  const prompt = `SDLC-TASK for ${CODER_AGENT}:
+
+Runtime-validate ticket ${m.id} — "${m.title}" — in this worktree.
+
+WRITE-SCOPE (exclusive):
+- ${doc}
+
+PRODUCE
+- \`${doc}\`
+
+Run the project's real build, lint/type-check and test commands. Paste each
+command and its actual output. Do NOT edit implementation files; if something
+fails, record it. End with a single line "RUNTIME: PASS" or "RUNTIME: FAIL".`;
+  log('round3.runtime.start', { ticket: m.id, role: 'coder', agent: CODER_AGENT });
+  await runSession(prompt, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'runtime' });
+  const abs = resolve(wt, doc);
+  const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+  const pass = RUNTIME_PASS_RE.test(body);
+  log('round3.runtime.verdict', { ticket: m.id, msg: !body ? 'NO DOCUMENT' : pass ? 'PASS' : 'FAIL' });
+  return { present: Boolean(body), pass, doc };
+}
+
 async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MAX_ATTEMPTS } = {}) {
   // start() is a one-shot claimed->in_progress transition — only valid once
   // per ticket, not once per retry attempt (a retry re-runs the session in a
@@ -300,6 +433,58 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
       removeWorktree(wt);
       continue;
+    }
+
+    // ---- Rounds 2-3: review (different agent AND model) then runtime. ----
+    // This is where maker != verifier stops being a declaration: the review
+    // session runs on roles.reviewer, so the model judging the work is not the
+    // model that wrote it. A blocking verdict feeds a bounded fix loop; an
+    // unresolved one fails the attempt exactly like a gate.
+    if (ROUNDS >= 3) {
+      const reviewers = ['code-reviewer', ...(Array.isArray(m.reviews) ? m.reviews : [])];
+      const verdicts = await runReviewRound(m, wt, reviewers);
+      const missing = verdicts.filter((v) => !v.present).map((v) => v.reviewer);
+      if (missing.length) {
+        const gaps = [`round 2: reviewer produced no document (${missing.join(', ')})`];
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
+      const fixed = await runFixLoop(m, wt, verdicts, startReceipt);
+      if (!fixed.ok) {
+        const gaps = [`round 2: still blocking after ${fixed.iterations} fix iteration(s): ${(fixed.blocking || []).join(', ')}`];
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
+      const runtime = await runRuntimeRound(m, wt);
+      if (!runtime.present || !runtime.pass) {
+        const gaps = [`round 3: runtime verdict ${!runtime.present ? 'missing' : 'FAIL'} (${runtime.doc})`];
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0] });
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
+      // Re-check scope: rounds 2-3 wrote review/runtime docs under docs/reviews,
+      // which validate-scope allows, but a fix iteration could have strayed.
+      const rescope = scopeGate(wt, m.write_scope);
+      if (!rescope.ok) {
+        const gaps = [`scope gate failed after rounds 2-3: ${rescope.detail}`];
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
     }
 
     // Scope clean — commit the session's work as one checkpoint commit so
@@ -447,8 +632,14 @@ async function main() {
   }
 
   log('conductor.start', {
-    msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
+    msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} agent=${CODER_AGENT} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
     roles: ROLE_MODELS,
+    agents: { coder: CODER_AGENT },
+  });
+  // `opencode run` has no auto-approve flag; permissions come from opencode
+  // config. Say so once at startup rather than implying a flag handled it.
+  log('conductor.permissions', {
+    msg: 'unattended sessions inherit opencode config permissions (`opencode run` has no --auto); a permission set to "ask" will stall a ticket with nobody to answer',
   });
 
   let landed = 0;
