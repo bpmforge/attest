@@ -94,6 +94,9 @@ const DRY = args.includes('--dry-run');
 const MODELS_JSON_PATH = resolve(String(opt('models',
   existsSync(resolve(ROOT, 'models.json')) ? resolve(ROOT, 'models.json') : resolve(LIB_ROOT, '..', 'models.json'))));
 const ROLE_GATE = String(opt('role-gate', 'block')); // 'block' (default, fail-closed) | 'warn'
+// G4b: does each configured role model actually resolve on this install?
+// 'block' (default) | 'warn' | 'off' (skip the `opencode models` call entirely).
+const MODEL_GATE = String(opt('model-gate', 'block'));
 const MODELS_CONFIG = existsSync(MODELS_JSON_PATH) ? loadModelsConfig(MODELS_JSON_PATH) : null;
 const ROLE_MODELS = {
   coder: resolveRole('coder', MODELS_CONFIG),
@@ -192,6 +195,25 @@ function persistPlan(plan, message) {
   catch (e) { if (!/nothing to commit/i.test(String(e.stdout || e.message))) throw e; }
 }
 
+/**
+ * Commit one run artifact the conductor itself wrote.
+ *
+ * WHY. main() refuses to start on a dirty target tree, and the conductor was
+ * leaving its OWN output uncommitted — CONDUCTOR_HALT.md, and now the scope
+ * violation diffs. The second run of the day then died on
+ * `target repo working tree not clean` because of a file the FIRST run created.
+ * Anything the conductor writes into the target repo it must also commit.
+ */
+function commitArtifact(absPath, message) {
+  if (DRY || !existsSync(absPath)) return;
+  try {
+    git('add', absPath);
+    git('commit', '-q', '-m', message);
+  } catch (e) {
+    if (!/nothing to commit/i.test(String(e.stdout || e.message))) throw e;
+  }
+}
+
 // ---------- worktree lifecycle ----------
 function slug(id) { return id.toLowerCase().replace(/[^a-z0-9.]+/g, '-'); }
 function branchFor(id) { return `feat/${slug(id)}${CONFIG.branchSuffix}`; }
@@ -212,6 +234,29 @@ function removeWorktree(wt) {
 
 // ---------- provider-limit-aware session runner ----------
 const LIMIT_RE = /(session limit|usage limit|rate.?limit|quota exceeded|overloaded|\b429\b|\b529\b)/i;
+
+/** Last n non-blank lines of a session's output, for a one-line failure message. */
+function tailLines(out, n) {
+  return String(out || '').split('\n').map((s) => s.trim()).filter(Boolean).slice(-n).join(' | ').slice(0, 600);
+}
+
+/**
+ * Which model actually served the session, read back from the plugin's receipt.
+ *
+ * The conductor asks for a model; opencode is free to ignore it. That gap is
+ * not theoretical — an unresolvable `--model` runs the agent's own model with
+ * no warning anywhere in the session's output. The receipt is written from
+ * inside the session by expert-hooks, so it reports what ran, not what was
+ * requested; comparing the two is the only way the conductor can tell.
+ */
+function actualSessionModel(wt) {
+  try {
+    const rows = readFileSync(resolve(wt, 'docs/work/session-receipts.jsonl'), 'utf8').trim().split('\n');
+    return JSON.parse(rows[rows.length - 1]).model || null;
+  } catch {
+    return null;   // no receipt (plugin not installed in the target) — unknowable, not a failure
+  }
+}
 
 async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL, role = 'coder' } = {}) {
   let backoff = 5 * 60_000;
@@ -240,7 +285,14 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
       await sleep(wait);
       continue;
     }
-    return { out, code: res.status ?? 1 };
+    const ran = actualSessionModel(wt);
+    if (model && ran && ran !== String(model)) {
+      log('session.model-drift', {
+        role, agent, requested: String(model), actual: ran,
+        msg: `requested ${model} but ${ran} served the session — opencode fell back silently`,
+      });
+    }
+    return { out, code: res.status ?? 1, model: ran || String(model || ''), role };
   }
   throw new Error('limit retries exhausted');
 }
@@ -266,6 +318,83 @@ function scopeGate(wt, writeScope) {
   } catch (e) {
     return { ok: false, detail: String(e.stdout || e.message).slice(-1500) };
   }
+}
+
+/**
+ * Preserve WHAT went out of scope, before the worktree carrying it is destroyed.
+ *
+ * WHY THIS EXISTS. A scope failure used to surface as exactly one line —
+ * `src/hop.rs written outside assigned scope` — and the next statement removed
+ * the only copy of the change. That is unfalsifiable from the operator's chair:
+ * a plan whose write_scope is too narrow and an agent that wandered produce a
+ * byte-identical message, and the two have opposite fixes (widen the ticket vs.
+ * constrain the session). It cost a full run to notice that two unrelated
+ * tickets — NT-1 (path aggregate) and NT-2 (TUI rows) — were both failing on the
+ * same third file, which no amount of re-reading the log could explain.
+ *
+ * The diff is written under the PROJECT root so it survives removeWorktree(),
+ * and a bounded excerpt goes back into the retry prompt — the previous attempt's
+ * mistake was described to it in the abstract but never shown.
+ */
+function captureScopeEvidence(m, attempt, wt) {
+  const rel = `docs/work/scope-violation-${m.id}-attempt${attempt}.diff`;
+  let result = { feedback: null, path: null, abs: null };
+  try {
+    // Stage everything so untracked files appear too — `git diff` alone would
+    // silently omit a brand-new out-of-scope file, the most common case. The
+    // worktree is discarded immediately after, so mutating its index is free.
+    gitIn(wt, 'add', '-A');
+    const stat = gitIn(wt, 'diff', '--cached', '--stat');
+    const diff = gitIn(wt, 'diff', '--cached');
+    const out = resolve(ROOT, rel);
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(
+      out,
+      `# ${m.id} attempt ${attempt} — scope violation evidence\n` +
+        `# write_scope: ${JSON.stringify(m.write_scope)}\n\n${stat}\n\n${diff.slice(0, 400_000)}\n`,
+    );
+    // Is the whole change whitespace? Then no agent decided anything — a
+    // formatter did. The post-edit hook runs rustfmt/prettier/black on what the
+    // session touches, so a repository committed in a NOT-formatter-clean state
+    // hands every ticket a scope violation it cannot avoid and cannot fix from
+    // inside its own write_scope. That is what happened here: nettrace's seed
+    // src/hop.rs held `Self { ttl, addr: addr.into(), rtt_ms }`, rustfmt expands
+    // it, and two unrelated tickets (a path aggregate and a TUI renderer) both
+    // died on the same file across four attempts. The gate was right every
+    // time; the message just could not say why.
+    const semantic = gitIn(wt, 'diff', '--cached', '-w', '--ignore-blank-lines', '--stat');
+    const cosmetic = Boolean(stat) && !semantic;
+    if (cosmetic) log('gates.evidence-cosmetic', { ticket: m.id, msg: 'every change is whitespace-only — a formatter, not the session, wrote these files' });
+
+    log('gates.evidence', { ticket: m.id, msg: `changed files (attempt ${attempt}):\n${stat}`, path: rel });
+    result = {
+      feedback:
+        `What you actually changed last time (diffstat):\n${stat}\n` +
+        (cosmetic
+          ? `NOTE: every one of those changes is whitespace-only. A formatter produced them, not you. ` +
+            `The repository is not formatter-clean at its baseline, so any file the toolchain reformats ` +
+            `lands outside write_scope no matter how careful you are. Report this under "Known issues" — ` +
+            `it is a repository defect, not a ticket you can fix.\n`
+          : '') +
+        `If a file outside write_scope was genuinely required, do NOT edit it — ` +
+        `implement what you can inside scope and record the blocker under "Known issues" ` +
+        `in the manifest so the plan can be corrected.`,
+      path: rel,
+      abs: out,
+    };
+  } catch {
+    // Evidence capture must never be what fails a run.
+  }
+  // Committing is deliberately OUTSIDE the try that builds `result`: a target
+  // repo that gitignores docs/work/** makes `git add` throw, and swallowing
+  // that inside the same try would discard the feedback we just built — the
+  // very failure mode this function exists to end. Force-add for the same
+  // reason: the diff is evidence, and an ignore rule must not silently drop it.
+  if (result.abs) {
+    try { git('add', '-f', result.abs); git('commit', '-q', '-m', `chore(${m.id}): scope violation evidence (attempt ${attempt})`); }
+    catch { /* uncommitted evidence still beats no evidence */ }
+  }
+  return result;
 }
 
 function hasUncommittedWork(wt) {
@@ -413,10 +542,25 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
     log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${maxAttempts}`, role: 'coder', model: CODER_MODEL });
-    await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+    const sess = await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+
+    // A session that never ran and a session that ran and decided to do nothing
+    // both leave a clean tree. Reporting both as "produced no changes" sent a
+    // real provider failure (`{"name":"UnknownError"}`, exit 1, 1.2s) to the log
+    // as if the model had considered the ticket and declined — the operator
+    // reads that as an agent problem and goes looking in the prompt.
+    if (sess.code !== 0) {
+      const gap = `session failed before finishing (exit ${sess.code}) — no work was attempted: ${tailLines(sess.out, 6)}`;
+      gapsPerAttempt.push([gap]);
+      log('session.fail', { ticket: m.id, msg: gap.slice(0, 600), code: sess.code });
+      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gap}`.slice(0, 900));
+      persistPlan(plan, `chore(${m.id}): conductor logs session failure (attempt ${attempt})`);
+      removeWorktree(wt);
+      continue;
+    }
 
     if (!hasUncommittedWork(wt)) {
-      const gap = 'session produced no changes (clean working tree)';
+      const gap = 'session ran to completion (exit 0) but produced no changes (clean working tree)';
       gapsPerAttempt.push([gap]);
       comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gap}`);
       persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
@@ -426,7 +570,8 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
 
     const scope = scopeGate(wt, m.write_scope);
     if (!scope.ok) {
-      const gaps = [`scope gate failed: ${scope.detail}`];
+      const ev = captureScopeEvidence(m, attempt, wt);
+      const gaps = [`scope gate failed: ${scope.detail}`, ev.feedback].filter(Boolean);
       gapsPerAttempt.push(gaps);
       log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
       comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
@@ -477,7 +622,8 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       // which validate-scope allows, but a fix iteration could have strayed.
       const rescope = scopeGate(wt, m.write_scope);
       if (!rescope.ok) {
-        const gaps = [`scope gate failed after rounds 2-3: ${rescope.detail}`];
+        const ev = captureScopeEvidence(m, attempt, wt);
+        const gaps = [`scope gate failed after rounds 2-3: ${rescope.detail}`, ev.feedback].filter(Boolean);
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
         comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
@@ -571,7 +717,13 @@ function writeHaltNotice(plan) {
     .map((m) => `- ${m.id} [${m.status}]${m.owner ? ` owner=${m.owner}` : ''} — ${m.title}`)
     .join('\n');
   const body = `# Conductor halt — ${now()}\n\nBoard state: ${JSON.stringify(counts)}\n\n${rows || '(nothing outstanding)'}\n`;
-  try { mkdirSync(dirname(HALT_NOTICE), { recursive: true }); writeFileSync(HALT_NOTICE, body); } catch {}
+  // A dry run must leave the target repo byte-identical: it cannot commit
+  // (commitArtifact no-ops under DRY), so writing the notice would dirty the
+  // tree and the NEXT real run would refuse to start on it.
+  if (!DRY) {
+    try { mkdirSync(dirname(HALT_NOTICE), { recursive: true }); writeFileSync(HALT_NOTICE, body); } catch {}
+    commitArtifact(HALT_NOTICE, 'chore(conductor): halt notice');
+  }
   return counts;
 }
 
@@ -607,6 +759,51 @@ async function main() {
     if (violations.length && ROLE_GATE === 'block') {
       console.error(`models.json role routing: coder model matches roles.${violations.map((v) => v.role).join(', roles.')} — refusing to run (pass --role-gate warn to downgrade, or fix ${MODELS_JSON_PATH})`);
       process.exit(2);
+    }
+  }
+
+  // G4b: the role models must actually EXIST on this install.
+  //
+  // WHY. models.json shipped `google/gemini-2.5-flash` and
+  // `anthropic/claude-opus-4-8` as the coder/reviewer roles. Neither provider
+  // was ever configured here — `opencode auth list` has GitHub Copilot, OpenAI
+  // and LMStudio; the only `provider` block in opencode.json is lmstudio. So
+  // `opencode run --model google/gemini-2.5-flash` did not run gemini. It
+  // SILENTLY FELL BACK to the agent's own model: the server log for the run
+  // that "landed" NT-1 shows 23 streams on github-copilot/claude-haiku-4.5 and
+  // zero on gemini, while the conductor logged
+  // `roles=coder:google/gemini-2.5-flash` and the receipts inherited that claim.
+  //
+  // The G4 check directly above compares two strings from the same file, so it
+  // passed while its guarantee was void — a coder and a reviewer that are
+  // distinct in models.json both fall back to the same underlying model, and
+  // "maker != verifier" becomes a sentence rather than a fact. Verifying that
+  // each configured id is one opencode can resolve is what makes G4 mean
+  // anything. Sometimes the bad id hard-errors in ~1s instead of falling back,
+  // which the conductor then reported as "session produced no changes" — a
+  // clean tree looks identical either way.
+  if (MODELS_CONFIG && MODEL_GATE !== 'off') {
+    const wanted = [...new Set(Object.values(ROLE_MODELS).filter(Boolean).map(String))];
+    let known = null;
+    try {
+      known = new Set(sh(OPENCODE_BIN, ['models']).split('\n').map((s) => s.trim()).filter(Boolean));
+    } catch {
+      log('gate.model-resolve', { msg: `could not enumerate models via \`${OPENCODE_BIN} models\` — skipping resolution check` });
+    }
+    if (known) {
+      const missing = wanted.filter((m) => !known.has(m));
+      for (const m of missing) {
+        log('gate.model-resolve', { msg: `configured model "${m}" is not resolvable on this install — opencode will silently fall back to the agent's own model` });
+      }
+      if (missing.length && MODEL_GATE === 'block') {
+        console.error(
+          `models.json names ${missing.length} model(s) this opencode install cannot resolve:\n` +
+          missing.map((m) => `  - ${m}`).join('\n') +
+          `\nopencode does not fail on an unknown --model; it falls back, so every role would quietly run on the same model and the maker/verifier split would be fiction.` +
+          `\nFix ${MODELS_JSON_PATH} (see \`${OPENCODE_BIN} models\`), or pass --model-gate warn to proceed anyway.`,
+        );
+        process.exit(2);
+      }
     }
   }
 

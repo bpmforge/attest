@@ -17,6 +17,7 @@
 
 import { execFileSync } from "child_process";
 import * as fs from "fs";
+import * as os from "os";
 import * as path from "path";
 import { pathToFileURL } from "url";
 
@@ -42,7 +43,10 @@ export async function testModelRoleRouting(
       `expected ${config.roles?.coder}, got ${resolveRole("coder", config)}`,
     );
 
-  if (resolveRole("nonexistent-role", config, "fallback-model") === "fallback-model")
+  if (
+    resolveRole("nonexistent-role", config, "fallback-model") ===
+    "fallback-model"
+  )
     ok("model-tiers — resolveRole() falls back for an unconfigured role");
   else
     fail(
@@ -67,7 +71,11 @@ export async function testModelRoleRouting(
 
   {
     const violations = checkMakerVerifierDistinct({
-      roles: { coder: sameModel, reviewer: sameModel, challenger: "google/gemini-2.5-flash" },
+      roles: {
+        coder: sameModel,
+        reviewer: sameModel,
+        challenger: "google/gemini-2.5-flash",
+      },
     });
     if (
       violations.length === 1 &&
@@ -84,7 +92,11 @@ export async function testModelRoleRouting(
 
   {
     const violations = checkMakerVerifierDistinct({
-      roles: { coder: sameModel, reviewer: "google/gemini-2.5-flash", challenger: sameModel },
+      roles: {
+        coder: sameModel,
+        reviewer: "google/gemini-2.5-flash",
+        challenger: sameModel,
+      },
     });
     if (
       violations.length === 1 &&
@@ -101,34 +113,55 @@ export async function testModelRoleRouting(
 
   {
     // No coder model configured -- nothing to compare against, not a violation.
-    const violations = checkMakerVerifierDistinct({ roles: { reviewer: sameModel } });
+    const violations = checkMakerVerifierDistinct({
+      roles: { reviewer: sameModel },
+    });
     if (violations.length === 0)
-      ok("model-tiers — checkMakerVerifierDistinct is a no-op with no coder role configured");
-    else
-      fail("model-tiers — no-coder-role case", JSON.stringify(violations));
+      ok(
+        "model-tiers — checkMakerVerifierDistinct is a no-op with no coder role configured",
+      );
+    else fail("model-tiers — no-coder-role case", JSON.stringify(violations));
   }
 
   {
     // Clean config -- all three roles distinct.
     const violations = checkMakerVerifierDistinct({
-      roles: { coder: "google/gemini-2.5-flash", reviewer: sameModel, challenger: sameModel },
+      roles: {
+        coder: "google/gemini-2.5-flash",
+        reviewer: sameModel,
+        challenger: sameModel,
+      },
     });
     if (violations.length === 0)
-      ok("model-tiers — checkMakerVerifierDistinct clean when coder differs from reviewer+challenger (both may share a model)");
+      ok(
+        "model-tiers — checkMakerVerifierDistinct clean when coder differs from reviewer+challenger (both may share a model)",
+      );
     else
-      fail("model-tiers — clean distinct-roles case", JSON.stringify(violations));
+      fail(
+        "model-tiers — clean distinct-roles case",
+        JSON.stringify(violations),
+      );
   }
 
   // -- 4. conductor.mjs G4 startup gate, via the real CLI on a fixture plan -
   const CONDUCTOR = path.join(root, "scripts/conductor/conductor.mjs");
 
-  function mkFixtureRepo(name: string, modelsRoles: Record<string, string>): string {
+  function mkFixtureRepo(
+    name: string,
+    modelsRoles: Record<string, string>,
+  ): string {
     const dir = fs.mkdtempSync(
       path.join(fs.realpathSync(root), `.tmp-role-routing-${name}-`),
     );
     execFileSync("git", ["init", "-q", "-b", "main"], { cwd: dir });
-    execFileSync("git", ["config", "user.email", "role-routing-test@example.com"], { cwd: dir });
-    execFileSync("git", ["config", "user.name", "Role Routing Test"], { cwd: dir });
+    execFileSync(
+      "git",
+      ["config", "user.email", "role-routing-test@example.com"],
+      { cwd: dir },
+    );
+    execFileSync("git", ["config", "user.name", "Role Routing Test"], {
+      cwd: dir,
+    });
     execFileSync("git", ["config", "commit.gpgsign", "false"], { cwd: dir });
     fs.writeFileSync(
       path.join(dir, "plan.json"),
@@ -139,30 +172,63 @@ export async function testModelRoleRouting(
       JSON.stringify({ roles: modelsRoles }, null, 2) + "\n",
     );
     execFileSync("git", ["add", "-A"], { cwd: dir });
-    execFileSync("git", ["commit", "-q", "-m", "initial fixture"], { cwd: dir });
+    execFileSync("git", ["commit", "-q", "-m", "initial fixture"], {
+      cwd: dir,
+    });
     return dir;
   }
 
-  function runConductor(dir: string, extraArgs: string[]): { exitCode: number; stdout: string; stderr: string } {
+  function runConductor(
+    dir: string,
+    extraArgs: string[],
+  ): { exitCode: number; stdout: string; stderr: string } {
     try {
       const stdout = execFileSync(
         "node",
-        [CONDUCTOR, "--root", dir, "--no-push", "--max-tickets", "0", ...extraArgs],
+        // --model-gate off: G4b asks the LOCAL opencode install whether each
+        // configured model resolves, so leaving it on would make these G4
+        // fixtures pass or fail according to which providers the developer
+        // happens to have authenticated. G4b has its own test below, with a
+        // stubbed `opencode models`.
+        [
+          CONDUCTOR,
+          "--root",
+          dir,
+          "--no-push",
+          "--max-tickets",
+          "0",
+          "--model-gate",
+          "off",
+          ...extraArgs,
+        ],
         { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
       );
       return { exitCode: 0, stdout, stderr: "" };
     } catch (err: unknown) {
       const e = err as { status?: number; stdout?: string; stderr?: string };
-      return { exitCode: e.status ?? 1, stdout: e.stdout ?? "", stderr: e.stderr ?? "" };
+      return {
+        exitCode: e.status ?? 1,
+        stdout: e.stdout ?? "",
+        stderr: e.stderr ?? "",
+      };
     }
   }
 
   // RED: a same-model coder/reviewer models.json refuses the run by default.
   {
-    const dir = mkFixtureRepo("block", { coder: sameModel, reviewer: sameModel });
+    const dir = mkFixtureRepo("block", {
+      coder: sameModel,
+      reviewer: sameModel,
+    });
     const result = runConductor(dir, []);
-    if (result.exitCode === 2 && /roles\.reviewer/.test(result.stderr) && /refusing to run/.test(result.stderr))
-      ok("conductor.mjs — G4 default (--role-gate block): same-model coder/reviewer refuses the run (exit 2)");
+    if (
+      result.exitCode === 2 &&
+      /roles\.reviewer/.test(result.stderr) &&
+      /refusing to run/.test(result.stderr)
+    )
+      ok(
+        "conductor.mjs — G4 default (--role-gate block): same-model coder/reviewer refuses the run (exit 2)",
+      );
     else
       fail(
         "conductor.mjs — G4 default block",
@@ -175,7 +241,10 @@ export async function testModelRoleRouting(
   // (an empty plan means it halts immediately after on "nothing claimable",
   // exit 0 -- proving the mismatch did NOT block the run under warn mode).
   {
-    const dir = mkFixtureRepo("warn", { coder: sameModel, reviewer: sameModel });
+    const dir = mkFixtureRepo("warn", {
+      coder: sameModel,
+      reviewer: sameModel,
+    });
     const result = runConductor(dir, ["--role-gate", "warn"]);
     const log = fs
       .readFileSync(path.join(dir, "docs/work/conductor-log.jsonl"), "utf8")
@@ -183,9 +252,17 @@ export async function testModelRoleRouting(
       .split("\n")
       .filter(Boolean)
       .map((l) => JSON.parse(l));
-    const mismatch = log.find((r: { kind: string }) => r.kind === "gate.role-mismatch");
-    if (result.exitCode === 0 && mismatch && /roles\.reviewer/.test(mismatch.msg))
-      ok("conductor.mjs — G4 (--role-gate warn): same-model coder/reviewer logs gate.role-mismatch but does not block");
+    const mismatch = log.find(
+      (r: { kind: string }) => r.kind === "gate.role-mismatch",
+    );
+    if (
+      result.exitCode === 0 &&
+      mismatch &&
+      /roles\.reviewer/.test(mismatch.msg)
+    )
+      ok(
+        "conductor.mjs — G4 (--role-gate warn): same-model coder/reviewer logs gate.role-mismatch but does not block",
+      );
     else
       fail(
         "conductor.mjs — G4 warn mode",
@@ -209,8 +286,12 @@ export async function testModelRoleRouting(
       .split("\n")
       .filter(Boolean)
       .map((l) => JSON.parse(l));
-    const start = log.find((r: { kind: string }) => r.kind === "conductor.start");
-    const mismatch = log.find((r: { kind: string }) => r.kind === "gate.role-mismatch");
+    const start = log.find(
+      (r: { kind: string }) => r.kind === "conductor.start",
+    );
+    const mismatch = log.find(
+      (r: { kind: string }) => r.kind === "gate.role-mismatch",
+    );
     if (
       result.exitCode === 0 &&
       !mismatch &&
@@ -218,12 +299,122 @@ export async function testModelRoleRouting(
       start?.roles?.reviewer === sameModel &&
       start?.roles?.challenger === sameModel
     )
-      ok("conductor.mjs — GREEN: clean roles map runs clean; conductor.start log entry shows the mapped model per role");
+      ok(
+        "conductor.mjs — GREEN: clean roles map runs clean; conductor.start log entry shows the mapped model per role",
+      );
     else
       fail(
         "conductor.mjs — GREEN clean roles map",
         `exitCode=${result.exitCode} start=${JSON.stringify(start)} mismatch=${JSON.stringify(mismatch)}`,
       );
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+
+  // -- 5. G4b: the configured models must RESOLVE, not merely differ ---------
+  //
+  // G4 above compares two strings drawn from the same file, so it can pass
+  // while guaranteeing nothing. That is not hypothetical: models.json shipped
+  // `google/gemini-2.5-flash` (coder) and `anthropic/claude-opus-4-8`
+  // (reviewer) against an install whose only authenticated providers were
+  // GitHub Copilot, OpenAI and LMStudio. `opencode run --model <unknown>` does
+  // not fail -- it falls back to the agent's own model. The server log for the
+  // run that "landed" a ticket shows 23 streams on github-copilot/claude-haiku
+  // -4.5 and none on gemini, while the conductor logged the gemini id and the
+  // receipts inherited that claim. Two distinct roles, one real model, and a
+  // maker/verifier split that existed only in the config file.
+  //
+  // `opencode models` is stubbed so this asserts the GATE, not the developer's
+  // authentication state.
+  {
+    const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), "g4b-stub-"));
+    const stub = path.join(stubDir, "opencode");
+    fs.writeFileSync(
+      stub,
+      `#!/bin/sh\n[ "$1" = "models" ] && { echo real/model-a; echo real/model-b; exit 0; }\nexit 0\n`,
+    );
+    fs.chmodSync(stub, 0o755);
+
+    const runWithStub = (dir: string, args: string[]) => {
+      try {
+        const stdout = execFileSync(
+          "node",
+          [
+            CONDUCTOR,
+            "--root",
+            dir,
+            "--no-push",
+            "--max-tickets",
+            "0",
+            ...args,
+          ],
+          {
+            encoding: "utf8",
+            stdio: ["ignore", "pipe", "pipe"],
+            env: { ...process.env, OPENCODE_BIN: stub },
+          },
+        );
+        return { exitCode: 0, stdout, stderr: "" };
+      } catch (err: unknown) {
+        const e = err as { status?: number; stdout?: string; stderr?: string };
+        return {
+          exitCode: e.status ?? 1,
+          stdout: e.stdout ?? "",
+          stderr: e.stderr ?? "",
+        };
+      }
+    };
+
+    // RED: distinct roles, but the reviewer's model does not exist.
+    {
+      const dir = mkFixtureRepo("g4b-red", {
+        coder: "real/model-a",
+        reviewer: "ghost/model-that-does-not-exist",
+      });
+      const result = runWithStub(dir, []);
+      if (
+        result.exitCode === 2 &&
+        /ghost\/model-that-does-not-exist/.test(result.stderr) &&
+        /cannot resolve/.test(result.stderr)
+      )
+        ok(
+          "conductor.mjs — G4b: a role model this install cannot resolve refuses the run (exit 2), even though the roles differ",
+        );
+      else
+        fail(
+          "conductor.mjs — G4b block",
+          `exitCode=${result.exitCode} stderr=${result.stderr}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    // GREEN: every role model is in the registry -- no gate, run proceeds.
+    {
+      const dir = mkFixtureRepo("g4b-green", {
+        coder: "real/model-a",
+        reviewer: "real/model-b",
+      });
+      const result = runWithStub(dir, []);
+      const log = fs
+        .readFileSync(path.join(dir, "docs/work/conductor-log.jsonl"), "utf8")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((l) => JSON.parse(l));
+      const gate = log.find(
+        (r: { kind: string }) => r.kind === "gate.model-resolve",
+      );
+      if (result.exitCode === 0 && !gate)
+        ok(
+          "conductor.mjs — G4b: resolvable role models pass silently — the gate fires on absence, not on every run",
+        );
+      else
+        fail(
+          "conductor.mjs — G4b green",
+          `exitCode=${result.exitCode} gate=${JSON.stringify(gate)}`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    fs.rmSync(stubDir, { recursive: true, force: true });
   }
 }
