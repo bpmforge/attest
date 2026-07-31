@@ -19,12 +19,20 @@
 // exactly the manual step being automated here, so bridge() probes every known
 // location and FAILS LOUDLY naming what it found rather than defaulting.
 //
+// WHAT IS ACTUALLY AUTOMATABLE. Phases 0-3 are NOT: sdlc-lead.md marks the
+// Discovery Interview NEVER-AUTO ("this is user input — no default exists;
+// pauses even in autonomy: auto"). `/sdlc init` is specified to stop and wait
+// for a human, so a model that runs straight through it is violating the
+// protocol rather than demonstrating autonomy. Phase 4 — the coding phase,
+// against a board that already exists — is the automation target, and is what
+// this harness runs by default.
+//
 // Usage:
+//   node scripts/e2e-sdlc-path.mjs                   # Phase 4 on a seeded board (default)
 //   node scripts/e2e-sdlc-path.mjs --stage-only      # build the fixture, no model calls (free)
-//   node scripts/e2e-sdlc-path.mjs --dry-run         # + wire-check both runners (free)
-//   node scripts/e2e-sdlc-path.mjs --phase a         # SDLC phases 0-3 only
-//   node scripts/e2e-sdlc-path.mjs --phase b         # Phase 4 conductor only (needs a plan)
-//   node scripts/e2e-sdlc-path.mjs                   # the whole path
+//   node scripts/e2e-sdlc-path.mjs --dry-run         # + wire-check the runners (free)
+//   node scripts/e2e-sdlc-path.mjs --phase a         # phases 0-3 — NEEDS A HUMAN at the interview
+//   node scripts/e2e-sdlc-path.mjs --phase all       # both, same caveat
 //
 // Flags: --coder <m> --reviewer <m> --max-sessions <n> --max-session-seconds <n>
 //        --keep (do not wipe an existing fixture)
@@ -54,7 +62,17 @@ const CODER = flag('--coder', 'github-copilot/claude-haiku-4.5');
 const REVIEWER = flag('--reviewer', 'github-copilot/gpt-5.4-mini');
 const MAX_SESSIONS = flag('--max-sessions', '6');
 const MAX_SESSION_SECONDS = flag('--max-session-seconds', '900');
-const PHASE = flag('--phase', 'all');
+// Phase 4 is the DEFAULT, and phases 0-3 are opt-in, because only Phase 4 is
+// automatable. sdlc-lead.md:377 marks the Discovery Interview NEVER-AUTO —
+// "this is user input — no default exists; pauses even in autonomy: auto" — so
+// `/sdlc init` is specified to stop and wait for a human. A model that runs
+// straight through it is violating the protocol, not demonstrating autonomy,
+// and an earlier version of this harness proved "the full path unattended" on
+// exactly that violation. A different model family parked at the interview and
+// was right to. The real automation target is the coding phase against a board
+// that already exists — which is also the situation of any project whose
+// planning was done in an earlier interactive session.
+const PHASE = flag('--phase', 'b');
 const DRY = has('--dry-run');
 const STAGE_ONLY = has('--stage-only');
 
@@ -167,6 +185,41 @@ function stage() {
 // ---------------------------------------------------------------------------
 // 2. Phase A — SDLC phases 0-3 via the session-restart outer loop
 // ---------------------------------------------------------------------------
+
+// A hand-authored board, standing in for the plan.json a project already has
+// from its interactive planning session. This is what lets Phase 4 be tested on
+// its own: the coding phase does not care how the board was produced, only that
+// it validates. Every field here is one the executor actually consumes — test
+// siblings in write_scope, a runnable verify, a manifest under docs/reviews/.
+function seedBoard() {
+  const mk = (id, title, file, deps) => ({
+    id, kind: 'module', title, lane: 'src', owner: null, status: 'ready',
+    write_scope: [`src/${file}.js`, `src/${file}.test.js`],
+    depends_on: deps,
+    acceptance: [
+      `${title} implemented in src/${file}.js as named exports`,
+      'unit tests in the sibling .test.js using node:test',
+      'money handled as decimal strings, never JS floats',
+    ],
+    verify: `node --test src/${file}.test.js`,
+    manifest: `docs/reviews/MANIFEST_${id}.md`,
+  });
+  const plan = {
+    goal: 'ledger CLI — pre-made module board',
+    modules: [
+      mk('T-decimal', 'Decimal string arithmetic', 'decimal', []),
+      mk('T-parse', 'Ledger line parser', 'parse', ['T-decimal']),
+      mk('T-balance', 'Balance computation', 'balance', ['T-decimal', 'T-parse']),
+    ],
+  };
+  mkdirSync(join(PROJ, 'docs/work'), { recursive: true });
+  writeFileSync(join(PROJ, 'docs/work/plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  mkdirSync(join(PROJ, 'docs/reviews'), { recursive: true });
+  writeFileSync(join(PROJ, 'docs/reviews/.gitkeep'), '');
+  sh('git', ['add', '-A'], { cwd: PROJ });
+  sh('git', ['commit', '-q', '-m', 'chore: module board (as an interactive planning session would leave it)'], { cwd: PROJ });
+  log(`seeded a ${plan.modules.length}-ticket board at docs/work/plan.json`);
+}
 
 function phaseA() {
   const prompt = [
@@ -389,7 +442,10 @@ function main() {
   if (!existsSync(PROJ) || !has('--keep')) stage();
   if (STAGE_ONLY) { log('staged only — no model calls made'); return 0; }
 
+  // Phases 0-3 only on explicit request — they need a human at the Discovery
+  // Interview. Otherwise seed the board Phase 4 consumes.
   if (PHASE === 'a' || PHASE === 'all') phaseA();
+  else if (!existsSync(join(PROJ, 'docs/work/plan.json'))) seedBoard();
 
   const b = bridge();
   if (!b.ok) {
