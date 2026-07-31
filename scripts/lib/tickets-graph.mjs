@@ -55,6 +55,23 @@ export function validatePlan(plan) {
     if (!Array.isArray(m.depends_on)) errors.push(`${where}: depends_on must be an array`);
     if (!STATUSES.includes(m.status)) errors.push(`${where}: status '${m.status}' not one of ${STATUSES.join('|')}`);
     if (m.owner != null && typeof m.owner !== 'string') errors.push(`${where}: owner must be a string or null`);
+    // `manifest` is a PATH and `verify` is a COMMAND — both strings, both
+    // consumed by close() as `resolve(cwd, m.manifest)` and a shell command.
+    // Neither was type-checked here, so a board could validate perfectly clean
+    // and then crash the lifecycle: resolve() throws ERR_INVALID_ARG_TYPE on a
+    // non-string, which surfaces as a stack trace rather than a refusal naming
+    // the ticket. Observed 2026-07-31 — an SDLC-generated board described the
+    // manifest as a rich object ({files, exports, tests}), which reads as a
+    // sensible interpretation of the word and is unusable as a path.
+    //
+    // Checked only WHEN PRESENT: docs/TICKET_SCHEMA.md makes `manifest`
+    // "required for close", not required to exist, and close() already refuses
+    // clearly when it is absent. Requiring it here would invalidate boards
+    // that are legitimately mid-draft.
+    if (m.manifest !== undefined && (typeof m.manifest !== 'string' || !m.manifest.trim()))
+      errors.push(`${where}: manifest must be a non-empty string path to the Completion Manifest (got ${Array.isArray(m.manifest) ? 'array' : typeof m.manifest})`);
+    if (m.verify !== undefined && (typeof m.verify !== 'string' || !m.verify.trim()))
+      errors.push(`${where}: verify must be a non-empty string command (got ${Array.isArray(m.verify) ? 'array' : typeof m.verify})`);
     for (const nid of (m.nodes || [])) if (!nodeIds.has(nid)) errors.push(`${where}: references node '${nid}' not in plan.nodes`);
     // T29.2: stories[] is optional but, when present, must be a plain string
     // array — unlike `nodes`, it points at docs/USER_STORIES.md (an external

@@ -40,6 +40,70 @@ export async function testTicketsGraph(
         `expected ${expected.join(",")} got ${claim.join(",")}`,
       );
 
+    // negative: manifest/verify are consumed by close() as a PATH and a
+    // COMMAND. Neither was type-checked, so a board could validate clean and
+    // then crash the lifecycle — resolve(cwd, <object>) throws
+    // ERR_INVALID_ARG_TYPE, surfacing as a stack trace instead of a refusal
+    // naming the ticket. An SDLC-generated board did exactly this on
+    // 2026-07-31, describing the manifest as {files, exports, tests}: a
+    // reasonable reading of the word, and unusable as a path.
+    {
+      const bad = tickets.loadPlan(samplePath);
+      bad.modules[0].manifest = { files: ["a.js"], exports: ["a"] };
+      const r = tickets.validatePlan(bad);
+      if (
+        !r.ok &&
+        r.errors.some((e: string) =>
+          /manifest must be a non-empty string/.test(e),
+        )
+      )
+        ok(
+          "tickets — an object manifest is rejected, not passed through to close()",
+        );
+      else
+        fail(
+          "tickets — object manifest must be rejected",
+          `ok=${r.ok} errors=${r.errors.join("; ").slice(0, 200)}`,
+        );
+    }
+    {
+      const bad = tickets.loadPlan(samplePath);
+      bad.modules[0].verify = ["npm test", "npm run lint"];
+      const r = tickets.validatePlan(bad);
+      if (
+        !r.ok &&
+        r.errors.some((e: string) =>
+          /verify must be a non-empty string/.test(e),
+        )
+      )
+        ok(
+          "tickets — an array verify is rejected (close() runs it as one command)",
+        );
+      else
+        fail(
+          "tickets — array verify must be rejected",
+          `ok=${r.ok} errors=${r.errors.join("; ").slice(0, 200)}`,
+        );
+    }
+    {
+      // ...and a board that simply omits them still validates: the schema makes
+      // manifest "required for close", not required to exist, and close()
+      // already refuses clearly when it is absent. Requiring it here would
+      // invalidate every legitimately mid-draft board.
+      const draft = tickets.loadPlan(samplePath);
+      delete draft.modules[0].manifest;
+      delete draft.modules[0].verify;
+      if (tickets.validatePlan(draft).ok)
+        ok(
+          "tickets — a mid-draft board omitting manifest/verify still validates",
+        );
+      else
+        fail(
+          "tickets — omitted manifest/verify must not be an error",
+          tickets.validatePlan(draft).errors.join("; ").slice(0, 200),
+        );
+    }
+
     // negative: a cycle must be caught
     const cyc = tickets.loadPlan(samplePath);
     cyc.modules.find(
