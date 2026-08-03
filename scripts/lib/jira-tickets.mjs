@@ -35,7 +35,7 @@
 // transition only after that local gate has already passed.
 
 import { readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import {
   close as lifecycleClose,
@@ -66,20 +66,7 @@ function jiraCli() {
   return cli;
 }
 
-// The conductor calls loadPlan(PLAN_PATH) — a FILE path (`<root>/plan.json`),
-// not a directory — while everything here needs the project ROOT. Prefer an
-// explicit CONDUCTOR_ROOT (set by conductor.mjs at startup); fall back to the
-// argument's directory when the argument names a .json file, so a direct
-// loadPlan('<root>') call still works. Getting this wrong resolved the scope
-// map to `<root>/plan.json/docs/work/...` and threw ENOENT only at runtime.
-function projectRoot(arg) {
-  if (process.env.CONDUCTOR_ROOT) return process.env.CONDUCTOR_ROOT;
-  const s = String(arg ?? '.');
-  return s.endsWith('.json') ? dirname(s) : s;
-}
-
-function scopeMapPath(rootArg) {
-  const root = projectRoot(rootArg);
+function scopeMapPath(root) {
   const map = process.env.TICKET_SCOPE_MAP;
   if (!map) throw new Error('TICKET_SCOPE_MAP env var is not set — point it at the target project\'s scope-map file');
   return resolve(root, map);
@@ -332,11 +319,3 @@ export function release(plan, id, actor, reason) {
   }
   return { ok: true };
 }
-
-// Capability flag read by conductor.mjs's persistPlan(): this board keeps no
-// plan file on disk (savePlan is a no-op — JIRA owns lifecycle state), so the
-// conductor must not `git add`/commit PLAN_PATH for it. tickets.mjs exports no
-// such flag, so it reads as undefined there and the plan.json path is
-// unchanged: it still commits its plan file on every lifecycle transition,
-// which is the trail resume.mjs's drift detection depends on.
-export const BOARD_IS_FILE_BACKED = false;
