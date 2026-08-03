@@ -694,17 +694,24 @@ WRITE-SCOPE (exclusive):
 PRODUCE
 - \`${doc}\`
 
-Run the project's real build, lint/type-check and test commands. Paste each
-command, its actual output, AND its exit code. Do NOT edit implementation files.
+Run the ticket's own configured verify command — \`${m.verify || '(none configured)'}\` — and
+paste it, its actual output, and its exit code. Also run the project's build and lint/type-check
+commands for context. Paste each command, its actual output, AND its exit code. Do NOT edit
+implementation files.
 
 WHAT COUNTS AS FAIL — apply these literally, do not use judgement:
-- FAIL if any command you ran exited NON-ZERO. Quote that command and its exit code.
+- FAIL if the ticket's own verify command, or the build/lint/type-check commands, exited
+  NON-ZERO. Quote that command and its exit code.
 - PASS if every command you ran exited zero.
 - A command this project does not define (no build script, no linter) is SKIPPED,
   not a failure. Say it was skipped.
 - Lint/type WARNINGS are not failures. Only a non-zero exit is.
-- A failure in code OUTSIDE this ticket's write_scope (${(m.write_scope || []).join(', ')})
-  that you did not cause is PRE-EXISTING: record it, and do not fail on it.
+- A failure in a test or file OUTSIDE this ticket's write_scope (${(m.write_scope || []).join(', ')})
+  that you did not cause is PRE-EXISTING. If it appears only because you ran a broader command
+  than the ticket's own verify (e.g. a workspace-wide test run), prefer re-running scoped to a
+  path inside write_scope when the project's tooling supports it, so the pre-existing failure
+  does not surface at all; if it cannot be scoped out, record it as PRE-EXISTING and do not fail
+  on it.
 - Uncertainty is not failure. If you could not run something, say so and skip it.
 
 IF YOU FAIL, EXPLAIN WHY. Include a section exactly titled:
