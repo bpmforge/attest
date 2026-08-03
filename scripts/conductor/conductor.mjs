@@ -1196,12 +1196,22 @@ async function main() {
   // for the rest of this process's lifetime; a future conductor invocation
   // (after a human looks at the gap history) is free to retry.
   const exhaustedThisRun = new Set();
+  const landedThisRun = new Set();
   while (landed < MAX_TICKETS) {
     if (existsSync(STOPFILE)) { log('conductor.stop', { msg: 'STOP file present' }); break; }
 
     let plan = loadFreshPlan();
     recomputeStatus(plan);
-    const next = claimable(plan).find((m) => !exhaustedThisRun.has(m.id));
+    // A file-backed board reflects claim()/land() in the SAME in-memory
+    // object this iteration just mutated, so claimable() naturally excludes
+    // what was just landed. A live-queried board (JIRA) re-derives `ready`
+    // from an external system on every loadFreshPlan() call — if that system
+    // is even briefly slow to reflect a just-completed transition, this loop
+    // reclaims the same ticket it just landed. Found while writing the JIRA
+    // board driver's integration test (2026-07-31): a stub that didn't track
+    // state made this run 70+ times a second, which is exactly what a lagging
+    // real board would do, just slower. Defense in depth for either board.
+    const next = claimable(plan).find((m) => !exhaustedThisRun.has(m.id) && !landedThisRun.has(m.id));
     if (!next) {
       const counts = writeHaltNotice(plan);
       log('conductor.halt', { msg: `nothing claimable — board: ${JSON.stringify(counts)} — see ${HALT_NOTICE}` });
@@ -1216,7 +1226,7 @@ async function main() {
     const res = await executeTicket(plan, next);
     if (res.ok) {
       const landedOk = land(plan, next, res.branch, res.wt);
-      if (landedOk) { landed++; log('ticket.done', { ticket: next.id, msg: `${landed} landed this run` }); }
+      if (landedOk) { landed++; landedThisRun.add(next.id); log('ticket.done', { ticket: next.id, msg: `${landed} landed this run` }); }
       else log('ticket.accept-refused', { ticket: next.id });
     } else {
       exhaustedThisRun.add(next.id);
