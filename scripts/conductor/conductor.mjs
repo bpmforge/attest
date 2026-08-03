@@ -670,6 +670,19 @@ A reviewer rejected the previous attempt. Address every blocking finding below,
 then stop. Stay inside your write_scope — do not edit the review documents.
 
 ${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
+    // Fold the fix into the checkpoint commit made before round 2 (see the
+    // caller) so HEAD reflects what the reviewer is about to re-check. Without
+    // this, a review round whose gate checks committed content (e.g. a
+    // citation gate comparing a cited line against `git show HEAD:<file>`)
+    // rejects an already-correct fix forever: the coder is told never to run
+    // git, so its changes sit uncommitted in the working tree across every
+    // iteration, and "review the work already committed" is simply false.
+    // Found 2026-08-03 (PROJ-253, batch-2 retry): 6 review rounds across 2
+    // attempts rejected identical, correct work for exactly this reason.
+    if (hasUncommittedWork(wt)) {
+      gitIn(wt, 'add', '-A');
+      gitIn(wt, 'commit', '-q', '--amend', '--no-edit');
+    }
     // Re-review only the reviewers that blocked.
     const rerun = await runReviewRound(m, wt, blocking.map((v) => v.reviewer));
     for (const nv of rerun) {
@@ -846,6 +859,16 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       continue;
     }
 
+    // Checkpoint-commit before any review round. Reviewers are told they're
+    // reviewing "work already committed" (see runReviewRound's prompt below),
+    // and pickReviewers's own diff (`main...branch`) only sees committed
+    // commits — an uncommitted working tree makes both of those silently
+    // wrong. runFixLoop folds each subsequent fix into this same commit via
+    // --amend, so the ticket still lands as the single feat(...) commit the
+    // rest of the pipeline expects.
+    gitIn(wt, 'add', '-A');
+    gitIn(wt, 'commit', '-q', '-m', `feat(${m.id}): ${m.title}\n\nConductor-run opencode session; gates verified from outside.`);
+
     // ---- Rounds 2-3: review (different agent AND model) then runtime. ----
     // This is where maker != verifier stops being a declaration: the review
     // session runs on roles.reviewer, so the model judging the work is not the
@@ -905,10 +928,15 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       }
     }
 
-    // Scope clean — commit the session's work as one checkpoint commit so
-    // close()'s verify (run-handoff-gates.sh) inspects a real, reviewable diff.
-    gitIn(wt, 'add', '-A');
-    gitIn(wt, 'commit', '-q', '-m', `feat(${m.id}): ${m.title}\n\nConductor-run opencode session; gates verified from outside.`);
+    // The checkpoint commit before round 2 (and any --amend from a fix
+    // iteration) already holds the session's work — commit again only if
+    // rounds 2-3 themselves left something uncommitted (e.g. ROUNDS < 3, so
+    // the checkpoint above was the only commit and nothing since needs
+    // folding in).
+    if (hasUncommittedWork(wt)) {
+      gitIn(wt, 'add', '-A');
+      gitIn(wt, 'commit', '-q', '--amend', '--no-edit');
+    }
     const sha = gitIn(wt, 'rev-parse', 'HEAD');
 
     const closeRes = close(plan, m.id, ACTOR, { branch, commits: [sha], cwd: wt });
