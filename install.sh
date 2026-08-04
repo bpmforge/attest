@@ -602,21 +602,57 @@ if [ "$INSTALL_PWS" = true ]; then
     echo "     Install Node 20+ then re-run, or pass --no-playwright-search to silence this"
   else
     if [ -d "$PWS_DIR/.git" ]; then
-      echo "  playwright-search already cloned at $PWS_DIR"
-      (cd "$PWS_DIR" && git pull --ff-only --quiet) 2>/dev/null \
-        && echo "    pulled latest" \
-        || echo "    skipped pull (uncommitted changes or not on main branch)"
+      echo "  quarry already cloned at $PWS_DIR"
+
+      # `npm install` rewrites package-lock.json, which used to make the pull below
+      # fail the dirty-tree check and silently skip — that is how this install went
+      # two releases stale while still reporting success. Discard that churn first.
+      git -C "$PWS_DIR" checkout -- package-lock.json 2>/dev/null || true
+
+      # Older installs were cloned --depth 1; unshallow so --ff-only can advance.
+      if [ -f "$PWS_DIR/.git/shallow" ]; then
+        git -C "$PWS_DIR" fetch --unshallow --quiet 2>/dev/null || true
+      fi
+
+      if ! git -C "$PWS_DIR" diff --quiet HEAD 2>/dev/null; then
+        echo "    ⚠️  local changes present — NOT pulling. The MCP will keep running old code."
+        git -C "$PWS_DIR" status --short | sed 's/^/         /'
+      else
+        PWS_BEFORE="$(git -C "$PWS_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+        if git -C "$PWS_DIR" pull --ff-only --quiet 2>/dev/null; then
+          PWS_AFTER="$(git -C "$PWS_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+          if [ "$PWS_BEFORE" = "$PWS_AFTER" ]; then
+            echo "    already current ($PWS_AFTER)"
+          else
+            echo "    updated $PWS_BEFORE -> $PWS_AFTER"
+          fi
+        else
+          echo "    ⚠️  pull failed — MCP may run stale code. Fix with: git -C $PWS_DIR pull"
+        fi
+      fi
     else
       echo "  Cloning $PWS_REPO -> $PWS_DIR ..."
       mkdir -p "$(dirname "$PWS_DIR")"
-      git clone --quiet --depth 1 "$PWS_REPO" "$PWS_DIR" \
+      git clone --quiet "$PWS_REPO" "$PWS_DIR" \
         && echo "    cloned ✓" \
         || { echo "    ⚠️  clone failed — check network / repo URL"; INSTALL_PWS=false; }
     fi
 
     if [ "$INSTALL_PWS" = true ]; then
-      if [ ! -f "$PWS_DIR/dist/mcp.js" ] || [ "$PWS_DIR/src/mcp.ts" -nt "$PWS_DIR/dist/mcp.js" ]; then
-        echo "  Building playwright-search (this also installs Chromium ~170MB the first time)..."
+      # Rebuild whenever ANY source file is newer than the build. The old check only
+      # compared src/mcp.ts, so a change to any other module left a stale dist/ in
+      # place and the script reported "Build is current".
+      PWS_NEEDS_BUILD=false
+      if [ ! -f "$PWS_DIR/dist/mcp.js" ]; then
+        PWS_NEEDS_BUILD=true
+      elif [ -n "$(find "$PWS_DIR/src" -type f -newer "$PWS_DIR/dist/mcp.js" -print -quit 2>/dev/null)" ]; then
+        PWS_NEEDS_BUILD=true
+      elif [ "$PWS_DIR/package.json" -nt "$PWS_DIR/dist/mcp.js" ]; then
+        PWS_NEEDS_BUILD=true
+      fi
+
+      if [ "$PWS_NEEDS_BUILD" = true ]; then
+        echo "  Building quarry (this also installs Chromium ~170MB the first time)..."
         (cd "$PWS_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3
         if [ -f "$PWS_DIR/dist/mcp.js" ]; then
           echo "    build ✓"
@@ -626,6 +662,18 @@ if [ "$INSTALL_PWS" = true ]; then
         fi
       else
         echo "  Build is current"
+      fi
+    fi
+
+    # Smoke test: a dist/ that compiled can still fail to boot (bad import, missing
+    # dep). Speak to the server over stdio and require a real initialize response,
+    # so "installed ✓" means "actually starts", not "a file exists".
+    if [ "$INSTALL_PWS" = true ]; then
+      if printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"install","version":"1"}}}' \
+         | node "$PWS_DIR/dist/mcp.js" 2>/dev/null | head -c 2000 | grep -q '"serverInfo"'; then
+        echo "    smoke ✓ (server responds to initialize)"
+      else
+        echo "    ⚠️  built, but the server did not respond — check: node $PWS_DIR/dist/mcp.js"
       fi
     fi
 
