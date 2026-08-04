@@ -656,6 +656,10 @@ if [ "$INSTALL_PWS" = true ]; then
         # Clear dist/ first: tsc leaves the compiled output of DELETED sources behind,
         # so an upgrade that removes a module keeps shipping its stale .js forever.
         rm -rf "$PWS_DIR/dist"
+        # Drop the page cache too. Entries store already-extracted text, so after an
+        # extraction change the old shape is served until the 24h TTL expires — the
+        # new code never runs for anything previously fetched.
+        rm -rf "${QUARRY_CACHE:-$HOME/.playwright-search/cache}"
         (cd "$PWS_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3
         if [ -f "$PWS_DIR/dist/mcp.js" ]; then
           echo "    build ✓"
