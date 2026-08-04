@@ -364,7 +364,7 @@ Load the full phase gate table, HANDOFF coverage validator table, two-track gate
 read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
 ```
 
-Quick summary: every phase advance calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh <phase>`. Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
+Quick summary: every phase advance runs `~/.config/opencode/scripts/validators/run-coverage-loop.sh <phase>` — the wrapper, **not** `validate-phase-gate.sh` directly. Both run the same validators, but only the wrapper counts iterations and can stop a repair loop that is not converging (cap 3, then escalate; a byte-identical gap set halts immediately as exit 3). Calling the gate directly is correct only for a one-off read-only check (`/sdlc gate`, resume verification). Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
 
 ---
 
