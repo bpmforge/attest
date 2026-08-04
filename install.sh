@@ -653,6 +653,9 @@ if [ "$INSTALL_PWS" = true ]; then
 
       if [ "$PWS_NEEDS_BUILD" = true ]; then
         echo "  Building quarry (this also installs Chromium ~170MB the first time)..."
+        # Clear dist/ first: tsc leaves the compiled output of DELETED sources behind,
+        # so an upgrade that removes a module keeps shipping its stale .js forever.
+        rm -rf "$PWS_DIR/dist"
         (cd "$PWS_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3
         if [ -f "$PWS_DIR/dist/mcp.js" ]; then
           echo "    build ✓"
