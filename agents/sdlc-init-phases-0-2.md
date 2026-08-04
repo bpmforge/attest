@@ -378,7 +378,36 @@ Alternatively put them in the index table as columns named `Persona`, `Trigger`,
 
 Write it to `docs/USE_CASES.md`. `docs/testing/USE_CASES.md` is also accepted for existing projects — pick **one**, never both, or every future edit has to be made twice.
 
-**Gate Loop:** Rate SRS.md, USER_STORIES.md, and USE_CASES.md. Key quality checks:
+**Gate Loop — Phase 2 Coverage (Ralph Wiggum style, 3-iteration max):**
+
+Requirements artifacts are **Track 1** (`PHASE_ROUTING_PROTOCOL.md` § Two-Track Gate System lists use cases and user stories explicitly): their coverage is script-validatable, so this phase is gated by the coverage loop, **not** by a self-rating. Run it — do not call `validate-phase-gate.sh` directly:
+
+```bash
+./scripts/validators/run-coverage-loop.sh phase-2
+```
+
+This chains `validate-use-cases.sh` + `validate-user-stories.sh` + `validate-requirements-matrix.sh`, and — this is the point — it *counts iterations* in `docs/work/COVERAGE_LOOP_phase-2_<date>.md`. Calling the gate directly runs the same validators with no counter, so a repair loop that never converges has nothing to stop it.
+
+**Exit code → action:**
+- **Exit 0** (clean) → run the content quality checks below
+- **Exit 1** (gaps remain, iteration < 3) → read the COVERAGE_LOOP file, emit one gap-fill HANDOFF per gap to the specialist that owns the artifact, re-run the script
+- **Exit 2** (3 iterations exhausted) → emit the escalation block:
+  ```
+  PHASE 2 GATE — RALPH WIGGUM ESCALATION
+  3 iterations exhausted. Gaps remain. Options:
+  A) WAIVER — accept as documented debt (record in SRS.md § Known Gaps)
+  B) LOWER-BAR — reduce the requirement for this row (record in SDLC_TRACKER)
+  C) SPECIALIST — different specialist for the specific gap
+  D) MANUAL — user reviews and approves directly
+
+  Gaps outstanding: [list from COVERAGE_LOOP file]
+  Awaiting user decision before advancing to Phase 3.
+  ```
+- **Exit 3** (no-progress halt — gap set byte-identical to last iteration) → **STOP and suspect the validator, not the document.** Repairs that change nothing mean the gate is not reading what you are writing. Before dispatching another repair, take one gap verbatim and confirm by hand that the content it names is genuinely absent — a gap saying "missing X" when X is plainly present means the validator is looking in the wrong place (wrong column, wrong heading depth, wrong file), which is a validator defect to report, not a document to rewrite.
+
+**A new HANDOFF does not reset the counter.** The loop file is per-phase-per-day, so re-entering the same phase under a new task name ("gate remediation", "validator format repair") keeps counting — by design. If you find yourself naming a third variation of the same repair, you are in an unbounded loop and should be at Exit 2 or Exit 3 above.
+
+**Content quality checks (run AFTER the coverage loop exits 0):**
 - Every FR has a `Given/When/Then` acceptance criterion (not just a description)
 - Every NFR has a measurable metric (not "should be fast" — "< 200ms at P95")
 - Every user story has a corresponding use case in USE_CASES.md
@@ -390,7 +419,7 @@ Write it to `docs/USE_CASES.md`. `docs/testing/USE_CASES.md` is also accepted fo
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/testing/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 **Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
