@@ -14,6 +14,28 @@ cd attest
 ./install.sh
 ```
 
+That gives you **`main`** — the newest state, which can contain work landed since the last release.
+
+**To install a specific release instead** (pick the version from [Releases](https://github.com/bpmforge/attest/releases)):
+
+```bash
+git clone --branch v3.1.25 --depth 1 https://github.com/bpmforge/attest.git
+cd attest
+./install.sh
+```
+
+Or, in a clone you already have:
+
+```bash
+git fetch --tags
+git checkout v3.1.25   # prints a "detached HEAD" notice — that is expected
+./install.sh
+```
+
+**`main` vs a tag:** `main` moves with every push; a tag (`v3.1.25`) always points at the same commit. Use a tag when you want a fixed, CI-verified state; use `main` for the newest work. The "detached HEAD" notice on checkout is normal and installing works fine — you only need a branch if you intend to edit: `git checkout -b my-fix v3.1.25`. Go back to the latest with `git checkout main && git pull`.
+
+`install.sh` records what it installed to `experts-version` in the install directory, so you can always tell which one is active.
+
 Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--tools` (install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2. **Use opencode ≥ v1.2.11** — older builds stop after every tool call on OpenAI-compatible/local endpoints (the `finish_reason:"stop"` bug, fixed in PR #14973); `doctor.sh` warns on older versions.
 
 **Verify the install:**
@@ -25,7 +47,7 @@ Common flags: `--project` (install into `.opencode/` instead of global), `--comp
 
 `Status: HEALTHY` means everything works. Re-run any time something feels broken.
 
-**Update:** `git pull && ./install.sh` (idempotent — re-running is always safe), then `doctor.sh` again.
+**Update:** `git pull && ./install.sh` (idempotent — re-running is always safe), then `doctor.sh` again. If you installed a tag, `git pull` does nothing — checkout the newer tag instead: `git fetch --tags && git checkout v<newer> && ./install.sh`.
 
 ## First command
 
@@ -69,7 +91,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 - [docs/UNATTENDED_EXECUTION.md](docs/UNATTENDED_EXECUTION.md) — running Phase 4 coding tickets unattended: the conductor, its startup gates, diff-triggered reviewers, Jira mirroring, and what to check before pointing it at a large board
 - [docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md) — running on local models (tiers, compact variants)
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for attest-claude)
-- [CHANGELOG.md](CHANGELOG.md) — release notes
+- [Releases](https://github.com/bpmforge/attest/releases) — release notes for each version (the per-release detail lives in the annotated tag; `CHANGELOG.md` covers 1.x–2.12 only)
 
 ## License
 
