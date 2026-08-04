@@ -120,8 +120,10 @@ After completing research, store key findings via the memory MCP registered in t
 
 ## Source files
 
-- playwright-search implementation: `/Users/user/Code/playwright-search/src/mcp.ts`
-- playwright-search pipeline: `/Users/user/Code/playwright-search/src/pipeline.ts`
-- playwright-search setup: `/Users/user/Code/playwright-search/MCP.md`
+Paths are relative to the `quarry` checkout, wherever you cloned it.
+
+- playwright-search implementation: `quarry/src/mcp.ts`
+- playwright-search pipeline: `quarry/src/pipeline.ts`
+- playwright-search setup: `quarry/MCP.md`
 - pullmd repo: https://github.com/AeternaLabsHQ/pullmd
 - pullmd setup: `./install.sh --pullmd` (auto-detects Docker or Podman); default MCP at `http://localhost:33000/mcp`

@@ -111,6 +111,8 @@ After completing research, store key findings via the memory MCP registered in t
 
 ## Source files
 
-- playwright-search implementation: `/Users/user/Code/quarry/src/mcp.ts`
-- playwright-search pipeline: `/Users/user/Code/quarry/src/pipeline.ts`
-- playwright-search setup: `/Users/user/Code/quarry/MCP.md`
+Paths are relative to the `quarry` checkout, wherever you cloned it.
+
+- playwright-search implementation: `quarry/src/mcp.ts`
+- playwright-search pipeline: `quarry/src/pipeline.ts`
+- playwright-search setup: `quarry/MCP.md`

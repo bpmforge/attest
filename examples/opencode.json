@@ -32,11 +32,11 @@
       "enabled": true
     },
     "playwright-search": {
-      "_comment": "PRIMARY research backbone (in-house, no external services). Free local web research \u2014 multi-engine search (DDG + Brave + Bing) + page extraction (Readability + our own zero-dep bpm-pull) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch, web_search_pullmd, web_research_pullmd (the *_pullmd names are legacy; they now use our own pull with a Playwright fallback \u2014 no external pullmd service). Build with `npm run build` in /Users/user/Code/quarry, then point command at dist/mcp.js.",
+      "_comment": "PRIMARY research backbone (in-house, no external services). Free local web research \u2014 multi-engine search (DDG + Brave + Bing) + page extraction (Readability + our own zero-dep bpm-pull) + 24h cache. Polite (rate-limited per-domain, robots.txt). Tools: web_research, web_search, web_fetch, web_search_pullmd, web_research_pullmd (the *_pullmd names are legacy; they now use our own pull with a Playwright fallback \u2014 no external pullmd service). Build with `npm run build` in your quarry checkout, then point command at dist/mcp.js.",
       "type": "local",
       "command": [
         "node",
-        "/Users/user/Code/quarry/dist/mcp.js"
+        "${HOME}/Code/quarry/dist/mcp.js"
       ],
       "enabled": true
     },
@@ -45,7 +45,7 @@
       "type": "local",
       "command": [
         "node",
-        "/Users/user/Code/bpm-code-search-mcp/dist/index.js"
+        "${HOME}/Code/bpm-code-search-mcp/dist/index.js"
       ],
       "enabled": true
     }

@@ -156,6 +156,7 @@ All of the following must be true. git-expert --feature enforces this:
 - [ ] **CI pipeline green** — every check on the PR must be passing (not just the manual runtime gate). **Local-only repo (`git remote` empty):** there is no PR and no CI, so this row is satisfied by `VERIFY: ALL GREEN` from the verify harness plus the review documents above — record it as `N/A (local-only) — verify fence GREEN, reviews present`. Never mark it ✓ on the strength of nothing, and never treat an impossible row as a blocker.
 - [ ] No open CRITICAL/HIGH in any review without a signed waiver in `WAIVERS_*_<date>.md`
 - [ ] Branch is up to date with main (no conflicts)
+- [ ] **Pre-Push Publish Gate clean** (see that section) — no private identifiers or absolute local paths in the outgoing diff, and every committed SHA is reachable. Skip only for a local-only repo with no remote.
 
 ### Post-Merge Scope-Attribution Check (required immediately AFTER every merge to main)
 
@@ -310,6 +311,57 @@ Reflog backup saved to /tmp/reflog-backup-1234567890.txt
 Recovery: git reset --hard HEAD@{1}
 
 Proceed? (requires explicit user yes)
+```
+
+---
+
+## Pre-Push Publish Gate (required before any push to a public or shared remote)
+
+Two failure modes that look fine on your machine and only surface after the push. Both are cheap to check and expensive to undo — a leak is public the moment it lands, and rewriting history to remove it invalidates every clone.
+
+### 1. Private identifiers reaching a public repo
+
+Scan what actually goes out, not the whole tree:
+
+```bash
+git diff origin/<branch>..HEAD | grep -nE "/Users/[a-z]|/home/[a-z]|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"
+```
+
+**Use case-sensitive patterns.** `grep -i` on `/Users/` also matches every `/users/{id}` REST path in API docs and examples; the real hits drown in false positives and the check gets switched off. This is the single reason this gate gets abandoned.
+
+Flag and fix:
+- **Absolute local paths** (`/Users/<name>/...`, `/home/<name>/...`) — they leak your directory layout and are broken for every other user anyway. Replace with `$HOME`/`${HOME}`, a repo-relative path, or a `<your-checkout>` placeholder.
+- **Names of private or unpublished downstream projects** — keep a repo-specific list of these; they will not match a generic pattern.
+- **Tokens, API keys, personal email addresses.**
+
+Do *not* scrub the author's own name or handle from test fixtures and example tables. It is already in the author field of every commit, so removing it buys nothing and churns the diff. Gate on what is actually private.
+
+Fix in the **canonical source**, then regenerate any generated target. Never hand-edit the generated copy — the next build silently reverts it.
+
+**Scan the generated output too, not just the source.** If the build has an overrides layer (files applied verbatim after generation), a leak you fixed upstream can still ship: the override wins and the source fix never reaches the target. The drift check will happily report "in sync," because the override *is* the expected output. Only a scan of the published tree catches it.
+
+### 2. A pinned SHA that only resolves on your machine
+
+Any commit SHA written into a tracked file — a test fixture, an evidence field, a doc citation, a pinned ref — must be **reachable from a ref**:
+
+```bash
+git merge-base --is-ancestor <sha> HEAD && echo reachable || echo ORPHANED
+```
+
+A history rewrite (`filter-repo`, squash, rebase, or a rename that rewrites history) leaves the *old* commit in your local object store as a **dangling object**. `git show <sha>` keeps working for you and fails for everyone else, because a clone only transfers *reachable* objects.
+
+Symptom: green locally, red in CI, and adjusting `fetch-depth` does not help — depth was never the problem, reachability was. It fails **open** locally, which is why it survives review.
+
+After any history rewrite, re-scan for committed SHAs and re-point each to its rewritten equivalent (same subject/author/date):
+
+```bash
+grep -rnE "\b[0-9a-f]{40}\b" . --exclude-dir=.git --exclude-dir=node_modules
+```
+
+Verify the way CI sees it. `--no-local` forces the git transport, so unreachable objects are excluded exactly as in a real clone (a plain local `git clone` copies the object directory wholesale and will hide the bug):
+
+```bash
+git clone --no-local . /tmp/clean-clone && cd /tmp/clean-clone && <test command>
 ```
 
 ---
@@ -493,6 +545,7 @@ Refs: #<issue>
 [4] Compute next version per semver (major/minor/patch) — PENDING
 [5] Generate CHANGELOG.md entry from parsed commits — PENDING
 [6] Commit CHANGELOG update (`chore(release): <version>`) — PENDING
+[6b] Pre-Push Publish Gate — leak scan + committed-SHA reachability — PENDING
 [7] Create signed annotated tag (`git tag -s v<version> -m "..."`) — PENDING
 [8] Push commit + tag to all remotes — PENDING
 [9] Draft GitHub Release via `gh release create` — PENDING

@@ -196,6 +196,17 @@ If the user has said "operate autonomously" in a durable instruction (like AGENT
 
 ---
 
+## Expert Behavior: Guard Every Publish
+
+A push to a public or shared remote is as irreversible as a destructive op — the content is public the moment it lands, and rewriting history to remove it invalidates every clone. Before any such push, run the **Pre-Push Publish Gate** in the checklist. It covers the two things that look clean locally and only break after the push:
+
+1. **Private identifiers in the outgoing diff** — absolute local paths (`/Users/<name>/…`), private downstream project names, tokens, personal emails. Scan case-sensitively; `grep -i` on `/Users/` matches every `/users/{id}` REST path and buries the real hits.
+2. **A committed SHA that resolves only on your machine** — after a history rewrite the old commit lingers as a *dangling* object, so `git show` succeeds for you and fails in every clean clone. Confirm with `git merge-base --is-ancestor <sha> HEAD`.
+
+Both fail **open** locally, so neither is caught by "it works here." Fix leaks in the canonical source and regenerate — never hand-edit a generated target.
+
+---
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:
