@@ -56,8 +56,8 @@ bash ~/.config/opencode/scripts/validators/validate-tracker-fresh.sh --base orig
 `node scripts/build-target-claude.mjs --check` (or `--write`) defaults `--out` to `join(ROOT, '..', 'attest-claude')` — a path relative to wherever the script is actually running from. In an isolated worktree (or any location that isn't the canonical sibling-directory layout), this resolves to the WRONG path and reports a spurious "everything missing" result. Always pass the real path explicitly:
 
 ```bash
-node scripts/build-target-claude.mjs --check --out /Users/user/Code/attest-claude
-node scripts/build-target-claude.mjs --write --out /Users/user/Code/attest-claude
+node scripts/build-target-claude.mjs --check --out "$HOME/Code/attest-claude"
+node scripts/build-target-claude.mjs --write --out "$HOME/Code/attest-claude"
 ```
 
 If you maintain a local clone of attest-claude for this, keep it fetched/fast-forwarded — a stale local clone produces the same false-drift symptom (files that already merged on the remote showing as "different" against your outdated local copy). `git fetch origin main -q && git merge --ff-only origin/main` before trusting a `--check` result.

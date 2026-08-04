@@ -548,7 +548,7 @@ Not every finding needs to be fixed. Some are false positives, some are accepted
 ## Accepted Risk
 | Finding | Rule ID | File:Line | Justification | Owner | Expires |
 |---------|---------|-----------|---------------|-------|---------|
-| MD5 used in non-crypto context | python.lang.md5 | src/cache_key.py:23 | Used for cache key only, not security | user | 2026-10-01 |
+| MD5 used in non-crypto context | python.lang.md5 | src/cache_key.py:23 | Used for cache key only, not security | @platform-team | 2026-10-01 |
 ```
 
 **Agent integration:** Before reporting a finding, check TRIAGE.md. If the finding matches a `Fixed` row → don't report. If it matches `False Positive` → report at INFO level with the justification. If it matches `Accepted Risk` and the expiry hasn't passed → report at INFO with the owner/expiry. If accepted-risk expiry has passed → bump to original severity and flag for re-review.

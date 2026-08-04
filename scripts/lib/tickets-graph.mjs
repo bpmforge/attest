@@ -231,8 +231,8 @@ export function scopeCoverageWarnings(plan) {
 // The agent is asked for tests by its acceptance criteria and forbidden from
 // writing them by its write_scope, and the only honest moves left are to
 // self-block or to delete the tests it just wrote. Both have happened for real:
-// kryptkeeper's W6-01 wrote five table-driven tests, verified them, then
-// deleted them rather than self-amend its own scope; and on 2026-07-31 an
+// a downstream project's W6-01 ticket wrote five table-driven tests, verified
+// them, then deleted them rather than self-amend its own scope; and on 2026-07-31 an
 // SDLC-generated board here scoped `src/parse.js` alone while its acceptance
 // demanded tests — the session wrote 214 lines of them and lost the whole
 // attempt to "tests/parse.test.js written outside assigned scope".
