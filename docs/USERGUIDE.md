@@ -1,6 +1,6 @@
 # User Guide
 
-How to use the BPM OpenCode Experts. For *what* each expert is, see [FEATURES.md](FEATURES.md).
+How to use the attest. For *what* each expert is, see [FEATURES.md](FEATURES.md).
 
 ## Table of contents
 

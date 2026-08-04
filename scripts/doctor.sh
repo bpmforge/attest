@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# doctor.sh — post-install self-check for BPM OpenCode Experts.
+# doctor.sh — post-install self-check for attest.
 #
 # Run after ./install.sh (or anytime something feels broken):
 #   ~/.config/opencode/scripts/doctor.sh
@@ -17,7 +17,7 @@ ok()   { printf '  \033[32m[PASS]\033[0m %s\n' "$1"; PASS=$((PASS+1)); }
 warn() { printf '  \033[33m[WARN]\033[0m %s\n' "$1"; WARN=$((WARN+1)); }
 bad()  { printf '  \033[31m[FAIL]\033[0m %s\n' "$1"; FAIL=$((FAIL+1)); }
 
-echo "BPM OpenCode Experts — doctor"
+echo "attest — doctor"
 echo "Checking install at: $DIR"
 echo ""
 
