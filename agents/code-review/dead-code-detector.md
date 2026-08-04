@@ -143,11 +143,20 @@ Add a **Utilization Summary** table at the top: files scanned, exported symbols,
 ## Known issues / deferred
 - [dynamic-dispatch areas where confidence is LOW; tools unavailable]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: code-health-synthesizer
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 ## Pre-Completion Gate

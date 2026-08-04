@@ -178,11 +178,20 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 - [engine-side import wiring — deferred to gameplay-engineer; any sprite that
   failed pixel-snap/cleanup and was re-generated]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: gameplay-engineer (import sheet.json into engine code) / playtest-evaluator (once wired, verify in a slice)
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 ## Pre-Completion Gate

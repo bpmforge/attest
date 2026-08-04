@@ -250,9 +250,18 @@ End work with a completion manifest BEFORE the completion phrase:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [next agent or "SDLC lead resume"]
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 ---

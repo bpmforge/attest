@@ -77,17 +77,32 @@ Before the completion phrase, output a Completion Manifest:
 ## Known issues / deferred
 - [Issue] — [why deferred, which agent should address it]
 
+## Verify result
+- PASS — [what you checked] — evidence: `path/to/artifact`
+- [one line per check; every claim needs an artifact you can point at]
+
 ## Memory written
 - memory_store: [type] — "[≤1-line durable decision / error / verified-fact + citation]"   (or "None — nothing durable")
 
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: [your agent name]
+Verifier: [who independently checked — never the same identity as Maker]
+
 ## Ready for: [next agent name, or "SDLC lead resume"]
 
 Tracker updated: [SDLC_TRACKER.md row / PROGRESS.md / DELEGATION_LOG.md / CHANGELOG.md — where this step was recorded]
+
+[agent] done -- [one-line summary]
 ```
 
 All sections are required. "None" is a valid value for sections with nothing to report. The **`Tracker updated:` line is mandatory** (G-D, tracking-as-gate): a step that changes work files but records nothing is how work gets lost between steps and sessions — the git-based `validate-tracker-fresh.sh` proves a tracker actually changed, and `validate-completion-manifest.sh` proves the manifest declares it.
+
+**Three things `validate-completion-manifest.sh` checks that are easy to omit** — every one of them rejected a manifest whose *work* was complete, so the repair loop re-ran the work instead of fixing the record:
+
+- **`## Verify result` must cite at least one backtick-quoted path that exists on disk.** "PASS — tests pass" is not checkable; ``PASS — … — evidence: `docs/reviews/VERIFY_x.md` `` is. For a document-authoring task the produced document is itself valid evidence — cite it. A git ref (branch/tag) counts, and so does a path you are claiming was *removed*. A shell command is **not** an artifact: `` `npm test` `` is a thing you ran, not a thing anyone can open, and it is reported as a missing artifact. **Cite paths project-relative** (`docs/DATABASE.md`, never `/Users/<name>/…` or `/docs/…`) — a leading `/` resolves outside the project root and is refused unread, not merely "not found".
+- **`Maker:` and `Verifier:` must both be present and be different identities.** Self-verification is not verification (MODEL_ADAPTER.md maker/verifier split). If a human confirmed it, `Verifier: user` is correct.
+- **The completion phrase must be the last line of the manifest FILE**, not only the last line of your chat response. The validator reads the file. Any of `done --`, `done:`, `done —` (or `complete …`) in the final lines satisfies it — e.g. `db done -- local experiment schema and access patterns complete`. A manifest that ends at `## Ready for:` fails, which is exactly what the template above used to produce.
 
 **`## Memory written` (MEMORY_PRIMER M4 write-back).** You do NOT recall memory — the SDLC lead handed you a memory slice in your context packet. But you MUST **`memory_store` any durable decision, error, or verified fact you established** (with a `citation`), then record it here — otherwise your "Decisions made" evaporate at session end and the next HANDOFF re-derives them. Never store secrets/PII (redact per MEMORY_PRIMER). Nothing durable? Write "None — nothing durable".
 
