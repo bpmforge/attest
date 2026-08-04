@@ -167,9 +167,18 @@ in a Dockerfile is an opportunity for optimization or a security risk.
 - <decision> — <why>
 ## Known issues / deferred
 - <issue or "None">
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: SDLC lead resume
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 **Step 5:** Print the exact completion phrase from the prompt — character-for-character. Then stop.
 
@@ -333,7 +342,16 @@ verify your work without re-reading everything:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [next agent or "SDLC lead resume"]
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
