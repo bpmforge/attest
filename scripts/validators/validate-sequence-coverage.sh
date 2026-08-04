@@ -19,7 +19,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 validator_init "validate-sequence-coverage"
 
 ROOT="$(detect_project_root "${1:-}")"
-USECASES="$ROOT/docs/USE_CASES.md"
+USECASES=""
+for _uc in "$ROOT/docs/USE_CASES.md" "$ROOT/docs/testing/USE_CASES.md"; do
+  [[ -f "$_uc" ]] && USECASES="$_uc" && break
+done
+[[ -z "$USECASES" ]] && USECASES="$ROOT/docs/USE_CASES.md"
 ARCH="$ROOT/docs/ARCHITECTURE.md"
 SEQ_DIR="$ROOT/docs/sequences"
 

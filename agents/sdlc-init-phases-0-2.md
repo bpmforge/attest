@@ -353,7 +353,7 @@ For each requirement:
 
 **After SRS.md + USER_STORIES.md, produce the use case catalog (INLINE — do this yourself):**
 
-Write `docs/testing/USE_CASES.md` — derive one use case per user story:
+Write `docs/USE_CASES.md` — derive one use case per user story:
 - For each user story in USER_STORIES.md:
   - Which persona from USER_PERSONAS.md does this?
   - What are the preconditions?
@@ -363,6 +363,20 @@ Write `docs/testing/USE_CASES.md` — derive one use case per user story:
   - Success criteria (observable outcome)
 - Index table at top: UC number, name, persona, priority (P0/P1/P2)
 - P0 = demo-blocking critical paths, P1 = should work, P2 = nice-to-have
+
+**Label the fields exactly as below** — `validate-use-cases.sh` reads these labels, and a use case whose content is real but labelled differently is reported as *missing*. Each `## UC-NN` section (any heading depth) needs these five lines; markdown bold around them is fine:
+
+```
+### UC-001 — Short name
+**Persona:** P-01 …   **Trigger:** …   **Source:** FR-001; SC-02
+**Main flow:** (1) … (2) …
+**Success criteria:** observable outcome
+**Priority:** P0
+```
+
+Alternatively put them in the index table as columns named `Persona`, `Trigger`, `Main flow`, `Success criteria`, `Priority` — the gate accepts either form, and a short index table plus detail sections is the normal shape. `Source:` (or any `FR-NN` reference) is required per use case for traceability.
+
+Write it to `docs/USE_CASES.md`. `docs/testing/USE_CASES.md` is also accepted for existing projects — pick **one**, never both, or every future edit has to be made twice.
 
 **Gate Loop:** Rate SRS.md, USER_STORIES.md, and USE_CASES.md. Key quality checks:
 - Every FR has a `Given/When/Then` acceptance criterion (not just a description)

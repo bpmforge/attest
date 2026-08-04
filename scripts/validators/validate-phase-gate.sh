@@ -67,7 +67,7 @@ populate_phase_artifacts() {
       GATE_FILES=("docs/SCOPE.md" "docs/RISKS.md" "docs/CONSTRAINTS.md" "docs/USER_PERSONAS.md")
       ;;
     phase-2)
-      GATE_FILES=("docs/SRS.md" "docs/USER_STORIES.md" "docs/USE_CASES.md")
+      GATE_FILES=("docs/SRS.md" "docs/USER_STORIES.md" "docs/USE_CASES.md|docs/testing/USE_CASES.md")
       GATE_VALIDATORS=(
         "validate-use-cases.sh"
         "validate-user-stories.sh"
@@ -216,6 +216,35 @@ populate_phase_artifacts() {
       fatal "unknown phase: $phase"
       ;;
   esac
+
+  # A GATE_FILES entry may list alternates as "a|b" when an artifact has more
+  # than one canonical home. Resolve to whichever exists (first alternate if
+  # none do) so every downstream consumer -- existence check, receipt hash,
+  # receipt JSON -- sees one concrete path.
+  #
+  # Requirements phase-2 needs this: the authoring agent is told to write
+  # docs/testing/USE_CASES.md, while this gate demanded docs/USE_CASES.md.
+  # A project that followed its instructions was told the file was "missing",
+  # so the fix was to write a SECOND copy at the other path -- which is how a
+  # project ends up maintaining two byte-identical use-case catalogs and
+  # editing both on every change.
+  local -a resolved=()
+  local entry alt chosen
+  for entry in "${GATE_FILES[@]:-}"; do
+    [[ -z "$entry" ]] && continue
+    if [[ "$entry" == *"|"* ]]; then
+      chosen="${entry%%|*}"
+      local -a alts=()
+      IFS='|' read -ra alts <<< "$entry"
+      for alt in "${alts[@]}"; do
+        if [[ -f "$ROOT/$alt" ]]; then chosen="$alt"; break; fi
+      done
+      resolved+=("$chosen")
+    else
+      resolved+=("$entry")
+    fi
+  done
+  GATE_FILES=("${resolved[@]:-}")
 }
 
 # -- Prereq chain: which phase must have a valid receipt before this one runs

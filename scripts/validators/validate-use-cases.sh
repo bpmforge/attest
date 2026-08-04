@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
-# validate-use-cases.sh -- every row in docs/USE_CASES.md (or docs/testing/USE_CASES.md)
-# must be a complete record:
+# validate-use-cases.sh -- every use case in docs/USE_CASES.md (or
+# docs/testing/USE_CASES.md) must be a complete record:
 #   - ID present (UC-NN format)
 #   - Persona non-empty
 #   - Trigger non-empty
@@ -9,6 +9,20 @@
 #   - Success criteria non-empty
 #   - Priority is P0, P1, or P2 (case-insensitive)
 #
+# A record may be supplied EITHER as a table row OR as a `## UC-NN` section
+# (any heading depth). A document may legitimately carry a short index table
+# plus per-use-case detail sections -- that combination is valid, and each
+# field is satisfied by whichever form provides it.
+#
+# Table columns are located BY HEADER NAME, never by position. An earlier
+# version indexed fixed offsets (CELLS[5]=success, CELLS[6]=priority), which
+# meant a differently-shaped table reported every row as "missing success
+# criteria" while silently accepting whatever happened to sit in columns 2-4
+# -- a story ID passed as a persona. Worse, the message named the wrong fault:
+# the content was present, just not where the parser looked, so each repair
+# attempt added more prose and the gate failed identically forever. When a
+# column is genuinely absent, this reports it ONCE, naming the headers it did
+# find, instead of once per row.
 
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -27,50 +41,121 @@ if [[ -z "$UC" ]]; then
   validator_exit
 fi
 
-# Look for table rows. Use the markdown table format with at least 6 columns:
-# | ID | Persona | Trigger | Main flow | Success criteria | Priority | (optional cols)
-# Or paragraph-style sections with required headings under each ## UC-NN heading.
+# ── Locate use-case rows together with THEIR OWN table's header row ──────────
+# A file may hold several tables; each row is paired with the header of the
+# table it actually belongs to (the line above that table's `|---|` separator).
+UC_ROWS_WITH_HEADER=$(awk '
+  {
+    if ($0 ~ /^[[:space:]]*\|[[:space:]]*:?-{2,}/)      { header = prev }
+    else if ($0 ~ /^[[:space:]]*\|[[:space:]]*UC-[0-9]+/) { print header "\t" $0 }
+    prev = $0
+  }
+' "$UC")
 
-# Try table form first
-TABLE_ROWS=$(grep -E '^\|[[:space:]]*UC-[0-9]+' "$UC" || true)
-TABLE_ROW_COUNT=$(printf '%s\n' "$TABLE_ROWS" | grep -c . || true)
+TABLE_ROW_COUNT=$(printf '%s\n' "$UC_ROWS_WITH_HEADER" | grep -c . || true)
 
-# Try section form
-SECTION_HEADINGS=$(grep -E '^##[[:space:]]+UC-[0-9]+' "$UC" || true)
-SECTION_COUNT=$(printf '%s\n' "$SECTION_HEADINGS" | grep -c . || true)
+# Sections at ANY depth: `## UC-01`, `### UC-001 — Title`, etc. Requiring
+# exactly `##` made every nested catalog (use cases grouped under a persona
+# heading) invisible, so the section path silently never ran.
+SECTION_COUNT=$(grep -cE '^#{2,}[[:space:]]+UC-[0-9]+' "$UC" || true)
 
 if [[ "$TABLE_ROW_COUNT" -eq 0 && "$SECTION_COUNT" -eq 0 ]]; then
-  gap "no-use-cases" "USE_CASES.md has no recognizable use case rows (expected '| UC-NN | ...' table or '## UC-NN' section headings)"
+  gap "no-use-cases" "USE_CASES.md has no recognizable use cases (expected '| UC-NN | ...' table rows or '## UC-NN' section headings, any heading depth)"
   validator_exit
 fi
 
 pass "found $TABLE_ROW_COUNT table row(s) + $SECTION_COUNT section(s)"
 
-# Validate table-form rows
-if [[ "$TABLE_ROW_COUNT" -gt 0 ]]; then
-  while IFS= read -r row; do
-    [[ -z "$row" ]] && continue
-    # Split on |, trim each cell
-    IFS='|' read -ra CELLS <<< "$row"
-    # Cells indexes: 0 = leading empty, 1..N = data
-    id=$(echo "${CELLS[1]:-}" | sed 's/^ *//;s/ *$//')
-    persona=$(echo "${CELLS[2]:-}" | sed 's/^ *//;s/ *$//')
-    trigger=$(echo "${CELLS[3]:-}" | sed 's/^ *//;s/ *$//')
-    flow=$(echo "${CELLS[4]:-}" | sed 's/^ *//;s/ *$//')
-    success=$(echo "${CELLS[5]:-}" | sed 's/^ *//;s/ *$//')
-    priority=$(echo "${CELLS[6]:-}" | sed 's/^ *//;s/ *$//')
-
-    [[ -z "$persona" || "$persona" == "TBD" || "$persona" == "TODO" ]] && gap "incomplete-uc" "$id: missing persona"
-    [[ -z "$trigger" || "$trigger" == "TBD" || "$trigger" == "TODO" ]] && gap "incomplete-uc" "$id: missing trigger"
-    [[ -z "$flow" || "$flow" == "TBD" || "$flow" == "TODO" ]] && gap "incomplete-uc" "$id: missing main flow"
-    [[ -z "$success" || "$success" == "TBD" || "$success" == "TODO" ]] && gap "incomplete-uc" "$id: missing success criteria"
-    if ! [[ "$priority" =~ ^[Pp][012]$ ]]; then
-      gap "invalid-priority" "$id: priority='$priority' (expected P0, P1, or P2)"
-    fi
-  done <<< "$TABLE_ROWS"
+# ── Which fields do the detail sections already supply? ─────────────────────
+# Emphasis is stripped before matching so `**Priority:** P0` reads the same as
+# `Priority: P0`; markdown bold is normal authoring, not a defect.
+SECTION_FIELDS=""
+if [[ "$SECTION_COUNT" -gt 0 ]]; then
+  SECTION_FIELDS=$(awk '
+    { line = $0; gsub(/[*_`]+/, "", line) }
+    line ~ /[Pp]ersona[[:space:]]*:/                       { f["persona"]  = 1 }
+    line ~ /[Tt]rigger[[:space:]]*:/                       { f["trigger"]  = 1 }
+    line ~ /[Mm]ain[[:space:]]+[Ff]low|[Ff]low[[:space:]]*:|[Ss]teps[[:space:]]*:/ { f["flow"] = 1 }
+    line ~ /[Ss]uccess[[:space:]]*[Cc]riteria/             { f["success"]  = 1 }
+    line ~ /[Pp]riority[[:space:]]*:[[:space:]]*[Pp][012]/ { f["priority"] = 1 }
+    END { for (k in f) printf "%s ", k }
+  ' "$UC")
 fi
 
-# Validate section-form: each ## UC-NN must be followed by required subheadings within 50 lines
+section_supplies() { [[ " $SECTION_FIELDS " == *" $1 "* ]]; }
+
+# ── Table form: map columns by header name ──────────────────────────────────
+if [[ "$TABLE_ROW_COUNT" -gt 0 ]]; then
+  HEADER_LINE=$(printf '%s\n' "$UC_ROWS_WITH_HEADER" | head -n 1 | cut -f1)
+
+  # Build name→index map from the header cells.
+  idx_id=-1; idx_persona=-1; idx_trigger=-1; idx_flow=-1; idx_success=-1; idx_priority=-1
+  IFS='|' read -ra HCELLS <<< "$HEADER_LINE"
+  for i in "${!HCELLS[@]}"; do
+    h=$(printf '%s' "${HCELLS[$i]}" | sed 's/[*_`]//g; s/^ *//; s/ *$//')
+    [[ -z "$h" ]] && continue
+    shopt -s nocasematch
+    if   [[ "$h" =~ ^(id|uc|use[[:space:]-]?case)$ ]];        then idx_id=$i
+    elif [[ "$h" =~ (persona|actor) ]];                        then idx_persona=$i
+    elif [[ "$h" =~ trigger ]];                                then idx_trigger=$i
+    elif [[ "$h" =~ (main[[:space:]]*flow|^flow$|steps) ]];    then idx_flow=$i
+    elif [[ "$h" =~ success ]];                                then idx_success=$i
+    elif [[ "$h" =~ priority ]];                               then idx_priority=$i
+    fi
+    shopt -u nocasematch
+  done
+
+  HEADERS_FOUND=$(printf '%s' "$HEADER_LINE" | sed 's/^[[:space:]]*|//; s/|[[:space:]]*$//; s/[[:space:]]*|[[:space:]]*/, /g; s/^[[:space:]]*//; s/[[:space:]]*$//')
+
+  # A column that is absent from the header AND not supplied by sections is a
+  # single structural gap, reported once with the fix -- not N per-row gaps
+  # claiming content is "missing" when it was never being read.
+  for field in persona trigger flow success priority; do
+    eval "col=\$idx_$field"
+    if [[ "$col" -lt 0 ]] && ! section_supplies "$field"; then
+      case "$field" in
+        flow)    want="Main flow" ;;
+        success) want="Success criteria" ;;
+        *)       want="$(tr '[:lower:]' '[:upper:]' <<< "${field:0:1}")${field:1}" ;;
+      esac
+      gap "missing-uc-column" "USE_CASES.md: no '${want}' column in the use-case table and no '${want}:' line in the UC sections — - table headers found: [${HEADERS_FOUND}]. Add a '${want}' column, or give each '## UC-NN' section a '${want}:' line."
+    fi
+  done
+
+  while IFS=$'\t' read -r _hdr row; do
+    [[ -z "$row" ]] && continue
+    IFS='|' read -ra CELLS <<< "$row"
+    cell() { local n="$1"; [[ "$n" -lt 0 ]] && return 0; printf '%s' "${CELLS[$n]:-}" | sed 's/^ *//; s/ *$//'; }
+
+    id=$(cell "$idx_id"); [[ -z "$id" ]] && id=$(printf '%s' "$row" | grep -oE 'UC-[0-9]+' | head -1)
+
+    # Only judge a field when THIS table actually carries it. If the column is
+    # absent the structural gap above already said so; the sections may supply
+    # it, and re-reporting per row is what made this validator unactionable.
+    for field in persona trigger flow success; do
+      eval "col=\$idx_$field"
+      [[ "$col" -lt 0 ]] && continue
+      val=$(cell "$col")
+      if [[ -z "$val" || "$val" == "TBD" || "$val" == "TODO" ]]; then
+        case "$field" in
+          flow)    label="main flow" ;;
+          success) label="success criteria" ;;
+          *)       label="$field" ;;
+        esac
+        gap "incomplete-uc" "$id: missing $label"
+      fi
+    done
+
+    if [[ "$idx_priority" -ge 0 ]]; then
+      priority=$(cell "$idx_priority")
+      if ! [[ "$priority" =~ ^[Pp][012]$ ]]; then
+        gap "invalid-priority" "$id: priority='$priority' (expected P0, P1, or P2)"
+      fi
+    fi
+  done <<< "$UC_ROWS_WITH_HEADER"
+fi
+
+# ── Section form: each ## UC-NN (any depth) needs the required fields ────────
 if [[ "$SECTION_COUNT" -gt 0 ]]; then
   # Process substitution, NOT a pipe: `cmd | while read; do gap ...; done`
   # runs the loop in a subshell, silently losing gap()'s GAP_COUNT increment
@@ -80,7 +165,8 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
   while IFS=$'\t' read -r id key; do
     [[ -n "$id" ]] && gap "incomplete-uc-section" "$id: missing $key heading"
   done < <(awk '
-    /^## UC-[0-9]+/ {
+    { line = $0; gsub(/[*_`]+/, "", line) }
+    /^#{2,}[[:space:]]+UC-[0-9]+/ {
       if (current_id) {
         for (key in required) {
           if (!(key in seen)) {
@@ -89,8 +175,8 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
         }
       }
       delete seen
-      current_id = $0
-      sub(/^## /, "", current_id)
+      current_id = line
+      sub(/^#+[[:space:]]*/, "", current_id)
       sub(/[[:space:]].*/, "", current_id)
       required["persona"] = 1
       required["trigger"] = 1
@@ -99,11 +185,11 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
       required["priority"] = 1
       next
     }
-    /[Pp]ersona[[:space:]]*:/ { seen["persona"] = 1 }
-    /[Tt]rigger[[:space:]]*:/ { seen["trigger"] = 1 }
-    /[Mm]ain[[:space:]]+[Ff]low/ { seen["main"] = 1 }
-    /[Ss]uccess[[:space:]]+[Cc]riteria/ { seen["success"] = 1 }
-    /[Pp]riority[[:space:]]*:[[:space:]]*[Pp][012]/ { seen["priority"] = 1 }
+    line ~ /[Pp]ersona[[:space:]]*:/ { seen["persona"] = 1 }
+    line ~ /[Tt]rigger[[:space:]]*:/ { seen["trigger"] = 1 }
+    line ~ /[Mm]ain[[:space:]]+[Ff]low|[Ff]low[[:space:]]*:|[Ss]teps[[:space:]]*:/ { seen["main"] = 1 }
+    line ~ /[Ss]uccess[[:space:]]*[Cc]riteria/ { seen["success"] = 1 }
+    line ~ /[Pp]riority[[:space:]]*:[[:space:]]*[Pp][012]/ { seen["priority"] = 1 }
     END {
       if (current_id) {
         for (key in required) {
@@ -135,14 +221,15 @@ if [[ "$SECTION_COUNT" -gt 0 ]]; then
   while IFS= read -r id; do
     [[ -n "$id" ]] && gap "missing-source" "$id: no Source: or traceability reference (add 'Source: FR-NN / SC-NN / RK-NN')"
   done < <(awk '
-    /^## UC-[0-9]+/ {
+    { line = $0; gsub(/[*_`]+/, "", line) }
+    /^#{2,}[[:space:]]+UC-[0-9]+/ {
       if (current_id && !has_source) print current_id
-      current_id = $0; sub(/^## /, "", current_id); sub(/[[:space:]].*/, "", current_id)
+      current_id = line; sub(/^#+[[:space:]]*/, "", current_id); sub(/[[:space:]].*/, "", current_id)
       has_source = 0; next
     }
-    /[Ss]ource[[:space:]]*:/ { has_source = 1 }
-    /[Tt]race[[:space:]]*:/ { has_source = 1 }
-    /FR-[0-9]+/ { has_source = 1 }
+    line ~ /[Ss]ource[[:space:]]*:/ { has_source = 1 }
+    line ~ /[Tt]race[[:space:]]*:/  { has_source = 1 }
+    line ~ /FR-[0-9]+/              { has_source = 1 }
     END { if (current_id && !has_source) print current_id }
   ' "$UC")
 fi
