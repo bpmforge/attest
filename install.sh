@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# BPM OpenCode Experts — Installation Script
+# attest — Installation Script
 # Usage:
 #   ./install.sh              Install globally to ~/.config/opencode/
 #   ./install.sh --project    Install to current project's .opencode/
@@ -200,8 +200,11 @@ INSTALL_PLAYWRIGHT_MCP=true
 INSTALL_CODE_SEARCH=true
 INSTALL_GAME=true   # game-dev expert cluster (agents/game/* + game skill) — optional; default on for upgrade compatibility
 
+DO_UPDATE=false
+
 for arg in "$@"; do
   case $arg in
+    --update)               DO_UPDATE=true ;;
     --project)              MODE="project" ;;
     --compact)               COMPACT_AGENTS=true ;;
     --tools)                 INSTALL_TOOLS=true ;;
@@ -217,10 +220,11 @@ for arg in "$@"; do
     --game-experts)         INSTALL_GAME=true ;;
     --yes|-y)               : ;;  # non-interactive, accept all current defaults
     --help|-h)
-      echo "BPM OpenCode Experts — Installation"
+      echo "attest — Installation"
       echo ""
       echo "Usage:"
       echo "  ./install.sh                       Install globally to ~/.config/opencode/"
+      echo "  ./install.sh --update              Move this checkout to the newest release and reinstall"
       echo "  ./install.sh --project             Install to .opencode/ in current directory"
       echo "  ./install.sh --link                Symlink instead of copy (for development)"
       echo "  ./install.sh --opengrep            Also install Opengrep (preferred SAST engine) + community rule repos"
@@ -240,6 +244,71 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+# ─── --update: move this checkout to the newest release, then reinstall ───
+# One command for "get me the latest and be done". Deliberately refuses rather
+# than guesses when the checkout is not in a safe state to move.
+if [ "$DO_UPDATE" = true ] && [ "${EXPERTS_SELF_UPDATED:-0}" != "1" ]; then
+  cd "$SCRIPT_DIR"
+
+  if ! git rev-parse --git-dir >/dev/null 2>&1; then
+    echo "  ⚠️  --update needs a git checkout, and this directory has no git history."
+    echo "     (A downloaded .zip has no way to know what version it is.)"
+    echo "     Re-clone instead:  git clone https://github.com/bpmforge/attest.git"
+    exit 1
+  fi
+
+  # Only TRACKED edits block: a checkout preserves untracked files, and a
+  # previous `--project` install leaves .opencode/ + opencode.json sitting here.
+  # Refusing on those would make --update work exactly once.
+  if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
+    echo "  ⚠️  --update refused — you have uncommitted edits to tracked files:"
+    git status --short --untracked-files=no | head -n 10
+    echo ""
+    echo "     Updating would move you to another commit and lose them."
+    echo "     Commit, stash (git stash), or discard (git checkout -- .) first."
+    exit 1
+  fi
+
+  BEFORE="$(git describe --tags --always 2>/dev/null || echo 'unknown')"
+  echo "  Fetching releases..."
+
+  # A --depth 1 clone has no tag history to compare against; deepen it once.
+  if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+    git fetch --unshallow --tags --quiet 2>/dev/null || git fetch --tags --quiet || true
+  else
+    git fetch --tags --quiet || true
+  fi
+
+  LATEST="$(git tag -l 'v*' --sort=-v:refname | head -n 1)"
+  if [ -z "$LATEST" ]; then
+    echo "  ⚠️  no release tags found after fetching — leaving this checkout untouched."
+    echo "     Check the remote:  git remote -v"
+    exit 1
+  fi
+
+  if [ "$(git rev-parse HEAD)" = "$(git rev-parse "$LATEST^{commit}")" ]; then
+    echo "  Already on the latest release ($LATEST) — reinstalling to be sure."
+  else
+    echo "  Updating: $BEFORE → $LATEST"
+    if ! git checkout --quiet "$LATEST"; then
+      echo "  ⚠️  could not check out $LATEST — leaving this checkout untouched."
+      exit 1
+    fi
+  fi
+
+  # Re-exec so the NEWLY checked-out installer runs, not this (older) one.
+  # Everything except --update is passed through; a bare --update becomes
+  # non-interactive, since "update me" is not a request to be asked questions.
+  PASSTHRU=()
+  for arg in "$@"; do
+    [ "$arg" = "--update" ] || PASSTHRU+=("$arg")
+  done
+  [ ${#PASSTHRU[@]} -eq 0 ] && PASSTHRU=(--yes)
+
+  export EXPERTS_SELF_UPDATED=1
+  exec "$SCRIPT_DIR/install.sh" "${PASSTHRU[@]}"
+fi
 
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
@@ -277,7 +346,7 @@ if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
 fi
 
 if [ "$MODE" = "uninstall" ]; then
-  echo "Removing BPM OpenCode Experts..."
+  echo "Removing attest..."
   for dir in agents skills commands references exemplars tools hooks plugins scripts .semgrep; do
     rm -rf "$GLOBAL_DIR/$dir"
     rm -rf "$PROJECT_DIR/$dir"
@@ -298,7 +367,7 @@ fi
 
 mkdir -p "$DEST"
 
-echo "Installing BPM OpenCode Experts to $DEST/"
+echo "Installing attest to $DEST/"
 echo "Method: $METHOD"
 echo ""
 

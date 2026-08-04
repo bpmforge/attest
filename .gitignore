@@ -72,6 +72,10 @@ docs/db/
 logs/
 .opencode-loops/
 
+# Artifacts of running `./install.sh --project` from inside this checkout
+/.opencode/
+/opencode.json
+
 # Executor worktrees + validator/test scratch dirs (never committed)
 .worktrees/
 .tmp-wd-*/

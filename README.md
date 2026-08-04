@@ -1,4 +1,4 @@
-# BPM OpenCode Experts
+# attest
 
 Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 32 cluster specialists (security, code-review, performance, onboarding, game dev), 41 skills, a 4-mode SDLC workflow, full git lifecycle management, and 71 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
@@ -47,7 +47,19 @@ Common flags: `--project` (install into `.opencode/` instead of global), `--comp
 
 `Status: HEALTHY` means everything works. Re-run any time something feels broken.
 
-**Update:** `git pull && ./install.sh` (idempotent — re-running is always safe), then `doctor.sh` again. If you installed a tag, `git pull` does nothing — checkout the newer tag instead: `git fetch --tags && git checkout v<newer> && ./install.sh`.
+## Update
+
+One command, from your existing checkout:
+
+```bash
+./install.sh --update
+```
+
+It fetches releases, moves this checkout to the newest one, reinstalls, and tells you what it moved from and to. Works whether you're on `main` or pinned to an older tag, and it's safe to run when you're already current. Follow with `doctor.sh`.
+
+It stops without changing anything if you have uncommitted edits to tracked files, and shows you which — so it can't quietly discard your work. (Untracked files are left alone.)
+
+Prefer to track `main` by hand? `git pull && ./install.sh` still works — but note `git pull` is a silent no-op if you're on a tag, which is exactly the trap `--update` avoids.
 
 ## First command
 

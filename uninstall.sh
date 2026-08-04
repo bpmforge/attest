@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Removing BPM OpenCode Experts..."
+echo "Removing attest..."
 
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
@@ -18,7 +18,7 @@ for dir in agents skills commands references tools hooks scripts .semgrep; do
 done
 
 echo ""
-echo "Done. BPM OpenCode Experts has been removed."
+echo "Done. attest has been removed."
 echo "Note: Your AGENTS.md file was not touched. Remove it manually if desired."
 echo "Note: ~/.semgrep/rules/ community rule cache was NOT removed."
 echo "      Remove manually if desired:  rm -rf ~/.semgrep/rules/"
