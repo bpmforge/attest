@@ -31,7 +31,11 @@ export async function testTicketHygiene(
     root,
     "scripts/validators/validate-ticket-hygiene.sh",
   );
-  const IMPL_COMMIT = "80a9df70def0ccd7e5a80bbf3936e499aa45d695"; // adds ticket-hygiene.mjs + validate-ticket-hygiene.sh only
+  // Adds ticket-hygiene.mjs + validate-ticket-hygiene.sh only. This must stay a
+  // commit REACHABLE from a ref: a fresh clone only receives reachable objects,
+  // so a rewritten/orphaned SHA passes locally (the old object lingers in .git)
+  // while every clean clone and CI run fails. Re-point it after a history rewrite.
+  const IMPL_COMMIT = "1922115804f815926ebecdfdada121392b7a1a20";
 
   function oneModule(overrides: Record<string, unknown> = {}) {
     return {

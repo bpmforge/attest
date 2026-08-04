@@ -12,8 +12,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           # full history: ticket-hygiene evidence checks resolve fixture commits
-          # (e.g. 80a9df70) via `git cat-file`; the default depth-1 shallow clone
+          # (e.g. 19221158) via `git cat-file`; the default depth-1 shallow clone
           # makes them look "fabricated" and fails 3 tests (2026-07-12 CI fix).
+          # The fixture SHA must also stay REACHABLE — the 2026-07-30 history
+          # rewrite orphaned the previous one, which kept passing locally off a
+          # dangling object while every clean clone failed (2026-08-04 CI fix).
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
