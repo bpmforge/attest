@@ -198,3 +198,42 @@ export function testPluginExportContract(root: string, ok: Ok, fail: Fail) {
     );
   }
 }
+
+// -- persistence contract: every SDLC driver must be told not to stop early --
+// sdlc-lead.md was the ONLY mode file missing the persistence banner — and it
+// is the one agent whose whole job is driving the loop forward. The result:
+// on a model that ends turns eagerly, the lead ran the gates after a specialist
+// returned and then stopped, so the user had to type "continue" / "next steps"
+// to push it through the four scoring steps it already owed. Every other mode
+// and phase file carried the banner; nothing checked that they all did.
+export function testPersistenceContract(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const dir = path.join(root, "agents");
+  if (!fs.existsSync(dir)) {
+    ok("persistence contract: no agents/ directory");
+    return;
+  }
+  const drivers = fs
+    .readdirSync(dir)
+    .filter((f) => /^sdlc-.*\.md$/.test(f))
+    .sort();
+  const missing = drivers.filter(
+    (f) =>
+      !fs
+        .readFileSync(path.join(dir, f), "utf8")
+        .includes("Persistence (do not end your turn early)"),
+  );
+  if (missing.length === 0) {
+    ok(
+      `persistence contract: all ${drivers.length} SDLC driver file(s) carry the do-not-stop-early rule`,
+    );
+  } else {
+    fail(
+      "persistence contract: every SDLC driver carries the do-not-stop-early rule",
+      `${missing.join(", ")} — an SDLC driver without it ends its turn mid-loop and the user has to push it through steps it already owed`,
+    );
+  }
+}
