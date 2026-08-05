@@ -109,14 +109,34 @@ while IFS=$'\t' read -r hdr row; do
 
   MATRIX_UC_IDS="$MATRIX_UC_IDS $uc_id"
 
-  # Determine if this is P0 (row contains P0 or the UC is flagged P0 in USE_CASES.md)
+  # Determine if this is P0. Read the priority from the use case's OWN row or
+  # OWN section -- never a line window.
+  #
+  # This used to be `grep -A5 "$uc_id" | grep -q P0`, and a 5-line window in a
+  # UC index table reaches the NEXT FOUR use cases' rows. Any P0 neighbour
+  # promoted a P1/P2 case to P0. Against a real 19-case catalog that reported
+  # 18 P0 where the truth is 14 (UC-007/012/013/019 are P1, UC-018 is P2) --
+  # while validate-sequence-coverage.sh, reading the same file, said 14. Two
+  # validators disagreeing about the same set is the tell. The effect is
+  # false strictness: P0-grade Test+Status evidence demanded from cases the
+  # author deliberately ranked lower.
   is_p0=0
   if printf '%s' "$row" | grep -qiE '\bP0\b'; then
     is_p0=1
   elif [[ -n "$UC_FILE" ]]; then
-    if grep -qE "$uc_id" "$UC_FILE" && grep -A5 "$uc_id" "$UC_FILE" 2>/dev/null | grep -qiE '\bP0\b'; then
-      is_p0=1
+    uc_prio=""
+    # 1) the id's own table row
+    own_row="$(grep -m1 -E "^[[:space:]]*\|[[:space:]]*${uc_id}[[:space:]]*\|" "$UC_FILE" 2>/dev/null || true)"
+    [[ -n "$own_row" ]] && uc_prio="$(printf '%s' "$own_row" | grep -oiE '\bP[012]\b' | head -1 || true)"
+    # 2) else the id's own section, stopping at the next heading
+    if [[ -z "$uc_prio" ]]; then
+      uc_prio="$(awk -v id="$uc_id" '
+        $0 ~ "^#+[[:space:]]+" id "([^0-9]|$)" { inSec = 1; next }
+        inSec && /^#+[[:space:]]/ { exit }
+        inSec { print }
+      ' "$UC_FILE" 2>/dev/null | grep -oiE '\bP[012]\b' | head -1 || true)"
     fi
+    [[ "$uc_prio" =~ ^[Pp]0$ ]] && is_p0=1
   fi
 
   [[ "$is_p0" -eq 0 ]] && continue
