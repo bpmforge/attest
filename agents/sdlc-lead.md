@@ -152,6 +152,33 @@ Never call the `skill` tool for delegation. If git operations are simple (one co
 | `/sdlc status` | Show current state | (in-line) |
 | `/sdlc resume` | Continue after clearing context | reads `docs/work/STATE.md` (see `agents/shared/CHECKPOINT_STATE.md`) |
 | `/sdlc gate` | Check phase exit criteria | calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh` |
+| `/sdlc hygiene` | Clean a silted `docs/work/` | calls `~/.config/opencode/scripts/sdlc-hygiene.sh` |
+
+## `/sdlc hygiene` — the working tree filled up with scaffolding
+
+A long SDLC run silts up `docs/work/`. `HANDOFF_*`, `TASKS_*`, `context-for-*`,
+`sdlc-state.md` and `COVERAGE_LOOP_*` are regenerated every run and read from
+disk, never from git — and **no handoff owns them**: you write them, the
+specialist consumes them, so nobody ever commits them. They accumulate until
+`git status` is unreadable. Worse, the actual audit trail (manifests, review
+reports, gate receipts) ends up buried untracked in the same pile, which is the
+part that can genuinely be lost.
+
+Run it whenever `git status` has drifted, and before any phase checkpoint:
+
+```bash
+~/.config/opencode/scripts/sdlc-hygiene.sh              # DRY RUN — reports, changes nothing
+~/.config/opencode/scripts/sdlc-hygiene.sh --commit     # fix + checkpoint in one commit
+```
+
+It gitignores the ephemeral, commits the durable, and **never deletes anything
+from disk** — it only removes files from the git index, so an in-flight run is
+unaffected. Idempotent: a healthy project is a no-op, exit 0. Dry run exits 1
+when there is something to fix, so it is safe to chain in a check.
+
+Do NOT hand-fix this by committing the scaffolding: it comes straight back on
+the next handoff. New projects get the rules from `git-expert --init`; this
+script is for projects created before that, or which drifted.
 
 ## `/sdlc resume` — pick up after a context clear
 
