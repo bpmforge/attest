@@ -11,11 +11,13 @@
 #                 disk (T27.2 v2: files exist, verify cites a real artifact,
 #                 maker != verifier)
 #   3. Coverage — domain-specific validator (optional)
-#   4. Tracker  — tracker-worthy work changed a tracker file (T27.2; per-step
-#                 mode against HEAD -- the working tree at resume time is
-#                 exactly the diff validate-tracker-fresh.sh needs, unlike
-#                 the phase-gate's static content checks where a --base ref
-#                 comparison wouldn't have anything meaningful to diff against)
+#   4. Tracker  — tracker-worthy work changed a tracker file (T27.2). Compared
+#                 against the branch point (--since), NOT the working tree.
+#                 Per-step-against-HEAD was the original design and it was
+#                 wrong: in an SDLC run the tree holds other steps' uncommitted
+#                 deliverables while this step's tracker is already committed,
+#                 so the gate fails on a tracker that WAS updated. See the
+#                 comment at the gate itself.
 #   5. Runtime  — build + lint (optional, --runtime flag; coding-agent HANDOFFs)
 #
 # Usage:
@@ -186,13 +188,40 @@ else
 fi
 
 # ── Gate 4: tracker (T27.2) ─────────────────────────────────────────────────
-# Per-step mode (no --base): compares the working tree against HEAD, which at
-# resume time IS the uncommitted footprint of the HANDOFF that just returned.
+# Per-step mode was WRONG here and blocked real work for a day. It compares the
+# working tree against HEAD on the assumption that the tree is the returning
+# HANDOFF's own uncommitted footprint. In an SDLC run it is not: handoffs share
+# docs/work/ and docs/reviews/, deliverables from earlier steps sit uncommitted,
+# and a git-expert checkpoint commits the tracker. The tracker then vanishes
+# from `git diff HEAD` while 100+ unrelated dirty files remain, so the gate
+# reports "no tracker updated" about a tracker that was updated and committed
+# minutes earlier -- with nothing this step can edit to clear it. handoff-done.sh
+# requiring a step to COMMIT what it owns is precisely what triggers it.
+#
+# Scoping to --scope does not help: the shared directories ARE the scope.
+# So compare against the branch point instead, where the committed trackers
+# actually are. The per-step question ("did THIS step record itself?") is
+# already answered, correctly scoped, by the manifest gate above --
+# validate-completion-manifest.sh enforces the mandatory `Tracker updated:`
+# line. This gate's distinct job is the physical one: a tracker file really
+# changed somewhere in this run, not merely that a manifest claimed it.
+TRACKER_SINCE=""
+for _cand in main master; do
+  if git -C "$ROOT" rev-parse --verify --quiet "$_cand" >/dev/null 2>&1; then
+    _mb=$(git -C "$ROOT" merge-base HEAD "$_cand" 2>/dev/null || true)
+    if [[ -n "$_mb" && "$_mb" != "$(git -C "$ROOT" rev-parse HEAD 2>/dev/null)" ]]; then
+      TRACKER_SINCE="$_mb"; break
+    fi
+  fi
+done
+_tracker_args=("$ROOT")
+[[ -n "$TRACKER_SINCE" ]] && _tracker_args+=(--since "$TRACKER_SINCE")
+
 printf '\n%s== GATE: TRACKER ==%s\n' "$_BOLD" "$_RESET" >&2
-if bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" > /dev/null 2>&1; then
+if bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "${_tracker_args[@]}" > /dev/null 2>&1; then
   pass "tracker gate clean"
 else
-  bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "$ROOT" 2>&1 | tail -20 >&2 || true
+  bash "$VALIDATORS_DIR/validate-tracker-fresh.sh" "${_tracker_args[@]}" 2>&1 | tail -20 >&2 || true
   gate_fail "tracker" "work changed but no tracker file updated" \
     "record this step in SDLC_TRACKER.md / PROGRESS.md / DELEGATION_LOG.md / CHANGELOG.md"
 fi

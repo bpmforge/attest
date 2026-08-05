@@ -16,6 +16,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
 import { execFileSync, spawnSync } from "child_process";
 
 export async function testTruthfulCompletion(
@@ -449,6 +450,80 @@ export async function testTruthfulCompletion(
         fail(
           "run-handoff-gates — Tracker gate (after)",
           `exit=${after.exitCode} stdout=${after.stdout.slice(0, 400)}`,
+        );
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+
+    // -- validate-tracker-fresh --since: the SDLC-shaped case ---------------
+    // Per-step mode compares the tree to HEAD, which assumes the tree is ONE
+    // step's footprint. In an SDLC run it is not: handoffs share docs/work/
+    // and docs/reviews/, a git-expert checkpoint COMMITS the tracker, and
+    // other steps' deliverables stay dirty. The tracker then leaves
+    // `git diff HEAD` while the work does not, so the gate failed on a
+    // tracker that was updated and committed minutes earlier — unclearable,
+    // because the dirty files belonged to other steps (coreweave, 2026-08-04:
+    // 114 dirty files, gate red all day). --since counts the branch's commits
+    // too. These three cases pin the fix in both directions.
+    {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "tracker-since-"));
+      const git = (...args: string[]) =>
+        execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+      git("init", "-qb", "main");
+      git("config", "user.email", "t@t");
+      git("config", "user.name", "t");
+      fs.writeFileSync(path.join(dir, "README.md"), "x\n");
+      git("add", "-A");
+      git("commit", "-qm", "init");
+      git("checkout", "-qb", "sdlc/setup");
+      fs.mkdirSync(path.join(dir, "docs", "work"), { recursive: true });
+
+      const base = () => git("merge-base", "HEAD", "main").trim();
+      const run = () =>
+        spawnSync(
+          "/bin/bash",
+          [
+            path.join(root, "scripts/validators/validate-tracker-fresh.sh"),
+            "--since",
+            base(),
+            dir,
+          ],
+          { encoding: "utf8" },
+        );
+
+      // 1. Dirty work, no tracker anywhere -> must still FAIL (the check's
+      //    whole point; --since must not become a blanket pass).
+      fs.writeFileSync(path.join(dir, "docs", "SRS.md"), "spec\n");
+      const noTracker = run();
+      // 2. Commit the work AND a tracker -> clean tree, nothing to track.
+      fs.writeFileSync(
+        path.join(dir, "docs", "work", "DELEGATION_LOG.md"),
+        "log\n",
+      );
+      git("add", "-A");
+      git("commit", "-qm", "work + record it");
+      const committed = run();
+      // 3. The coreweave shape and the actual regression: the tracker is
+      //    COMMITTED (so absent from `git diff HEAD`) while other steps'
+      //    deliverables sit dirty. Per-step mode called this "no tracker
+      //    updated" and no edit could clear it. Must PASS.
+      fs.writeFileSync(path.join(dir, "docs", "UNRELATED.md"), "junk\n");
+      fs.writeFileSync(path.join(dir, "docs", "OTHER.md"), "more\n");
+      const dirtyUnrelated = run();
+
+      if (
+        noTracker.status === 1 &&
+        noTracker.stdout.includes("tracker-stale") &&
+        committed.status === 0 &&
+        dirtyUnrelated.status === 0
+      )
+        ok(
+          "tracker-fresh --since: still fails on dirty work with no tracker, and stops false-failing when the tracker is committed while other steps\u2019 files sit dirty",
+        );
+      else
+        fail(
+          "tracker-fresh --since",
+          `noTracker=${noTracker.status} committed=${committed.status} dirtyUnrelated=${dirtyUnrelated.status}`,
         );
 
       fs.rmSync(dir, { recursive: true, force: true });
