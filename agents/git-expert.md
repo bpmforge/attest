@@ -474,11 +474,31 @@ docs/work/verify-baseline.txt          # pass-count + failure-signature baseline
 **/docs/work/session-receipts.jsonl    # session model receipts (this machine only)
 **/docs/work/watchdog-events.jsonl     # run-until-done kill checkpoints
 **/docs/work/run-until-done.log        # run-until-done session log
+# SDLC orchestration scaffolding — regenerated per handoff, read from disk not git
+**/docs/work/HANDOFF_*.md              # the handoff contract, re-issued each run
+**/docs/work/TASKS_*.md                # per-agent step ledger, valid for one run
+**/docs/work/context-for-*.md          # context packet assembled per handoff
+**/docs/work/sdlc-state.md             # resume pointer, rewritten constantly
+**/docs/work/COVERAGE_LOOP_*.md        # gate iteration counter, per phase per day
 ```
 
 The `**/` forms are deliberate: validators and the harness write these under any
 root they are pointed at, including fixture directories, so a root-anchored
 pattern misses them.
+
+**Durable vs ephemeral in `docs/work/`.** The scaffolding block above is the
+difference between a repo that stays clean and one that accumulates hundreds of
+untracked files. A real SDLC run produced 99 untracked files, 88 of them
+`HANDOFF_*` / `TASKS_*` / `context-for-*`, because no single handoff *owns* the
+orchestration scaffolding — the lead writes it, the specialist consumes it, and
+nobody commits it. It is regenerated every run and read from disk, never from
+git, so ignoring it loses nothing.
+
+What stays COMMITTED, because it is the audit trail: `DELEGATION_LOG.md`,
+`SDLC_TRACKER.md`, `PROGRESS.md`, `APPROVALS.md`, `LESSONS.md`, `SDLC_AUDIT.md`,
+`docs/work/gates/*-receipt.json` (the prereq chain verifies these), and every
+`docs/reviews/MANIFEST_*.md` and review report. If you cannot answer "who did
+what, and what proved it" from those alone, commit more — not the scaffolding.
 
 ### `--feature`
 Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
