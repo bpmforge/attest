@@ -323,3 +323,58 @@ export function testChallengerContract(
     );
   }
 }
+
+// -- installer preflight contract -------------------------------------------
+// Two real bugs this pins, both made while writing the preflight itself:
+//   1. ensure_tool CALLED before its definition -> "command not found", and
+//      every dependency check silently did nothing.
+//   2. the preflight placed AFTER the Node check -> nvm is downloaded with
+//      curl, so a fresh WSL image failed to bootstrap Node with a bare
+//      command-not-found before curl was ever offered.
+// A fresh machine is exactly where this matters and exactly where nobody
+// tests, so the ordering is asserted rather than trusted.
+export function testInstallerPreflightContract(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const f = path.join(root, "install.sh");
+  if (!fs.existsSync(f)) {
+    ok("installer preflight contract: no install.sh");
+    return;
+  }
+  const text = fs.readFileSync(f, "utf8");
+  const problems: string[] = [];
+
+  const defAt = text.indexOf("ensure_tool() {");
+  const firstCall = text.search(/^\s*ensure_tool /m);
+  if (defAt === -1) problems.push("ensure_tool() is not defined");
+  else if (firstCall !== -1 && firstCall < defAt)
+    problems.push("ensure_tool is called before it is defined");
+
+  for (const tool of ["git", "jq"]) {
+    if (!new RegExp(`ensure_tool ${tool}\\b`).test(text))
+      problems.push(`no ensure_tool check for ${tool}`);
+  }
+  if (!/ensure_tool curl\b/.test(text))
+    problems.push("no ensure_tool check for curl");
+
+  // curl must be settled before Node is bootstrapped, since nvm is downloaded.
+  const nodeCheck = text.indexOf('echo -n "Checking Node version... "');
+  const toolCheck = text.indexOf('echo "Checking required tools..."');
+  if (nodeCheck !== -1 && toolCheck !== -1 && toolCheck > nodeCheck)
+    problems.push(
+      "tool preflight runs after the Node check — nvm needs curl, so a machine without it cannot install Node",
+    );
+
+  // A skipped MCP registration must not still report success.
+  if (!/MCP_REGISTRATION_SKIPPED/.test(text))
+    problems.push("no MCP_REGISTRATION_SKIPPED tracking — a build-but-not-register run would report success");
+
+  if (problems.length === 0)
+    ok(
+      "installer preflight contract: git/jq/curl are ensured, helpers precede their calls, and tools are checked before the Node bootstrap",
+    );
+  else
+    fail("installer preflight contract", problems.join("; "));
+}
