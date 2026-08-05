@@ -658,6 +658,66 @@ export async function testTruthfulCompletion(
 
       fs.rmSync(dir, { recursive: true, force: true });
     }
+    // -- P0 detection must read the case's OWN priority, not a line window --
+    // `grep -A5 "$uc_id" | grep -q P0` reaches the next four rows of a UC index
+    // table, so any P0 neighbour promoted a P1/P2 case to P0. On a real
+    // 19-case catalog that produced 18 P0 against a true 14 — while
+    // validate-sequence-coverage.sh, reading the same file, said 14.
+    {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "p0-bleed-"));
+      fs.mkdirSync(path.join(dir, "docs", "work"), { recursive: true });
+      // UC-002 is P1 but sits between two P0 rows — the bleed case.
+      fs.writeFileSync(
+        path.join(dir, "docs", "USE_CASES.md"),
+        [
+          "# Use Cases",
+          "",
+          "| Use Case | Story | Priority |",
+          "|---|---|---|",
+          "| UC-001 | US-001 | P0 |",
+          "| UC-002 | US-002 | P1 |",
+          "| UC-003 | US-003 | P0 |",
+          "",
+        ].join("\n"),
+      );
+      // UC-002's Status is deliberately empty: if it is wrongly judged P0 the
+      // validator gaps on it, which is exactly the false strictness at issue.
+      fs.writeFileSync(
+        path.join(dir, "docs", "work", "REQUIREMENTS_MATRIX.md"),
+        [
+          "# Matrix",
+          "",
+          "| FR | UC | Test | Status |",
+          "|---|---|---|---|",
+          "| FR-001 | UC-001 | t/a.spec.ts | OPEN |",
+          "| FR-002 | UC-002 | t/b.spec.ts |  |",
+          "| FR-003 | UC-003 | t/c.spec.ts | OPEN |",
+          "",
+        ].join("\n"),
+      );
+      const r = spawnSync(
+        "/bin/bash",
+        [
+          path.join(root, "scripts/validators/validate-requirements-matrix.sh"),
+          dir,
+        ],
+        { encoding: "utf8" },
+      );
+      // pass/gap lines go to stderr; only the JSON summary is on stdout.
+      const out = `${r.stdout || ""}${r.stderr || ""}`;
+      const judged = [...out.matchAll(/UC-(\d+) \(P0\)/g)].map((m) => m[1]);
+      const uniq = [...new Set(judged)].sort();
+      if (r.status === 0 && uniq.join(",") === "001,003")
+        ok(
+          "requirements-matrix: P0 is read from the use case's own row, so a P1 case between two P0 rows is not promoted by its neighbours",
+        );
+      else
+        fail(
+          "requirements-matrix P0 bleed",
+          `status=${r.status} judgedP0=${JSON.stringify(uniq)} (expected 001,003)`,
+        );
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("truthful-completion", `unexpected failure: ${message}`);
