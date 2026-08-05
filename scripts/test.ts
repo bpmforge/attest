@@ -80,6 +80,8 @@ import { testVerifyVerdicts } from "./test-verify-verdicts.ts";
 import {
   testGateOutputContract,
   testPersistenceContract,
+  testCoverageLoopContract,
+  testChallengerContract,
   testPluginExportContract,
 } from "./test-gate-output-contract.ts";
 import { testConductorSuite } from "./test-conductor-suite.ts";
@@ -701,6 +703,8 @@ console.log(
 );
 testGateOutputContract(root, ok, fail);
 testPersistenceContract(root, ok, fail);
+testCoverageLoopContract(root, ok, fail);
+testChallengerContract(root, ok, fail);
 testPluginExportContract(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why

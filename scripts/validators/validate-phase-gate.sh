@@ -98,11 +98,6 @@ populate_phase_artifacts() {
         "validate-tech-stack.sh"
         "validate-adrs.sh"
         "validate-security-controls.sh"
-        # T29.5: an ADR/design doc asserting an unverified external rationale
-        # (compliance/supply-chain/legal/vendor mandate) must not clear Phase
-        # 3 -- wired here (not just Phase 5) so the design doc is not
-        # considered final while an external claim is still unverified.
-        "validate-challenger-gate.sh"
         # T29.6: spec-before-backlog -- a project generating its backlog into
         # an external tracker must record docs/TRACKER_DATA_MODEL.md BEFORE
         # docs/work/tracker-snapshot.json exists. No-op for projects using
@@ -148,11 +143,6 @@ populate_phase_artifacts() {
         # scope math) -- the external-tracker analog of validate-tickets.sh
         # above, which only covers the internal plan.json layer.
         "validate-tracker-integrity.sh"
-        # Per-ticket adversarial check: a FIX_BACKLOG with HIGH/CRITICAL findings
-        # must have a matching CHALLENGE_REPORT with no unresolved CONTRADICTED
-        # verdicts before the module gate passes (G1 — was only at phase-3/phase-5,
-        # so a coding-wave backlog got remediated with no veracity check).
-        "validate-challenger-gate.sh"
       )
       # UI-bearing: validate design system was implemented
       if [[ -f "$ROOT/docs/design/UX_SPEC.md" ]]; then
@@ -169,7 +159,6 @@ populate_phase_artifacts() {
         "validate-deps.sh"
         "validate-smoke.sh"
         "validate-fix-backlog-closed.sh"
-        "validate-challenger-gate.sh"
         "validate-model-pins.sh"
         "validate-code-health.sh"
         "validate-dead-code.sh"
@@ -204,7 +193,19 @@ populate_phase_artifacts() {
       )
       ;;
     security-deep)
-      GATE_VALIDATORS=("validate-owasp.sh")
+      GATE_VALIDATORS=(
+        "validate-owasp.sh"
+        # A deep review that never looks at dependencies is not deep: CVEs in
+        # transitive packages are the most common real finding and the cheapest
+        # to check. Skips clean when there is no lockfile.
+        "validate-deps.sh"
+      )
+      # NOT validate-security-controls.sh, deliberately: it hard-fails without
+      # docs/SECURITY_CONTROLS.md, which is a PHASE 3 design deliverable
+      # (security-auditor.md "Bootstrap & Empty-State Checklist"). A code-level
+      # `/security --deep` against an arbitrary repo never produces it, so
+      # chaining it here would fail every audit outside an SDLC project -- a
+      # gate demanding an artifact its own mode does not create.
       ;;
     feature)
       GATE_VALIDATORS=("validate-feature-coverage.sh")
@@ -216,6 +217,28 @@ populate_phase_artifacts() {
       fatal "unknown phase: $phase"
       ;;
   esac
+
+  # ── Challenger is SYSTEMIC, not per-phase ────────────────────────────────
+  # It was hand-listed in phase-3/4/5 only, which is exactly how security-deep
+  # and onboard-deep -- the two modes that generate the MOST unverified claims
+  # -- ended up without it. A per-phase list means every new mode silently
+  # starts unchallenged, and nobody notices until a confabulated HIGH sends
+  # someone to fix nothing.
+  #
+  # Appending it everywhere is free where there is nothing to challenge: the
+  # validator is a no-op unless some review / FIX_BACKLOG / security report in
+  # the project carries a HIGH or CRITICAL finding, or asserts an unverified
+  # external rationale. Verified exit 0 on a bare repo.
+  #
+  # Only for phases that already chain validators. A phase with none (0, 1) is
+  # a file-existence check over narrative artifacts -- there are no findings
+  # there to challenge, and adding a validator would change its receipt.
+  if [[ ${#GATE_VALIDATORS[@]} -gt 0 ]]; then
+    case " ${GATE_VALIDATORS[*]} " in
+      *" validate-challenger-gate.sh "*) : ;;
+      *) GATE_VALIDATORS+=("validate-challenger-gate.sh") ;;
+    esac
+  fi
 
   # A GATE_FILES entry may list alternates as "a|b" when an artifact has more
   # than one canonical home. Resolve to whichever exists (first alternate if

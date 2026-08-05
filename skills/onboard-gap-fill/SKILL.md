@@ -14,7 +14,7 @@ Takes the gap list from `/onboard-verify` and emits ONE focused HANDOFF per gap 
 
 ## What it does
 
-1. Read the latest gap list (either from `/onboard-verify` output or by running `validate-phase-gate.sh onboard-deep` again)
+1. Read the latest gap list — from `docs/work/COVERAGE_LOOP_onboard-deep_<date>.md`, or by re-running `run-coverage-loop.sh onboard-deep` (the wrapper: it records the gap list AND the iteration count, so a gap-fill round that changes nothing is caught as exit 3 instead of looping)
 2. For each gap, map the category -> agent:
    - `ROUTE` missing -> `api-designer`
    - `TABLE` missing -> `db-architect`

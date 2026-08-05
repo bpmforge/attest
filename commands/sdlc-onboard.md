@@ -13,7 +13,7 @@ Onboard to this existing codebase by following the SDLC Lead agent Mode 2 method
   Standard 7-step pass FOLLOWED BY a lightweight inventory loop that enumerates every ROUTE and TABLE in the codebase, then runs `validate-api-coverage.sh` + `validate-erd-coverage.sh` to confirm every route is documented in API_DESIGN.md / openapi.yaml and every table is in the ERD. ~25–35 min. Catches the most common onboarding gaps without going to full Ralph.
 
 - `/sdlc onboard --deep`
-  Standard pass + the full Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`). Enumerates every ROUTE / TABLE / SERVICE / FLOW / ENTRY as an inventory row, then discovers one artifact per row and blocks until `validate-phase-gate.sh onboard-deep` exits clean (or 3 iterations exhausted → escalation). ~45–90 min. Use before contract bids, diligence, or security-sensitive takeovers.
+  Standard pass + the full Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`). Enumerates every ROUTE / TABLE / SERVICE / FLOW / ENTRY as an inventory row, then discovers one artifact per row and blocks until `run-coverage-loop.sh onboard-deep` exits clean (or 3 iterations exhausted → escalation). The wrapper is what counts those iterations — the bare gate does not, so naming it here promised a cap nothing enforced. ~45–90 min. Use before contract bids, diligence, or security-sensitive takeovers.
 
 ## Quick pass (7 steps — runs in all three modes)
 
@@ -39,7 +39,7 @@ This catches the two highest-value gaps (undocumented routes, undocumented table
 
 D1. **Inventory** — `docs/onboard/INVENTORY.md` with ALL 5 categories: ROUTE / TABLE / SERVICE / FLOW / ENTRY.
 D2. **Discover** — parallel waves produce one artifact per inventory row.
-D3. **Verify** — `validate-phase-gate.sh onboard-deep` must exit 0.
+D3. **Verify** — `run-coverage-loop.sh onboard-deep` must exit 0.
 D4. **Gap-fill** — focused gap-fill HANDOFFs for uncovered rows only.
 D5. **Repeat** — up to 3 iterations; escalate if still gapped.
 

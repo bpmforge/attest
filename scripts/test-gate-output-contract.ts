@@ -237,3 +237,89 @@ export function testPersistenceContract(
     );
   }
 }
+
+// -- loop contract: a validator-bearing phase is driven by the WRAPPER --------
+// validate-phase-gate.sh has no iteration counter. Calling it directly to drive
+// a repair loop is how coreweave's Phase 2 ran ~12 remediation rounds when the
+// cap is 3 — nothing was counting, so every round looked like progress. The
+// wrapper (run-coverage-loop.sh) is the only path that counts, caps, and halts
+// on a no-progress round. Read-only surfaces may still call the gate directly:
+// they report a result, they do not drive a loop.
+const LOOP_READONLY_ALLOWED = [
+  "skills/gate/SKILL.md",              // /sdlc gate — one-off status check
+  "skills/onboard-verify/SKILL.md",    // /onboard-verify — reports uncovered rows
+  "commands/sdlc-gate.md",             // slash-command wrapper for the same
+  "agents/shared/SDLC_RESUME_PROTOCOL.md", // gate-verifies claimed-complete phases
+  "agents/shared/RALPH_WIGGUM_LOOP.md",    // documents what the wrapper runs
+  "agents/sdlc-lead.md",               // /sdlc gate row + resume verification
+];
+
+export function testCoverageLoopContract(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const roots = ["agents", "skills", "commands"];
+  const offenders: string[] = [];
+  const walk = (d: string): string[] => {
+    if (!fs.existsSync(d)) return [];
+    return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => {
+      const full = path.join(d, e.name);
+      if (e.isDirectory()) return walk(full);
+      return e.isFile() && e.name.endsWith(".md") ? [full] : [];
+    });
+  };
+  for (const r of roots) {
+    for (const file of walk(path.join(root, r))) {
+      const rel = path.relative(root, file);
+      if (LOOP_READONLY_ALLOWED.includes(rel)) continue;
+      const text = fs.readFileSync(file, "utf8");
+      // A phase argument after the gate = driving a phase, not a bare mention.
+      const m = text.match(
+        /validate-phase-gate\.sh\s+(phase-[0-9.]+|onboard-deep|security-deep|feature|improve)/g,
+      );
+      if (m) offenders.push(`${rel} → ${[...new Set(m)].join(", ")}`);
+    }
+  }
+  if (offenders.length === 0) {
+    ok(
+      "coverage-loop contract: every phase-driving call goes through run-coverage-loop.sh, not the uncounted gate",
+    );
+  } else {
+    fail(
+      "coverage-loop contract: every phase-driving call goes through run-coverage-loop.sh",
+      offenders.join("; ") +
+        " — the bare gate has no iteration counter, so a repair loop there is unbounded (coreweave Phase 2: ~12 rounds against a cap of 3). Use run-coverage-loop.sh, or add the file to LOOP_READONLY_ALLOWED if it only reports.",
+    );
+  }
+}
+
+// -- challenger contract: no mode may be silently unchallenged ---------------
+// It used to be hand-listed per phase, so security-deep and onboard-deep — the
+// two modes producing the most unverified claims — had none. It is appended
+// systemically now; this pins that it stays that way.
+export function testChallengerContract(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const gate = path.join(root, "scripts/validators/validate-phase-gate.sh");
+  if (!fs.existsSync(gate)) {
+    ok("challenger contract: no phase gate");
+    return;
+  }
+  const text = fs.readFileSync(gate, "utf8");
+  const systemic =
+    /GATE_VALIDATORS\+=\("validate-challenger-gate\.sh"\)/.test(text) &&
+    /\$\{#GATE_VALIDATORS\[@\]\} -gt 0/.test(text);
+  if (systemic) {
+    ok(
+      "challenger contract: the challenger gate is appended systemically to every validator-bearing phase, not hand-listed per mode",
+    );
+  } else {
+    fail(
+      "challenger contract: challenger appended systemically",
+      "validate-phase-gate.sh no longer appends validate-challenger-gate.sh to every validator-bearing phase — a per-phase list is how security-deep and onboard-deep ended up unchallenged",
+    );
+  }
+}
