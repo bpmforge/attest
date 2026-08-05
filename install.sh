@@ -132,6 +132,82 @@ echo -n "Checking Node version... "
 check_node_version
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Package manager abstraction + tool preflight ─────────────────────────────
+# Field lesson: the installer cloned, built, and SMOKE-TESTED every MCP, then
+# skipped registering them because `jq` was absent -- printing paste-this-JSON
+# into the middle of a long log and exiting 0. Everything looked installed and
+# nothing connected in opencode. A dependency that gates a step must be checked
+# BEFORE the step, offered, and failed loudly if still missing -- not discovered
+# halfway through and worked around silently.
+#
+# Linux coverage is deliberately wider than apt: WSL images ship Debian/Ubuntu,
+# but Fedora/RHEL (dnf), Arch (pacman), Alpine (apk) and SUSE (zypper) all show
+# up in practice, and "install it yourself" is exactly the awkward manual step
+# this is meant to remove.
+detect_pkg_mgr() {
+  if command -v brew    &>/dev/null; then echo brew
+  elif command -v apt-get &>/dev/null; then echo apt
+  elif command -v dnf     &>/dev/null; then echo dnf
+  elif command -v yum     &>/dev/null; then echo yum
+  elif command -v pacman  &>/dev/null; then echo pacman
+  elif command -v zypper  &>/dev/null; then echo zypper
+  elif command -v apk     &>/dev/null; then echo apk
+  else echo ""; fi
+}
+
+pkg_install_cmd() {
+  local mgr="$1"; shift
+  case "$mgr" in
+    brew)   echo "brew install $*" ;;
+    apt)    echo "sudo apt-get update && sudo apt-get install -y $*" ;;
+    dnf)    echo "sudo dnf install -y $*" ;;
+    yum)    echo "sudo yum install -y $*" ;;
+    pacman) echo "sudo pacman -S --noconfirm $*" ;;
+    zypper) echo "sudo zypper install -y $*" ;;
+    apk)    echo "sudo apk add $*" ;;
+    *)      echo "" ;;
+  esac
+}
+
+# ensure_tool <binary> <why it is needed> [package name, if different]
+# Returns 0 if the tool is present (or was just installed), 1 otherwise.
+ensure_tool() {
+  local bin="$1" why="$2" pkg="${3:-$1}"
+  command -v "$bin" &>/dev/null && { echo "  $bin ✓"; return 0; }
+
+  local mgr cmd
+  mgr="$(detect_pkg_mgr)"
+  cmd="$(pkg_install_cmd "$mgr" "$pkg")"
+
+  echo ""
+  echo "  ⚠️  $bin not found — needed to $why."
+  if [ -z "$cmd" ]; then
+    echo "     No supported package manager detected (brew/apt/dnf/yum/pacman/zypper/apk)."
+    echo "     Install $pkg manually, then re-run ./install.sh"
+    return 1
+  fi
+
+  echo "     Install with: $cmd"
+  if [ -t 0 ]; then
+    printf "  Run that now%s? [Y/n]: " "$([ "$mgr" = brew ] && echo "" || echo " (requires sudo password)")"
+    read -r _yn </dev/tty
+    case "${_yn:-Y}" in
+      [Yy]*)
+        if eval "$cmd"; then
+          command -v "$bin" &>/dev/null && { echo "  $bin installed ✓"; return 0; }
+          echo "  ⚠️  $cmd completed but $bin is still not on PATH"
+        else
+          echo "  ⚠️  install failed — run it manually, then re-run ./install.sh"
+        fi
+        ;;
+      *) echo "  Skipped. $bin is still required for that step." ;;
+    esac
+  else
+    echo "     (non-interactive shell — install it and re-run)"
+  fi
+  command -v "$bin" &>/dev/null
+}
+
 # ─── Native build dependency check ────────────────────────────────────────────
 # better-sqlite3 and sqlite-vec (used by bpm-memory-mcp / bpm-code-search-mcp)
 # compile a native addon via node-gyp, which needs a C/C++ compiler + python3.
@@ -165,20 +241,37 @@ check_native_build_deps() {
       fi
       ;;
     Linux)
-      if command -v apt-get &>/dev/null; then
-        echo "     Install with: sudo apt-get install -y build-essential python3"
+      # Every common distro, not just apt: WSL is usually Debian/Ubuntu, but
+      # Fedora/RHEL, Arch, Alpine and SUSE all turn up, and telling those users
+      # to work it out themselves is the awkward manual step this removes.
+      local _mgr _pkgs _cmd
+      _mgr="$(detect_pkg_mgr)"
+      case "$_mgr" in
+        apt)    _pkgs="build-essential python3" ;;
+        dnf|yum) _pkgs="gcc-c++ make python3" ;;
+        pacman) _pkgs="base-devel python" ;;
+        zypper) _pkgs="gcc-c++ make python3" ;;
+        apk)    _pkgs="build-base python3" ;;
+        *)      _pkgs="" ;;
+      esac
+      if [ -n "$_pkgs" ]; then
+        _cmd="$(pkg_install_cmd "$_mgr" "$_pkgs")"
+        echo "     Install with: $_cmd"
         if [ -t 0 ]; then
           printf "  Run that now (requires sudo password)? [Y/n]: "
           read -r yn </dev/tty
           case "${yn:-Y}" in [Yy]*)
-            sudo apt-get update && sudo apt-get install -y build-essential python3
-            echo "  Native build tools installed ✓"
+            if eval "$_cmd"; then
+              echo "  Native build tools installed ✓"
+            else
+              echo "  ⚠️  install failed — run it manually, then re-run ./install.sh"
+            fi
             ;;
           esac
         fi
       else
-        echo "     Install a C compiler + python3 via your distro's package manager"
-        echo "     (e.g. dnf: sudo dnf install gcc-c++ python3, apk: sudo apk add build-base python3)"
+        echo "     No supported package manager detected — install a C compiler"
+        echo "     and python3 via your distro's package manager, then re-run."
       fi
       ;;
     *)
@@ -189,6 +282,17 @@ check_native_build_deps() {
 
 echo -n "Checking native build dependencies... "
 check_native_build_deps
+# ─────────────────────────────────────────────────────────────────────────────
+
+echo "Checking required tools..."
+# git: the installer clones quarry / bpm-code-search-mcp / bpm-memory-mcp.
+ensure_tool git "clone the MCP repositories" || true
+# jq: EVERY MCP registration writes through jq. Without it the MCPs build fine
+# and are never added to opencode.json, which is indistinguishable from a
+# successful install until you notice nothing is connected.
+ensure_tool jq  "register the MCP servers into opencode.json" || true
+JQ_OK=false
+command -v jq &>/dev/null && JQ_OK=true
 # ─────────────────────────────────────────────────────────────────────────────
 
 MODE="global"
@@ -767,7 +871,9 @@ if [ "$INSTALL_PWS" = true ]; then
           echo "  Added playwright-search MCP to $CONFIG_FILE"
         fi
       else
-        echo "  ⚠️  jq not installed — add this manually to $CONFIG_FILE under \"mcp\":"
+        MCP_REGISTRATION_SKIPPED="${MCP_REGISTRATION_SKIPPED:-}playwright-search "
+        echo "  ❌ jq missing — playwright-search was built but NOT registered."
+        echo "     It will not appear in opencode. Add this manually to $CONFIG_FILE under \"mcp\":"
         echo ''
         echo '    "playwright-search": {'
         echo '      "type": "local",'
@@ -1162,7 +1268,9 @@ else
         echo "  Added code-search MCP to $CONFIG_FILE"
       fi
     else
-      echo "  ⚠️  jq not installed — add this manually to $CONFIG_FILE under \"mcp\":"
+      MCP_REGISTRATION_SKIPPED="${MCP_REGISTRATION_SKIPPED:-}code-search "
+      echo "  ❌ jq missing — code-search was built but NOT registered."
+      echo "     It will not appear in opencode. Add this manually to $CONFIG_FILE under \"mcp\":"
       echo '    "code-search": {'
       echo '      "type": "local",'
       echo "      \"command\": [\"node\", \"$CODE_SEARCH_BIN\"],"
@@ -1221,6 +1329,32 @@ else
 fi
 
 echo ""
+# An install that built every MCP and registered none of them is not complete.
+# It used to say "Installation complete!" and exit 0 in exactly that case, with
+# the only evidence a warning scrolled off the top of the log.
+if [ -n "${MCP_REGISTRATION_SKIPPED:-}" ]; then
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo "  ❌ Installation INCOMPLETE — MCP servers not registered"
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo ""
+  echo "  Built but NOT connected to opencode: ${MCP_REGISTRATION_SKIPPED}"
+  echo "  Cause: jq is required to edit $CONFIG_FILE safely, and it is missing."
+  echo ""
+  echo "  Fix — install jq, then re-run this installer:"
+  MGR="$(detect_pkg_mgr)"
+  if [ -n "$MGR" ]; then
+    echo "      $(pkg_install_cmd "$MGR" jq)"
+  else
+    echo "      install jq via your package manager"
+  fi
+  echo "      ./install.sh"
+  echo ""
+  echo "  Re-running is safe — the installer is idempotent and will not rebuild"
+  echo "  what is already there."
+  echo ""
+  exit 1
+fi
+
 echo "Installation complete!"
 echo ""
 

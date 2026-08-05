@@ -138,6 +138,55 @@ fi
 
 # ── 7. Code-analysis tools ──────────────────────────────────────────────
 echo ""
+echo "MCP servers (registered in opencode.json):"
+# A registered MCP whose binary is missing looks identical to a healthy one
+# until opencode silently fails to connect it. install.sh can also BUILD every
+# server and register none of them when jq is absent, which reads as success.
+# Check what is actually there: the entry exists, its file exists, and for
+# stdio servers the process answers a real JSON-RPC initialize.
+if [ -f "$CFG" ] && command -v jq >/dev/null 2>&1; then
+  MCP_NAMES=$(jq -r '.mcp // {} | keys[]' "$CFG" 2>/dev/null)
+  if [ -z "$MCP_NAMES" ]; then
+    bad "no MCP servers registered — agents lose code-search/research/memory. Re-run ./install.sh"
+  else
+    for name in $MCP_NAMES; do
+      # NOT `.enabled // true` -- jq's `//` treats `false` as empty, so an
+      # explicitly disabled server would read back as enabled.
+      enabled=$(jq -r --arg n "$name" 'if (.mcp[$n] | has("enabled")) then (.mcp[$n].enabled) else true end' "$CFG" 2>/dev/null)
+      if [ "$enabled" != "true" ]; then
+        warn "$name: registered but disabled"
+        continue
+      fi
+      bin=$(jq -r --arg n "$name" '.mcp[$n].command[0] // ""' "$CFG" 2>/dev/null)
+      arg=$(jq -r --arg n "$name" '.mcp[$n].command[1] // ""' "$CFG" 2>/dev/null)
+      # npx-based servers fetch on first use — nothing local to stat.
+      if [ "$bin" = "npx" ]; then
+        command -v npx >/dev/null 2>&1 \
+          && ok "$name: npx package (fetched on first use)" \
+          || bad "$name: needs npx, which is not on PATH"
+        continue
+      fi
+      if [ -n "$arg" ] && [ ! -f "$arg" ]; then
+        bad "$name: registered path does not exist — $arg (re-run ./install.sh)"
+        continue
+      fi
+      if [ "$bin" = "node" ] && [ -n "$arg" ]; then
+        if printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"doctor","version":"1"}}}' \
+           | node "$arg" 2>/dev/null | head -c 2000 | grep -q '"serverInfo"'; then
+          ok "$name: responds to initialize"
+        else
+          bad "$name: built and registered but does not respond — try: node $arg"
+        fi
+      else
+        ok "$name: registered ($bin)"
+      fi
+    done
+  fi
+elif [ -f "$CFG" ]; then
+  warn "cannot check MCP servers — jq not installed"
+fi
+
+echo ""
 echo "Code-analysis tools (optional — agents fall back to grep):"
 TOOLS_PRESENT=0; TOOLS_TOTAL=0
 for tool in opengrep ast-grep semgrep knip ts-prune jscpd vulture radon lizard staticcheck gitleaks; do
