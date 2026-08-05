@@ -528,6 +528,84 @@ export async function testTruthfulCompletion(
 
       fs.rmSync(dir, { recursive: true, force: true });
     }
+    // -- sdlc-hygiene.sh: silted docs/work -> clean, without losing a file --
+    // The failure it heals: 88 of 99 untracked files were per-run scaffolding
+    // no handoff owns, with the audit trail (manifests, review reports, gate
+    // receipt) buried untracked in the same pile. The script must ignore the
+    // ephemeral, COMMIT the durable, and never remove anything from disk.
+    {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "sdlc-hygiene-"));
+      const git = (...args: string[]) =>
+        execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+      const W = (rel: string, body: string) => {
+        const f = path.join(dir, rel);
+        fs.mkdirSync(path.dirname(f), { recursive: true });
+        fs.writeFileSync(f, body);
+      };
+      git("init", "-qb", "main");
+      git("config", "user.email", "t@t");
+      git("config", "user.name", "t");
+      // tracked scaffolding + a durable tracker
+      for (const i of [1, 2, 3]) {
+        W(`docs/work/HANDOFF_agent${i}.md`, "h\n");
+        W(`docs/work/TASKS_agent${i}.md`, "t\n");
+        W(`docs/work/context-for-agent${i}.md`, "c\n");
+      }
+      W("docs/work/sdlc-state.md", "s\n");
+      W("docs/work/telemetry.jsonl", "{}\n");
+      W("docs/work/DELEGATION_LOG.md", "d\n");
+      git("add", "-A");
+      git("commit", "-qm", "initial run");
+      // untracked: more scaffolding + the audit trail
+      W("docs/work/HANDOFF_agent9.md", "h\n");
+      W("docs/reviews/MANIFEST_thing.md", "m\n");
+      W("docs/work/gates/phase-2-receipt.json", "{}\n");
+
+      const script = path.join(root, "scripts/sdlc-hygiene.sh");
+      const count = () =>
+        execFileSync("find", [path.join(dir, "docs"), "-type", "f"], {
+          encoding: "utf8",
+        })
+          .split("\n")
+          .filter(Boolean).length;
+
+      const filesBefore = count();
+      const dry = spawnSync("/bin/bash", [script, dir], { encoding: "utf8" });
+      const untouched = !fs.existsSync(path.join(dir, ".gitignore"));
+      const applied = spawnSync("/bin/bash", [script, dir, "--commit"], {
+        encoding: "utf8",
+      });
+      const filesAfter = count();
+      const dirty = git("status", "--porcelain").trim();
+      const tracked = git("ls-files").split("\n").filter(Boolean);
+      const scaffoldTracked = tracked.filter((f) =>
+        /HANDOFF_|TASKS_|context-for-|sdlc-state|telemetry\.jsonl/.test(f),
+      );
+      const rerun = spawnSync("/bin/bash", [script, dir], { encoding: "utf8" });
+
+      if (
+        dry.status === 1 &&
+        untouched &&
+        applied.status === 0 &&
+        filesAfter === filesBefore &&
+        dirty === "" &&
+        scaffoldTracked.length === 0 &&
+        tracked.includes("docs/reviews/MANIFEST_thing.md") &&
+        tracked.includes("docs/work/gates/phase-2-receipt.json") &&
+        tracked.includes("docs/work/DELEGATION_LOG.md") &&
+        rerun.status === 0
+      )
+        ok(
+          "sdlc-hygiene: dry run changes nothing, --commit untracks scaffolding while keeping every file on disk, commits the audit trail, and re-runs clean",
+        );
+      else
+        fail(
+          "sdlc-hygiene",
+          `dry=${dry.status} untouched=${untouched} applied=${applied.status} files=${filesBefore}->${filesAfter} dirty="${dirty}" scaffoldTracked=${scaffoldTracked.length} rerun=${rerun.status}`,
+        );
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("truthful-completion", `unexpected failure: ${message}`);
