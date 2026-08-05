@@ -488,5 +488,5 @@ Also run in parallel:
 ~/.config/opencode/scripts/validators/validate-architecture.sh
 ~/.config/opencode/scripts/validators/validate-erd-coverage.sh
 ~/.config/opencode/scripts/validators/validate-sequence-coverage.sh
-~/.config/opencode/scripts/validators/validate-phase-gate.sh onboard-deep
+~/.config/opencode/scripts/validators/run-coverage-loop.sh onboard-deep   # the wrapper — counts iterations; never the bare gate
 ```

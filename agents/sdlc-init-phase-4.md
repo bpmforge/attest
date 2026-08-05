@@ -776,7 +776,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 - Verify each module has: interface, implementation, tests
 - Gate PRs: code review + security check before merge
 
-### Phase 4 Pre-Gate Checklist (run before validate-phase-gate.sh phase-4)
+### Phase 4 Pre-Gate Checklist (run before `run-coverage-loop.sh phase-4`)
 
 Before running the Phase 4 gate, verify all waves and infrastructure work are complete:
 
