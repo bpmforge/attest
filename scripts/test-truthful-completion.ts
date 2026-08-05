@@ -606,6 +606,58 @@ export async function testTruthfulCompletion(
 
       fs.rmSync(dir, { recursive: true, force: true });
     }
+
+    // -- sdlc-hygiene must NOT touch a project's own ignore choices ---------
+    // Caught by sweeping real repos: attest ignores `docs/reviews/` wholesale
+    // yet deliberately TRACKS docs/reviews/SECURITY_FINDINGS.md, and KPrust
+    // has its own `.playwright-cli/` rule. Matching the project's full ignore
+    // set would untrack both -- discarding a deliberate choice while claiming
+    // to tidy SDLC scaffolding. The script may only act on rules it owns.
+    {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "hygiene-scope-"));
+      const git = (...args: string[]) =>
+        execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" });
+      const W = (rel: string, body: string) => {
+        const f = path.join(dir, rel);
+        fs.mkdirSync(path.dirname(f), { recursive: true });
+        fs.writeFileSync(f, body);
+      };
+      git("init", "-qb", "main");
+      git("config", "user.email", "t@t");
+      git("config", "user.name", "t");
+      // The project's OWN broad rule, plus a file it tracks in spite of it.
+      W(".gitignore", "docs/reviews/\n.playwright-cli/\n");
+      W("docs/reviews/SECURITY_FINDINGS.md", "kept on purpose\n");
+      W(".playwright-cli/page.yml", "also kept\n");
+      // ...and genuine SDLC scaffolding, which this script DOES own.
+      W("docs/work/HANDOFF_a.md", "h\n");
+      git("add", "-A", "-f");
+      git("commit", "-qm", "init");
+
+      const r = spawnSync(
+        "/bin/bash",
+        [path.join(root, "scripts/sdlc-hygiene.sh"), dir, "--apply"],
+        { encoding: "utf8" },
+      );
+      const tracked = git("ls-files").split("\n").filter(Boolean);
+
+      if (
+        r.status === 0 &&
+        tracked.includes("docs/reviews/SECURITY_FINDINGS.md") &&
+        tracked.includes(".playwright-cli/page.yml") &&
+        !tracked.includes("docs/work/HANDOFF_a.md")
+      )
+        ok(
+          "sdlc-hygiene: untracks its own scaffolding while leaving files the project deliberately tracks under its own broad ignore rules",
+        );
+      else
+        fail(
+          "sdlc-hygiene scope",
+          `status=${r.status} tracked=${JSON.stringify(tracked)}`,
+        );
+
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("truthful-completion", `unexpected failure: ${message}`);

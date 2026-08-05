@@ -136,14 +136,18 @@ else
   fi
 fi
 
-# ── 2. tracked files that the rules now cover ───────────────────────────────
-# Only meaningful once the rules exist, so in dry-run we ask git with the rules
-# supplied on the fly rather than reporting a misleading zero.
-EXTRA_ARGS=()
-if [[ "$APPLY" != true ]]; then
-  for r in ${MISSING_RUNTIME[@]+"${MISSING_RUNTIME[@]}"} ${MISSING_SCAFFOLD[@]+"${MISSING_SCAFFOLD[@]}"}; do EXTRA_ARGS+=(--exclude="$r"); done
-fi
-TRACKED_IGNORED="$(git ls-files -i -c --exclude-standard "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}")"
+# ── 2. tracked files that THIS SCRIPT'S rules cover ─────────────────────────
+# Match against our own rule list ONLY -- deliberately NOT --exclude-standard.
+# Using the project's full ignore set here was over-reach: it listed every
+# tracked-but-ignored file, including ones a project ignores broadly and then
+# tracks on purpose. Real examples caught by a sweep: attest ignores
+# `docs/reviews/` wholesale yet tracks docs/reviews/SECURITY_FINDINGS.md, and
+# KPrust has its own `.playwright-cli/` rule. Untracking those would have
+# thrown away another project's deliberate choice while claiming to tidy
+# SDLC scaffolding. This script may only touch what this script owns.
+EXCL_ARGS=()
+for r in "${RUNTIME_RULES[@]}" "${SCAFFOLD_RULES[@]}"; do EXCL_ARGS+=(--exclude="$r"); done
+TRACKED_IGNORED="$(git ls-files -i -c "${EXCL_ARGS[@]}")"
 
 n_tracked=0
 [[ -n "$TRACKED_IGNORED" ]] && n_tracked=$(printf '%s\n' "$TRACKED_IGNORED" | grep -c .)
@@ -161,10 +165,10 @@ else
 fi
 
 # ── 3. durable evidence sitting untracked ───────────────────────────────────
-# In dry run the new rules are not on disk yet, so pass them to git here too --
-# otherwise scaffolding that is ABOUT to be ignored is miscounted as evidence.
+# Our rules are passed here too, so scaffolding that is about to be ignored is
+# never miscounted as evidence -- in dry run it is not on disk yet.
 DURABLE="$(git ls-files --others --exclude-standard \
-  "${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"}" -- 'docs/reviews' 'docs/work' 2>/dev/null || true)"
+  "${EXCL_ARGS[@]}" -- 'docs/reviews' 'docs/work' 2>/dev/null || true)"
 n_durable=0
 [[ -n "$DURABLE" ]] && n_durable=$(printf '%s\n' "$DURABLE" | grep -c .)
 
