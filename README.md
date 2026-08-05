@@ -8,6 +8,22 @@ Sibling project: [`attest-claude`](https://github.com/bpmforge/attest-claude) â€
 
 ## Install
 
+**Starting from a fresh machine?** You need `git` to clone this, so that one step
+is on you â€” everything after it the installer offers to install for you (Node,
+`jq`, compilers, MCP servers).
+
+```bash
+# fresh WSL / Ubuntu / Debian
+sudo apt-get update && sudo apt-get install -y git curl ca-certificates
+
+# Fedora / RHEL:  sudo dnf install -y git curl ca-certificates
+# Arch:           sudo pacman -S --noconfirm git curl ca-certificates
+# Alpine:         sudo apk add git curl ca-certificates
+# macOS:          git ships with the Xcode command line tools (xcode-select --install)
+```
+
+Then:
+
 ```bash
 git clone https://github.com/bpmforge/attest.git
 cd attest

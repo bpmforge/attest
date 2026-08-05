@@ -82,6 +82,7 @@ import {
   testPersistenceContract,
   testCoverageLoopContract,
   testChallengerContract,
+  testInstallerPreflightContract,
   testPluginExportContract,
 } from "./test-gate-output-contract.ts";
 import { testConductorSuite } from "./test-conductor-suite.ts";
@@ -705,6 +706,7 @@ testGateOutputContract(root, ok, fail);
 testPersistenceContract(root, ok, fail);
 testCoverageLoopContract(root, ok, fail);
 testChallengerContract(root, ok, fail);
+testInstallerPreflightContract(root, ok, fail);
 testPluginExportContract(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why

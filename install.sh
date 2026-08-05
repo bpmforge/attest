@@ -86,7 +86,16 @@ _offer_nvm_install() {
   yn="${yn:-Y}"
   case "$yn" in [Yy]*)
     echo "  Installing NVM..."
-    curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash 2>&1 | tail -3
+    _nvm_url="https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh"
+    if command -v curl &>/dev/null; then
+      curl -o- "$_nvm_url" | bash 2>&1 | tail -3
+    elif command -v wget &>/dev/null; then
+      wget -qO- "$_nvm_url" | bash 2>&1 | tail -3
+    else
+      echo "  ⚠️  neither curl nor wget is available — cannot download the Node installer."
+      echo "     Install one (e.g. sudo apt-get install -y curl) and re-run ./install.sh"
+      return
+    fi
     [ -s "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh" 2>/dev/null || true
     nvm install 24 && nvm use 24 && nvm alias default 24
     echo "  Node $(node --version) active via NVM ✓"
@@ -128,10 +137,6 @@ _offer_nvm_switch() {
 }
 
 echo ""
-echo -n "Checking Node version... "
-check_node_version
-# ─────────────────────────────────────────────────────────────────────────────
-
 # ─── Package manager abstraction + tool preflight ─────────────────────────────
 # Field lesson: the installer cloned, built, and SMOKE-TESTED every MCP, then
 # skipped registering them because `jq` was absent -- printing paste-this-JSON
@@ -207,6 +212,39 @@ ensure_tool() {
   fi
   command -v "$bin" &>/dev/null
 }
+
+# Tools first: the Node bootstrap below downloads nvm, so curl/wget has to
+# be present before we can offer to install Node at all.
+echo "Checking required tools..."
+# git: the installer clones quarry / bpm-code-search-mcp / bpm-memory-mcp.
+ensure_tool git "clone the MCP repositories" || true
+# jq: EVERY MCP registration writes through jq. Without it the MCPs build fine
+# and are never added to opencode.json, which is indistinguishable from a
+# successful install until you notice nothing is connected.
+ensure_tool jq  "register the MCP servers into opencode.json" || true
+# curl bootstraps Node via nvm and installs Opengrep. A minimal WSL/Debian image
+# ships neither curl nor ca-certificates, so an HTTPS download fails in a way
+# that reads as "nvm is broken" rather than "you have no HTTP client at all".
+if ! command -v curl &>/dev/null && ! command -v wget &>/dev/null; then
+  ensure_tool curl "download the Node installer and optional security tools" || true
+  if command -v curl &>/dev/null && [ ! -e /etc/ssl/certs/ca-certificates.crt ]; then
+    case "$(detect_pkg_mgr)" in
+      apt|dnf|yum|zypper|apk)
+        ensure_tool update-ca-certificates "validate HTTPS downloads" ca-certificates || true ;;
+    esac
+  fi
+elif command -v curl &>/dev/null; then
+  echo "  curl ✓"
+else
+  echo "  wget ✓ (no curl — used as the download fallback)"
+fi
+JQ_OK=false
+command -v jq &>/dev/null && JQ_OK=true
+# ─────────────────────────────────────────────────────────────────────────────
+
+echo -n "Checking Node version... "
+check_node_version
+# ─────────────────────────────────────────────────────────────────────────────
 
 # ─── Native build dependency check ────────────────────────────────────────────
 # better-sqlite3 and sqlite-vec (used by bpm-memory-mcp / bpm-code-search-mcp)
@@ -284,16 +322,6 @@ echo -n "Checking native build dependencies... "
 check_native_build_deps
 # ─────────────────────────────────────────────────────────────────────────────
 
-echo "Checking required tools..."
-# git: the installer clones quarry / bpm-code-search-mcp / bpm-memory-mcp.
-ensure_tool git "clone the MCP repositories" || true
-# jq: EVERY MCP registration writes through jq. Without it the MCPs build fine
-# and are never added to opencode.json, which is indistinguishable from a
-# successful install until you notice nothing is connected.
-ensure_tool jq  "register the MCP servers into opencode.json" || true
-JQ_OK=false
-command -v jq &>/dev/null && JQ_OK=true
-# ─────────────────────────────────────────────────────────────────────────────
 
 MODE="global"
 METHOD="copy"
