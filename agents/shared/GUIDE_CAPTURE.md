@@ -67,7 +67,7 @@ Every capture happens inside a **spec**, never as an ad hoc screenshot. A spec i
 - **`value`**: the exact fill/select value entered — this is what makes a step replayable and what `validate-guide-coverage.sh` checks a story's steps actually name.
 - **`caption`**: derived from the target's accessible name, never invented — see §2.
 - **`capture.gates`**: the gate manifest for this step (§3); a step spec with no `gates` block for a step whose `capture.file` exists on disk is invalid — captures aren't linkable back to the doc that reasons about them otherwise.
-- **`boundingBox`**: recorded by whoever executes the step (guide-scribe); the actual pixel compositing of a highlight box + numbered badge onto a copy is `skills/user-guide/scripts/annotate.mjs` (T21.2) — this protocol defines the contract that script implements, not the script itself.
+- **`boundingBox`**: recorded by whoever executes the step (guide-scribe); the actual pixel compositing of a highlight box + numbered badge onto a copy is `scripts/lib/annotate.mjs` (T21.2) — this protocol defines the contract that script implements, not the script itself.
 
 ---
 
@@ -84,7 +84,7 @@ Every capture happens inside a **spec**, never as an ad hoc screenshot. A spec i
 
 ## 3. Quality gates (deterministic, no exceptions)
 
-Gate outcomes are machine facts, not model opinions — every gate below is a script's job (`skills/user-guide/scripts/img-gate.mjs`, T21.2), not a judgment call by the capturing agent. This protocol defines what each gate checks and the retry policy; the script is the enforcement.
+Gate outcomes are machine facts, not model opinions — every gate below is a script's job (`scripts/lib/img-gate.mjs`, T21.2), not a judgment call by the capturing agent. This protocol defines what each gate checks and the retry policy; the script is the enforcement.
 
 ### Gate A — blank / near-blank
 Per-channel pixel stddev, dominant-color ratio against a per-app baseline (calibrated once on a human-confirmed good screenshot, stored next to `APP_MAP.md`), a PNG file-size floor, and content-region entropy below the header band. Some valid apps are legitimately mostly-white — the baseline calibration exists precisely so Gate A doesn't false-positive a sparse-but-real UI.
@@ -154,4 +154,4 @@ Any action that opens a confirm dialog, fires a mutating request (POST/DELETE/PU
 
 ## 8. Deterministic tooling (forward reference — T21.2, not this protocol)
 
-`skills/user-guide/scripts/img-gate.mjs` (Gate A + the Gate C two-shot diff; deps `sharp`, `pixelmatch`) and `annotate.mjs` (composites one rounded highlight box + a numbered badge onto a copy at the recorded bounding box, dep `sharp`) implement §3's gates and the annotation half of §1's spec. This document is their contract; it does not itself ship the scripts.
+`scripts/lib/img-gate.mjs` (Gate A + the Gate C two-shot diff; deps `sharp`, `pixelmatch`) and `annotate.mjs` (composites one rounded highlight box + a numbered badge onto a copy at the recorded bounding box, dep `sharp`) implement §3's gates and the annotation half of §1's spec. This document is their contract; it does not itself ship the scripts.

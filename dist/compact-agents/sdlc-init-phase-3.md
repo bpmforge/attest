@@ -437,6 +437,8 @@ After TECH_STACK.md is written, detect whether this system has a user interface:
 
 **If UI-bearing, UX delegation is MANDATORY before Phase 3 gate.**
 
+**Design-chain rule:** if `docs/design/flows.md` or `docs/design/tokens.json` does not exist yet, the HANDOFF below must additionally instruct ux-engineer to run its `--auto` design-manager chain (ux-researcher → design-system-lead → itself → content-designer) so the flow inventory, token spec, and microcopy exist before Phase 4 — the token spec is also what Phase 4's Round 3b visual-conformance loop (`design-iterator`) verifies against. The Phase 3 gate still checks only the three UX docs; the chain artifacts are inputs to later phases, not extra gate conditions.
+
 Save state, then hand off:
 
 ```
