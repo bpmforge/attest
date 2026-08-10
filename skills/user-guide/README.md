@@ -6,7 +6,7 @@ in T21.2 (`img-gate.mjs`, `annotate.mjs`) plus their tests. `skills/user-guide/S
 and the agent-facing assembly wiring are a separate, later ticket (T21.3) —
 not included here.
 
-## `scripts/img-gate.mjs` — Gate A
+## `scripts/lib/img-gate.mjs` — Gate A
 
 Runs four independent quality checks against a captured screenshot and
 reports pass/fail **with a reason per failed check**, so a calling agent
@@ -57,7 +57,7 @@ generated from **one human-confirmed known-good screenshot**:
 Generate one with the CLI:
 
 ```
-node skills/user-guide/scripts/img-gate.mjs --calibrate <known-good.png> --app <name> --out <path/to/baseline.json>
+node scripts/lib/img-gate.mjs --calibrate <known-good.png> --app <name> --out <path/to/baseline.json>
 ```
 
 Where the baseline file lives (e.g. next to a future `APP_MAP.md`) is left
@@ -72,7 +72,7 @@ per-app baseline corpus exists yet in this program. Expect them to need
 tuning once T21.1/T21.3's capture pipeline produces real screenshots to
 calibrate against.
 
-## `scripts/annotate.mjs`
+## `scripts/lib/annotate.mjs`
 
 Given an input screenshot and a recorded bounding box (`{x, y, width,
 height}`), produces **one** rounded-rectangle highlight box plus a numbered
@@ -100,9 +100,9 @@ ticket can extend this if that's ever needed.
 
 ## Tests
 
-`node --test 'skills/user-guide/scripts/tests/*.test.mjs'` — fixtures (blank
+`node --test 'scripts/lib/tests/*.test.mjs'` — fixtures (blank
 PNG, synthetic loading-skeleton, known-good shot) are generated
 programmatically with `sharp` in test setup; no binary fixtures are checked
 in. (Quote the glob, or list the two `*.test.mjs` files explicitly — bare
-directory form (`node --test skills/user-guide/scripts/tests/`) does not
+directory form (`node --test scripts/lib/tests/`) does not
 discover files here and fails with `MODULE_NOT_FOUND`.)
