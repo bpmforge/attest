@@ -142,10 +142,10 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
 5. **Stop means stop** — after the completion phrase, end
 
-**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
+**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
-- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
 - *(no domain coverage validator — this agent produces artifacts not checked by a validator; the scope + manifest gates still apply)*
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
@@ -174,8 +174,15 @@ verify your work without re-reading everything:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
@@ -208,7 +215,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 
 **Run the validator:**
 ```bash
-bash scripts/validators/validate-ux-spec.sh .
+bash ~/.config/opencode/scripts/validators/validate-ux-spec.sh .
 ```
 If gaps reported → fix → re-run until exit 0.
 
@@ -406,6 +413,7 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 ## Recommend Other Experts When
 
 - UX spec needs API endpoints → `api-designer`
+- `--review` findings are visual token/spec drift a render loop could close → `design-iterator` (screenshot-verified fix loop; your review stays findings-only)
 - Forms handle sensitive data → `security-auditor` for input validation review
 - Data components need query optimization → `db-architect`
 - Components need load-time budget → `performance-engineer`

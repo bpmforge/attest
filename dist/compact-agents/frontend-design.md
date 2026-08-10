@@ -149,10 +149,10 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
 5. **Stop means stop** — after the completion phrase, end
 
-**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
+**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
-- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
 - *(no domain coverage validator — this agent produces artifacts not checked by a validator; the scope + manifest gates still apply)*
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
@@ -177,8 +177,15 @@ Any gate failure returns your HANDOFF with REVISE status; re-run with the specif
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [next agent or "SDLC lead resume"]
 ```
 
@@ -207,7 +214,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 
 **Run the validator:**
 ```bash
-bash scripts/validators/validate-design-system.sh .
+bash ~/.config/opencode/scripts/validators/validate-design-system.sh .
 ```
 If gaps reported → fix → re-run until exit 0.
 
@@ -383,7 +390,7 @@ library." The claim was never checked against upstream.
   vendored files against upstream. Drift (dropped variants, renamed props, a
   stale template) is a fork/maintenance-debt finding, not a bug — but it
   still means the "we use X" claim doesn't hold.
-- Run `bash scripts/validators/validate-vendor-provenance.sh` after vendoring
+- Run `bash ~/.config/opencode/scripts/validators/validate-vendor-provenance.sh` after vendoring
   any component set — it flags missing `VENDORED.md` provenance and
   mismatches between the declared file/variant list and what's on disk.
 
@@ -441,6 +448,7 @@ If 3+ of these fail, the design needs another pass.
 
 - Found accessibility issue → `ux-engineer` for WCAG review
 - Component architecture needs rethinking → `ux-engineer` for workflow redesign
+- Implementation done and a dev server can run → `design-iterator` for the render→screenshot→critique→fix loop against tokens.json (verified visual conformance beats code-side polish)
 - Need to optimize image/font loading → `performance-engineer`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`

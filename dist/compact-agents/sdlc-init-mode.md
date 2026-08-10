@@ -51,7 +51,7 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 - Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
 
-This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
 ---
 

@@ -164,11 +164,20 @@ Do not close until the challenge report returns; if a data-loss path is CONTRADI
 ## Known issues / deferred
 - [Any ambiguous changes where intent is unclear]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [DBA review / user approval before running]
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 
 Tracker updated: [SDLC_TRACKER.md row / DELEGATION_LOG.md — where this migration plan was recorded]
 ```
