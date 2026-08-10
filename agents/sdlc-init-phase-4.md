@@ -147,6 +147,8 @@ Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<
 Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
 If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the next module.
 
+**Round 3b — Visual conformance (UI modules with `docs/design/tokens.json` only):** after RUNTIME PASS, emit a **`design-iterator` HANDOFF** on the module's screens — the render→screenshot→critique→fix loop against the token spec (protocol: `references/visual-design-loop.md`). Produces `docs/design/ITERATION_LOG.md`. Skip (and say so) when the module has no UI or no tokens.json exists.
+
 **Module gate (before next module):**
 1. RUNTIME_<module>.md shows PASS
 2. FIX_BACKLOG_<module>.md has 0 open CRITICAL/HIGH (or signed waivers)

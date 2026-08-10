@@ -5,17 +5,21 @@ description: 'Image-quality gating and single-annotation tooling for captured sc
 
 # user-guide — image gate + annotation tooling (T21.2 placeholder)
 
-This directory ships exactly two Node.js tooling scripts under `scripts/`,
-built for the M21 user-guide capture pipeline:
+Two Node.js tooling scripts built for the M21 user-guide capture pipeline
+live at `scripts/lib/` (relocated from this directory so they ship in BOTH
+the OpenCode install and the generated Claude target — `skills/*/scripts/`
+ships to neither):
 
-- `scripts/img-gate.mjs` — Gate A quality check for a captured screenshot:
+- `scripts/lib/img-gate.mjs` — Gate A quality check for a captured screenshot:
   size floor, per-channel-stddev blank-detect, dominant-color-ratio vs a
   per-app calibrated baseline, and two-shot pixel-diff stability. Returns a
   pass/fail result with a specific reason per failed check.
-- `scripts/annotate.mjs` — draws one rounded highlight box and a numbered
+- `scripts/lib/annotate.mjs` — draws one rounded highlight box and a numbered
   badge onto a copy of a screenshot at a recorded bounding box; the
   original is never mutated.
 
+Both require `sharp` (+ `pixelmatch` for img-gate) — direct deps of this
+repo; installed projects need them available (`npm i -D sharp pixelmatch`).
 See `README.md` in this directory for the per-app baseline calibration file
 schema and usage examples of both scripts.
 

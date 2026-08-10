@@ -148,7 +148,7 @@ Next after resume: run handoff gates (validate-module-design), then db-architect
 
 Use **Template 7** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "architecture-designer done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
+→ After "architecture-designer done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-module-design.sh` → mark DONE
 
 **Git checkpoint — save MODULE_DESIGN + INFRASTRUCTURE:**
 ```
@@ -199,7 +199,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "db done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
+→ After "db done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_database_<date>.md --coverage validate-erd-coverage.sh` → mark DONE
 
 **Git checkpoint — save DATABASE.md:**
 ```
@@ -263,7 +263,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "api done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
+→ After "api done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_api_design_<date>.md --coverage validate-api-coverage.sh` → mark DONE.
 
 **Git checkpoint — save API_DESIGN + OpenAPI spec:**
 ```
@@ -320,7 +320,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "security done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
+→ After "security done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest docs/reviews/MANIFEST_threat_model_<date>.md` → mark DONE.
 
 **Git checkpoint — save THREAT_MODEL.md:**
 ```
@@ -385,7 +385,7 @@ Next after resume: run handoff gates (validate-infrastructure), then ARCHITECTUR
 
 Use **Template 8** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
+→ After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs --manifest <manifest> --coverage validate-infrastructure.sh` → mark DONE
 
 **Git checkpoint — save INFRASTRUCTURE.md:**
 ```
@@ -490,7 +490,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 After "ux done":
 1. Verify all three files exist and are >50 lines each
 2. Run the **Research Findings Review Protocol** — check for conflicts with TECH_STACK, USER_PERSONAS, or DESIGN_CONTEXT
-3. **Run handoff gates:** `./scripts/validators/run-handoff-gates.sh --scope docs/design --manifest <manifest> --coverage validate-ux-spec.sh`
+3. **Run handoff gates:** `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope docs/design --manifest <manifest> --coverage validate-ux-spec.sh`
    - Gate uses Track 1 (validate-ux-spec.sh) — objective coverage, not confidence scoring
    - If gaps: return specific gap to ux-engineer with REVISE status (up to 3 iterations)
    - All gaps closed → mark DONE
@@ -739,10 +739,10 @@ This step exists so that reverse-engineering never has to happen again.
    from the live tracker (API script, CSV export, ...).
 3. Link each new story to its phase **at creation time**, and re-run the
    idempotent straggler sweep any session:
-   `node scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
+   `node ~/.config/opencode/scripts/tracker-link-sweep.mjs docs/work/tracker-snapshot.json --write`
    — a clean run links 0 stragglers; this is what keeps linkage continuous
    instead of a one-time retrofit.
-4. Run `scripts/validators/validate-tracker-integrity.sh` — chained at the
+4. Run `~/.config/opencode/scripts/validators/validate-tracker-integrity.sh` — chained at the
    Phase 3 gate (spec must exist before any snapshot does) and the Phase 4
    gate (item-level integrity: unlabeled items, unlinked stories, untagged
    strays polluting scope math, once a snapshot exists).
@@ -1033,7 +1033,7 @@ Sequential mode processes one module at a time, but **each module goes through t
 **Round 1 — Code:**
 Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
 ```bash
-./scripts/validators/run-handoff-gates.sh \
+~/.config/opencode/scripts/validators/run-handoff-gates.sh \
   --scope src/<module> \
   --manifest docs/reviews/MANIFEST_<module>_<date>.md \
   --runtime
@@ -1149,7 +1149,7 @@ Next after resume: run handoff gates (validate-design-system), then test strateg
 
 Use **Template 10** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "frontend done": run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
+→ After "frontend done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
 
 **Wave 0 must pass before Wave 1 coding begins.** The design system is the foundation for all feature UI — no exceptions.
 
@@ -1588,7 +1588,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
+→ After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
 
 **6. CI/CD pipeline:**
 
@@ -1744,7 +1744,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 - Verify each module has: interface, implementation, tests
 - Gate PRs: code review + security check before merge
 
-### Phase 4 Pre-Gate Checklist (run before validate-phase-gate.sh phase-4)
+### Phase 4 Pre-Gate Checklist (run before `run-coverage-loop.sh phase-4`)
 
 Before running the Phase 4 gate, verify all waves and infrastructure work are complete:
 
@@ -1761,6 +1761,9 @@ Per-wave verification:
   Every module has RUNTIME_<module>_<date>.md with PASS verdict: ✓/✗
   Every module FIX_BACKLOG has 0 open CRITICAL/HIGH: ✓/✗
   Every module PR has CI checks green (gh pr checks / tea pr view): ✓/✗
+    (local-only repo — `git remote` empty: no PR and no CI exist, so this row is
+     N/A. Substitute `VERIFY: ALL GREEN` + the module's review docs. An
+     impossible row is never a blocker and never an unearned ✓.)
 
 Infrastructure wave:
   IaC scaffolding: ✓/✗ DONE (infra/ exists, validate-iac.sh passes)

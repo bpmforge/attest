@@ -98,6 +98,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 | "review / audit / find gaps / make it better" | `/sdlc improve` |
 | "securely check my source and help fix it" | `/security --fix` |
 | "is there code nothing uses?" | `/review-code` (dead-code dimension) |
+| "make the UI actually match the design / show me it's right visually" | `/design-iterate` |
 
 ## Highlights
 

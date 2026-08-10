@@ -57,9 +57,18 @@ fine; re-issuing your own task is not.
 - <remote>: <branch> — OK / FAILED
 ## Known issues / deferred
 - <issue or "None">
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: SDLC lead resume
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 **Step 4:** Print the exact completion phrase from the prompt — copy it character-for-character.
@@ -158,6 +167,17 @@ If the user has said "operate autonomously" in a durable instruction (like AGENT
 
 ---
 
+## Expert Behavior: Guard Every Publish
+
+A push to a public or shared remote is as irreversible as a destructive op — the content is public the moment it lands, and rewriting history to remove it invalidates every clone. Before any such push, run the **Pre-Push Publish Gate** in the checklist. It covers the two things that look clean locally and only break after the push:
+
+1. **Private identifiers in the outgoing diff** — absolute local paths (`/Users/<name>/…`), private downstream project names, tokens, personal emails. Scan case-sensitively; `grep -i` on `/Users/` matches every `/users/{id}` REST path and buries the real hits.
+2. **A committed SHA that resolves only on your machine** — after a history rewrite the old commit lingers as a *dangling* object, so `git show` succeeds for you and fails in every clean clone. Confirm with `git merge-base --is-ancestor <sha> HEAD`.
+
+Both fail **open** locally, so neither is caught by "it works here." Fix leaks in the canonical source and regenerate — never hand-edit a generated target.
+
+---
+
 ## Progress Announcements (Mandatory)
 
 At the **start** of every phase or mode, print exactly:
@@ -231,7 +251,16 @@ verify your work without re-reading everything:
 ## Known issues / deferred
 - [Issue] — [why deferred]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: [next agent or "SDLC lead resume"]
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
@@ -244,7 +273,7 @@ Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
 [1] Read references/git-workflow-checklist.md — PENDING
 [2] Read AGENTS.md / CLAUDE.md for project-specific git rules — PENDING
 [3] Detect forge(s): `git remote -v`, check for gitea vs github vs both — PENDING
-[4] Verify CLI availability: `gh auth status`, `tea login list` — PENDING
+[4] If [3] found remotes: verify CLI availability (`gh auth status`, `tea login list`). If it found NONE: LOCAL-ONLY — skip every forge probe, see § Local-only repos — PENDING
 [5] Capture baseline state: status, reflog, log graph — PENDING
 [6] Execute mode-specific subtasks (see checklist for each mode) — PENDING
 [7] Verify post-state matches expectations — PENDING
@@ -281,7 +310,10 @@ git remote -v
 # If both → use both for PR creation and release notes
 ```
 
-Check tool availability:
+Check tool availability — **only if `git remote` printed something.** For a
+local-only repo skip this block entirely (§ Local-only repos below): probing
+forge CLIs there produces two "not authenticated" lines that look like problems,
+and inviting the user to authenticate a forge they never asked for is noise.
 ```bash
 gh auth status 2>&1 || echo "gh not authenticated"
 tea login list 2>&1 || echo "tea not configured"
@@ -290,6 +322,39 @@ tea login list 2>&1 || echo "tea not configured"
 If a required CLI is missing, ask the user to authenticate rather than falling back to raw API calls silently. If the checklist doesn't cover a forge-specific detail in enough depth, use `websearch`:
 - `"gitea api create pull request"` — API specifics when `tea` is unavailable
 - `"gh release create signed tag"` — release note generation
+
+### Local-only repos (the ONE detection point — every mode obeys it)
+
+```bash
+git remote            # empty output → LOCAL-ONLY
+```
+
+**Empty output means this repo has no forge, and that is a legitimate, supported
+setup — not a problem to fix and not a reason to stop.** Plenty of work is local
+first: a prototype, an air-gapped machine, a repo whose remote comes later. Do not
+`gh auth`/`tea login` probe, do not invent a remote URL, and never ask the user for
+credentials they did not offer.
+
+In LOCAL-ONLY mode every remote/PR/forge step is **skipped and reported**, never
+attempted and never silently dropped. Report each as `SKIPPED (local-only): <step>
+— available once a remote is added; re-run /git --sync then.`
+
+| Step that assumes a forge | LOCAL-ONLY behaviour |
+|---|---|
+| configure remotes, push to all remotes | skip; the initial commit on `main` is the deliverable |
+| push branch immediately, draft PR at once, mark PR ready | skip; the branch + atomic commits are the deliverable. **The "draft PR is not optional" rule does not apply without a forge.** |
+| branch protection | skip — it is a forge feature and cannot exist locally. The local substitute that DOES work is hooks (commitlint + lefthook/husky); install those and say branch protection is deferred. |
+| merge via PR | merge locally with `--no-ff` so the branch boundary stays auditable in history |
+| CI pipeline green | no CI exists; the verify fence + review documents are the gate (see `git-workflow-checklist.md` § merge gate) |
+| push commit + tag, `gh release create`, `tea release create` (`--release`) | tag locally; skip the pushes and forge releases. The CHANGELOG entry is still produced. |
+| `--sync` mode entirely | refuse in one line: "nothing to sync — this repo has no remotes." Do not half-run it. |
+
+`--recover` and `--inspect` are unaffected: they are already purely local.
+
+**Never fabricate.** If the user asks for a remote you cannot verify (no URL given,
+host unreachable), report the exact reason and leave the remote unconfigured. A
+plausible-looking wrong remote URL is worse than none — it fails later, further
+from the cause.
 
 ## Phase 2: Execute — The Six Modes
 
@@ -346,12 +411,61 @@ When called by another agent (e.g., `sdlc-lead`), evaluate the request on its ow
 ## Mode Specifics
 
 ### `--init`
-Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror) → push to all remotes → install hooks (commitlint + lefthook/husky) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
+Bootstrap a new repo. Steps: verify parent dir → `git init` → language-aware `.gitignore` → README + CHANGELOG skeleton → optional LICENSE → configure local user.name/email + signing → initial commit (`chore: initial commit`) → create main branch → configure remotes (default: gitea primary + github mirror — **only if the user has them**; run the `git remote` check first and follow § Local-only repos, which skips-and-reports the remote, push, and branch-protection steps rather than inventing a URL) → push to all remotes → install hooks (commitlint + lefthook/husky — these work locally and are the substitute for branch protection when there is no forge) → propose branch protection (REPORT ONLY, do not auto-apply). Output: `docs/git/INIT_<YYYY-MM-DD>.md`.
+
+**The `.gitignore` must exclude this system's own runtime artifacts, not just the
+language's.** They are generated into the project by the MCP, the plugin and the
+harness — nobody writes them deliberately, so nobody thinks to ignore them, and
+they surface as out-of-scope writes in the very first scope gate. Field failure
+2026-07-30: `.code-search/`, created by the code-search MCP the moment any agent
+indexes, was flagged "written outside assigned scope" and blocked a Phase 0
+HANDOFF; `docs/work/session-receipts.jsonl` and `telemetry.jsonl` had already
+been committed, and both are per-machine files meaningless in anyone else's
+checkout. Two documents — `CODE_SEARCH.md` and `sdlc-onboard-mode.md` — already
+*assert* `.code-search/` is gitignored. Nothing made it true.
+
+Include verbatim:
+
+```gitignore
+# Expert-system runtime artifacts — generated per-machine, never committed
+.code-search/                          # code-search MCP symbol index
+docs/work/.model-context               # resolved local-model context budget
+docs/work/verify-logs/                 # verify-handoff.sh per-command logs
+docs/work/verify-baseline.txt          # pass-count + failure-signature baseline
+**/docs/work/telemetry.jsonl           # per-message actuals (this machine only)
+**/docs/work/session-receipts.jsonl    # session model receipts (this machine only)
+**/docs/work/watchdog-events.jsonl     # run-until-done kill checkpoints
+**/docs/work/run-until-done.log        # run-until-done session log
+# SDLC orchestration scaffolding — regenerated per handoff, read from disk not git
+**/docs/work/HANDOFF_*.md              # the handoff contract, re-issued each run
+**/docs/work/TASKS_*.md                # per-agent step ledger, valid for one run
+**/docs/work/context-for-*.md          # context packet assembled per handoff
+**/docs/work/sdlc-state.md             # resume pointer, rewritten constantly
+**/docs/work/COVERAGE_LOOP_*.md        # gate iteration counter, per phase per day
+```
+
+The `**/` forms are deliberate: validators and the harness write these under any
+root they are pointed at, including fixture directories, so a root-anchored
+pattern misses them.
+
+**Durable vs ephemeral in `docs/work/`.** The scaffolding block above is the
+difference between a repo that stays clean and one that accumulates hundreds of
+untracked files. A real SDLC run produced 99 untracked files, 88 of them
+`HANDOFF_*` / `TASKS_*` / `context-for-*`, because no single handoff *owns* the
+orchestration scaffolding — the lead writes it, the specialist consumes it, and
+nobody commits it. It is regenerated every run and read from disk, never from
+git, so ignoring it loses nothing.
+
+What stays COMMITTED, because it is the audit trail: `DELEGATION_LOG.md`,
+`SDLC_TRACKER.md`, `PROGRESS.md`, `APPROVALS.md`, `LESSONS.md`, `SDLC_AUDIT.md`,
+`docs/work/gates/*-receipt.json` (the prereq chain verifies these), and every
+`docs/reviews/MANIFEST_*.md` and review report. If you cannot answer "who did
+what, and what proved it" from those alone, commit more — not the scaffolding.
 
 ### `--feature`
 Daily feature workflow. Steps: **Clean-Tree Precondition** — `git status --porcelain` must be clean before branching; a prior unit's dirty tree gets committed/branched to its own branch first, never stashed-and-carried-forward (checklist § Clean-Tree Precondition) → fetch + pull main → create branch with semantic prefix → **push branch immediately** → **create draft PR at once** (before any code is written — draft PR activates CI from commit 1 and opens communication channels early) → return for user work → commit atomically after each logical unit (one unit = one commit, `git add -p` for partial staging) → push after each commit → when work + runtime + reviews are done, mark PR ready → merge with squash (or merge commit for hotfix/sub-component) → **post-merge scope-attribution check** (`git show --stat <merge-sha>`, flag paths outside the branch's declared scope — checklist § Post-Merge Scope-Attribution Check) → delete branch. Output: `docs/git/FEATURE_<branch>.md`.
 
-**Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional — CI must run from the start, not just at the end.
+**Draft PR timing rule:** the PR is created on the FIRST push, not after the code is done. This is not optional **where a forge exists** — CI must run from the start, not just at the end. In a local-only repo (`git remote` empty) there is no PR to create: skip it and report it, per § Local-only repos. Do not read "not optional" as license to invent a remote.
 
 ### `--release`
 Cut a release. Steps: verify on main + clean + up to date → find last tag (`git describe --tags --abbrev=0`) → scan commits since last tag and parse conventional types → compute next semver (major/minor/patch) → generate CHANGELOG.md entry (Keep-a-Changelog format, grouped by type) → commit CHANGELOG (`chore(release): <version>`) → create signed annotated tag (`git tag -s v<version>`) → push commit + tag to all remotes → draft GitHub Release (`gh release create`) → draft Gitea Release (`tea release create`). If no release-worthy commits, STOP and report. Output: `docs/git/RELEASE_<version>.md`.
@@ -445,14 +559,14 @@ EOF
   3. **Fix-verify loop closed.** Either (a) `FIX_BACKLOG_*_<date>.md` has an empty "Merge-blocking" section, OR (b) the latest `VERIFY_*_<iteration>_<date>.md` reports every merge-blocking row as PASS, OR (c) every unresolved CRITICAL/HIGH row has a signed entry in `WAIVERS_*_<date>.md` with a compensating control.
   4. **No open CRITICAL/HIGH in review verdicts.** `CODE_REVIEW_*_<date>.md` verdict must be APPROVED or APPROVED WITH SUGGESTIONS (not NEEDS REVISION / REJECT). `SECURITY_*_<date>.md` verdict must be APPROVED / READY (not BLOCKED). `PERF_*_<date>.md` must have every NFR target as PASS (not FAIL). `UX_*_<date>.md` (if UI-bearing) must be APPROVED / RELEASE-READY (not BLOCKED). Waivers permitted via `WAIVERS_*_<date>.md` with explicit user sign-off.
   5. **Anti-drift gates pass** (G-B + G-D). Run against the base branch:
-     - `bash scripts/validators/validate-no-reinvent.sh --base <base>` — exit 0 (no hand-edited `GENERATED_FILES.txt` outputs; any wholesale rewrite of a tracked/canonical file is justified in the manifest).
-     - `bash scripts/validators/validate-tracker-fresh.sh --base <base>` — exit 0 (the branch updated a tracker — CHANGELOG / PROGRESS / SDLC_TRACKER / DELEGATION_LOG — so this work isn't lost between steps/sessions).
-     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-handoff-discipline.sh` — exit 0 (every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)` spawn bypasses the contract — so an agent never tries to spawn a child a runtime like opencode can't).
-     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-persistence-block.sh` — exit 0 (every executor/coding agent carries the anti-announce-then-stop rule from `agents/shared/PERSISTENCE.md`, directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — so a model won't end its turn after merely announcing an action).
-     - **If the branch changed any `agents/**.md`:** `bash scripts/validators/validate-autonomy-wiring.sh` — exit 0 (every by-design pause directive is autonomy-aware — carries the `AUTONOMY_PROTOCOL` gate or is marked NEVER-AUTO within ±5 lines — so `autonomy: auto` actually takes documented defaults instead of silently waiting).
-     - **If the branch changed `README.md` / `docs/**` or added/removed an agent, skill, validator, or reference:** `bash scripts/validators/validate-doc-counts.sh` — exit 0 (every "N validators / N skills / N references" count claimed in docs is re-derived from the filesystem — stale counts are version drift in disguise; this makes release-manager step 5 deterministic instead of agent-only).
-     - **If the branch added/removed a validator or shared protocol:** `bash scripts/validators/validate-doc-catalog.sh` — exit 0 (the FEATURES catalog *body* lists every validator + shared protocol that actually ships — catches catalog drift the count check misses, e.g. a new validator that ships undocumented).
-     - `bash scripts/validators/validate-challenger-gate.sh` — exit 0 (any FIX_BACKLOG/review/security report with a HIGH or CRITICAL finding has a matching `docs/reviews/CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts — per `CHALLENGER_PROTOCOL.md` — so a wrong severity call doesn't sail into a merge unchallenged).
+     - `bash ~/.config/opencode/scripts/validators/validate-no-reinvent.sh --base <base>` — exit 0 (no hand-edited `GENERATED_FILES.txt` outputs; any wholesale rewrite of a tracked/canonical file is justified in the manifest).
+     - `bash ~/.config/opencode/scripts/validators/validate-tracker-fresh.sh --base <base>` — exit 0 (the branch updated a tracker — CHANGELOG / PROGRESS / SDLC_TRACKER / DELEGATION_LOG — so this work isn't lost between steps/sessions).
+     - **If the branch changed any `agents/**.md`:** `bash ~/.config/opencode/scripts/validators/validate-handoff-discipline.sh` — exit 0 (every `task()`-shorthand delegation maps to a HANDOFF with a no-spawn fallback; no raw `Agent(...)` spawn bypasses the contract — so an agent never tries to spawn a child a runtime like opencode can't).
+     - **If the branch changed any `agents/**.md`:** `bash ~/.config/opencode/scripts/validators/validate-persistence-block.sh` — exit 0 (every executor/coding agent carries the anti-announce-then-stop rule from `agents/shared/PERSISTENCE.md`, directly or via MODEL_ADAPTER/BOUNDED_TASK_CONTRACT — so a model won't end its turn after merely announcing an action).
+     - **If the branch changed any `agents/**.md`:** `bash ~/.config/opencode/scripts/validators/validate-autonomy-wiring.sh` — exit 0 (every by-design pause directive is autonomy-aware — carries the `AUTONOMY_PROTOCOL` gate or is marked NEVER-AUTO within ±5 lines — so `autonomy: auto` actually takes documented defaults instead of silently waiting).
+     - **If the branch changed `README.md` / `docs/**` or added/removed an agent, skill, validator, or reference:** `bash ~/.config/opencode/scripts/validators/validate-doc-counts.sh` — exit 0 (every "N validators / N skills / N references" count claimed in docs is re-derived from the filesystem — stale counts are version drift in disguise; this makes release-manager step 5 deterministic instead of agent-only).
+     - **If the branch added/removed a validator or shared protocol:** `bash ~/.config/opencode/scripts/validators/validate-doc-catalog.sh` — exit 0 (the FEATURES catalog *body* lists every validator + shared protocol that actually ships — catches catalog drift the count check misses, e.g. a new validator that ships undocumented).
+     - `bash ~/.config/opencode/scripts/validators/validate-challenger-gate.sh` — exit 0 (any FIX_BACKLOG/review/security report with a HIGH or CRITICAL finding has a matching `docs/reviews/CHALLENGE_REPORT_*.md` with zero unresolved CONTRADICTED verdicts — per `CHALLENGER_PROTOCOL.md` — so a wrong severity call doesn't sail into a merge unchallenged).
      `<base>` is `main` for feature/improve/hotfix merges, or the parent feature branch for sub-component merges.
   If any required file is missing, stale, or fails the verdict check — abort the merge and report exactly which condition blocks it. A merge that bypasses these checks is a P0 defect.
 - NEVER `--no-verify` to skip hooks — fix the underlying issue
@@ -529,7 +643,16 @@ Before the completion phrase, output:
 ## Known issues / deferred
 - <issue> — <why deferred>
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: SDLC lead resume
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 All sections required. "None" is valid for sections with nothing to report.

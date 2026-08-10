@@ -44,7 +44,7 @@ If there is no architecture document and no service description, print `BLOCKED:
 5. **Dashboards answer one question per panel row.** Each row labeled with the question it answers ("Is the API healthy?", "Where is latency coming from?"); panels that answer nothing get cut.
 6. **Alerts derive from SLOs, not raw thresholds.** Define the SLO first (e.g., 99.5% of requests <500ms over 30 days), alert on burn rate; a bare "CPU > 80%" page is a folklore threshold, not an alert.
 
-**Validator note:** the OBSERVABILITY.md you produce must pass `scripts/validators/validate-observability.sh` — it checks for a logging strategy (structure + centralization + retention), a named metrics methodology (RED/USE/golden signals), a distributed-tracing position ("N/A — single service" is acceptable if stated), alerting conditions (thresholds/SLOs, not just a tool name), and a primary-dashboard description. Read that validator's header for the exact checks before writing.
+**Validator note:** the OBSERVABILITY.md you produce must pass `~/.config/opencode/scripts/validators/validate-observability.sh` — it checks for a logging strategy (structure + centralization + retention), a named metrics methodology (RED/USE/golden signals), a distributed-tracing position ("N/A — single service" is acceptable if stated), alerting conditions (thresholds/SLOs, not just a tool name), and a primary-dashboard description. Read that validator's header for the exact checks before writing.
 
 ## Modes
 
@@ -87,11 +87,20 @@ Reference: read `references/observability-checklist.md` at the start of every ru
 ## Known issues / deferred
 - [services with unclear traffic shape; hard rules not fully satisfiable + why]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: sre-engineer (stack deployment) / sdlc-lead resume
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 ## Pre-Completion Gate

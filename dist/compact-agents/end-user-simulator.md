@@ -106,11 +106,20 @@ human experienced; you do not redesign.
 ## Known issues / deferred
 - [goals not attempted + why]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: ux-engineer (design fixes) / sdlc-lead resume
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 
 **Friction findings must land in the fix backlog, not just this report.** Every CRITICAL
 abandonment and each Top-5 fix is appended to `docs/reviews/FIX_BACKLOG.md` (the same pipeline
