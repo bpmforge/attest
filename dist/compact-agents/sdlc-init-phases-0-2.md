@@ -40,7 +40,7 @@ fine; re-issuing your own task is not.
 ## Phase 0: Ideation — WHY are we building this?
 
 **First, bootstrap the repo via `task` tool:**
-- `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit on main (README + .gitignore only), configure remotes (gitea primary + github mirror by default), install commitlint + lefthook/husky hooks, enforce branch protection on main (require PR review, no direct push, require CI), then create and checkout branch 'sdlc/setup'. All SDLC docs (phases 0-3) will be committed to sdlc/setup — NOT main. Write report to docs/git/INIT_<date>.md", timeout=120)` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact on the `sdlc/setup` branch.
+- `task(agent="git-expert", prompt="Run --init mode: git init, language-aware .gitignore, initial commit on main (README + .gitignore only), configure remotes ONLY if this project has them (gitea primary + github mirror is the default WHEN they exist — run `git remote` first; empty means local-only, which is a supported setup: skip-and-report the remote/push/branch-protection steps per git-expert's § Local-only repos and never invent a URL), install commitlint + lefthook/husky hooks (these work locally and are the substitute for branch protection when there is no forge), enforce branch protection on main where a forge exists (require PR review, no direct push, require CI), then create and checkout branch 'sdlc/setup'. All SDLC docs (phases 0-3) will be committed to sdlc/setup — NOT main. Write report to docs/git/INIT_<date>.md", timeout=120)` — Run BEFORE any `docs/` files are written so VISION.md is the first tracked artifact on the `sdlc/setup` branch.
 
 **Initialize the SDLC_TRACKER for Mode 1** (immediately after the repo is bootstrapped):
 ```
@@ -327,7 +327,7 @@ For each requirement:
 
 **After SRS.md + USER_STORIES.md, produce the use case catalog (INLINE — do this yourself):**
 
-Write `docs/testing/USE_CASES.md` — derive one use case per user story:
+Write `docs/USE_CASES.md` — derive one use case per user story:
 - For each user story in USER_STORIES.md:
   - Which persona from USER_PERSONAS.md does this?
   - What are the preconditions?
@@ -338,7 +338,50 @@ Write `docs/testing/USE_CASES.md` — derive one use case per user story:
 - Index table at top: UC number, name, persona, priority (P0/P1/P2)
 - P0 = demo-blocking critical paths, P1 = should work, P2 = nice-to-have
 
-**Gate Loop:** Rate SRS.md, USER_STORIES.md, and USE_CASES.md. Key quality checks:
+**Label the fields exactly as below** — `validate-use-cases.sh` reads these labels, and a use case whose content is real but labelled differently is reported as *missing*. Each `## UC-NN` section (any heading depth) needs these five lines; markdown bold around them is fine:
+
+```
+### UC-001 — Short name
+**Persona:** P-01 …   **Trigger:** …   **Source:** FR-001; SC-02
+**Main flow:** (1) … (2) …
+**Success criteria:** observable outcome
+**Priority:** P0
+```
+
+Alternatively put them in the index table as columns named `Persona`, `Trigger`, `Main flow`, `Success criteria`, `Priority` — the gate accepts either form, and a short index table plus detail sections is the normal shape. `Source:` (or any `FR-NN` reference) is required per use case for traceability.
+
+Write it to `docs/USE_CASES.md`. `docs/testing/USE_CASES.md` is also accepted for existing projects — pick **one**, never both, or every future edit has to be made twice.
+
+**Gate Loop — Phase 2 Coverage (Ralph Wiggum style, 3-iteration max):**
+
+Requirements artifacts are **Track 1** (`PHASE_ROUTING_PROTOCOL.md` § Two-Track Gate System lists use cases and user stories explicitly): their coverage is script-validatable, so this phase is gated by the coverage loop, **not** by a self-rating. Run it — do not call `validate-phase-gate.sh` directly:
+
+```bash
+./scripts/validators/run-coverage-loop.sh phase-2
+```
+
+This chains `validate-use-cases.sh` + `validate-user-stories.sh` + `validate-requirements-matrix.sh`, and — this is the point — it *counts iterations* in `docs/work/COVERAGE_LOOP_phase-2_<date>.md`. Calling the gate directly runs the same validators with no counter, so a repair loop that never converges has nothing to stop it.
+
+**Exit code → action:**
+- **Exit 0** (clean) → run the content quality checks below
+- **Exit 1** (gaps remain, iteration < 3) → read the COVERAGE_LOOP file, emit one gap-fill HANDOFF per gap to the specialist that owns the artifact, re-run the script
+- **Exit 2** (3 iterations exhausted) → emit the escalation block:
+  ```
+  PHASE 2 GATE — RALPH WIGGUM ESCALATION
+  3 iterations exhausted. Gaps remain. Options:
+  A) WAIVER — accept as documented debt (record in SRS.md § Known Gaps)
+  B) LOWER-BAR — reduce the requirement for this row (record in SDLC_TRACKER)
+  C) SPECIALIST — different specialist for the specific gap
+  D) MANUAL — user reviews and approves directly
+
+  Gaps outstanding: [list from COVERAGE_LOOP file]
+  Awaiting user decision before advancing to Phase 3.
+  ```
+- **Exit 3** (no-progress halt — gap set byte-identical to last iteration) → **STOP and suspect the validator, not the document.** Repairs that change nothing mean the gate is not reading what you are writing. Before dispatching another repair, take one gap verbatim and confirm by hand that the content it names is genuinely absent — a gap saying "missing X" when X is plainly present means the validator is looking in the wrong place (wrong column, wrong heading depth, wrong file), which is a validator defect to report, not a document to rewrite.
+
+**A new HANDOFF does not reset the counter.** The loop file is per-phase-per-day, so re-entering the same phase under a new task name ("gate remediation", "validator format repair") keeps counting — by design. If you find yourself naming a third variation of the same repair, you are in an unbounded loop and should be at Exit 2 or Exit 3 above.
+
+**Content quality checks (run AFTER the coverage loop exits 0):**
 - Every FR has a `Given/When/Then` acceptance criterion (not just a description)
 - Every NFR has a measurable metric (not "should be fast" — "< 200ms at P95")
 - Every user story has a corresponding use case in USE_CASES.md
@@ -350,7 +393,7 @@ Write `docs/testing/USE_CASES.md` — derive one use case per user story:
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/testing/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 **Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.

@@ -308,7 +308,9 @@ Everything else -- discovery audits, tracing call chains / mapping blast radius,
 
 The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and point the user at it (open `/skill`, read the doc); only in `autonomy=auto` dispatch via the Task tool / subprocess.
 
-**Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**.
+**Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**, **design-iterator**.
+
+The design-chain subagents (**ux-researcher**, **design-system-lead**, **content-designer**) are NOT dispatched by you directly — they run inside `ux-engineer`'s `--auto` design-manager chain. When a UI-bearing project has no `docs/design/flows.md` or `docs/design/tokens.json` yet, your ux-engineer HANDOFF should say to run the full `--auto` chain so those artifacts exist before Phase 4.
 
 These agents run multi-phase workflows (5-15 min). Running them as hidden subprocesses loses visibility. Instead, hand off explicitly -- the user opens a dedicated session, the expert runs as a first-class conversation, and you resume when done.
 
@@ -373,6 +375,7 @@ Mode/Phase: <current>
 | `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
 | `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
 | `/frontend`   | `frontend-design`      | Visual implementation, typography, design systems |
+| `/design-iterate` | `design-iterator`  | Visual iteration loop — render → screenshot → critique vs tokens.json → fix → re-verify |
 
 **Every HANDOFF must name an agent from this table. Do NOT invent agent names.**
 

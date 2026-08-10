@@ -93,7 +93,7 @@ Sequential mode processes one module at a time, but **each module goes through t
 **Round 1 — Code:**
 Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
 ```bash
-./scripts/validators/run-handoff-gates.sh \
+~/.config/opencode/scripts/validators/run-handoff-gates.sh \
   --scope src/<module> \
   --manifest docs/reviews/MANIFEST_<module>_<date>.md \
   --runtime
@@ -120,6 +120,8 @@ Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<
 **Round 3 — Runtime:**
 Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
 If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the next module.
+
+**Round 3b — Visual conformance (UI modules with `docs/design/tokens.json` only):** after RUNTIME PASS, emit a **`design-iterator` HANDOFF** on the module's screens — the render→screenshot→critique→fix loop against the token spec (protocol: `references/visual-design-loop.md`). Produces `docs/design/ITERATION_LOG.md`. Skip (and say so) when the module has no UI or no tokens.json exists.
 
 **Module gate (before next module):**
 1. RUNTIME_<module>.md shows PASS
@@ -156,7 +158,7 @@ Next after resume: run handoff gates (validate-design-system), then test strateg
 
 Use **Template 10** from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for this HANDOFF.
 
-→ After "frontend done": run `./scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
+→ After "frontend done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope src/components --scope src/styles --scope src/theme --manifest <manifest> --coverage validate-design-system.sh` → mark DONE
 
 **Wave 0 must pass before Wave 1 coding begins.** The design system is the foundation for all feature UI — no exceptions.
 
@@ -595,7 +597,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-→ After "sre done": run `./scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
+→ After "sre done": run `~/.config/opencode/scripts/validators/run-handoff-gates.sh --scope infra --manifest docs/reviews/MANIFEST_iac_<date>.md --coverage validate-iac.sh` → mark DONE
 
 **6. CI/CD pipeline:**
 
@@ -750,7 +752,7 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 - Verify each module has: interface, implementation, tests
 - Gate PRs: code review + security check before merge
 
-### Phase 4 Pre-Gate Checklist (run before validate-phase-gate.sh phase-4)
+### Phase 4 Pre-Gate Checklist (run before `run-coverage-loop.sh phase-4`)
 
 Before running the Phase 4 gate, verify all waves and infrastructure work are complete:
 
@@ -767,6 +769,9 @@ Per-wave verification:
   Every module has RUNTIME_<module>_<date>.md with PASS verdict: ✓/✗
   Every module FIX_BACKLOG has 0 open CRITICAL/HIGH: ✓/✗
   Every module PR has CI checks green (gh pr checks / tea pr view): ✓/✗
+    (local-only repo — `git remote` empty: no PR and no CI exist, so this row is
+     N/A. Substitute `VERIFY: ALL GREEN` + the module's review docs. An
+     impossible row is never a blocker and never an unearned ✓.)
 
 Infrastructure wave:
   IaC scaffolding: ✓/✗ DONE (infra/ exists, validate-iac.sh passes)

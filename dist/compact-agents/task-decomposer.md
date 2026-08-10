@@ -84,6 +84,18 @@ contract (`lane`, `write_scope`, `interface`, `acceptance`, `verify`,
 `depends_on`), not a single bounded job — an owner decomposes their own
 module into `nodes[]` once they claim it, using this same agent.
 
+**Every `write_scope` must cover its own tests.** If a module's acceptance
+asks for tests — and it almost always does — the scope has to permit writing
+them: either a glob (`src/**`) or the explicit siblings (`src/parse.js` AND
+`src/parse.test.js`). Listing implementation alone produces a ticket that
+cannot be satisfied: the acceptance demands tests, the scope gate refuses
+them, and the agent's only honest moves are to self-block or to delete the
+tests it just wrote. Both happen in practice — one field session wrote 120
+lines of implementation plus 214 lines of tests and lost the entire attempt to
+"tests/parse.test.js written outside assigned scope". Run
+`node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` and
+clear every `[!] ... no test file in the same directory` before finishing.
+
 **When to split into modules instead of (or in addition to) a flat node
 DAG:** the request has 2+ slices that (a) touch disjoint file trees and (b)
 could genuinely be worked in parallel by different owners. A single-file
@@ -98,7 +110,7 @@ lanes never share `write_scope`." Naming lanes by feel doesn't scale and
 isn't reproducible across sessions. Derive each module's lane from its own
 `write_scope` instead: **lane = the basename of the write_scope's
 containing directory** (`scripts/lib/derive-lanes.mjs`'s `deriveLane()`,
-`node scripts/derive-lanes.mjs <plan.json>` to apply it to a drafted plan).
+`node ~/.config/opencode/scripts/derive-lanes.mjs <plan.json>` to apply it to a drafted plan).
 A glob path (`src/x/ledger/**`) names its own directory directly; a
 concrete file path (`src/x/pit/bars.py`) uses its parent directory's
 basename (`pit`). This means "UI/API/schema/infra" is illustrative, not an
@@ -122,7 +134,7 @@ directly through a shared interface module means "the contract is written"
 unblocks everyone downstream, not "the whole feature is built."
 
 **Validate before writing.** After drafting `modules[]`, run
-`node scripts/lib/tickets.mjs validate <plan.json>` — NOT `validatePlan()`
+`node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` — NOT `validatePlan()`
 alone, which only enforces `lane` on every module and catches CROSS-lane
 write_scope collisions (a schema violation, unconditional on status). Same-
 lane collisions between two ACTIVE modules (a runtime race, not a schema
@@ -148,7 +160,7 @@ racy — fix it, don't write it.
 2. **Phase 2 — Scout check:** apply "Scout before you plan".
 3. **Phase 2b — Modular feature check:** apply "Modular feature detection" — does this request have 2+ parallel-workable, disjoint-file-tree slices? If yes, draft `modules[]` first (lane-derived, one interface-contract module, clean under `tickets.mjs validate`) before touching the node DAG. If no, skip straight to Phase 3.
 4. **Phase 3 — Decompose:** draft the node list bottom-up from artifacts: what files must exist at the end → which agent produces each → what each needs as input → dependency edges. Then apply Node sizing rules. (If Phase 2b produced `modules[]`, each module's OWN `nodes[]` is decomposed by whoever claims it, not here — this repo-wide decompose pass only needs nodes for non-modular work, or for the interface-contract module itself.)
-5. **Phase 4 — Order + validate:** topologically sort; check no cycles, no orphan nodes, every `depends_on` id exists, every input is either a repo file or another node's output. If `modules[]` is present, also run `node scripts/lib/tickets.mjs validate <plan.json>` (see "Validate before writing"). Structural validity is not completeness — apply `agents/shared/includes/denominator-discipline.md`: re-derive the requirement list from the SRS/brief (ground truth), not from the node list you just wrote, and diff it against the DAG's outputs. An omitted requirement is covered by never being counted; a DAG with zero cycles can still silently drop a requirement.
+5. **Phase 4 — Order + validate:** topologically sort; check no cycles, no orphan nodes, every `depends_on` id exists, every input is either a repo file or another node's output. If `modules[]` is present, also run `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` (see "Validate before writing"). Structural validity is not completeness — apply `agents/shared/includes/denominator-discipline.md`: re-derive the requirement list from the SRS/brief (ground truth), not from the node list you just wrote, and diff it against the DAG's outputs. An omitted requirement is covered by never being counted; a DAG with zero cycles can still silently drop a requirement.
 6. **Phase 5 — Write:** `docs/work/plan/plan.json` (machine) and `docs/work/plan/plan.md` (human: Mermaid `graph TD` of the DAG + one-line-per-node table; if `modules[]` is present, also run `gen-tickets-board.mjs` to confirm it renders).
 
 ## Completion Manifest
@@ -166,11 +178,20 @@ racy — fix it, don't write it.
 ## Known issues / deferred
 - [nodes marked after_replan and what discovery could change them]
 
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
 ## Memory written
 - memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
 ## Model tier: [small|medium|large] — [estimated context used: low|medium|high]
 
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
 ## Ready for: sdlc-lead (or the user's runner) — execute nodes in topological order
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
 
 ## Pre-Completion Gate
@@ -181,6 +202,6 @@ racy — fix it, don't write it.
 - [ ] Every artifact node has a verify node or named gate
 - [ ] plan.md DAG matches plan.json exactly
 - [ ] Requirement list re-derived from the SRS/brief (not from the node list) and diffed against DAG outputs — denominator discipline applied, no requirement silently uncovered
-- [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is a manual check — nothing in `tickets.mjs` enforces it today.
+- [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is a manual check — nothing in `tickets.mjs` enforces it today.
 
 Print: `✓ task-decomposer done — [N] nodes, [N] verify, max depth [D]`

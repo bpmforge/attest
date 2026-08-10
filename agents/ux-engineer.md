@@ -457,6 +457,7 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 ## Recommend Other Experts When
 
 - UX spec needs API endpoints → `api-designer`
+- `--review` findings are visual token/spec drift a render loop could close → `design-iterator` (screenshot-verified fix loop; your review stays findings-only)
 - Forms handle sensitive data → `security-auditor` for input validation review
 - Data components need query optimization → `db-architect`
 - Components need load-time budget → `performance-engineer`
