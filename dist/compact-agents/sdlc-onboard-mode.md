@@ -449,7 +449,7 @@ Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 
 Emit parallel HANDOFFs per wave. Each HANDOFF owns the exact rows it covers. Producing agent updates row Status: PENDING → DONE.
 
-**Step D3 — VERIFY:** `./scripts/validators/validate-inventory.sh`
+**Step D3 — VERIFY:** `~/.config/opencode/scripts/validators/validate-inventory.sh`
 - Exit 0 → loop closed
 - Exit 1 → proceed to Step D4
 
@@ -457,8 +457,8 @@ Emit parallel HANDOFFs per wave. Each HANDOFF owns the exact rows it covers. Pro
 
 Also run in parallel:
 ```bash
-./scripts/validators/validate-architecture.sh
-./scripts/validators/validate-erd-coverage.sh
-./scripts/validators/validate-sequence-coverage.sh
-./scripts/validators/validate-phase-gate.sh onboard-deep
+~/.config/opencode/scripts/validators/validate-architecture.sh
+~/.config/opencode/scripts/validators/validate-erd-coverage.sh
+~/.config/opencode/scripts/validators/validate-sequence-coverage.sh
+~/.config/opencode/scripts/validators/run-coverage-loop.sh onboard-deep   # the wrapper — counts iterations; never the bare gate
 ```

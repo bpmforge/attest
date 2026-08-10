@@ -89,10 +89,70 @@ Never write from training data. Before using any library, framework, or external
 2. Call `get-library-docs` with the specific topic/function you need
 3. Write code based on what the docs say — not what you think the API looks like
 
+**Context7 answers a different question than the one that breaks you.** It tells you how to
+*call* the API. It does not tell you which *version* that API belongs to, and it says
+nothing about the install line.
+
+Measured 2026-07-27 against Context7's `antvis/x6` corpus (116 KB, 25k tokens): the import
+patterns are correct and current — 20 imports, all from `@antv/x6`, zero references to any
+`@antv/x6-plugin-*` package. Context7 is right. **And it contains no version string
+anywhere**, so an agent that follows it perfectly still has no idea whether the installed
+tree matches, and gets no signal at all about what `npm install` will resolve.
+
+That is where the damage happens: `@antv/x6` is v3 with plugins folded into core, but 19
+family members still tag v2 as `latest`, so `npm i @antv/x6-plugin-selection` installs a
+working **v2** plugin into a **v3** graph — no import error, no type error. Context7 never
+contradicts that install line, because installs and versions are not what it covers.
+
+So before you write the install line or the import, for any package you did not already
+find installed in `node_modules/`:
+
+```bash
+node <experts>/scripts/api-surface.mjs --family=<package>   # exits 1 on major skew
+```
+
+If it reports skew, the correct package/version is the one it names — **not** the one the
+docs show. Record which source won in the manifest. Full four-question walkthrough:
+`references/library-adoption-protocol.md`. This is the only step that catches a
+Context7 answer that is stale rather than absent, and its failure mode is silent success:
+follow Law 2 without it and you ship broken code having complied with every instruction.
+
 If Context7 is unavailable: check `node_modules/` source directly. If you still cannot verify the API, **mark that call BLOCKED and stop — do NOT write an unverified external API from training data** (the #1 source of hallucinated/outdated APIs, worst on small/local models). List the BLOCKED calls in the manifest and hand back. A frontier model may be trusted to proceed on a hunch; the default must protect the weak one. (G-E)
+
+**Law 2b — You do not author your own pass/fail.**
+Never write "tsc clean", "lint clean" or a test count into a completion report from
+memory of having run it. Run the project's declared suite through the wrapper, which
+records each command, its exit code and the commit it ran at:
+
+```bash
+node "$EXPERTS/verify-receipt.mjs" --ticket=<id>     # writes docs/work/receipts/<id>-<sha>.json
+```
+
+Cite the receipt path in the manifest. Do not restate its numbers in prose — the file is
+the claim. If a command failed, the receipt says so and the ticket is not done; report it
+and hand back rather than describing it as a minor remainder.
+
+A report contradicted by a re-run is the single most common failure in delegated work and
+costs a full correction round every time. This removes the possibility rather than asking
+you to be careful.
 
 **Law 3 — Match existing patterns.**
 Read 2–3 existing files in the same directory before writing a new file. Match their structure, naming, imports, and error-handling style. Don't introduce new patterns when one already exists in the codebase.
+
+**Law 3b — Honour the project's declared invariants.**
+Cross-cutting rules — "every route goes through the audited transaction seam", "never
+define auth helpers locally" — are invisible in a bounded ticket and are not checked by
+that ticket's tests. A route that bypassed its codebase's audit seam **passed its own
+tests**; it was caught only because a reviewer happened to know the seam existed.
+
+If `.sdlc/invariants.json` exists, read it during Phase 1 and run:
+
+```bash
+bash "$EXPERTS/validators/validate-invariants.sh" .
+```
+
+A violation is not a style nit — it is the class of defect that reaches production
+because everything green says it is fine.
 
 **Law 4 — Follow the approved tech stack (with or without TECH_STACK.md).**
 
@@ -176,7 +236,7 @@ Below is the actionable summary of R-01 through R-20; the full definitions, scor
 ### Vendoring (R-30)
 - **Generate vendored code from the real source, never from memory** — when a task says "vendor/copy-paste library X" (e.g. a shadcn-style component pull), run the library's actual CLI/registry/repo command. Never hand-write X-flavored files from training data and call them X.
 - **Record provenance** — a vendored directory gets a `VENDORED.md` (source, tool/registry, version, exact file/variant list pulled). If you had to approximate from memory instead, state that explicitly in the same file as a declared divergence — an undeclared "we use X" claim over memory-generated code is the R-30 violation.
-- Run `bash scripts/validators/validate-vendor-provenance.sh` before finishing any task that touches a vendored directory.
+- Run `bash ~/.config/opencode/scripts/validators/validate-vendor-provenance.sh` before finishing any task that touches a vendored directory.
 
 ---
 
@@ -241,8 +301,19 @@ prose steps, first copy them into a ` ```verify ` fence in the context packet, c
 character, one command per line), runs each EXACTLY as written, captures full output + exit
 codes, keeps the summary TAIL, compares pass counts against the stored baseline, writes
 `docs/work/VERIFY_REPORT.md` itself, and prints one verdict line. Your loop is just:
-run → read `VERIFY: ALL GREEN` or `VERIFY: RED — <command>` → fix inside the repo → re-run
-(3-strike cap per LOOP_PREVENTION → `BLOCKED`, never a success report). Append the generated
+run → read the verdict → act on it → re-run (3-strike cap per LOOP_PREVENTION → `BLOCKED`,
+never a success report). There are four verdicts, and only one of them means "fix your code":
+
+| Verdict | What it means | What you do |
+|---|---|---|
+| `VERIFY: ALL GREEN` | every command passed | proceed to the done-gate |
+| `VERIFY: RED — exit N from: <cmd>` | a real failure in reach | fix it inside the repo, re-run |
+| `VERIFY: RED — fence command matched nothing (path/config defect…)` | the command tested **nothing** — an excluded path, a bad glob, a stale directory name. Not your code. | do NOT edit code. Report the fence/config defect as `BLOCKED: <verdict>` so the orchestrator fixes the fence |
+| `VERIFY: BASELINE_RED — …0 new` | every failure already failed at the baseline commit | **not yours to fix** — the contract forbids touching it. Name the pre-existing failures in your completion report and continue to the done-gate, which treats this as a warning |
+| `VERIFY: RED — pass-count regressed: N < baseline M (the K failing signature(s) themselves pre-date this work — the missing passes do not)` | tests **disappeared**, and separately the failures that remain are pre-existing | fix the deletion — restore the missing tests or justify their removal. The pre-existing failures are still not yours; the vanished passes are |
+
+An `ALL GREEN` line ending in `— BASELINE NOT CHECKED` means no baseline was stored, so a test
+you deleted would not have been caught. Say so in your report rather than claiming a clean run. Append the generated
 VERIFY_REPORT.md contents to your completion report — never retype or summarize outputs by
 hand. The rules below are what the harness enforces; they bind you fully whenever you run any
 verify command manually:
@@ -322,7 +393,7 @@ Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts).
 
 ```bash
 # Run the script-level checks now:
-bash scripts/validators/validate-code-health.sh .
+bash ~/.config/opencode/scripts/validators/validate-code-health.sh .
 # Must exit 0 before proceeding to Phase 6
 ```
 
@@ -336,10 +407,25 @@ If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes
 bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>
 ```
 
-`DONE-CHECK: RED` lists exactly what is missing (stale/red verify report, uncommitted or
-unpushed work, missing PRODUCE files, missing completion-report section) — fix those items,
-never argue with them. Only on `DONE-CHECK: GREEN` do you write the report and print the
-completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
+**The output has three levels, and only one of them blocks you:**
+
+| Line | Meaning | What you do |
+|---|---|---|
+| `[ok]` | that check passed | nothing |
+| `[warn]` | informational, **never blocking** — usually something outside your reach: no `\`\`\`verify` fence in the HANDOFF, no git remote configured, another agent's uncommitted files | name it in your report, then carry on |
+| `[FAIL]` | blocking | fix it |
+
+The verdict names the blocking items explicitly — `DONE-CHECK: RED — N blocking
+item(s). Warnings above are NOT blockers; these are: …`. **Read that list, not the
+whole output.** Field basis 2026-07-30: a researcher hit one `[FAIL]` (its own 19KB
+deliverable, written and never committed) alongside four `[warn]` lines, and
+reported "lacks a verify fence and changes are uncommitted/unpushed" — both of
+those were warnings, deliberately non-blocking, and it never committed the file
+that actually blocked it. Reporting a warning as a blocker stalls the pipeline
+exactly as hard as ignoring a real one.
+
+Fix the `[FAIL]` items, never argue with them. Only on `DONE-CHECK: GREEN` do you
+write the report and print the completion phrase. (Field basis 2026-07: an agent re-read its HANDOFF on request and still
 concluded "everything done" with 57 lint errors, no report, and unpushed commits — the
 judgment call is exactly what a small model gets wrong; the script doesn't.)
 
@@ -373,12 +459,12 @@ The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_C
 4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
 5. **Stop means stop** — after the completion phrase, end
 
-**Post-HANDOFF gates (automated — run by sdlc-lead via `scripts/validators/run-handoff-gates.sh`):**
+**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
 
-- `scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- `scripts/validators/validate-code-health.sh` — code hygiene (slop pattern enforcement)
-- `scripts/validators/validate-tech-stack.sh` — every direct dependency you added must appear in `docs/TECH_STACK.md` (Law 4 enforced, not just self-scored — an unlisted library fails the gate)
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- `~/.config/opencode/scripts/validators/validate-code-health.sh` — code hygiene (slop pattern enforcement)
+- `~/.config/opencode/scripts/validators/validate-tech-stack.sh` — every direct dependency you added must appear in `docs/TECH_STACK.md` (Law 4 enforced, not just self-scored — an unlisted library fails the gate)
 - `--runtime` flag — build + lint must pass
 
 Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
@@ -486,7 +572,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] No hardcoded credentials, API keys, or secrets in source files
 - [ ] No unlisted dependencies introduced (check against TECH_STACK.md)
 - [ ] All functions ≤50 lines (flag exceptions in manifest deferred section)
-- [ ] **Every source file ≤ size cap (default 400 lines).** A file that would exceed it is decomposed UP FRONT (PLAN-SHAPE) into a directory — an index/barrel + chapter modules, one concern each — per `agents/shared/CODE_BOOK_PROTOCOL.md`; never write a monolith to refactor later. Gate: `bash scripts/validators/validate-file-size.sh .` exits 0.
+- [ ] **Every source file ≤ size cap (default 400 lines).** A file that would exceed it is decomposed UP FRONT (PLAN-SHAPE) into a directory — an index/barrel + chapter modules, one concern each — per `agents/shared/CODE_BOOK_PROTOCOL.md`; never write a monolith to refactor later. Gate: `bash ~/.config/opencode/scripts/validators/validate-file-size.sh .` exits 0.
 - [ ] Completion Manifest `Test result:` line shows actual command output with pass count
 
 **Run build + tests + code health now (do not skip):**
@@ -502,7 +588,7 @@ fi
 $PM run build && $PM test        # e.g. pnpm run build && pnpm test
 # or the equivalent commands from docs/TECH_STACK.md (go test ./..., pytest, cargo test)
 
-bash scripts/validators/validate-code-health.sh .
+bash ~/.config/opencode/scripts/validators/validate-code-health.sh .
 ```
 If build/tests fail → fix before printing completion phrase. Test failures are not "deferred".
 If code-health gaps → fix slop patterns → re-run until exit 0.

@@ -77,7 +77,7 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 - Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
 
-This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
 ---
 
@@ -404,7 +404,7 @@ Identify the top improvement opportunities — things that are actively making t
 harder to work with today. Grade each finding by severity (Critical / High / Medium / Low)
 and effort (S/M/L).
 
-Also run: `bash scripts/validators/validate-code-health.sh .` — include its output in the audit.
+Also run: `bash ~/.config/opencode/scripts/validators/validate-code-health.sh .` — include its output in the audit.
 
 PRODUCE exactly these files (nothing else):
 - docs/improve/CODE_QUALITY_AUDIT.md — findings organized by severity, each with: what
@@ -939,8 +939,8 @@ Before declaring Mode 4 complete:
 
 **Run the code-health and module-boundary gates on the changed code:**
 ```bash
-bash scripts/validators/validate-code-health.sh .       # anti-slop + complexity
-bash scripts/validators/validate-module-boundaries.sh . # cross-module imports
+bash ~/.config/opencode/scripts/validators/validate-code-health.sh .       # anti-slop + complexity
+bash ~/.config/opencode/scripts/validators/validate-module-boundaries.sh . # cross-module imports
 ```
 If either reports gaps → route to coding-agent as a Size S fix before declaring done.
 

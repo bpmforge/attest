@@ -75,7 +75,7 @@ When you produce any markdown deliverable (VISION, ARCHITECTURE, USE_CASES, ONBO
 - Headings (`#`, `##`, `###`) are the only allowed visual structure outside Mermaid blocks.
 - If you find yourself drawing a chart with text characters, stop — render it as a Mermaid `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, or `flowchart` instead.
 
-This rule is enforced by `scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
+This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-ascii-art.sh`. Deliverables that violate it fail the phase gate.
 
 ---
 
@@ -634,13 +634,13 @@ surface only at runtime. **Do not merge until a clean run is confirmed.**
 
 ```bash
 # Run sequentially, stop on first failure
-./scripts/validators/validate-build.sh             # build the project
-./scripts/validators/validate-lint.sh              # lint + typecheck
-./scripts/validators/validate-tests.sh             # full test suite
-./scripts/validators/validate-smoke.sh             # boot server, hit known routes
-./scripts/validators/validate-deps.sh              # CVE / advisory check
-./scripts/validators/validate-code-health.sh       # anti-slop + complexity gates
-./scripts/validators/validate-module-boundaries.sh # cross-module import enforcement
+~/.config/opencode/scripts/validators/validate-build.sh             # build the project
+~/.config/opencode/scripts/validators/validate-lint.sh              # lint + typecheck
+~/.config/opencode/scripts/validators/validate-tests.sh             # full test suite
+~/.config/opencode/scripts/validators/validate-smoke.sh             # boot server, hit known routes
+~/.config/opencode/scripts/validators/validate-deps.sh              # CVE / advisory check
+~/.config/opencode/scripts/validators/validate-code-health.sh       # anti-slop + complexity gates
+~/.config/opencode/scripts/validators/validate-module-boundaries.sh # cross-module import enforcement
 ```
 
 For a feature-scoped validation, the orchestrator can also delegate the FEATURE SMOKE and REGRESSION SMOKE steps to coding-agent:

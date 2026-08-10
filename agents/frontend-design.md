@@ -492,6 +492,7 @@ If 3+ of these fail, the design needs another pass.
 
 - Found accessibility issue → `ux-engineer` for WCAG review
 - Component architecture needs rethinking → `ux-engineer` for workflow redesign
+- Implementation done and a dev server can run → `design-iterator` for the render→screenshot→critique→fix loop against tokens.json (verified visual conformance beats code-side polish)
 - Need to optimize image/font loading → `performance-engineer`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`
