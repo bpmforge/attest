@@ -387,9 +387,10 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 | `/design-iterate` | `design-iterator` | Claude-Design-style visual loop — render → screenshot → critique against tokens.json → fix → re-verify (`--sync` token extraction, `--real` logged-in browser audit) |
+| `/gauntlet` | `gauntlet-lead` | Gauntlet loop — builders + blind fresh-per-round critics iterate until the work matches or beats a named real exemplar (`--bar`, `--budget`) |
 | `/vault` | `vault` | Query / ingest / lint the agent-brain-vault — answer a project question from compiled, cited pages instead of re-reading raw sources (T5.6) |
 
-**42 skills total** (includes `/guide` — the concierge front door).
+**43 skills total** (includes `/guide` — the concierge front door).
 
 ---
 

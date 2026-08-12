@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.5.0] — 2026-08-11
+
+The gauntlet loop (Matt Shumer's technique) as a first-class quality harness: **builders never grade their own work, and a critic that saw a previous draft never grades the retry.**
+
+- **New `/gauntlet` + `gauntlet-lead` (primary)** — the LEAD only orchestrates: writes `docs/gauntlet/BAR_<slug>.md` (a named real exemplar to match or beat + per-criterion checks + budget, default 5 rounds), splits the goal into independently gradeable units, dispatches builders (clean context, never declare PASS) and blind critics (fresh context per unit per round; receives ONLY artifact + bar + exemplar — prior critiques go to the builder, never the next critic), and loops until all-pass / two-round stall / budget — reporting which exit fired and every below-bar residual. No named exemplar → `BLOCKED: no real bar`; unevidenced critic verdicts are discarded and re-run.
+- **`agents/shared/GAUNTLET_LOOP.md`** — the protocol: blindness rules, bar discipline (aspirational is fine, uncomparable is not), exit rules, LOOP_PREVENTION interplay (per-context tool caps vs cross-context round budget), and explicit boundaries vs the challenger (fact-checks claims), Fix-Verify (closes known defects), Wiggum coverage (denominator), and design-iterator (internal token bar — cheaper when the bar is our own spec).
+- Routing: sdlc-lead agent table (`/gauntlet`), design-iterator hands external-reference bars to `gauntlet-lead`, FEATURES/README rows. 632 tests; 98 agents block-synced; parity + leak checks clean.
+
 ## [3.4.0] — 2026-08-10
 
 The visual design loop — the Claude-Design property (code edits and rendered pixels in ONE feedback cycle) implemented as a first-class expert, plus the wiring that makes the design chain actually run.
