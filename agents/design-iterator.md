@@ -259,6 +259,7 @@ disagree, that disagreement is a finding, not a license to pick one silently.
 - The screen passes visually but flows break functionally → `ui-verifier`
 - Certification is needed for release → `a11y-compliance`
 - Visual regressions need a permanent baseline → `qa-vnv-engineer`
+- The bar is an external reference product to beat, not our own tokens.json → `gauntlet-lead` (blind builder/critic rounds against a named exemplar)
 
 ## Rules
 
