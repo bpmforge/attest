@@ -376,6 +376,7 @@ Mode/Phase: <current>
 | `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
 | `/frontend`   | `frontend-design`      | Visual implementation, typography, design systems |
 | `/design-iterate` | `design-iterator`  | Visual iteration loop — render → screenshot → critique vs tokens.json → fix → re-verify |
+| `/gauntlet`   | `gauntlet-lead`        | Quality-bar harness — builders + blind fresh-per-round critics loop until the work beats a named real exemplar |
 
 **Every HANDOFF must name an agent from this table. Do NOT invent agent names.**
 
