@@ -9,7 +9,18 @@
 # agents/shared/CODE_BOOK_PROTOCOL.md.
 #
 # Usage:
-#   validate-file-size.sh [project-root]
+#   validate-file-size.sh [project-root] [--changed-since <ref>]
+#
+# --changed-since <ref> restricts the hard gate to files this run actually
+# touched (git diff against <ref>, plus the working tree). Files outside that
+# set are still reported, but as warnings, not gaps. This is what makes the
+# validator usable in the per-HANDOFF runtime gate: a project adopting the cap
+# mid-life has pre-existing oversized files, and failing a ticket for a file it
+# never opened leaves nothing that ticket can edit to clear the gate -- which
+# also means every gate after it goes unrun. Same lesson as the Gate 4 tracker
+# comment in run-handoff-gates.sh: gate a step on what the step owns.
+# Without the flag, behaviour is unchanged: whole-tree, every violation a gap.
+#
 # Env:
 #   FILE_SIZE_CAP   hard fail over this many lines (default 400)
 #   FILE_SIZE_WARN  note over this many lines        (default 300)
@@ -23,10 +34,49 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 validator_init "validate-file-size"
 
-ROOT="$(detect_project_root "${1:-}")"
+ROOT_ARG=""
+CHANGED_SINCE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --changed-since) CHANGED_SINCE="${2:-}"; shift 2 ;;
+    *) ROOT_ARG="$1"; shift ;;
+  esac
+done
+
+ROOT="$(detect_project_root "$ROOT_ARG")"
 CAP="${FILE_SIZE_CAP:-400}"
 WARN="${FILE_SIZE_WARN:-300}"
 note "cap=${CAP} warn=${WARN} lines (root: ${ROOT})"
+
+# When --changed-since is given, build the set of files this run touched.
+# Anything outside it is pre-existing debt: reported, but never a hard gap.
+declare -a TOUCHED=()
+if [[ -n "$CHANGED_SINCE" ]]; then
+  if git -C "$ROOT" rev-parse --verify --quiet "$CHANGED_SINCE" >/dev/null 2>&1; then
+    while IFS= read -r p; do
+      [[ -n "$p" ]] && TOUCHED+=("$p")
+    done < <(
+      { git -C "$ROOT" diff --name-only "$CHANGED_SINCE"...HEAD 2>/dev/null || true
+        git -C "$ROOT" diff --name-only HEAD 2>/dev/null || true
+        git -C "$ROOT" ls-files --others --exclude-standard 2>/dev/null || true
+      } | sort -u
+    )
+    note "scoped to ${#TOUCHED[@]} file(s) changed since ${CHANGED_SINCE}; others warn-only"
+  else
+    # An unresolvable ref must not silently widen the gate back to whole-tree.
+    warn "--changed-since ref '${CHANGED_SINCE}' does not resolve -- treating ALL files as in-scope"
+    CHANGED_SINCE=""
+  fi
+fi
+
+is_touched() {
+  [[ -z "$CHANGED_SINCE" ]] && return 0
+  local rel="$1" t
+  for t in "${TOUCHED[@]}"; do
+    [[ "$t" == "$rel" ]] && return 0
+  done
+  return 1
+}
 
 # Exact-path exception lists, if the project ships them:
 #   GENERATED_FILES.txt  — build outputs (already used by the dual-repo build)
@@ -69,7 +119,11 @@ while IFS= read -r f; do
   CHECKED=$((CHECKED + 1))
   lines=$(wc -l < "$f" | tr -d ' ')
   if [[ "$lines" -gt "$CAP" ]]; then
-    gap "file-size" "${rel} is ${lines} lines (> ${CAP}) -- split into a directory: an index/barrel + chapter modules (one concern each, <= ${CAP} lines). See CODE_BOOK_PROTOCOL.md"
+    if is_touched "$rel"; then
+      gap "file-size" "${rel} is ${lines} lines (> ${CAP}) -- split into a directory: an index/barrel + chapter modules (one concern each, <= ${CAP} lines). See CODE_BOOK_PROTOCOL.md"
+    else
+      warn "${rel} is ${lines} lines (> ${CAP}) -- PRE-EXISTING (untouched by this run), not blocking; schedule a book-style split"
+    fi
   elif [[ "$lines" -gt "$WARN" ]]; then
     warn "${rel} is ${lines} lines (> ${WARN}) -- approaching the cap; plan a book-style split"
   fi

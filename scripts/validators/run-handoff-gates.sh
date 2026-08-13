@@ -245,11 +245,19 @@ if [[ "$RUNTIME" == "true" ]]; then
       gap "runtime" "$rv not found in $VALIDATORS_DIR"
       validator_exit
     fi
-    if bash "$rv_script" "$ROOT" > /dev/null 2>&1; then
+    # file-size is scoped to what this run touched (branch point computed for
+    # Gate 4 above). Whole-tree here would fail a returning ticket for
+    # pre-existing oversized files it never opened -- unclearable, and it would
+    # take every gate after it down as unrun. Gate the step on what it owns.
+    rv_args=("$ROOT")
+    if [[ "$rv" == "validate-file-size.sh" && -n "$TRACKER_SINCE" ]]; then
+      rv_args+=(--changed-since "$TRACKER_SINCE")
+    fi
+    if bash "$rv_script" "${rv_args[@]}" > /dev/null 2>&1; then
       pass "runtime gate clean ($rv)"
     else
-      bash "$rv_script" "$ROOT" 2>&1 | tail -20 >&2 || true
-      gap "runtime" "$rv failed — code must build and lint-clean before HANDOFF is accepted"
+      bash "$rv_script" "${rv_args[@]}" 2>&1 | tail -20 >&2 || true
+      gap "runtime" "$rv failed — code must build, lint-clean, and stay under the file-size cap before HANDOFF is accepted"
       validator_exit
     fi
   done
