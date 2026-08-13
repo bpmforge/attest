@@ -225,6 +225,7 @@ Every library currently installed is approved. Every library NOT currently insta
 **Law 5 — Edit format & lint-on-edit.**
 - **Edit, don't rewrite — ALL tiers, not just small.** Change existing files >~100 lines via **SEARCH/REPLACE blocks or a unified diff** — never a whole-file rewrite (models silently drop lines; Aider lazy-omission). This was originally a small-tier rule, but a 2026-07 field trace showed a *cloud* mini (gpt-5-mini, tier=large by context size) replacing a 335-line test file with a 20-line stub — deleting 16 test blocks of shipped, audited functionality. Context size is not capability: treat every model as capable of lazy omission. **Extending an existing test file means ADDING a block to it, never replacing its content** — if your edit of a test file makes it shorter than it was, stop and re-read what you deleted. Whole-file output is only for NEW files. On a failed/imprecise match: ONE retry citing the exact mismatch, then fall back to whole-file **only after re-reading the current file in full**, and record the fallback in the Completion Manifest.
 - **Lint after each edit.** After editing a file, immediately run the cheapest project check on the touched file (`tsc --noEmit` / `py_compile` / the configured linter); fix once with the error, then proceed. Never batch edits across files before the first check on small tier — per-edit feedback is a model-sized lever (SWE-agent). See `agents/shared/MICRO_LOOP.md` step 3.
+- **Size-check BEFORE you write, not after.** `wc -l <file>` every file you are about to create or append to. The cap applies to the file **after** your edit, so the number that matters is `current + what you're about to add`. Over **400** → you do not append: you open a new chapter module beside it and wire it through the index/barrel (`agents/shared/CODE_BOOK_PROTOCOL.md`). Between 300 and 400 → append, but name the concern seam you'd split on, so the next ticket has it. This is the rule that stops **accretion**: no single ticket writes a 2,000-line file, but seven tickets each appending 200 lines to the same file do. Every one of them passed its own ≤300-line output budget. The file is the unit that has to stay under the cap, not your diff. A monolith split after the fact is a far more error-prone operation than one never written.
 
 ---
 
@@ -234,6 +235,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 
 | Dimension | Write-time rule |
 |-----------|----------------|
+| **File size** | `wc -l` the target BEFORE writing. `current + your delta` > 400 → do not append; add a chapter module beside it and wire it through the index/barrel. 300–400 → append, but name the seam you'd split on. 400 is a hard gate failure (`validate-file-size.sh`), checked per-HANDOFF, not just at end-of-phase. A file nobody can hold in one context is a file every later agent edits blind — this is the single biggest driver of drift on non-frontier models. See `agents/shared/CODE_BOOK_PROTOCOL.md`. |
 | **Complexity** | If a function needs more than 3 conditions or exceeds 50 lines → split it before finishing it. Don't write it in one shot and hope it's under budget. |
 | **Duplication** | Before extracting similar logic into a new helper, grep for existing helpers: `grep -r "functionName\|similar pattern" src/`. If it exists, import it. If you're writing the same block a second time, extract it now. |
 | **Error handling** | Every error path is specified at write-time. No placeholder `catch {}` blocks — write the real handler immediately. |
@@ -332,10 +334,30 @@ If a library is internal/private and not in Context7, check `node_modules/` or e
 **Phase 3 — Implement**
 Write exactly the files listed in "PRODUCE exactly these files." Nothing else.
 
-For each file:
+**Phase 3.0 — PLAN-SHAPE (before the first character of code).** Run this once, over the whole PRODUCE list:
+
+```bash
+# Current size of every file you are about to touch (missing file = 0, that's fine)
+for f in <every file in the PRODUCE list>; do printf '%6s  %s\n' "$(wc -l < "$f" 2>/dev/null || echo 0)" "$f"; done
+```
+
+For each target, state its **projected** size (`current + your estimated delta`) and pick a shape before producing:
+
+| Projected | Shape |
+|-----------|-------|
+| ≤ 300 | write it as a single file |
+| 300–400 | write it, but name the concern seam now — the next ticket to touch it splits there |
+| > 400 | **decompose UP FRONT** into a directory: an index/barrel + chapter modules, one concern each. Name the chapters and what each owns before writing any of them. |
+
+An existing file already at or over the cap is **never** the target of an append — your work goes in a new chapter module and the index re-exports it. That is not scope creep and it is not a refactor: it is where the code you were told to write belongs. Do NOT restructure the existing file's contents to make room — that is out of scope; leave it and add beside it.
+
+Never write a monolith you intend to refactor later. Record the chosen shape in the Completion Manifest. Full rules: `agents/shared/CODE_BOOK_PROTOCOL.md`.
+
+**Phase 3.1 — Write.** For each file:
 1. Check if it already exists — if so, read it fully before editing
 2. Write the implementation matching existing patterns
 3. Apply anti-slop rules to every function before moving to the next
+4. `wc -l` the file after the edit. Over 400 → you missed PLAN-SHAPE; split it now, before the next file, not at Phase 5.
 
 **Phase 4 — Test (loop to GREEN, not to "ran")**
 
@@ -435,15 +457,19 @@ Score each dimension 1-10. Re-pass any dimension scoring < 7 (up to 3 attempts).
 | Test coverage | Tests present alongside every module; all tests pass; no skipped tests | /10 |
 | Anti-slop (R-01–R-30) | Zero violations across all 30 rules (run `validate-code-health.sh` — must exit 0; run `validate-vendor-provenance.sh` if any vendored directory exists — must exit 0); R-21–R-30 checked manually | /10 |
 | Complexity | All functions ≤50 lines; cyclomatic complexity ≤10 per function; nesting depth ≤4 | /10 |
+| File size | Every file you touched ≤400 lines (run `validate-file-size.sh` — must exit 0). Note: `validate-code-health.sh` no longer checks size (H-02 was delegated to this validator), so running code-health alone tells you NOTHING about file size | /10 |
 | Pattern matching | Matches existing codebase conventions (naming, error handling, file structure, ORM usage) | /10 |
 | Tech stack compliance | No unapproved dependencies; every new library flagged as deviation if not in TECH_STACK.md or package.json | /10 |
 | Scope compliance | Nothing produced that wasn't in PRODUCE list; no "helpful" extras | /10 |
 | Supply chain safety | All new packages verified to exist on registry before install; no hallucinated package names (R-21) | /10 |
 
 ```bash
-# Run the script-level checks now:
+# Run the script-level checks now — BOTH of them. code-health does not cover
+# file size (H-02 is delegated to validate-file-size.sh); running only the first
+# is how monoliths ship.
 bash ~/.config/opencode/scripts/validators/validate-code-health.sh .
-# Must exit 0 before proceeding to Phase 6
+bash ~/.config/opencode/scripts/validators/validate-file-size.sh .
+# Both must exit 0 before proceeding to Phase 6
 ```
 
 If any dimension scores < 7 → fix it → re-score. If still < 7 after 3 passes → document in manifest "Known issues / deferred" with specific reason. Do not silently ship a dimension scoring < 5.

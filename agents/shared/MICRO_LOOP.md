@@ -48,11 +48,15 @@ A specialist does NOT return its first draft. It runs this internal loop before 
                 For CODE, the criterion also includes: every file ≤ size cap,
                 every external API verified, anti-slop clean (validate-code-health
                 exit 0).
-1b. PLAN-SHAPE — (code only) if the unit would exceed the file-size cap, design the
-                book-style split UP FRONT — an index/barrel + chapter modules, one
-                concern each — BEFORE producing. Never write a monolith you intend to
-                refactor later (small models botch the extraction). See
-                CODE_BOOK_PROTOCOL.md.
+1b. PLAN-SHAPE — (code only) `wc -l` every file you are about to create or append to,
+                and project `current + your delta`. If the PROJECTION exceeds the cap,
+                design the book-style split UP FRONT — an index/barrel + chapter modules,
+                one concern each — BEFORE producing. The cap is on the FILE, not on your
+                diff: a monolith is normally *accreted* by many individually-compliant
+                small edits, not written in one shot, so "my change is only 200 lines" is
+                not a pass. An existing file already at the cap is never appended to — add
+                a chapter beside it. Never write a monolith you intend to refactor later
+                (small models botch the extraction). See CODE_BOOK_PROTOCOL.md.
 2. PRODUCE    — make the artifact (maker step).
 2a. EVIDENCE  — before judging, if you cannot verify a claim about the code/artifact
                 from what you have ALREADY seen, do not guess — LOOK. Up to 4 evidence

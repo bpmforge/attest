@@ -28,9 +28,29 @@ The 400-line cap is the **single** code book-chapter cap (matching the doc book 
 
 ---
 
+## Monoliths accrete — the cap is on the FILE, not on your diff
+
+The dominant failure mode is not one agent writing 2,000 lines. `task-decomposer.md` bounds each node's output at ~300 lines, so that essentially cannot happen. What happens instead: ticket 1 writes 180 lines, ticket 2 appends 150, ticket 7 appends 200 — and every single ticket was individually compliant, individually small, individually reviewed clean. Nobody wrote a monolith. One grew.
+
+So the rule any agent about to touch a file applies is:
+
+> **`wc -l` the target first. The cap applies to `current + your delta`, not to your delta.**
+
+| Projected size after your edit | What you do |
+|---|---|
+| ≤ 300 | append normally |
+| 300–400 | append, and name the concern seam for the next ticket |
+| > 400 | **do not append.** Your code goes in a new chapter module beside it; the index/barrel re-exports it |
+
+Adding a chapter instead of appending is **not scope creep and not a refactor** — it is where the code you were assigned belongs. What *would* be out of scope is restructuring the existing file's contents to make room; don't. Leave it and add beside it.
+
+Enforced per-HANDOFF (not just at end-of-phase-4) by `validate-file-size.sh` in the runtime gate of `run-handoff-gates.sh` — so the ticket that pushes a file over the cap is the one that fails, while the split is still a one-file operation.
+
+---
+
 ## PLAN-SHAPE — decompose UP FRONT, never refactor a monolith later
 
-The coding micro-loop runs **PLAN-SHAPE before PRODUCE** (`MICRO_LOOP.md`): if the unit you're about to write would exceed the cap, design the directory first. A monolith refactored after the fact is more error-prone — small models especially botch the extraction — so the split is a *design* step, not cleanup.
+The coding micro-loop runs **PLAN-SHAPE before PRODUCE** (`MICRO_LOOP.md`): if the unit you're about to write — **or the file you're about to append to, at its projected size** — would exceed the cap, design the directory first. A monolith refactored after the fact is more error-prone — small models especially botch the extraction — so the split is a *design* step, not cleanup.
 
 Decompose by **concern**, not by line count:
 - one chapter per cohesive responsibility (a type cluster, a sub-feature, a pipeline stage);
