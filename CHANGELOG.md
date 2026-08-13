@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.5.1] — 2026-08-12
+
+The file-size cap was fully documented and fully unenforced. Field report: the coding agent shipping 2,000-line monoliths despite a 400-line cap, `CODE_BOOK_PROTOCOL.md`, and `validate-file-size.sh` all existing.
+
+- **The rule now lives in the write path, not the post-mortem.** `coding-agent.md` mentioned the cap exactly once — line 624 of 643, in the pre-completion checklist, i.e. after every file was written, when the fix is an expensive refactor a model defers. Added: a **File size** row to the write-time Code Health table, a Law 5 pre-edit rule, a new **Phase 3.0 PLAN-SHAPE** step that sizes the whole PRODUCE list before the first character of code, a post-edit `wc -l`, and a file-size dimension in the Phase 5 self-audit.
+- **Restored a check the last consolidation silently deleted.** H-02 (file size) was moved out of `validate-code-health.sh` into `validate-file-size.sh` — but Phase 5 ran code-health *only*, so the coding agent's in-loop size check had quietly become a no-op. Phase 5 now runs both, and says why.
+- **PLAN-SHAPE was never dispatched.** It lived in `MICRO_LOOP.md` step 1b; `coding-agent.md` referenced that file only for lint-on-edit. Same defect class as the orphaned design chain in 3.4.0 — a documented protocol no execution path invokes.
+- **Monoliths accrete; nothing modelled that.** `task-decomposer` bounds each node's output at ~300 lines, so no single ticket writes 2,000 lines — seven tickets each appending 200 to one file do, and every one is individually compliant. Every size rule was phrased against the **diff**, which is structurally blind to accretion. The cap is now on the **file** (`current + delta`); a near-cap file is never appended to — the node's output becomes a new chapter module plus an index re-export (`CODE_BOOK_PROTOCOL.md`, `MICRO_LOOP.md`, `task-decomposer.md`).
+- **Size is gated per-HANDOFF, not per-phase.** `validate-file-size.sh` joins `run-handoff-gates.sh`'s runtime gate, so the ticket that pushes a file over the cap is the one that fails — while the split is still a one-file operation, not an end-of-phase-4 archaeology project.
+- **…and that gate is scoped to what the run touched.** New `--changed-since <ref>`: files this run changed hard-fail over the cap; untouched oversized files warn. Whole-tree would fail every returning ticket in any project adopting the cap mid-life, for files it never opened — unclearable by that ticket, and since gates stop at the first failure, it takes every later gate down as unrun (the Gate 4 tracker lesson: gate a step on what the step owns). An unresolvable ref warns and falls back to blocking, never to silently passing.
+- **Honest denominator.** The validator was counting `.tmp-*` benchmark output, `.worktrees` per-ticket checkouts (reporting the same file once per worktree), `realworld-runs/` model-authored samples, and prefix-named test suites (`test-*.ts`, which the dotted `*.test.*` rule missed). attest's own violation count: **71 → 8** real, maintained files. Largest is `scripts/conductor/conductor.mjs` at 1,159 lines — the conductor is itself the monolith the conductor is now built to prevent.
+
+632 tests passing.
+
 ## [3.5.0] — 2026-08-11
 
 The gauntlet loop (Matt Shumer's technique) as a first-class quality harness: **builders never grade their own work, and a critic that saw a previous draft never grades the retry.**

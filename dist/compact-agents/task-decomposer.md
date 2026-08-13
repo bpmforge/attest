@@ -148,6 +148,7 @@ racy — fix it, don't write it.
 
 - Every node must complete inside ONE bounded session of the executor tier: instructions + inputs + output ≤ 60% of the tier's context (tier=small: inputs ≤3 files, output ≤300 lines).
 - One node = one artifact. A node producing two files is two nodes.
+- **Route around near-cap files.** A node's ≤300-line output budget bounds the *diff*, not the *file* — which is exactly how monoliths accrete: seven compliant nodes each appending 200 lines to `src/orchestrator.ts` produce a 1,400-line file no node ever violated a rule to create. Before assigning a node's output path, `wc -l` it. If `current + the node's output budget` would exceed 400, the node's `output` is a **new chapter module** in that file's directory (plus an index/barrel re-export), never an append to the existing file. Say so in the task sentence so the executor doesn't "helpfully" append anyway. See `agents/shared/CODE_BOOK_PROTOCOL.md`.
 - `tier_needed` is honest triage: trivial/mechanical → small; standard single-file work → small/medium; cross-file synthesis, security judgment, novel design → large. Don't flatter the small model.
 - Nodes that merge 4+ artifacts get decomposed into pairwise merges when `executor_tier=small`.
 - Verification is a node, not a hope: every artifact-producing node gets a sibling verify node (validator script if one exists, challenger/reviewer otherwise) unless the orchestrator's gates already cover it.
