@@ -26,7 +26,12 @@
 #   FILE_SIZE_WARN  note over this many lines        (default 300)
 #
 # Excludes: generated/vendored/build output, lockfiles, .d.ts, minified, tests,
-# fixtures, migrations, and any path listed in GENERATED_FILES.txt.
+# fixtures, migrations, and any path listed in GENERATED_FILES.txt. Also prunes
+# scratch trees that hold code we did not author and do not maintain --
+# `.tmp-*` (benchmark/eval output: model-written sample projects) and
+# `.worktrees` (per-ticket checkouts, which would otherwise report the SAME
+# oversized file once per worktree). Counting those inflates the violation list
+# with noise and buries the real findings.
 # Exit 0 clean / 1 gaps / 2 error.
 
 # shellcheck disable=SC1091
@@ -90,6 +95,13 @@ is_excluded() {
     *.min.*|*.generated.*|*.d.ts|*-lock.*|*.lock) return 0 ;;
     *.test.*|*.spec.*|*__tests__*|*/tests/*|*/test/*|*/fixtures/*|*/__fixtures__/*) return 0 ;;
     */migrations/*|*/__generated__/*|*.pb.go|*_pb2.py) return 0 ;;
+    # A test suite that names its files `test-<topic>.ts` (or `test.ts`) rather
+    # than `<topic>.test.ts` is still a test suite — the rule above only caught
+    # the dotted convention, so prefix-named suites were being gated as source.
+    test-*|*/test-*|test.ts|*/test.ts) return 0 ;;
+    # Benchmark/eval transcripts: model-authored sample projects kept as run
+    # evidence. Not code we authored or maintain.
+    */realworld-runs/*|*/bench-runs/*) return 0 ;;
   esac
   if [[ -f "$GEN_LIST" ]] && grep -qxF "$rel" "$GEN_LIST" 2>/dev/null; then
     return 0
@@ -104,7 +116,8 @@ is_excluded() {
 FILES=$(find "$ROOT" \
   -type d \( -name node_modules -o -name dist -o -name build -o -name out \
     -o -name .git -o -name vendor -o -name coverage -o -name .next \
-    -o -name target -o -name __pycache__ \) -prune -o \
+    -o -name target -o -name __pycache__ \
+    -o -name '.tmp-*' -o -name .worktrees -o -name .venv -o -name venv \) -prune -o \
   -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.js' -o -name '*.jsx' \
     -o -name '*.mjs' -o -name '*.cjs' -o -name '*.py' -o -name '*.go' \
     -o -name '*.rs' -o -name '*.java' -o -name '*.kt' -o -name '*.rb' \
