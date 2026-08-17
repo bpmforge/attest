@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.5.2] — 2026-08-17
+
+3.5.1 put the file-size cap in `coding-agent.md`. A field trace of a cross-session run showed why that is not enough: **the HANDOFF is handed across a session boundary, and the executor on the other side may never have loaded our agent definitions at all.**
+
+- **The HANDOFF packet now carries the constraint itself.** `HANDOFF_TEMPLATES.md`'s code-producing blocks (remediation, parallel wave) previously named a write-scope, a task, and a PRODUCE list — but no size rule and, in the parallel-wave case, no VERIFY block at all. The lead writes the packet to a file and tells the user to open `/code` and point it at that doc; whatever executes there is not guaranteed to be this repo's `coding-agent`. Every constraint that lived only in the agent definition was invisible across that seam. Both blocks now restate the cap as a RULE **and** as a VERIFY command.
+- **Constraints travel as commands, not prose.** The verify line is `validate-file-size.sh --changed-since <branch-point>` (from 3.5.1), and the manifest must quote its literal output. A foreign executor can skim a paragraph; it cannot produce a passing manifest without running the command. Same tool-offload doctrine as `MICRO_LOOP.md` step 3 and coding-agent's "a PASS claim needs the exact command's own output."
+- **New doctrine section in `HANDOFF_TEMPLATES.md`** — *the HANDOFF is the whole contract; assume the executor loaded nothing else* — with the test to apply to any future constraint: *if the executor loaded nothing but this packet, would this still bind?* If not, it belongs in the packet as a verify command. The RULE/VERIFY duplication is deliberate and marked not-to-be-deduplicated.
+- **`/code`'s skill card lists the size rule.** `skills/code/SKILL.md` delegates to the agent (so 3.5.1 does reach it), but its own summary of enforced rules omitted file size — a model skimming the card saw a constraint list with a hole in it.
+
+632 tests passing.
+
 ## [3.5.1] — 2026-08-12
 
 The file-size cap was fully documented and fully unenforced. Field report: the coding agent shipping 2,000-line monoliths despite a 400-line cap, `CODE_BOOK_PROTOCOL.md`, and `validate-file-size.sh` all existing.

@@ -16,6 +16,12 @@ Load and follow the instructions in the `coding-agent` agent.
 2. Read 2–3 existing files in target directories to match patterns
 3. Verify every library API via Context7 MCP (`resolve-library-id` + `get-library-docs`)
 
+**File size — checked BEFORE each write, not after:**
+`wc -l` the target first; the cap (400 lines) applies to `current + your delta`, not to your
+diff. Over it → don't append: add a chapter module beside the file and re-export it from the
+index. Monoliths accrete out of individually-compliant edits, so "my change is small" is not a
+pass. Gate: `validate-file-size.sh`. See `agents/shared/CODE_BOOK_PROTOCOL.md`.
+
 **Anti-slop rules enforced on every file:**
 - No try-catch outside system boundaries (user input, external APIs, file I/O)
 - No abstractions with fewer than 2 real implementations
