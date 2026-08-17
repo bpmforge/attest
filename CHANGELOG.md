@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.5.4] — 2026-08-17
+
+**Fixes a regression shipped in 3.5.3.** That version told `sdlc-lead` that "exactly two returns are terminal — the completion phrase or `BLOCKED`." That list was hand-authored and wrong: `BOUNDED_TASK_CONTRACT.md` Rule 8 *requires* a specialist to return a **`[PARTIAL]`-prefixed** completion phrase after 3 failures on one step. A lead following 3.5.3 literally would classify that correct escalation as a failed HANDOFF and re-dispatch it — the exact loop the 3-failure cap exists to prevent, failing the same way a fourth time.
+
+- **Aligned to the contract that already existed** rather than inventing a third enumeration. The authoritative formulation is in `plugins/resume-anchor.ts` and every agent file: *a turn may end only three ways — more work, the completion phrase, or `BLOCKED: <why + evidence>`.* The lead now reads returns against that same list, as a table: completion phrase → score it; `[PARTIAL]` → **decide** (resume from phase files, fix the named input, or reassign) but never blind re-dispatch; `BLOCKED` → answer it and re-dispatch; menu / confirm-request / which-step question / status narration / bare partial diff → failed HANDOFF.
+- **The return channel already ran both ways; the lead just never read it.** Specialists write a task ledger (`docs/work/TASKS_<agent>-<slug>.md`), phase files (`docs/work/<agent>/<task-slug>/phaseN.md`), `[PARTIAL]`, `BLOCKED: <evidence>`, and `RESUME from:` — all on disk, all surviving the compaction that eats conversation history. But `sdlc-lead.md` referenced `TASKS_*` only in a directory-cleanup context. The lead must now **read the ledger and phase files before writing a resume packet**, naming still-owed items from the unchecked boxes — never a bare "continue", never a restart of work the phase files show finished. `recover-phase-state.sh` already prints exactly this packet.
+- **Intake acknowledgement, without a new artifact.** The ledger is created as the specialist's first action after reading the HANDOFF; it now carries a header naming the PRODUCE paths owed and the exact completion phrase. That header *is* the ACK — it surfaces a misread task in the first minute instead of at completion, and it is the one part of the specialist's state the orchestrator can check without reading its conversation.
+- **`[PARTIAL]` and `BLOCKED` are the two-way channel working correctly** — a specialist escalating instead of looping. The twice-failed ceiling on the lead's side is now labelled as the deliberate mirror of Rule 8's cap on the specialist's side.
+
+Considered and rejected: a `NEEDS-INPUT` return state. `BLOCKED: <why + evidence>` already carries "I need help", and a sanctioned return whose content is a question would re-open the drifting-menu failure that `coding-agent.md`, `resume-anchor.ts`, and 3.5.3 all exist to close.
+
+632 tests passing.
+
 ## [3.5.3] — 2026-08-17
 
 Why the orchestrator ends up writing code, and why the size cap misses it when it does. Both traced from the same cross-session field capture as 3.5.2.

@@ -33,7 +33,11 @@ section before mode selection, scope-boundary checks, or anything else in this f
 2. **Keep a task ledger — your memory lives on disk, not in this conversation.** Your FIRST action
    after reading the HANDOFF: if `docs/work/TASKS_<agent>-<slug>.md` does not already exist (the
    orchestrator may have written it), create it by transcribing the HANDOFF's steps verbatim, one
-   `- [ ] <step>` checkbox per step. Tick a box (`- [x]`) the moment that step's evidence exists on
+   `- [ ] <step>` checkbox per step. **Head the ledger with the two things you owe:** the PRODUCE
+   file paths and the exact completion phrase you must print. That header is your acknowledgement
+   of the HANDOFF — writing it is how a misread task surfaces in the first minute instead of at
+   completion, and it is the one part of the ledger the orchestrator can check without reading your
+   conversation. Tick a box (`- [x]`) the moment that step's evidence exists on
    disk — never batch ticks. **THE LOOP:** whenever you are unsure where you are — after a
    compaction, a long detour, or any interruption — re-read the original HANDOFF and the ledger,
    reconcile each checkbox against what actually exists on disk (files, commits, verify report),

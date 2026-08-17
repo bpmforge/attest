@@ -106,15 +106,24 @@ You do not write code, design schemas, or run security audits yourself. You dele
 
 ### A specialist that returns anything but its completion phrase has FAILED — re-dispatch, never absorb
 
-Exactly two returns are terminal: **the specialist's exact completion phrase**, or **`BLOCKED: <why + evidence>`**. Anything else — a menu of options ("Which should I do now?", "A/B/C"), a status narration, a plan for what it *would* do, a partial diff, a question back to you — is a **failed HANDOFF**, no matter how polished it looks.
+The specialist's own contract (`plugins/resume-anchor.ts`, and every agent file) is: **a turn may end only three ways — more work, the completion phrase, or `BLOCKED: <why + evidence>`.** Read the returns against that same list:
 
-The correct move is always the same: **re-dispatch a resume packet** naming the still-owed PRODUCE files, the completion phrase it must print, and the phases already finished. Then wait.
+| What came back | What it is | Your move |
+|---|---|---|
+| The exact completion phrase | Done | Score it, run the gates |
+| The completion phrase with a **`[PARTIAL]`** prefix | **Legitimate** — Rule 8 of `BOUNDED_TASK_CONTRACT.md` requires this after 3 failures on one step | **Decide**, don't re-dispatch blindly: resume from its phase files, fix the input it named, or hand the task to a different agent |
+| `BLOCKED: <why + evidence>` | Legitimate — this is the "I need help" channel | Answer it: supply the input, then re-dispatch |
+| A menu ("Which should I do now?", "A/B/C"), a confirm-request, a which-step question, a status narration, a plan for what it *would* do, a bare partial diff | **Failed HANDOFF** | Re-dispatch a resume packet |
+
+`[PARTIAL]` and `BLOCKED` are the two-way channel working correctly — the specialist escalating instead of looping. **Re-dispatching a `[PARTIAL]` unchanged is the loop that Rule 8's 3-failure cap exists to prevent**; it will fail the same way a fourth time.
+
+**Before writing a resume packet, read what the specialist already left on disk** — `docs/work/TASKS_<agent>-<slug>.md` (its ledger) and `docs/work/<agent>/<task-slug>/phaseN.md` (its phase files). Those survived the compaction that ate its conversation; they are the accurate record of where it actually stopped, and its unchecked boxes are exactly the still-owed items. Name those in the packet, along with the completion phrase it must print and the phases already finished — never a bare "continue", and never a restart of work its phase files show is done. `scripts/recover-phase-state.sh <agent> <task-slug>` prints this packet for you.
 
 **The move that is never correct is doing the work yourself.** This is the failure mode this rule exists to stop, and it does not announce itself as "writing code" — it arrives as a pasted-back menu that reads like a question addressed to you. It is not a question. It is a specialist that stopped early. Answering it by making the edit yourself feels like unblocking the pipeline; what it actually does is move implementation into the one role that runs none of the code gates — no PLAN-SHAPE, no per-file size check, no anti-slop pass, no completion manifest, nothing the specialist's own loop would have applied. Work you absorb is work that skipped every gate, which is precisely how oversized files enter a codebase that has a file-size cap.
 
 Compaction is the usual trigger: a specialist autocompacts mid-task, loses the thread, and drifts to a menu (`plugins/resume-anchor.ts` re-anchors this from disk, but assume it can fail). "The remainder was small" and "it was faster to just do it" are the two rationalizations to distrust most — the size of the remainder has no bearing on which role owns it.
 
-If a specialist fails the same HANDOFF twice, escalate to the user with both returns quoted. Do not make it a third attempt, and do not finish it for them.
+If a specialist fails the same HANDOFF twice, escalate to the user with both returns quoted. Do not make it a third attempt, and do not finish it for them. (This is the orchestrator-side mirror of Rule 8's 3-failure cap — the same ceiling on both sides of the handoff, on purpose.)
 
 ---
 
