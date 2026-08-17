@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.5.3] — 2026-08-17
+
+Why the orchestrator ends up writing code, and why the size cap misses it when it does. Both traced from the same cross-session field capture as 3.5.2.
+
+- **A specialist that returns anything but its completion phrase has FAILED — re-dispatch, never absorb.** `sdlc-lead` already said "you do not write code" and "wait for the completion phrase", but nothing covered what to do when something *else* comes back. The observed chain: a specialist autocompacts mid-task, drifts to a menu ("Which should I do now?"), the user pastes that menu back, and the lead answers it — by making the edit itself. That never reads as "writing code"; it reads as a question addressed to the lead. Now explicit: exactly two returns are terminal (the completion phrase, or `BLOCKED: <evidence>`); everything else is a failed HANDOFF that gets a resume packet naming the still-owed PRODUCE files. Twice-failed escalates to the user with both returns quoted — never a third attempt, never finished on the specialist's behalf.
+- **Absorbed work skips every gate.** Named as the reason the rule exists: implementation done by the lead runs no PLAN-SHAPE, no per-file size check, no anti-slop pass, no completion manifest. "The remainder was small" and "it was faster to just do it" are called out as the two rationalizations to distrust — the size of the remainder has no bearing on which role owns it.
+- **Author-agnostic size gate (resume protocol step 7).** Every size check shipped so far is keyed to a *role* — `coding-agent.md`, the coding HANDOFF templates, Gate 5's `--runtime` — so code that reached the branch any other way (absorbed from a failed HANDOFF, hand-edited during triage, merged from a wave) passes through none of them. The lead now runs `validate-file-size.sh --changed-since <branch-point>` before advancing a phase or accepting a wave: it reads the diff, not the delegation log. Compared against the **branch point**, not the last ticket's diff — per-ticket comparison would inherit the exact accretion blind spot 3.5.1 closed.
+
+632 tests passing.
+
 ## [3.5.2] — 2026-08-17
 
 3.5.1 put the file-size cap in `coding-agent.md`. A field trace of a cross-session run showed why that is not enough: **the HANDOFF is handed across a session boundary, and the executor on the other side may never have loaded our agent definitions at all.**
