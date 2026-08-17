@@ -216,6 +216,13 @@ RULES:
 - Minimum change at the cited file:line
 - Stop and report if a fix needs a design change (do not redesign unilaterally)
 - MEDIUM/LOW rows stay in backlog as tech debt
+- FILE SIZE: `wc -l` any file before you append to it. `current + your delta` over
+  400 → do not append; add a chapter module beside it + an index re-export
+  (agents/shared/CODE_BOOK_PROTOCOL.md). The cap is on the FILE, not your diff.
+
+VERIFY before completing (quote each command's own literal output in the manifest):
+- bash ~/.config/opencode/scripts/validators/validate-file-size.sh . --changed-since <branch-point>
+- <the project's build/lint/test commands>
 
 PRODUCE:
 - Code edits at the cited file:line locations
@@ -287,9 +294,18 @@ WRITE-SCOPE (exclusive):
 YOUR TASK:
 <module-A specific task>
 
+RULES:
+- FILE SIZE: `wc -l` any file before you append to it. `current + your delta` over
+  400 → do not append; add a chapter module beside it + an index re-export
+  (agents/shared/CODE_BOOK_PROTOCOL.md). The cap is on the FILE, not your diff.
+
 PRODUCE:
 - src/<module-A>/**                            -- implementation
 - docs/reviews/MANIFEST_<module-A>_<date>.md   -- completion manifest
+
+VERIFY before completing (quote each command's own literal output in the manifest):
+- bash ~/.config/opencode/scripts/validators/validate-file-size.sh . --changed-since <branch-point>
+- <the project's build/lint/test commands>
 
 Print: "coding-agent done -- <module-A> implementation complete"
 Then stop.
@@ -748,6 +764,18 @@ Before every HANDOFF, write a `docs/work/context-for-<agent>.md` with:
 # Context Packet for <agent-name>
 
 > **Size limit: 400 words / ~600 tokens.** The specialist reads ONE focused packet, then reads the listed files directly. Do NOT paste file contents into the packet — list the file paths instead.
+
+---
+
+## The HANDOFF is the whole contract — assume the executor loaded nothing else
+
+Every code-producing template above restates the file-size cap as a RULE **and** as a VERIFY command. That duplication is deliberate; do not "clean it up," and carry it into any new code-producing template.
+
+A HANDOFF is written to a file and handed across a **session boundary** — the lead tells the user to open `/code` and point it at the doc. What executes on the other side is not guaranteed to be this repo's `coding-agent`: it may be another harness, another tool, or a model that never loaded our agent definitions. Constraints that live only in `agents/coding-agent.md` are invisible across that seam. **The packet is the only thing you know the executor read.**
+
+So a constraint that matters travels as a **command whose literal output the manifest must quote**, never as prose an unfamiliar executor can skim past. That is the same tool-offload doctrine as `MICRO_LOOP.md` step 3 (if a validator can decide it, the model must not) and coding-agent's "a PASS claim needs the exact command's own output." A foreign executor can ignore a paragraph. It cannot produce a passing manifest without running the command.
+
+Same test for any future constraint: *if the executor loaded nothing but this packet, would the constraint still bind?* If not, it belongs in the packet as a verify command.
 
 ## Project (3 sentences max)
 <From DISCOVERY.md or README — what the system is, who uses it, current state>
