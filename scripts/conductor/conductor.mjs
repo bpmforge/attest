@@ -227,11 +227,12 @@ const DEFAULT_CONFIG = {
   baselineVerify: null,
   baselineTimeoutMs: 15 * 60_000,
 };
-const CONFIG = (() => {
+function loadTargetConfig() {
   const f = resolve(ROOT, 'conductor.config.json');
   if (!existsSync(f)) return DEFAULT_CONFIG;
   return { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(f, 'utf8')) };
-})();
+}
+const CONFIG = loadTargetConfig();
 const WT_BASE = resolve(ROOT, '..', CONFIG.worktreeDir);
 const LOG = resolve(ROOT, 'docs/work/conductor-log.jsonl');
 // Failure evidence must not dirty or commit the target repository's main
@@ -1261,6 +1262,18 @@ async function main() {
   if (!mainSync.ok) {
     console.error(`main synchronization refused: ${mainSync.reason}`);
     process.exit(5);
+  }
+  const refreshedConfig = loadTargetConfig();
+  const topologyChanged =
+    refreshedConfig.worktreeDir !== CONFIG.worktreeDir ||
+    JSON.stringify(refreshedConfig.remotes) !== JSON.stringify(CONFIG.remotes);
+  Object.assign(CONFIG, refreshedConfig);
+  if (topologyChanged) {
+    console.error(
+      'conductor configuration changed worktreeDir or remotes while main was synchronized. ' +
+      'Restart once so runtime paths and remote checks are derived from the new configuration.',
+    );
+    process.exit(6);
   }
 
   const preflight = loadFreshPlan();
