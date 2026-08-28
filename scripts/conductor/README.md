@@ -23,8 +23,10 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   gap history recorded, never advanced to `in_review`/`done`. Provider,
   reviewer-session, and missing-review-output failures are released as
   `ticket.blocked` and do not spend the feature's remaining coding attempts.
-- `supervise.sh` — crash-restart layer (reset target tree, relaunch, cap,
-  `STOP` file in the target root). The stop marker is checked only between
+- `supervise.sh` — crash-restart layer (preserve target/worktree state,
+  relaunch, cap, `STOP` file in the target root). Deterministic gate exits
+  (configuration, drift, baseline, main-sync) stop rather than churn. The
+  stop marker is checked only between
   tickets; it never interrupts a reviewer, fix, or runtime session mid-ticket.
 - `resume.mjs` (T28.5) — resume + drift refusal. On every startup, before a
   single ticket is (re-)claimed, any module left `claimed`/`in_progress` and
