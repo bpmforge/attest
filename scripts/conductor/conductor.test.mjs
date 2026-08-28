@@ -24,6 +24,7 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));            // scripts/conductor
 const REPO_ROOT = resolve(HERE, '..', '..');                     // attest
 const CONDUCTOR = resolve(HERE, 'conductor.mjs');
+const SUPERVISOR = resolve(HERE, 'supervise.sh');
 const GATES_SH = resolve(REPO_ROOT, 'scripts/validators/run-handoff-gates.sh');
 const GATES_SCOPE = resolve(REPO_ROOT, 'scripts/validators/validate-scope.sh');
 
@@ -238,6 +239,15 @@ test('attempt outcome reports the terminal cause before historical failures', ()
   assert.match(reason, /latest: repository baseline integration test failed/);
   assert.match(reason, /prior: \[1\] formatting failed in changed source/);
   assert.ok(reason.indexOf('latest:') < reason.indexOf('prior:'), 'terminal cause must be shown first');
+});
+
+test('supervisor preserves resume state and does not restart deterministic gate exits', () => {
+  const body = readFileSync(SUPERVISOR, 'utf8');
+  assert.doesNotMatch(body, /git\s+clean\s+-fd/);
+  assert.doesNotMatch(body, /git\s+checkout\s+-f/);
+  assert.doesNotMatch(body, /git\s+branch\s+-D/);
+  assert.match(body, /2\|3\|4\|5\|6/);
+  assert.match(body, /deterministic gate exit/);
 });
 
 test('conductor.mjs: red configured baseline refuses before claim and consumes zero coding attempts', { timeout: 60_000 }, () => {
