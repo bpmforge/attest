@@ -976,10 +976,18 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
   return { ok: false, exhausted: true, gaps: gapsPerAttempt.flat() };
 }
 
-function pushRemotes(ticket) {
+// With --no-merge the ticket branch is never merged into main, so pushing
+// main would push nothing and strand the work on an unpushed local branch --
+// no PR could be opened from it. In that mode push the BRANCH instead, which
+// is what a review-before-merge (PR-per-ticket) workflow needs. Projects that
+// forbid direct-to-main merges (project AGENTS.md section 5) must run with
+// --no-merge and open the PR from the pushed branch.
+function pushRemotes(ticket, branch) {
   if (!DO_PUSH || DRY) return;
+  const ref = DO_MERGE ? 'main' : branch;
+  if (!ref) return;
   for (const rem of CONFIG.remotes) {
-    try { sh('git', ['push', rem, 'main'], { cwd: ROOT, timeout: 60_000 }); }
+    try { sh('git', ['push', '-u', rem, ref], { cwd: ROOT, timeout: 60_000 }); }
     catch (e) { log('push.fail', { ticket, msg: `${rem}: ${String(e.message).slice(0, 80)}` }); }
   }
 }
@@ -1006,7 +1014,7 @@ function land(plan, m, branch, wt) {
   persistPlan(plan, `chore(${m.id}): conductor accepts ticket (done)`);
   removeWorktree(wt);
   if (DO_MERGE) { try { git('branch', '-d', branch); } catch {} }
-  pushRemotes(m.id);
+  pushRemotes(m.id, branch);
   mirrorJira(`ticket ${m.id} done`);   // converge Jira to the accepted board state
   return true;
 }
