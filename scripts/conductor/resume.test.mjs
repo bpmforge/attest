@@ -16,6 +16,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync,
 import { resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { reconcileOrphan } from './resume.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // scripts/conductor
 const REPO_ROOT = resolve(HERE, '..', '..');                     // attest
@@ -238,4 +239,42 @@ test('conductor.mjs resume: a hand-doctored plan.json with no receipt trail is r
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
+});
+
+test('resume does not bypass unfinished review rounds on a committed candidate', async () => {
+  const module = { id: 'TICK-REVIEW', status: 'in_progress', owner: 'conductor' };
+  const plan = { modules: [module] };
+  const calls = [];
+  const ctx = {
+    actor: 'conductor',
+    maxAttempts: 2,
+    rounds: 3,
+    log: (kind) => calls.push(kind),
+    git: (...args) => calls.push(`git:${args.join(' ')}`),
+    removeWorktree: () => calls.push('removeWorktree'),
+    land: async () => false,
+    executeTicket: async (_plan, _module, options) => {
+      calls.push(`execute:${JSON.stringify(options)}`);
+      return { ok: false };
+    },
+    loadFreshPlan: () => plan,
+  };
+  const disk = {
+    wt: '/tmp/review-incomplete',
+    branch: 'feat/tick-review-conductor',
+    wtExists: true,
+    branchExists: true,
+    commitsAheadOfMain: 1,
+    uncommitted: false,
+  };
+  const rows = [{ kind: 'ticket.attempt', ticket: module.id }];
+
+  const outcome = await reconcileOrphan(ctx, module, disk, rows);
+
+  assert.equal(outcome, 'exhausted');
+  assert.ok(calls.includes('resume.incomplete-rounds'));
+  assert.ok(calls.includes('removeWorktree'));
+  assert.ok(calls.includes('execute:{"alreadyStarted":true,"maxAttempts":1}'));
+  assert.equal(calls.includes('resume.reverify'), false,
+    'a committed but incompletely reviewed candidate must not jump directly to close()');
 });

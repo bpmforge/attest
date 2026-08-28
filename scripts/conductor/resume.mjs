@@ -185,16 +185,31 @@ export function reconcileInProgress(ctx, plan, m, disk) {
 // conductor log) is subtracted from a resumed retry's remaining attempts —
 // a crash does not grant free extra attempts.
 export async function reconcileOrphan(ctx, m, disk, logRows) {
-  const { actor, maxAttempts, log, git, removeWorktree, land, executeTicket, loadFreshPlan } = ctx;
+  const { actor, maxAttempts, log, git, removeWorktree, land, executeTicket, loadFreshPlan, rounds = 1 } = ctx;
   let plan = loadFreshPlan();
   let mLive = plan.modules.find((x) => x.id === m.id);
   const attemptsUsed = logRows.filter((r) => r.kind === 'ticket.attempt' && r.ticket === m.id).length;
 
-  if (mLive.status === 'in_progress' && disk.wtExists && disk.branchExists && disk.commitsAheadOfMain > 0 && !disk.uncommitted) {
+  const ticketRows = logRows.filter((r) => r.ticket === m.id);
+  const lastAttempt = ticketRows.map((r) => r.kind).lastIndexOf('ticket.attempt');
+  const currentAttemptRows = lastAttempt >= 0 ? ticketRows.slice(lastAttempt) : [];
+  const runtimeComplete = currentAttemptRows.some(
+    (r) => r.kind === 'round3.runtime.verdict' && /^PASS\b/.test(String(r.msg || '')),
+  );
+  const reviewLifecycleComplete = rounds < 3 || runtimeComplete;
+
+  if (mLive.status === 'in_progress' && disk.wtExists && disk.branchExists && disk.commitsAheadOfMain > 0 && !disk.uncommitted && reviewLifecycleComplete) {
     const res = reconcileInProgress(ctx, plan, mLive, disk);
     if (res.ok) return (await land(plan, mLive, res.branch, res.wt)) ? 'landed' : 'accept-refused';
     plan = loadFreshPlan();
     mLive = plan.modules.find((x) => x.id === m.id);
+  } else if (mLive.status === 'in_progress' && disk.wtExists && disk.branchExists && disk.commitsAheadOfMain > 0 && !reviewLifecycleComplete) {
+    log('resume.incomplete-rounds', {
+      ticket: m.id,
+      msg: `committed candidate exists but the ${rounds}-round lifecycle has no runtime PASS after its latest attempt — discarding rather than bypassing unfinished independent review`,
+    });
+    removeWorktree(disk.wt);
+    try { git('branch', '-D', disk.branch); } catch { /* not a real branch or already gone */ }
   } else if (disk.wtExists || disk.branchExists) {
     log('resume.discard', { ticket: m.id, msg: `no usable committed work on '${disk.branch}' (commits=${disk.commitsAheadOfMain}, uncommitted=${disk.uncommitted}) — discarding stale worktree/branch, ticket restarts fresh` });
     removeWorktree(disk.wt);

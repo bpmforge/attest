@@ -15,13 +15,17 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   + Completion Manifest truth (`validate-completion-manifest.sh`) + tracker)
   → `accept()` by a distinct reviewer identity → merge `--no-ff` + dual push
   → next. Halts with a board-state summary written to
-  `docs/work/CONDUCTOR_HALT.md` when nothing is claimable. `STOP` file in
+  `docs/work/CONDUCTOR_HALT.md` for file-backed boards, or the external
+  worktree runtime directory for a JIRA board. `STOP` file in
   `--root` is checked between tickets. Per-ticket session counter
   (`--max-attempts`, default 2, per MASTER_PROMPT.md rule 9) — a ticket
   whose gates fail on every attempt is `release()`d back to `ready` with the
-  gap history recorded, never advanced to `in_review`/`done`.
+  gap history recorded, never advanced to `in_review`/`done`. Provider,
+  reviewer-session, and missing-review-output failures are released as
+  `ticket.blocked` and do not spend the feature's remaining coding attempts.
 - `supervise.sh` — crash-restart layer (reset target tree, relaunch, cap,
-  `STOP` file in the target root).
+  `STOP` file in the target root). The stop marker is checked only between
+  tickets; it never interrupts a reviewer, fix, or runtime session mid-ticket.
 - `resume.mjs` (T28.5) — resume + drift refusal. On every startup, before a
   single ticket is (re-)claimed, any module left `claimed`/`in_progress` and
   owned by THIS actor (orphaned by a killed prior run) is checked against its
@@ -49,7 +53,7 @@ shipwright's flat `todo/in_progress/blocked/done` board:
 
 ## Before you point it at a repo
 
-Two properties of the target repo are load-bearing, and both fail in ways
+Three properties of the target repo are load-bearing, and all fail in ways
 that look like an agent problem:
 
 1. **The models must resolve.** `opencode run --model <unknown>` does not
@@ -66,11 +70,26 @@ that look like an agent problem:
    your formatter and commit before the first run. When a violation is
    whitespace-only the conductor now says so explicitly
    (`gates.evidence-cosmetic`) instead of leaving you to guess.
+3. **The baseline must pass a ticket-independent health command.** Configure
+   `baselineVerify` in the target's `conductor.config.json` with checks that
+   do not require a ticket manifest or not-yet-built deliverable. The command
+   runs once in a clean detached `main` worktree before any ticket is claimed.
+   A failure exits 4, consumes zero coding attempts, and writes evidence under
+   the external worktree runtime directory. The ticket-specific `close()` gate
+   remains strict and still requires its own configured verify command to exit
+   zero.
 
-When the scope gate does fail, the offending diff is preserved at
-`docs/work/scope-violation-<TICKET>-attempt<N>.diff` in the target repo —
-the worktree that held it is destroyed immediately after, so this file is the
-only record of what actually changed.
+Before baseline verification, the conductor fetches every configured remote's
+`main`. It fast-forwards a clean local `main` when the remotes agree and refuses
+with exit 5 when they diverge or local history is not a remote ancestor. This
+prevents a green preflight against stale local source.
+
+When a scope or later gate fails, evidence is preserved under the external
+worktree directory (`.evidence/`) rather than inside the target repository.
+The worktree that held it is destroyed immediately after, so this is the only
+record of what actually changed. Keeping runtime evidence outside the target
+also prevents a failed ticket from dirtying `main` or being force-committed by
+the conductor.
 
 ## Test
 
