@@ -219,6 +219,11 @@ export async function testVerifyHandoff(root: string, ok: Ok, fail: Fail) {
       path.join(repo, "src", "thing.ts"),
       "export const x = 2; // edited after verify\n",
     );
+    const verifyMtime = fs.statSync(
+      path.join(repo, "docs", "work", "VERIFY_REPORT.md"),
+    ).mtimeMs;
+    const afterVerify = new Date(verifyMtime + 2000);
+    fs.utimesSync(path.join(repo, "src", "thing.ts"), afterVerify, afterVerify);
     const stale = sh(doneScript, [packet, "--no-push-check"]);
     if (
       stale.status === 1 &&
