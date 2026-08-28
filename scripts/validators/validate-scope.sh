@@ -68,6 +68,47 @@ note "project root: $ROOT"
 note "assigned scope(s): ${NORMALIZED[*]}"
 note "always allowed: ${ALWAYS_ALLOWED[*]}"
 
+# -- scope matcher -----------------------------------------------------------
+# Historically this was a literal string + directory-prefix test with the
+# pattern QUOTED, which meant no globbing ever happened. Every write_scope
+# authored in glob syntax ("dir/**", "*.test.ts", "**word**") silently matched
+# nothing, so correctly-scoped tickets failed the gate while an agent that
+# literally created a directory named "**word**" passed it. Found 2026-08-28
+# when the conductor could not land any ticket.
+#
+# Containment is preserved deliberately:
+#   - literal/prefix behaviour is tried FIRST and is unchanged;
+#   - a bare "*" / "**" is refused outright (would authorise the whole repo);
+#   - any pattern containing ".." is refused (no traversal);
+#   - "dir/**" is resolved to a prefix test rather than a raw glob;
+#   - the pattern is only ever matched against a repo-relative path, anchored
+#     full-string by [[ ]], so it cannot match a prefix of a sibling directory
+#     ("apps/api" still does not match "apps/api-other/...").
+matches_scope() {
+  local path="$1" ok="$2"
+
+  # 1. exact file, or inside this directory (original behaviour, unchanged)
+  [[ "$path" == "$ok" || "$path" == "$ok/"* ]] && return 0
+
+  # 2. refuse patterns that would authorise far more than a scope contract should
+  case "$ok" in
+    '*'|'**'|'/*'|'/**') return 1 ;;
+    *'..'*) return 1 ;;
+  esac
+
+  # 3. glob forms
+  if [[ "$ok" == *[\*\?\[]* ]]; then
+    if [[ "$ok" == */'**' ]]; then
+      local base="${ok%/**}"
+      [[ "$path" == "$base" || "$path" == "$base/"* ]] && return 0
+    fi
+    # unquoted RHS = bash pattern match, anchored to the whole path
+    [[ "$path" == $ok ]] && return 0
+  fi
+
+  return 1
+}
+
 # -- enumerate changed/untracked files --------------------------------------
 if ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   fatal "not inside a git repository: $ROOT"
@@ -122,14 +163,14 @@ while IFS= read -r path; do
 
   # always-allowed?
   for ok in "${ALWAYS_ALLOWED[@]}"; do
-    if [[ "$path" == "$ok" || "$path" == "$ok/"* ]]; then
+    if matches_scope "$path" "$ok"; then
       continue 2
     fi
   done
 
   # inside any assigned dir?
   for ok in "${NORMALIZED[@]}"; do
-    if [[ "$path" == "$ok" || "$path" == "$ok/"* ]]; then
+    if matches_scope "$path" "$ok"; then
       continue 2
     fi
   done
