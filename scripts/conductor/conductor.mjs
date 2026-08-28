@@ -427,11 +427,16 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
 // behind — validate-scope.sh only inspects `git status --porcelain`, so it
 // must run BEFORE the conductor commits anything (a committed clean tree
 // would trivially pass regardless of what changed).
-// validate-scope.sh compares literal directory prefixes, not globs — strip a
-// trailing /**, /*, or bare * the same way tickets-graph.mjs's normScope()
-// does for write_scope comparisons elsewhere in this codebase.
+// validate-scope.sh now honours glob write_scope patterns natively
+// (matches_scope(), attest 1d4f5e4), so the pattern is passed through
+// UNCHANGED. The previous normScopeDir() stripped trailing globs as a
+// workaround for the validator's literal-prefix-only matching, and once that
+// was fixed the workaround became actively harmful: it rewrote
+// "docs/x/**library**" to "docs/x/**library", which matches nothing, so a
+// correctly-scoped ticket still failed the gate. Field-found 2026-08-28 on
+// PROJ-411 (gaps 4 -> 1 after the validator fix; the residual 1 was this).
 function normScopeDir(glob) {
-  return String(glob).replace(/\/\*\*?$/, '').replace(/\*+$/, '').replace(/\/$/, '');
+  return String(glob).replace(/\/$/, '');
 }
 
 function scopeGate(wt, writeScope) {
