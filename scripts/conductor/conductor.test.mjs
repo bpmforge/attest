@@ -311,6 +311,29 @@ exit 9
   }
 });
 
+test('conductor.mjs: --no-merge pushes to PR boundary without accepting Done', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture();
+  try {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-merge', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    const ticket = plan.modules.find((m) => m.id === 'TICK-ROLE');
+    assert.equal(ticket.status, 'in_review', 'verified PR-bound work must not become done before merge');
+    const rows = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.ok(rows.some((r) => r.kind === 'ticket.ready-for-pr' && r.ticket === 'TICK-ROLE'));
+    assert.equal(rows.some((r) => r.kind === 'ticket.accept'), false,
+      'accept() is the Done transition and must not run in --no-merge mode');
+    assert.ok(existsSync(resolve(target, '.git', 'refs', 'heads', 'feat', 'tick-role-conductor')),
+      'the verified branch must remain available for PR creation');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // T28.2 (M28 model routing): a single-ticket fixture whose OWN models.json
 // carries a `roles.coder` distinct from `roles.reviewer` — proves the

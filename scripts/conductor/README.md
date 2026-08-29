@@ -23,6 +23,9 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   gap history recorded, never advanced to `in_review`/`done`. Provider,
   reviewer-session, and missing-review-output failures are released as
   `ticket.blocked` and do not spend the feature's remaining coding attempts.
+  Under `--no-merge`, a green candidate is pushed and logged
+  `ticket.ready-for-pr`; `accept()` is not called and the external ticket stays
+  In Progress until a separate merge process verifies main ancestry.
 - `supervise.sh` — crash-restart layer (preserve target/worktree state,
   relaunch, cap, `STOP` file in the target root). Deterministic gate exits
   (configuration, drift, baseline, main-sync) stop rather than churn. The
