@@ -1146,6 +1146,18 @@ function pushRemotes(ticket, branch) {
 }
 
 function land(plan, m, branch, wt) {
+  if (!DO_MERGE) {
+    pushRemotes(m.id, branch);
+    comment(
+      plan,
+      m.id,
+      REVIEWER_ACTOR,
+      `CONDUCTOR gates passed; verified branch ${branch} pushed for PR review. Ticket remains In Progress until merge ancestry is verified.`,
+    );
+    removeWorktree(wt);
+    return true;
+  }
+
   // Reviewer-only accept(): a distinct actor from the ticket owner, per
   // don't-accept-your-own-work. T28.2 adds the model-identity half of that
   // split (checkMakerVerifierDistinct, enforced at conductor.start below) —
@@ -1161,12 +1173,10 @@ function land(plan, m, branch, wt) {
     removeWorktree(wt);
     return false;
   }
-  if (DO_MERGE) {
-    git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
-  }
+  git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
   persistPlan(plan, `chore(${m.id}): conductor accepts ticket (done)`);
   removeWorktree(wt);
-  if (DO_MERGE) { try { git('branch', '-d', branch); } catch {} }
+  try { git('branch', '-d', branch); } catch {}
   pushRemotes(m.id, branch);
   mirrorJira(`ticket ${m.id} done`);   // converge Jira to the accepted board state
   return true;
@@ -1452,7 +1462,14 @@ async function main() {
     const res = await executeTicket(plan, next);
     if (res.ok) {
       const landedOk = land(plan, next, res.branch, res.wt);
-      if (landedOk) { landed++; landedThisRun.add(next.id); log('ticket.done', { ticket: next.id, msg: `${landed} landed this run` }); }
+      if (landedOk) {
+        landed++;
+        landedThisRun.add(next.id);
+        log(DO_MERGE ? 'ticket.done' : 'ticket.ready-for-pr', {
+          ticket: next.id,
+          msg: `${landed} verified ${DO_MERGE ? 'and landed' : 'for PR'} this run`,
+        });
+      }
       else log('ticket.accept-refused', { ticket: next.id });
     } else {
       skippedThisRun.add(next.id);
