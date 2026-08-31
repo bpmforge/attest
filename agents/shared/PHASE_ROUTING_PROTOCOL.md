@@ -52,7 +52,7 @@ Every phase advance runs `~/.config/opencode/scripts/validators/run-coverage-loo
 | phase-2 | use-cases + user-stories + traceability | Prereq: phase-1 |
 | phase-3 | architecture + api-coverage + sequence-coverage + erd-coverage + c3-coverage + entry-points + tech-stack + adrs + security-controls | Prereq: phase-2 |
 | phase-3.5 | validate-test-design (coverage loop / escalation) | Prereq: phase-3 |
-| phase-4 | build + lint + tests + tests-mapping + migrations | Prereq: phase-3.5 |
+| phase-4 | build + lint + tests + tests-mapping + migrations | Prereq: phase-3.5. **Conductor-first (P-A11):** board + `scripts/conductor/conductor.mjs` present ⇒ dispatch through the conductor; HANDOFF prose is the interactive fallback |
 | phase-5 | Release gate: FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS | Prereq: phase-4 |
 | onboard-deep | inventory + architecture + erd-coverage + sequence-coverage | Standalone |
 | security-deep | owasp + attack-chains | Standalone |

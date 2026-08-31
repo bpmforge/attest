@@ -38,6 +38,12 @@ END HANDOFF #N
 
 ## How a HANDOFF is delivered (interactive — the default)
 
+**HANDOFF prose is the INTERACTIVE FALLBACK, not the default dispatch path (P-A11).** When a ticket
+board and a conductor are present, Phase 4 dispatches through the conductor
+(`sdlc-init-phase-4.md`, "Conductor-first dispatch") — the conductor spawns specialist sessions as
+child processes and holds the gates itself. Everything below remains the contract for the
+interactive case: no board, no conductor, or a human deliberately driving each specialist.
+
 **The handoff is a DOCUMENT the specialist reads, not a block the user pastes.** For each handoff:
 
 1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.

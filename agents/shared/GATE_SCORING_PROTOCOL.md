@@ -9,6 +9,36 @@ metadata:
 
 Loaded by sdlc-lead on every HANDOFF resume. Defines how to score returning specialist output, what threshold passes, and when to escalate vs. retry.
 
+## Who holds the gate (P-A8, program law L2)
+
+**LLM review is advisory; deterministic validators own the gate.** The field evidence
+(Dokima `CONDUCTOR_FIELD_REPORT.md` §5) showed a model verdict used as a hard gate failing in BOTH
+directions in one session — a real defect merged past a lenient review, and 75% of one stretch's
+blocks were false positives from a strict one. So:
+
+- A reviewer verdict alone never blocks a merge. A REJECT **files findings** (each with a resolvable
+  `file:line` citation) and **may demand a deterministic check** be added or run — it does not stop
+  the train by itself.
+- What blocks: a failing deterministic gate — the verify receipt, a red validator, a failing test,
+  a scope violation. These are the authorities, and they are red-fixture-calibrated before they may
+  gate (a check with no proof it can go red never blocks anyone).
+- A finding whose citation does not resolve is discarded before it reaches the orchestrator (the
+  fabricated-REJECT control — see `run-handoff-gates.sh`'s citation gate).
+
+## Definition of Done at ticket vs. wave level (P-A2)
+
+A ticket may close on its **Level-1 deterministic gate** (scope + manifest + verify commands +
+chained validators) **when a wave-level Level-2 review covers it**: the wave's integration gate runs
+the expert assurance once over the aggregate diff, concurrently, with findings attributed back to
+the introducing ticket. Conditions:
+
+- **High-risk tickets keep per-ticket expert review in addition to the wave pass**: authn/authz,
+  cryptography, secrets handling, unsafe deserialization, DB schema or query shape, public API
+  compatibility, concurrency, or a material interaction redesign.
+- Nothing in a wave merges until the wave's Level-2 gate is green — wave batching is a bounded merge
+  gate, never "audit at the end of the project."
+- Release gates are unchanged and still run in full.
+
 ## Step 1 — Confirm State
 
 Read `docs/work/sdlc-state.md` to confirm which agent was delegated and what it was expected to produce.
