@@ -192,3 +192,4 @@ Verifier: <who independently checked — never the same identity as Maker>
 - The bar is real and written before round 1; aspirational is fine, uncomparable is not
 - Run past comfort: stop only on all-pass, 2-round stall, or budget — and say which fired
 - Below-bar residuals are reported, never silently dropped
+- Multi-model critic rounds are merged per the **Consensus & agreement map** (`agents/shared/GAUNTLET_LOOP.md`, canonical tiers in `agents/shared/CHALLENGER_PROTOCOL.md`): 2+-model agreement leads the fix input, Dismissed requires a written reason, single-critic rounds stay fully valid
