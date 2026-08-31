@@ -228,3 +228,48 @@ the loop only closes when a challenge report declares
 `**Artifact:** docs/adrs/ADR-<NNN>-<slug>.md` (the ADR itself). A challenge
 report whose Artifact field names only the researcher's `RESEARCH_*.md`
 output does not correlate to the ADR and leaves it gapped.
+
+---
+
+## Consensus & agreement map (P-A7, T1-07)
+
+Additive layer for **concurrent multi-model review** — NOT a replacement for
+the single-model challenge flow above, which remains fully valid (see
+"Single-model fallback" below).
+
+When 2+ reviewer models (or 2+ independent reviewer contexts on different
+models) challenge the same artifact concurrently, each produces its own
+finding/verdict set blind — no reviewer sees another's output while reviewing
+(same blindness discipline as `GAUNTLET_LOOP.md`). The orchestrator then
+merges the sets on an **agreement map**: findings are matched across models
+by subject (same file:line / same claim), and **agreement between 2+
+independent models is the highest-signal evidence tier this system has** —
+independent models sharing a blind conclusion is far less likely to be a
+hallucination than any single model's confidence score.
+
+### The four consensus tiers
+
+| Tier | Entry condition | Handling |
+|------|----------------|----------|
+| **Act On** | 2+ models independently raise the same finding, OR a single model raises it WITH conclusive mechanical evidence (validator exit code, failing test, resolving URL that contradicts the claim) | Mandatory: goes to the fix backlog / revision HANDOFF before the gate passes |
+| **Consider** | Exactly one model raises it, plausible but without conclusive mechanical evidence | Reviewed by the orchestrator or a human; promoted to Act On or demoted with a note — never silently dropped |
+| **Noted** | One model raises it as LOW/style/opinion, or models agree it is real but out of scope | Recorded in the report; no gate impact |
+| **Dismissed** | Evidence refutes it, or it is a demonstrated false positive | **A written reason citing the refuting evidence is REQUIRED** — a Dismissed row with no reason is a report defect, treat it as Consider |
+
+Two hard rules on top of the tiers:
+
+1. **A lone-model HIGH/CRITICAL finding on a security surface is never
+   auto-dismissed.** Lack of agreement moves it to Consider at worst; only
+   refuting evidence (cited, written down) can move it to Dismissed.
+2. **Disagreement is signal, not noise.** When models contradict each other on
+   a factual claim, the claim is UNVERIFIABLE-at-best until evidence breaks
+   the tie — never resolved by majority vote alone on CRITICAL findings.
+
+### Single-model fallback (still valid)
+
+Multi-model review is an amplifier, not a prerequisite. When only one model
+is available (local-only setups, budget, offline), the standard single-model
+challenge flow above is the documented and fully supported path — every
+finding is simply tiered on its evidence alone: conclusive mechanical
+evidence → Act On; plausible-unproven → Consider. Nothing in this section
+retires or weakens the single-model verdict rules.
