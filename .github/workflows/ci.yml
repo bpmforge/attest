@@ -4,6 +4,12 @@ on:
   pull_request:
   push:
     branches: [main]
+  # P-A15: a check nobody runs decays into a check nobody can trust. The
+  # weekly run re-proves the validator fixtures + suite even when nobody
+  # pushes — fixture rot surfaces on a schedule, not when a human types the
+  # command.
+  schedule:
+    - cron: '0 8 * * 1'
 
 jobs:
   test:
@@ -25,6 +31,10 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run agents:check
+      # P-A15: every chained validator must hold its red/green fixture proof
+      # (or sit on the shrinking grandfather list) — on every push/PR and on
+      # the weekly schedule.
+      - run: node scripts/check-validator-fixtures.mjs
       # build:claude:check only runs on push to main (post-merge). It compares
       # generated output against the committed attest-claude, which is only
       # regenerated AFTER a source PR merges — so on a feature branch that ADDS

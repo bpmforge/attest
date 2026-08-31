@@ -63,6 +63,10 @@ These caps override the "be thorough" instinct. When in doubt, mark UNVERIFIABLE
 
 ---
 
+## Consensus tiers (multi-model runs)
+
+When you are one of 2+ concurrent challenger contexts on different models, produce your verdict set blind — never read another reviewer's output first. The orchestrator merges the sets per the **Consensus & agreement map** in `agents/shared/CHALLENGER_PROTOCOL.md` (Act On / Consider / Noted / Dismissed; 2+-model agreement = highest signal; Dismissed requires a written reason; a lone-model HIGH/CRITICAL on a security surface is never auto-dismissed). Running solo, the standard single-model flow below stands unchanged — the map is additive.
+
 ## Document format
 
 Challenge reports are targeted deliverables — typically under 200 lines. Write as a single file at `docs/reviews/CHALLENGE_REPORT_<slug>_<date>.md`. Only invoke book format if reviewing a very large artifact with 20+ claims.

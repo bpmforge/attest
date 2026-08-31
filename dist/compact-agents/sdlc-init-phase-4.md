@@ -41,6 +41,25 @@ fine; re-issuing your own task is not.
 
 Delegate implementation work via HANDOFF. Supports two execution modes — always ASK THE USER which mode they want before emitting Wave 1 HANDOFFs.
 
+### Conductor-first dispatch (P-A11 — check BEFORE choosing a mode)
+
+**When a ticket board and a conductor are both present, Phase 4 dispatches through the conductor,
+not through HANDOFF prose.** Check first:
+
+1. A board exists (`docs/work/plan.json`, `docs/work/plan/plan.json`, or `plan.json` with a
+   `modules[]`/`tickets[]` layer), AND
+2. `scripts/conductor/conductor.mjs` resolves (this repo's executor, or the target project's own).
+
+If both hold: point the conductor at the board (`node scripts/conductor/conductor.mjs --root <target>
+--plan <board>`) and supervise its output — the conductor spawns sessions as CHILD PROCESSES, holds
+the gates itself, and never asks a human to relay a message between agents. That relay is the
+copy-paste HANDOFF tax the field report measured compounding over a long engagement, and it is the
+root cause of "the coding portion gets stuck": a HANDOFF is a message to a human; a conductor is a
+child process.
+
+**HANDOFF prose is the interactive fallback, not the default** — use it when there is no board, no
+conductor, or the user explicitly wants to drive each specialist by hand.
+
 ### Execution Mode Selection (Mandatory First Step)
 
 Read `docs/PARALLELIZATION_MAP.md`. Present the **full parallel opportunity map** to the user — not just waves, but every dimension of parallelism available:
@@ -59,10 +78,12 @@ INFRASTRUCTURE WAVES (parallel-safe alongside Wave N — no code overlap):
   IaC Scaffolding:  can start once ARCHITECTURE.md is frozen (runs alongside Wave N)
   CI/CD Pipeline:   can start once IaC is ready (runs alongside Wave N)
 
-REVIEW ROUNDS (always parallel regardless of wave mode):
-  Within every wave, Round 2 reviews fan out in parallel:
-  code-reviewer + [security if auth/input touched] + [perf if DB/loops touched] + [ux if UI touched]
-  ALL emitted in ONE message. You open N sessions concurrently.
+REVIEW ROUNDS (three-level model — P-A1/P-A2):
+  Level 1 per module: deterministic gates only (scope + manifest + verify + validators; no expert).
+  Level 2 per WAVE: ONE expert pass over the aggregate diff — code-reviewer always;
+  security/perf/ux when the wave diff carries their surface; per-module experts only for
+  high-risk modules. Sessions concurrent, emitted in ONE message. Verdicts advisory (P-A8).
+  Level 3: merge train in dependency order after the wave pass is green.
 
 Which execution mode per wave? [S = sequential / P = parallel]
   Wave 1: __ (recommended: S — only 1 module or shared foundation)
@@ -100,26 +121,59 @@ Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
 ```
 If gate fails → return gap to coding-agent with REVISE. Repeat up to 3 times.
 
-**Round 2 — Review (always parallel, even in sequential wave mode):** **These are HANDOFFs — you never read the source and review/scan it yourself; you write each `docs/work/HANDOFF_<agent>.md`, point the user at the specialist, and read only the produced report (`FIX_BACKLOG_*` / `SECURITY_FINAL_*` / review docs).**
-Emit ALL triggered review HANDOFFs in ONE message:
+**Round 2 — Review (three-level model, P-A1/P-A2/P-A8):** the expensive expert assurance runs at the
+WAVE level, once, over the aggregate diff — not per module. Per-module expert review is reserved for
+**high-risk** work only. The measured cost of the old per-module fan-out: 4.8 expert sessions per
+coding attempt and a ~8.8-minute serial pass repeated on every retry, with `.map(` or the word
+`validate` in a comment enough to recruit a specialist.
+
+- **Level 1 — per-module, deterministic, every module:** scope gate, completion manifest, the
+  module's verify commands, chained validators (`run-handoff-gates.sh`). No expert session. A failed
+  Level 1 never consumes one.
+- **Level 2 — per-wave, the expert pass:** ONE review set over the wave's aggregate diff —
+  code-reviewer always; security-auditor / performance-engineer / ux-engineer when the wave's diff
+  carries their surface. Sessions run CONCURRENTLY (each its own context; the orchestrator ingests
+  finding SETS, never transcripts). Findings are attributed to the introducing module; only that
+  module reopens. **Verdicts are advisory (P-A8): a reviewer REJECT files findings and may demand a
+  deterministic check — deterministic validators own the gate** (`GATE_SCORING_PROTOCOL.md`, "Who
+  holds the gate").
+- **Level 3 — merge train:** modules merge in dependency order once the wave's Level-2 pass is green;
+  a module changed after the wave pass invalidates only itself.
+
+**High-risk modules keep a per-module expert HANDOFF in addition to the wave pass** — high-risk =
+authn/authz, cryptography, secrets, unsafe deserialization, DB schema/query shape, public API
+compatibility, concurrency, or a material interaction redesign. Ordinary loops, validation helpers,
+TSX and CSS are NOT high-risk while the deterministic scanners are green.
+
+These remain HANDOFFs — you never read the source and review it yourself. For the wave-level pass:
 ```
 ---
-  <MODULE> — ROUND 2: REVIEW (open N sessions concurrently)
+  WAVE <N> — LEVEL 2: INTEGRATION REVIEW (open sessions concurrently, aggregate diff)
 ---
-[code-reviewer HANDOFF — always]
-[security-auditor HANDOFF — if auth/input/credentials touched]
-[performance-engineer HANDOFF — if DB queries/loops/caching touched]
-[ux-engineer HANDOFF — if any UI file touched]
+[code-reviewer HANDOFF — always, over the wave diff]
+[security-auditor HANDOFF — if the wave diff carries a security surface]
+[performance-engineer HANDOFF — if it changes a measured hot path]
+[ux-engineer HANDOFF — if it changes user-visible behavior]
+[+ per-module HANDOFFs for any high-risk module, as above]
 ```
-Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<date>.md`.
+Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<wave>_<date>.md` with
+per-module attribution.
 
 **Round 2b — Challenge (MANDATORY when any FIX_BACKLOG row is HIGH/CRITICAL):** before remediating, emit a **`challenger` HANDOFF** on the review artifact per `agents/shared/CHALLENGER_PROTOCOL.md` (write `docs/work/HANDOFF_challenger.md`, point the user at `/challenge`). The challenger adversarially re-checks each HIGH/CRITICAL finding and produces `docs/reviews/CHALLENGE_REPORT_<module>_<date>.md` with per-finding CONFIRMED / CONTRADICTED verdicts. **CONTRADICTED findings are dropped from the backlog; CONFIRMED ones (and any new issue the challenge surfaces) feed the remediation as REVISE rows.** This is the per-ticket adversarial check — never skip it on a HIGH/CRITICAL backlog, and never do it yourself.
 
 **Round 2c — Fix-Verify Loop:** run the loop (`agents/shared/FIX_VERIFY_LOOP.md`) on the CONFIRMED backlog. Iteration count is **tier-aware and class-driven, not a flat 3** — `scripts/fix-verify.mjs` classifies each pass (CLEARED / PROGRESSED / STALLED / OSCILLATING) and reads the ceiling from `docs/work/.model-context` (6 metered / 12 local): a STALLED row escalates after 2 same-tier attempts; a PROGRESSED loop may extend to the ceiling; an OSCILLATING (regressed) row escalates immediately, stops on the second.
 
 **Round 3 — Runtime:**
-Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
-If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the next module.
+Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`.
+Completion phrase: `"runtime done — <module>: [<STATE>]"` where STATE is one of the five structured
+verdicts (P-A9, `scripts/lib/runtime-verdict.mjs`): **PASS · FAIL_CANDIDATE ·
+BLOCKED_BASELINE_CONFIRMED · BLOCKED_BASELINE_SUSPECTED · BLOCKED_INFRASTRUCTURE**. Two hard rules,
+enforced by the parser, not by prose: (1) **a nonzero configured verify command is FAIL_CANDIDATE no
+matter what the document claims** — a "pre-existing failure" narrative cannot override an exit code;
+(2) BLOCKED_BASELINE_CONFIRMED requires quoted reproduction on the exact base commit (base SHA + the
+same failing output), else it degrades to SUSPECTED. Routing: FAIL_CANDIDATE → fix module → re-run;
+BLOCKED_BASELINE_* → file/link the base-repair ticket, consume no module attempt; BLOCKED_INFRASTRUCTURE
+→ fix the machine, consume nothing. PASS is required before moving to the next module.
 
 **Round 3b — Visual conformance (UI modules with `docs/design/tokens.json` only):** after RUNTIME PASS, emit a **`design-iterator` HANDOFF** on the module's screens — the render→screenshot→critique→fix loop against the token spec (protocol: `references/visual-design-loop.md`). Produces `docs/design/ITERATION_LOG.md`. Skip (and say so) when the module has no UI or no tokens.json exists.
 

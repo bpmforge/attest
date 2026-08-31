@@ -752,3 +752,11 @@ Wait for user confirmation before starting the next phase. Do not auto-continue.
 - Mode files: `agents/sdlc-<mode>-mode.md`
 - Validators: `scripts/validators/validate-*.sh`
 - User commands: `commands/sdlc-*.md`, plus `/code`, `/research`, `/security`, `/review-code`, `/perf`, `/ux`, `/dba`, `/api-design`, `/containers`, `/test-expert`, `/devops`, `/frontend`, `/git-expert`
+
+## Phase-4 dispatch is conductor-first (P-A11)
+
+Before emitting any Phase-4 coding HANDOFF, check for a ticket board (`docs/work/plan.json`,
+`docs/work/plan/plan.json`, or root `plan.json`) AND `scripts/conductor/conductor.mjs`. Both present ⇒
+dispatch through the conductor (it spawns specialist sessions as child processes and holds the gates);
+you supervise its log and handle its `blocked`/`held_for_human` outputs. HANDOFF prose remains the
+interactive fallback — see `agents/sdlc-init-phase-4.md` "Conductor-first dispatch".
