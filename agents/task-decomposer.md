@@ -63,6 +63,14 @@ DAG:
   "modules": [
     { "...": "optional — see 'Modular feature detection' below" }
   ],
+  "seams": [
+    {
+      "contract": "docs/design/api/X.md — the shared contract doc",
+      "producer_module": "module id of the ONE interface-contract module",
+      "consumer_modules": ["every module id built against the contract"],
+      "wiring_evidence": "how assembly across this seam will be proven (e2e/import/test)"
+    }
+  ],
   "nodes": [
     {
       "id": "n1",
@@ -145,6 +153,17 @@ other lane module `depends_on` that ONE module, not each other. A module is
 directly through a shared interface module means "the contract is written"
 unblocks everyone downstream, not "the whole feature is built."
 
+**Seam records (program law L8).** Every shared contract gets a `seams[]`
+record (see the schema above): `{contract, producer_module, consumer_modules,
+wiring_evidence}`. The record is what makes the interface-contract rule
+machine-checkable — `validateSeams()` (`scripts/lib/tickets-seams.mjs`, run by
+`tickets.mjs validate` and `scripts/validators/validate-seams.sh`) enforces
+exactly ONE interface-contract module per shared contract and that every
+consumer lists the producer in `depends_on`. `wiring_evidence` states, at
+decomposition time, how the assembled seam will be proven (an e2e, an import
+check, a contract-conformance test) — it becomes the acceptance of the seam's
+assembly ticket (see "Requirement ledger, assembly tickets, long-tail wave").
+
 **Validate before writing.** After drafting `modules[]`, run
 `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` — NOT `validatePlan()`
 alone, which only enforces `lane` on every module and catches CROSS-lane
@@ -215,6 +234,6 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] Every artifact node has a verify node or named gate
 - [ ] plan.md DAG matches plan.json exactly
 - [ ] Requirement list re-derived from the SRS/brief (not from the node list) and diffed against DAG outputs — denominator discipline applied, no requirement silently uncovered
-- [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is a manual check — nothing in `tickets.mjs` enforces it today.
+- [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is enforced by `validateSeams()` over your `seams[]` records — the same `tickets.mjs validate` run (and `scripts/validators/validate-seams.sh` in the phase-4 gate) fails on any seam violation, so emit the seam records and clear every seam `[x]` before finishing.
 
 Print: `✓ task-decomposer done — [N] nodes, [N] verify, max depth [D]`

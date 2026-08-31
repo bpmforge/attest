@@ -137,6 +137,11 @@ populate_phase_artifacts() {
         "validate-dead-code.sh"
         "validate-file-size.sh"
         "validate-tickets.sh"
+        # P-A10 (T1-09, law L8): seam-record integrity -- exactly one
+        # interface-contract module per shared contract, every consumer
+        # depends_on the producer. Skips cleanly when the plan declares no
+        # seams[] (additive layer, not retroactive).
+        "validate-seams.sh"
         "validate-ticket-hygiene.sh"
         # T29.6: once a backlog snapshot exists, item-level integrity
         # (unlabeled items, unlinked stories, untagged strays polluting

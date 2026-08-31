@@ -310,6 +310,158 @@ export async function testTicketsGraph(
         "tickets — scopeCoverageWarnings on sample",
         `unexpected warnings: ${JSON.stringify(tickets.scopeCoverageWarnings(plan))}`,
       );
+    // -- P-A10 (T1-09): seam records make the interface-contract rule
+    // machine-checkable — exactly one interface-contract module per shared
+    // contract, every consumer depends_on the producer.
+    {
+      const seamPlan = () => ({
+        modules: [
+          {
+            id: "M-contract",
+            kind: "module",
+            title: "API contract",
+            lane: "design",
+            owner: null,
+            status: "ready",
+            write_scope: ["docs/design/api/**"],
+            depends_on: [],
+            acceptance: ["contract documented"],
+          },
+          {
+            id: "M-api",
+            kind: "module",
+            title: "API",
+            lane: "backend",
+            owner: null,
+            status: "blocked",
+            write_scope: ["src/api/**"],
+            depends_on: ["M-contract"],
+            acceptance: ["serves data"],
+          },
+          {
+            id: "M-ui",
+            kind: "module",
+            title: "UI",
+            lane: "frontend",
+            owner: null,
+            status: "blocked",
+            write_scope: ["src/ui/**"],
+            depends_on: ["M-contract"],
+            acceptance: ["renders data"],
+          },
+        ],
+        seams: [
+          {
+            contract: "docs/design/api/x.md",
+            producer_module: "M-contract",
+            consumer_modules: ["M-api", "M-ui"],
+            wiring_evidence: "e2e renders live API data",
+          },
+        ],
+      });
+
+      if (tickets.validateSeams(seamPlan()).length === 0)
+        ok("seams — a well-formed seam record validates clean");
+      else
+        fail(
+          "seams — well-formed record",
+          tickets.validateSeams(seamPlan()).join("; "),
+        );
+
+      // Backward compat: no seams[] declared -> no seam errors at all.
+      const noSeams = seamPlan() as { seams?: unknown };
+      delete noSeams.seams;
+      if (
+        tickets.validateSeams(noSeams).length === 0 &&
+        tickets.validateSeams(tickets.loadPlan(samplePath)).length === 0
+      )
+        ok(
+          "seams — a plan with no seams[] (incl. the sample board) stays clean, additive layer",
+        );
+      else
+        fail(
+          "seams — backward compat",
+          "seam errors on a plan that never adopted seams[]",
+        );
+
+      // The red-fixture defect: shared contract, interface-contract module
+      // never emitted.
+      const noProducer = seamPlan();
+      noProducer.seams[0].producer_module = "M-never-emitted";
+      const npErrs = tickets.validateSeams(noProducer);
+      if (
+        npErrs.some((e: string) =>
+          /interface-contract module was never emitted/.test(e),
+        )
+      )
+        ok(
+          "seams — a producer_module that is not a module in the plan is a hard error",
+        );
+      else fail("seams — missing producer", npErrs.join("; "));
+
+      // Consumer that never depends_on the producer -> can start before the
+      // contract exists.
+      const noEdge = seamPlan();
+      noEdge.modules[1].depends_on = [];
+      const neErrs = tickets.validateSeams(noEdge);
+      if (
+        neErrs.some((e: string) =>
+          /consumer 'M-api' does not list producer 'M-contract' in depends_on/.test(
+            e,
+          ),
+        )
+      )
+        ok(
+          "seams — a consumer missing the producer in depends_on is a hard error",
+        );
+      else fail("seams — missing depends_on edge", neErrs.join("; "));
+
+      // Two producers for one contract (and the module-side variant: two
+      // modules declaring the same interface doc).
+      const twoProducers = seamPlan();
+      twoProducers.seams.push({
+        contract: "docs/design/api/x.md",
+        producer_module: "M-api",
+        consumer_modules: ["M-ui"],
+        wiring_evidence: "x",
+      });
+      const tpErrs = tickets.validateSeams(twoProducers);
+      const dupIface = seamPlan() as {
+        modules: Array<Record<string, unknown>>;
+        seams: unknown;
+      };
+      dupIface.modules[0].interface = "docs/design/api/x.md";
+      dupIface.modules[1].interface = "docs/design/api/x.md";
+      const diErrs = tickets.validateSeams(dupIface);
+      if (
+        tpErrs.some((e: string) => /two producer modules/.test(e)) &&
+        diErrs.some((e: string) => /declared by two modules/.test(e))
+      )
+        ok(
+          "seams — exactly one interface-contract module per shared contract, both seam-side and interface-side",
+        );
+      else
+        fail(
+          "seams — one producer per contract",
+          `seam-side: ${tpErrs.join("; ")} | iface-side: ${diErrs.join("; ")}`,
+        );
+
+      // Missing wiring evidence is a hard error — the seam's assembly proof
+      // is declared at decomposition time, not improvised later.
+      const noWiring = seamPlan();
+      noWiring.seams[0].wiring_evidence = "";
+      if (
+        tickets
+          .validateSeams(noWiring)
+          .some((e: string) => /missing wiring_evidence/.test(e))
+      )
+        ok("seams — missing wiring_evidence is a hard error");
+      else
+        fail(
+          "seams — wiring evidence",
+          tickets.validateSeams(noWiring).join("; "),
+        );
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("tickets", `import/exec failed: ${message}`);
