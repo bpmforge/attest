@@ -1040,18 +1040,26 @@ Emit one coding-agent HANDOFF for this module. Wait for completion phrase. Run:
 ```
 If gate fails → return gap to coding-agent with REVISE. Repeat up to 3 times.
 
-**Round 2 — Review (always parallel, even in sequential wave mode):**
-Emit ALL triggered review HANDOFFs in ONE message:
+**Round 2 — Review (three-level model, P-A1/P-A2/P-A8):** the expert pass runs once per WAVE over the
+aggregate diff; per module, Round 2 is the Level-1 deterministic gate only (scope + manifest +
+verify + validators — no expert session). High-risk modules (authn/authz, crypto, secrets,
+schema/query shape, public API compatibility, concurrency, material interaction redesign) keep a
+per-module expert HANDOFF in addition to the wave pass. **Reviewer verdicts are advisory: a REJECT
+files cited findings and may demand a deterministic check — deterministic validators own the gate**
+(`GATE_SCORING_PROTOCOL.md`, "Who holds the gate"). Wave-level HANDOFFs, concurrent, ONE message:
 ```
 ---
-  <MODULE> — ROUND 2: REVIEW (open N sessions concurrently)
+  WAVE <N> — LEVEL 2: INTEGRATION REVIEW (open sessions concurrently, aggregate diff)
 ---
-[code-reviewer HANDOFF — always]
-[security-auditor HANDOFF — if auth/input/credentials touched]
-[performance-engineer HANDOFF — if DB queries/loops/caching touched]
-[ux-engineer HANDOFF — if any UI file touched]
+[code-reviewer HANDOFF — always, over the wave diff]
+[security-auditor HANDOFF — if the wave diff carries a security surface]
+[performance-engineer HANDOFF — if it changes a measured hot path]
+[ux-engineer HANDOFF — if it changes user-visible behavior]
+[+ per-module HANDOFFs for any high-risk module]
 ```
-Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<module>_<date>.md`. Run Fix-Verify Loop (see `agents/shared/FIX_VERIFY_LOOP.md`) — up to 3 iterations, escalate if still failing.
+Wait for all completion phrases. Synthesize `docs/reviews/FIX_BACKLOG_<wave>_<date>.md` with
+per-module attribution. Run Fix-Verify Loop (see `agents/shared/FIX_VERIFY_LOOP.md`) per attributed
+module — up to 3 iterations, escalate if still failing.
 
 **Round 3 — Runtime:**
 Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.

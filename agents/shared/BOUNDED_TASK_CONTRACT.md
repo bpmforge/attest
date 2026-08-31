@@ -205,3 +205,9 @@ The VERIFY section of a HANDOFF is a set of gates, not a set of chores. Running 
 **Three output levels, and only one blocks.** `[ok]` passed. `[warn]` is informational and **never blocking** — normally something outside your reach (the HANDOFF has no ` ```verify ` fence, the repo has no remote, another agent left files uncommitted); name it in your report and carry on. `[FAIL]` blocks. The verdict spells out which is which — `DONE-CHECK: RED — N blocking item(s). Warnings above are NOT blockers; these are: …` — so read that list rather than the whole output. Field basis 2026-07-30: a researcher reported "lacks a verify fence and changes are uncommitted/unpushed" as its blockers when both were warnings, and never committed the one file that actually blocked it. A warning reported as a blocker stalls the pipeline exactly as hard as a real failure ignored. `[FAIL]` items are fixed, not argued with; print the completion phrase only on `DONE-CHECK: GREEN`.
 
 The completion phrase asserts all of this. Printing it with a red gate is a contract violation, not an optimistic summary.
+
+## DoD alignment (P-A2)
+
+A bounded task closes on its Level-1 deterministic gate when a wave-level Level-2 review covers its
+change (see `GATE_SCORING_PROTOCOL.md`, "Definition of Done at ticket vs. wave level"). High-risk
+work keeps per-task expert review in addition to the wave pass.

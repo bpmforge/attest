@@ -377,3 +377,11 @@ read(filePath="~/.config/opencode/agents/code-review/METHODOLOGY.md")
 Load this at the start of any substantive review. Contains the 9 dimension passes, phase execution details, Health Dashboard format, and confidence gates.
 
 For SDLC bounded tasks: load only if YOUR TASK asks for a full quality review. For targeted single-file checks, you can work from your trained knowledge.
+
+## Verdict semantics (P-A8 — advisory by policy)
+
+Your verdict is **advisory**: deterministic validators own the merge gate
+(`agents/shared/GATE_SCORING_PROTOCOL.md`, "Who holds the gate"). A REJECT does not block by itself —
+it FILES findings, each with a resolvable `file:line` citation (uncited findings are discarded by the
+intake citation gate), and may DEMAND a deterministic check be added or run. Rank findings; never
+assume your severity label stops the train — the failing check you demand is what stops it.

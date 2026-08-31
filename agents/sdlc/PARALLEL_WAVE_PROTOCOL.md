@@ -50,17 +50,29 @@ stop and flag the cross-cutting concern — do not edit cross-module.
 
 ---
 
-## Round 2 — Review (N parallel HANDOFFs + Fix-Verify Loop per module)
+## Round 2 — Review (three-level model: wave-level expert pass, per-module Level 1)
 
-Emit ONE message with every triggered review HANDOFF per module:
-- code-reviewer: always
-- security: if auth or input handling touched
-- perf: if DB queries or loops touched
-- ux: if UI components touched
+**The expert pass runs once per WAVE over the aggregate diff, not per module** (P-A1/P-A2 — the
+per-module fan-out measured 4.8 expert sessions per coding attempt). Per module, Round 2 is the
+Level-1 deterministic gate only (scope, manifest, verify commands, chained validators). Then emit
+ONE message with the wave-level review HANDOFFs:
+- code-reviewer: always (over the wave's aggregate diff)
+- security-auditor: if the wave diff carries a security surface
+- performance-engineer: if it changes a measured hot path
+- ux-engineer: if it changes user-visible behavior
+- PLUS a per-module expert HANDOFF for any **high-risk** module (authn/authz, crypto, secrets,
+  schema/query shape, public API compatibility, concurrency, material interaction redesign) — those
+  keep individual review in addition to the wave pass.
+
+**Reviewer verdicts are advisory (P-A8):** a REJECT files findings (resolvable citations required)
+and may demand a deterministic check; deterministic validators own the gate
+(`GATE_SCORING_PROTOCOL.md`, "Who holds the gate"). Findings attribute to the introducing module —
+only that module reopens, and re-review runs only the failed checks.
 
 Completion phrases: `"review done — <module>: <verdict>"`, `"security done — <module>: <verdict>"`, etc.
 
-After all completion phrases return, run the Fix-Verify Loop Protocol **per module**:
+After all completion phrases return, run the Fix-Verify Loop Protocol **per attributed module**
+(only modules with findings reopen):
 - Each module produces its own `FIX_BACKLOG_<module>_<date>.md`
 - Iterate up to 3 times: remediation + re-verification per module
 - A module passes when every merge-blocking row in its backlog is `VERIFY=PASS`
