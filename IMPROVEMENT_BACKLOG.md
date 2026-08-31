@@ -658,3 +658,201 @@ that was never generated into attest-claude).
 
 **Order:** J1 (makes the shipped principle true everywhere) → J2 (cheap, high leverage) →
 J5 (structural, blocks adoption of everything script-backed) → J3 → J4 → J6/J7 (hygiene).
+
+---
+
+## Group P — Pipeline Throughput Program (A-wave, filed 2026-08-31)
+
+Filed from the founder-approved **Pipeline Throughput Enhancement** program in the Dokima repo
+(`shipwright/docs/work/EXECUTION_PLAN.md` §3 — "Board Two — attest policy wave"); design references
+(T1-xx, §12/§13/§14, §16.2) point into `shipwright/docs/work/PIPELINE_THROUGHPUT_ENHANCEMENT.md`.
+Dokima's board holds a **GATE-P1** marker that closes when this group merges. The hard constraint is
+**policy-before-executor**: wave-level review must be legalized in DoD language (P-A2) before any
+executor implements a wave gate — Dokima's P3 wave waits on it by design.
+
+**Ordering:** P-A2 (DoD legalization) and P-A8 (LLM-review-advisory policy) gate the Dokima executor's
+P3 wave — do them early. P-A13 and P-A14 are cheap wiring with the evidence already on disk — good
+first tickets. Everything here is OPEN; after any merge, `npm run build:claude`, commit both repos,
+push both remotes (sync law).
+
+### P-A1. Rewrite `sdlc-init-phase-4.md` Round 2 → three-level model; per-ticket experts = high-risk only — (T1-01)
+- **Why:** Round 2 today fans out review HANDOFFs per module inside every wave
+  (`agents/sdlc-init-phase-4.md:89,129`); the design's three-level model (T1-01, design doc §5) moves
+  the expensive expert assurance to the wave level and reserves per-ticket expert review for
+  high-risk tickets only.
+- **Files:** `agents/sdlc-init-phase-4.md` · `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md`
+- **Acceptance:**
+  - [ ] Round 2 text states the three levels (L1 deterministic per-ticket / L2 wave integration / L3 merge train) and names which experts are per-ticket (high-risk only) vs per-wave
+  - [ ] `grep -n "high-risk" agents/sdlc-init-phase-4.md` hits in the Round 2 section
+  - [ ] PARALLEL_WAVE_PROTOCOL's wave-gate section agrees (no contradictory "always parallel review per module" language survives)
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A2. DoD language: wave-level review legalized (the OPT-09/OPT-12 gate) — (T1-02)
+- **Why:** T1-02 is "the gate that legalizes OPT-09/OPT-12" — per-ticket and per-wave assurance must
+  agree in Definition-of-Done language, or every wave-level optimization reads as a skipped mandatory
+  step. This ticket plus P-A8 is what GATE-P1 (Dokima P3) actually waits on.
+- **Files:** `agents/sdlc-init-phase-4.md` · `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md` · `agents/shared/GATE_SCORING_PROTOCOL.md` · `agents/shared/BOUNDED_TASK_CONTRACT.md`
+- **Acceptance:**
+  - [ ] DoD/gate wording states explicitly that a ticket may close on the L1 deterministic gate when a wave-level L2 review covers it, and names the conditions (high-risk still per-ticket)
+  - [ ] No file retains wording that makes per-ticket expert review unconditional
+  - [ ] `grep -rn "wave-level" agents/sdlc-init-phase-4.md agents/sdlc/PARALLEL_WAVE_PROTOCOL.md` hits in both
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A3. `rules/` primitive: `description`/`globs`/`alwaysApply` + loader + validator — (T1-03)
+- **Why:** Cursor-derived lesson (design doc §15.1): "load rules by glob, not always — too many
+  always-apply brings context bloat to every chat." attest's shared protocol set is always-on and
+  growing; a `rules/` primitive with frontmatter lets content load only when its globs match.
+- **Files:** `rules/` (new) · `scripts/lib/rules.mjs` loader (new) · `scripts/validators/validate-rules.sh` (new) · red fixture under `evals/fixtures/validators/validate-rules/` (new)
+- **Acceptance:**
+  - [ ] Loader resolves `description`/`globs`/`alwaysApply` frontmatter and selects rules for a given file list
+  - [ ] Validator rejects a rule file with missing/malformed frontmatter; red fixture proves it (RED before GREEN)
+  - [ ] `node scripts/check-validator-fixtures.mjs` passes with the new validator fixtured, not grandfathered
+  - [ ] Unit tests added to the `scripts/test-*.ts` suite; `npm test` count increases
+- **Verify:** `npm test && npm run agents:check && bash scripts/validators/validate-rules.sh --help`
+
+### P-A4. Replace `review-triggers.mjs` regexes with path + semantic-risk classification (regexes demoted to scanner triggers) — (T1-04, OPT-08)
+- **Why:** `scripts/lib/review-triggers.mjs:32` recruits the security expert off the bare word
+  `validate` (even in comments) and `:37` recruits perf off `.map(`/`.filter(`/`for (` — i.e. off
+  nearly any JS diff. Design doc §15.1: "stop paying for false triggers." Classification should be
+  path + semantic-risk based; the regexes remain useful only as cheap scanner triggers.
+- **Files:** `scripts/lib/review-triggers.mjs` · `scripts/conductor/conductor.mjs` (imports it at `:62`) · `scripts/conductor/conductor.test.mjs`
+- **Acceptance:**
+  - [ ] A diff containing only `.map(` on a non-DB file no longer recruits perf; a comment containing `validate` no longer recruits security (both as test cases)
+  - [ ] Path/risk classification documented in the module header; regexes retained but marked scanner-tier
+  - [ ] `conductor.test.mjs` covers both the old false-positive cases (now negative) and true-positive cases (still recruit)
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A5. New skill `wave` — compose, run, and synthesize a Level-2 integration gate — (T1-05)
+- **Why:** T1-05: the wave integration gate (design doc §5 Level 2) needs a first-class entry point —
+  compose the wave's review set, run it concurrently, synthesize findings into one report. Also
+  carries the "summaries, not transcripts" lesson (§15.1): the orchestrator ingests finding sets,
+  never subagent transcripts.
+- **Files:** `skills/wave/SKILL.md` (new) · wiring per the existing skill pattern (see `skills/gauntlet/`, `skills/challenge/`) · `scripts/test-skills-parity.ts` (list update if names are enumerated)
+- **Acceptance:**
+  - [ ] `skills/wave/SKILL.md` exists and follows the house SKILL format (frontmatter parity with opencode target)
+  - [ ] Skill composes reviewers for a wave, runs them, and produces a single synthesized wave-gate report artifact
+  - [ ] `npm run agents:check` and the skills-parity test pass with the new skill
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A6. New skill `goal` — bounded objective loop with measurable exit — (T1-06)
+- **Why:** T1-06: the system has ticket loops (Ralph Wiggum, fix-verify) but no bounded
+  objective-level loop with a measurable exit condition — "keep going until metric X or budget Y" is
+  currently prose, not a primitive.
+- **Files:** `skills/goal/SKILL.md` (new) · wiring per the existing skill pattern · `scripts/test-skills-parity.ts` (list update if names are enumerated)
+- **Acceptance:**
+  - [ ] `skills/goal/SKILL.md` exists, house format; requires a measurable exit condition and an iteration/budget cap up front, refuses an unmeasurable objective
+  - [ ] Loop semantics reference the existing caps (`agents/shared/RALPH_WIGGUM_LOOP.md` hard cap, `agents/shared/FIX_VERIFY_LOOP.md` classification) rather than inventing new ones
+  - [ ] `npm run agents:check` and the skills-parity test pass with the new skill
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A7. Model diversity + consensus weighting added to challenger/gauntlet (not a replacement) — (T1-07)
+- **Why:** T1-07: blindness and maker≠verifier already ship in v3.5.0; this adds concurrent
+  multi-model review, 2+-model consensus weighting, and an Act On / Consider / Noted / Dismissed
+  agreement map to the existing challenger/gauntlet layer. Explicitly NOT a replacement of
+  `/gauntlet` or `/challenge`.
+- **Files:** `agents/challenger.md` · `agents/gauntlet-lead.md` · `agents/shared/CHALLENGER_PROTOCOL.md` · `agents/shared/GAUNTLET_LOOP.md` · `skills/challenge/SKILL.md` · `skills/gauntlet/SKILL.md`
+- **Acceptance:**
+  - [ ] Protocol defines the consensus tiers (Act On / Consider / Noted / Dismissed) and how 2+-model agreement maps a finding into them
+  - [ ] Existing single-model challenge/gauntlet flows remain valid (fallback documented, nothing removed)
+  - [ ] `grep -rn "consensus" agents/shared/CHALLENGER_PROTOCOL.md agents/shared/GAUNTLET_LOOP.md` hits in both
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A8. Policy: LLM review advisory, deterministic validators gate — (T1-07b)
+- **Why:** T1-07b: align attest policy with what Dokima's `conductor.config.json` already does and
+  what the field evidence showed (`CONDUCTOR_FIELD_REPORT.md:76-88` — review-as-gate failed both
+  directions, 75% false blocks; program law L2). A model verdict may file findings and demand
+  checks; it never blocks a merge alone.
+- **Files:** `agents/shared/GATE_SCORING_PROTOCOL.md` · `agents/code-reviewer.md` · `agents/sdlc-init-phase-4.md` · `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md`
+- **Acceptance:**
+  - [ ] The policy statement "LLM review is advisory; deterministic validators own the gate" appears in GATE_SCORING_PROTOCOL.md and is referenced from the Phase-4 gate text
+  - [ ] No surviving text lets a reviewer verdict alone block a merge absent a failing deterministic check (a REJECT files findings + demands checks instead)
+  - [ ] `grep -rn "advisory" agents/shared/GATE_SCORING_PROTOCOL.md` hits
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A9. Runtime verdict contract: PASS / FAIL_CANDIDATE / BLOCKED_BASELINE_* / BLOCKED_INFRASTRUCTURE; nonzero verify ⇒ FAIL always — (T1-08)
+- **Why:** T1-08: `scripts/lib/runtime-verdict.mjs` already grounds Round-3 PASS/FAIL, but the
+  contract is binary — infrastructure failures, pre-existing baseline breakage, and genuine
+  candidate failures all collapse into FAIL, so failure accounting (program law L6) can't budget
+  them separately. Extend the contract to the five structured states; a nonzero configured verify
+  command always produces FAIL regardless of prose.
+- **Files:** `scripts/lib/runtime-verdict.mjs` · `scripts/test-verify-verdicts.ts` · `agents/sdlc-init-phase-4.md` (Round-3 wording)
+- **Acceptance:**
+  - [ ] Parser recognizes all five states; unknown/ungrounded states resolve per the existing grounded-FAIL rules
+  - [ ] A verdict document claiming PASS over a nonzero verify exit is classified FAIL (test case)
+  - [ ] `scripts/test-verify-verdicts.ts` covers each state at least once; `npm test` count increases
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A10. `task-decomposer` emits seam records; interface-contract rule enforced by validator — (T1-09)
+- **Why:** T1-09: `agents/task-decomposer.md:218` admits its interface-contract rule "is a manual
+  check — nothing in `tickets.mjs` enforces it today." Emit seam records (producer / consumers /
+  wiring evidence — program law L8) at decomposition and add the validator that enforces
+  exactly-one-interface-contract-module-per-shared-contract plus depends_on listing.
+- **Files:** `agents/task-decomposer.md` · `scripts/lib/tickets.mjs` · `scripts/test-tickets-graph.ts` · new validator (e.g. `scripts/validators/validate-seams.sh` (new)) + red fixture under `evals/fixtures/validators/` (new)
+- **Acceptance:**
+  - [ ] Decomposer output schema includes seam records; the "is a manual check" sentence at `agents/task-decomposer.md:218` is gone, replaced by the validator reference
+  - [ ] Validator fails a planted board with a shared contract and no interface-contract module (red fixture, RED before GREEN)
+  - [ ] `node scripts/check-validator-fixtures.mjs` passes with the new validator fixtured
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A11. Conductor-first Phase 4 — board+conductor present ⇒ dispatch through conductor; HANDOFF prose is the interactive fallback — (T1-11, design doc §12)
+- **Why:** T1-11/§12: Phase 4 is human-mediated today — `agents/shared/HANDOFF_TEMPLATES.md:44,281`
+  has the orchestrator write HANDOFF docs and *tell the user* to open each agent; program law L10
+  says automation talks to processes and humans get bounded packets. When a board and a conductor
+  are present (`scripts/conductor/conductor.mjs` exists and works), Phase 4 must dispatch through
+  the conductor; HANDOFF prose remains the interactive fallback, not the default.
+- **Files:** `agents/sdlc-init-phase-4.md` · `agents/shared/HANDOFF_TEMPLATES.md` · `agents/shared/PHASE_ROUTING_PROTOCOL.md` · `agents/sdlc-lead.md`
+- **Acceptance:**
+  - [ ] Phase-4 entry text checks for board + conductor first and routes dispatch through `scripts/conductor/conductor.mjs` when both are present
+  - [ ] HANDOFF templates carry an explicit "interactive fallback" framing (the docs-based flow is not deleted)
+  - [ ] `grep -n "conductor" agents/sdlc-init-phase-4.md` hits in the dispatch section
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A12. Decomposition emits requirement ledger, assembly tickets, long-tail wave — (T1-12, design doc §14)
+- **Why:** T1-12/§14 (program law L9): tickets closed is *coded*, requirements → e2e on `main` is
+  *done*. Decomposition must emit the requirement coverage ledger (§14.1, the real denominator),
+  first-class assembly tickets (§14.2), and a named long-tail wave (§14.3) — not leave assembly as
+  whatever remains.
+- **Files:** `agents/task-decomposer.md` · `scripts/lib/reconciliation-matrix.mjs` · `scripts/validators/validate-requirement-closure.sh` · `scripts/lib/tickets.mjs` (board shape, if the ledger rides the board)
+- **Acceptance:**
+  - [ ] Decomposer output includes a requirement ledger keyed to SRS/brief requirements (re-derived, not copied from the node list — the existing denominator-discipline checklist item becomes an artifact)
+  - [ ] A board with a shared deliverable and no assembly ticket, or no named long-tail wave, fails validation (planted case)
+  - [ ] `validate-requirement-closure.sh` (or a successor) reads the ledger rather than re-deriving ad hoc
+- **Verify:** `npm test && npm run agents:check`
+
+### P-A13. Wire `delegation-gate.mjs --citations` into review intake (already written, unwired) — (T3-10)
+- **Why:** T3-10 / program law L4 ("assume it exists and is unwired"): `scripts/delegation-gate.mjs`
+  `--citations` exists and is tested (Group I4, v2.40.0), but the only wiring is prose —
+  `agents/code-reviewer.md:45` tells the agent to run it on itself. Nothing mechanical in the
+  review-intake path (`scripts/validators/run-handoff-gates.sh`) runs it, so a fabricated REJECT
+  still reaches the orchestrator unchecked.
+- **Files:** `scripts/validators/run-handoff-gates.sh` · `agents/code-reviewer.md` · `scripts/delegation-gate.mjs` (flag plumbing only, if needed)
+- **Acceptance:**
+  - [ ] A returning review HANDOFF with a REJECT verdict runs `delegation-gate.mjs --citations=<review-file>` mechanically in the handoff-gate chain; a review whose citations do not resolve fails intake
+  - [ ] A planted review citing a line past EOF fails the chain (red case exercised)
+  - [ ] Non-review HANDOFFs are unaffected (no new gate on unrelated intakes)
+- **Verify:** `npm test && npm run agents:check && bash scripts/validators/run-handoff-gates.sh --help`
+
+### P-A14. Fixture the two unproven HANDOFF gates; teach `check-validator-fixtures.mjs` to parse `run-handoff-gates.sh` — (design-doc audit, §16.2 #6)
+- **Why:** §16.2 #6 / program law L3 (no check gates without a red fixture):
+  `scripts/check-validator-fixtures.mjs:29` parses only `validate-phase-gate.sh`, so
+  `scripts/validators/validate-scope.sh` and `scripts/validators/validate-tracker-fresh.sh` — which
+  gate every HANDOFF via `run-handoff-gates.sh:144,224` — run with no red fixture and no
+  grandfather entry. Two unproven gates on the hottest path in the system.
+- **Files:** `scripts/check-validator-fixtures.mjs` · `evals/fixtures/validators/validate-scope/` (new) · `evals/fixtures/validators/validate-tracker-fresh/` (new) · `evals/fixtures/validators/GRANDFATHERED.json` (only if a delta is unavoidable — prefer real fixtures)
+- **Acceptance:**
+  - [ ] `check-validator-fixtures.mjs` enumerates validators from `run-handoff-gates.sh` as well as `validate-phase-gate.sh`
+  - [ ] Both validators have a red fixture that fails on the planted defect and a green fixture that passes (RED before GREEN)
+  - [ ] `node scripts/check-validator-fixtures.mjs` exits 0 with both fixtured and the grandfather delta not grown
+- **Verify:** `npm test && npm run agents:check && node scripts/check-validator-fixtures.mjs`
+
+### P-A15. attest CI runs the validator fixture check + a scheduled job — (design-doc audit, §16.2 #7)
+- **Why:** §16.2 #7: `.github/workflows/ci.yml` is 4 steps (`npm ci`, `npm test`,
+  `agents:check`, `build:claude:check`) — it runs no validator-fixture check and has no scheduled
+  job, so the policy repo's own gates are local-only and a fixture rot would go unnoticed until a
+  human types the command ("a check nobody runs decays into a check nobody can trust").
+- **Files:** `.github/workflows/ci.yml`
+- **Acceptance:**
+  - [ ] CI runs `node scripts/check-validator-fixtures.mjs` on every push/PR
+  - [ ] A `schedule:` trigger exists (e.g. weekly) running at minimum the fixture check + `npm test`
+  - [ ] `grep -n "check-validator-fixtures\|schedule:" .github/workflows/ci.yml` hits both
+- **Verify:** `npm test && npm run agents:check` (workflow syntax: `node -e "require('js-yaml')"` equivalent or actionlint if available; otherwise CI itself is the proof on push)
