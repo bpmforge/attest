@@ -91,6 +91,7 @@ import {
   testRetryBudgets,
   testClaimVsEvidence,
 } from "./test-retry-and-claims.ts";
+import { testRules } from "./test-rules.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -708,6 +709,13 @@ testCoverageLoopContract(root, ok, fail);
 testChallengerContract(root, ok, fail);
 testInstallerPreflightContract(root, ok, fail);
 testPluginExportContract(root, ok, fail);
+
+// The rules/ primitive (P-A3, T1-03): glob-scoped context rules — frontmatter
+// parse, selection semantics, repo rules/ lint, validator red/green fixtures.
+console.log(
+  "\n[Pass 54] Rules primitive — frontmatter, glob selection, validate-rules fixtures",
+);
+await testRules(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

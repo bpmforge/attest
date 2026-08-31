@@ -22,11 +22,19 @@
 // Usage: node scripts/check-validator-fixtures.mjs [--json]
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 
 const REPO = join(dirname(new URL(import.meta.url).pathname), '..');
-const GATE_SCRIPT = join(REPO, 'scripts/validators/validate-phase-gate.sh');
+// P-A14: the denominator is EVERY gate-bearing chain, not just the phase
+// gate. run-handoff-gates.sh gates every returning HANDOFF — its validators
+// (validate-scope, validate-tracker-fresh, ...) ran unproven for months
+// because only validate-phase-gate.sh was parsed here.
+const GATE_SCRIPTS = [
+  join(REPO, 'scripts/validators/validate-phase-gate.sh'),
+  join(REPO, 'scripts/validators/run-handoff-gates.sh'),
+];
 const VALIDATORS_DIR = join(REPO, 'scripts/validators');
 const FIXTURES_DIR = join(REPO, 'evals/fixtures/validators');
 const GRANDFATHER_FILE = join(FIXTURES_DIR, 'GRANDFATHERED.json');
@@ -34,19 +42,53 @@ const GRANDFATHER_FILE = join(FIXTURES_DIR, 'GRANDFATHERED.json');
 const JSON_OUT = process.argv.includes('--json');
 
 function chainedValidators() {
-  const src = readFileSync(GATE_SCRIPT, 'utf8');
   const names = new Set();
-  for (const m of src.matchAll(/"(validate-[a-z0-9-]+\.sh)"/g)) names.add(m[1]);
+  for (const gate of GATE_SCRIPTS) {
+    const src = readFileSync(gate, 'utf8');
+    // both quoting styles appear across the two chains:
+    //   "$VALIDATORS_DIR/validate-scope.sh"   and   "validate-scope.sh"
+    for (const m of src.matchAll(/(validate-[a-z0-9-]+\.sh)/g)) names.add(m[1]);
+  }
+  names.delete('validate-phase-gate.sh'); // the orchestrator, not a check
   return [...names].sort();
 }
 
+/**
+ * P-A14 fixture conventions, superset of the original `validator.sh <dir>`:
+ *  - ARGS      one token per line, run as `validator.sh <tokens...>` with
+ *              cwd = the fixture dir, so `.` and relative paths resolve inside
+ *              the fixture. Needed for validators whose signature is not
+ *              `<dir>` (validate-scope takes scope dirs + --root;
+ *              validate-completion-manifest takes <manifest> <root>).
+ *  - SETUP.sh  run first (bash, cwd = a TEMP COPY of the fixture) to create
+ *              state git cannot track — e.g. the .git repo validate-scope
+ *              inspects. The temp copy keeps fixtures declarative and every
+ *              run hermetic; the copy is deleted afterwards.
+ */
 function runValidator(scriptName, fixtureDir) {
   const scriptPath = join(VALIDATORS_DIR, scriptName);
+  const argsFile = join(fixtureDir, 'ARGS');
+  const setupFile = join(fixtureDir, 'SETUP.sh');
+  let cwd = fixtureDir;
+  let tempDir = null;
   try {
-    execFileSync('bash', [scriptPath, fixtureDir], { stdio: 'pipe', encoding: 'utf8' });
-    return { exitCode: 0 };
-  } catch (err) {
-    return { exitCode: err.status ?? 1, stderr: err.stderr };
+    if (existsSync(setupFile)) {
+      tempDir = mkdtempSync(join(tmpdir(), 'fixture-'));
+      cpSync(fixtureDir, tempDir, { recursive: true });
+      execFileSync('bash', [join(tempDir, 'SETUP.sh')], { stdio: 'pipe', cwd: tempDir });
+      cwd = tempDir;
+    }
+    const args = existsSync(argsFile)
+      ? readFileSync(argsFile, 'utf8').split('\n').map((l) => l.trim()).filter(Boolean)
+      : [fixtureDir];
+    try {
+      execFileSync('bash', [scriptPath, ...args], { stdio: 'pipe', encoding: 'utf8', cwd });
+      return { exitCode: 0 };
+    } catch (err) {
+      return { exitCode: err.status ?? 1, stderr: err.stderr };
+    }
+  } finally {
+    if (tempDir) rmSync(tempDir, { recursive: true, force: true });
   }
 }
 

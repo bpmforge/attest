@@ -483,6 +483,126 @@ export async function testVerifyVerdicts(root: string, ok: Ok, fail: Fail) {
         );
       }
     }
+    // ---------------------------------------------------------------------
+    // P-A9 — five-state runtime verdict contract (scripts/lib/runtime-verdict.mjs).
+    // PASS / FAIL_CANDIDATE / BLOCKED_BASELINE_CONFIRMED /
+    // BLOCKED_BASELINE_SUSPECTED / BLOCKED_INFRASTRUCTURE, with the HARD RULE
+    // that prose never overrides exit codes.
+    {
+      const { pathToFileURL } = await import("node:url");
+      const rv = await import(
+        pathToFileURL(path.join(root, "scripts", "lib", "runtime-verdict.mjs"))
+          .href
+      );
+      const cls = (body: string) => rv.classifyRuntimeVerdict(body);
+      const expect = (
+        label: string,
+        body: string,
+        state: string,
+        grounded?: boolean,
+      ) => {
+        const r = cls(body);
+        const groundedOk = grounded === undefined || r.grounded === grounded;
+        if (r.state === state && groundedOk) ok(label);
+        else
+          fail(
+            label,
+            `expected state=${state}${grounded === undefined ? "" : ` grounded=${grounded}`}, got state=${r.state} grounded=${r.grounded} claimed=${r.claimed}`,
+          );
+      };
+
+      // Backward compat: the two legacy verdicts keep their meaning.
+      expect(
+        "P-A9: legacy 'RUNTIME: PASS' with clean output classifies PASS",
+        "npm test — exit 0\nTests 12 passed\nRUNTIME: PASS",
+        "PASS",
+      );
+      expect(
+        "P-A9: legacy grounded 'RUNTIME: FAIL' maps to FAIL_CANDIDATE (grounded)",
+        "npm test exited 1\nTests 2 failed | 5 passed\nRUNTIME: FAIL",
+        "FAIL_CANDIDATE",
+        true,
+      );
+      expect(
+        "P-A9: an ungrounded FAIL is FAIL_CANDIDATE with grounded=false (caller defers to verify, unchanged rule)",
+        "I am not fully confident in the edge cases.\nRUNTIME: FAIL",
+        "FAIL_CANDIDATE",
+        false,
+      );
+
+      // HARD RULE — prose never overrides exit codes.
+      expect(
+        "P-A9 HARD RULE: a PASS claim over its own quoted non-zero verify exit is FAIL_CANDIDATE",
+        "$ npm test\nTests 2 failed | 5 passed (7)\ncommand exited 1\nAll good really.\nRUNTIME: PASS",
+        "FAIL_CANDIDATE",
+        true,
+      );
+      expect(
+        "P-A9 HARD RULE: BLOCKED_INFRASTRUCTURE cannot relabel a quoted genuine test failure — FAIL_CANDIDATE",
+        "$ npm test\nAssertionError: expected 200 got 500\nTests 1 failed | 3 passed\nexit code: 1\nProbably the CI runner's fault.\nRUNTIME: BLOCKED_INFRASTRUCTURE",
+        "FAIL_CANDIDATE",
+        true,
+      );
+
+      // Each of the five states classifies from a well-formed document.
+      expect(
+        "P-A9: infra-shaped non-zero exit (ECONNREFUSED) with an infrastructure claim is BLOCKED_INFRASTRUCTURE",
+        "$ npm ci\nnpm ERR! network request failed, ECONNREFUSED 127.0.0.1:4873\nexit code 1\nRUNTIME: BLOCKED_INFRASTRUCTURE",
+        "BLOCKED_INFRASTRUCTURE",
+        true,
+      );
+      expect(
+        "P-A9: BLOCKED_BASELINE_CONFIRMED stands with a base SHA + the same failing output reproduced",
+        [
+          "$ npm test (candidate)",
+          " FAIL src/a.test.ts > suite > does a thing",
+          "Tests 1 failed | 5 passed (6)",
+          "exit code 1",
+          "Reproduced on the base commit 5ca73de0aaaa (git stash; git checkout base):",
+          " FAIL src/a.test.ts > suite > does a thing",
+          "Tests 1 failed | 5 passed (6)",
+          "RUNTIME: BLOCKED_BASELINE_CONFIRMED",
+        ].join("\n"),
+        "BLOCKED_BASELINE_CONFIRMED",
+        true,
+      );
+      expect(
+        "P-A9: a CONFIRMED claim without base-commit reproduction degrades to BLOCKED_BASELINE_SUSPECTED",
+        "$ npm test\n FAIL src/a.test.ts > suite > does a thing\nTests 1 failed | 5 passed (6)\nexit code 1\nThis failure surely pre-dates my change.\nRUNTIME: BLOCKED_BASELINE_CONFIRMED",
+        "BLOCKED_BASELINE_SUSPECTED",
+        true,
+      );
+      expect(
+        "P-A9: a grounded BLOCKED_BASELINE_SUSPECTED claim stands as SUSPECTED",
+        "$ npm test\nTests 3 failed | 10 passed\nexit 1\nThese three fail in files outside my write_scope.\nRUNTIME: BLOCKED_BASELINE_SUSPECTED",
+        "BLOCKED_BASELINE_SUSPECTED",
+        true,
+      );
+      expect(
+        "P-A9: a BLOCKED_* claim with no shown failure at all is ungrounded FAIL_CANDIDATE (grounded-FAIL rules apply)",
+        "Something felt off with the environment.\nRUNTIME: BLOCKED_BASELINE_CONFIRMED",
+        "FAIL_CANDIDATE",
+        false,
+      );
+
+      // The state list itself is part of the contract.
+      if (
+        JSON.stringify(rv.VERDICT_STATES) ===
+        JSON.stringify([
+          "PASS",
+          "FAIL_CANDIDATE",
+          "BLOCKED_BASELINE_CONFIRMED",
+          "BLOCKED_BASELINE_SUSPECTED",
+          "BLOCKED_INFRASTRUCTURE",
+        ])
+      )
+        ok("P-A9: VERDICT_STATES exports exactly the five contract states");
+      else
+        fail(
+          "P-A9: VERDICT_STATES exports exactly the five contract states",
+          JSON.stringify(rv.VERDICT_STATES),
+        );
+    }
   } finally {
     for (const d of dirs) fs.rmSync(d, { recursive: true, force: true });
   }

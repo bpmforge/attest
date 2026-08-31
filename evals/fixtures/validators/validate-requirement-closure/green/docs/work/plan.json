@@ -1,5 +1,5 @@
 {
-  "goal": "Green fixture — every story is mapped to a done module and the reconciliation matrix covers both with DONE verdicts",
+  "goal": "Green fixture \u2014 every story is mapped to a done module and the reconciliation matrix covers both with DONE verdicts",
   "modules": [
     {
       "id": "M-checkout",
@@ -8,10 +8,18 @@
       "lane": "backend",
       "owner": "coding-agent",
       "status": "done",
-      "write_scope": ["src/checkout/**"],
-      "depends_on": [],
-      "acceptance": ["checkout completes and charges the card"],
-      "stories": ["US-01"]
+      "write_scope": [
+        "src/checkout/**"
+      ],
+      "depends_on": [
+        "M-catalog"
+      ],
+      "acceptance": [
+        "checkout completes and charges the card"
+      ],
+      "stories": [
+        "US-01"
+      ]
     },
     {
       "id": "M-catalog",
@@ -20,10 +28,71 @@
       "lane": "backend",
       "owner": "coding-agent",
       "status": "done",
-      "write_scope": ["src/catalog/**"],
+      "write_scope": [
+        "src/catalog/**"
+      ],
       "depends_on": [],
-      "acceptance": ["catalog API returns product listings"],
-      "stories": ["US-02"]
+      "acceptance": [
+        "catalog API returns product listings"
+      ],
+      "stories": [
+        "US-02"
+      ]
+    },
+    {
+      "id": "M-assemble-catalog",
+      "kind": "module",
+      "title": "Assemble checkout against the catalog contract",
+      "lane": "integration",
+      "owner": "coding-agent",
+      "status": "done",
+      "assembly_for": "docs/design/api/catalog.md",
+      "write_scope": [
+        "tests/e2e/**"
+      ],
+      "depends_on": [
+        "M-checkout",
+        "M-catalog"
+      ],
+      "acceptance": [
+        "e2e: checkout lists catalog products end-to-end"
+      ]
+    },
+    {
+      "id": "M-long-tail",
+      "kind": "module",
+      "title": "Long-tail wave: first-run, empty-state, error-path",
+      "lane": "qa",
+      "owner": "coding-agent",
+      "status": "done",
+      "wave": "long-tail",
+      "write_scope": [
+        "tests/longtail/**"
+      ],
+      "depends_on": [
+        "M-assemble-catalog"
+      ],
+      "acceptance": [
+        "first-run, empty-state and error-path covered by tests"
+      ]
+    }
+  ],
+  "seams": [
+    {
+      "contract": "docs/design/api/catalog.md",
+      "producer_module": "M-catalog",
+      "consumer_modules": [
+        "M-checkout"
+      ],
+      "wiring_evidence": "e2e: checkout lists catalog products end-to-end"
+    }
+  ],
+  "waves": [
+    {
+      "name": "long-tail",
+      "modules": [
+        "M-long-tail"
+      ]
     }
   ]
 }

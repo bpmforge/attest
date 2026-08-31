@@ -12,7 +12,7 @@ This document describes what every agent, skill, reference document, and tool in
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
   - [Game-dev cluster (5)](#game-dev-cluster)
   - [SDLC mode agents](#sdlc-mode-agents)
-- [Skills (41)](#skills)
+- [Skills (43)](#skills)
 - [Shared protocols (27)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
 - [Custom tools (18)](#custom-tools)
@@ -388,9 +388,11 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 | `/design-iterate` | `design-iterator` | Claude-Design-style visual loop — render → screenshot → critique against tokens.json → fix → re-verify (`--sync` token extraction, `--real` logged-in browser audit) |
 | `/gauntlet` | `gauntlet-lead` | Gauntlet loop — builders + blind fresh-per-round critics iterate until the work matches or beats a named real exemplar (`--bar`, `--budget`) |
+| `/wave` | orchestrator (inline) | Level-2 wave integration gate — reviewer set composed from the aggregate diff, concurrent isolated reviewers, finding SETS (summaries, never transcripts) synthesized into one consensus-weighted wave-gate report with findings attributed to the introducing ticket |
+| `/goal` | orchestrator (inline) | Bounded objective loop — requires a measurable exit + budget up front, refuses unmeasurable objectives (Ralph Wiggum refuse-to-loop gate); iterations classified per FIX_VERIFY_LOOP.md (STALLED / PROGRESSED / OSCILLATING), existing caps only |
 | `/vault` | `vault` | Query / ingest / lint the agent-brain-vault — answer a project question from compiled, cited pages instead of re-reading raw sources (T5.6) |
 
-**43 skills total** (includes `/guide` — the concierge front door).
+**45 skills total** (includes `/guide` — the concierge front door).
 
 ---
 
