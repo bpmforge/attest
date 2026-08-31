@@ -190,8 +190,16 @@ per-module attribution.
 **Round 2c — Fix-Verify Loop:** run the loop (`agents/shared/FIX_VERIFY_LOOP.md`) on the CONFIRMED backlog. Iteration count is **tier-aware and class-driven, not a flat 3** — `scripts/fix-verify.mjs` classifies each pass (CLEARED / PROGRESSED / STALLED / OSCILLATING) and reads the ceiling from `docs/work/.model-context` (6 metered / 12 local): a STALLED row escalates after 2 same-tier attempts; a PROGRESSED loop may extend to the ceiling; an OSCILLATING (regressed) row escalates immediately, stops on the second.
 
 **Round 3 — Runtime:**
-Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`. Completion phrase: `"runtime done — <module>: [PASS or FAIL]"`.
-If FAIL → fix module → re-run. RUNTIME PASS is required before moving to the next module.
+Emit one runtime-validation HANDOFF scoped to this module. Produces `docs/reviews/RUNTIME_<module>_<date>.md`.
+Completion phrase: `"runtime done — <module>: [<STATE>]"` where STATE is one of the five structured
+verdicts (P-A9, `scripts/lib/runtime-verdict.mjs`): **PASS · FAIL_CANDIDATE ·
+BLOCKED_BASELINE_CONFIRMED · BLOCKED_BASELINE_SUSPECTED · BLOCKED_INFRASTRUCTURE**. Two hard rules,
+enforced by the parser, not by prose: (1) **a nonzero configured verify command is FAIL_CANDIDATE no
+matter what the document claims** — a "pre-existing failure" narrative cannot override an exit code;
+(2) BLOCKED_BASELINE_CONFIRMED requires quoted reproduction on the exact base commit (base SHA + the
+same failing output), else it degrades to SUSPECTED. Routing: FAIL_CANDIDATE → fix module → re-run;
+BLOCKED_BASELINE_* → file/link the base-repair ticket, consume no module attempt; BLOCKED_INFRASTRUCTURE
+→ fix the machine, consume nothing. PASS is required before moving to the next module.
 
 **Round 3b — Visual conformance (UI modules with `docs/design/tokens.json` only):** after RUNTIME PASS, emit a **`design-iterator` HANDOFF** on the module's screens — the render→screenshot→critique→fix loop against the token spec (protocol: `references/visual-design-loop.md`). Produces `docs/design/ITERATION_LOG.md`. Skip (and say so) when the module has no UI or no tokens.json exists.
 
