@@ -1,0 +1,47 @@
+{
+  "goal": "Green fixture — one interface-contract module per shared contract; every consumer depends_on the producer; wiring evidence recorded",
+  "modules": [
+    {
+      "id": "M-dashboard-contract",
+      "kind": "module",
+      "title": "Dashboard API contract",
+      "lane": "design",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/design/api/dashboard.md",
+      "write_scope": ["docs/design/api/**"],
+      "depends_on": [],
+      "acceptance": ["docs/design/api/dashboard.md documents every endpoint the page consumes"]
+    },
+    {
+      "id": "M-api",
+      "kind": "module",
+      "title": "Dashboard API",
+      "lane": "backend",
+      "owner": null,
+      "status": "blocked",
+      "write_scope": ["src/api/**"],
+      "depends_on": ["M-dashboard-contract"],
+      "acceptance": ["API serves widget data per the contract"]
+    },
+    {
+      "id": "M-frontend",
+      "kind": "module",
+      "title": "Dashboard page",
+      "lane": "frontend",
+      "owner": null,
+      "status": "blocked",
+      "write_scope": ["src/dashboard/**"],
+      "depends_on": ["M-dashboard-contract"],
+      "acceptance": ["page renders live widgets per the contract"]
+    }
+  ],
+  "seams": [
+    {
+      "contract": "docs/design/api/dashboard.md",
+      "producer_module": "M-dashboard-contract",
+      "consumer_modules": ["M-api", "M-frontend"],
+      "wiring_evidence": "e2e: page renders data served by the real API"
+    }
+  ]
+}

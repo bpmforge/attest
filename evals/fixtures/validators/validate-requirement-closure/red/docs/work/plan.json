@@ -1,5 +1,5 @@
 {
-  "goal": "Red fixture — every module is done but US-02 is never mapped to a module (T29.2 acceptance: task closure != requirement closure)",
+  "goal": "Red fixture \u2014 every module is done but US-02 is never mapped to a module (T29.2 acceptance: task closure != requirement closure)",
   "modules": [
     {
       "id": "M-checkout",
@@ -8,10 +8,18 @@
       "lane": "backend",
       "owner": "coding-agent",
       "status": "done",
-      "write_scope": ["src/checkout/**"],
-      "depends_on": [],
-      "acceptance": ["checkout completes and charges the card"],
-      "stories": ["US-01"]
+      "write_scope": [
+        "src/checkout/**"
+      ],
+      "depends_on": [
+        "M-catalog"
+      ],
+      "acceptance": [
+        "checkout completes and charges the card"
+      ],
+      "stories": [
+        "US-01"
+      ]
     },
     {
       "id": "M-catalog",
@@ -20,9 +28,23 @@
       "lane": "backend",
       "owner": "coding-agent",
       "status": "done",
-      "write_scope": ["src/catalog/**"],
+      "write_scope": [
+        "src/catalog/**"
+      ],
       "depends_on": [],
-      "acceptance": ["catalog API returns product listings"]
+      "acceptance": [
+        "catalog API returns product listings"
+      ]
+    }
+  ],
+  "seams": [
+    {
+      "contract": "docs/design/api/catalog.md",
+      "producer_module": "M-catalog",
+      "consumer_modules": [
+        "M-checkout"
+      ],
+      "wiring_evidence": "e2e: checkout lists catalog products end-to-end"
     }
   ]
 }

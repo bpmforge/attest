@@ -108,5 +108,47 @@ else
   ' "$US" "$MATRIX" 2>&1)
 fi
 
+# -- Checks 3-5 (P-A12/T1-12 §14, law L9): requirement ledger + assembly ----
+# tickets + named long-tail wave. Engage only once the project has adopted
+# the P-A12 decomposition contract — i.e. docs/work/requirement-ledger.json
+# exists (additive, not retroactive; same posture as the stories[] guard
+# above). This gate READS the ledger the decomposer emitted rather than
+# re-deriving requirement coverage ad hoc:
+#   3. requirementLedgerGaps() (reconciliation-matrix.mjs): every story id
+#      appears in the ledger with >=1 implementing ticket (that exists in the
+#      plan) and a proving test/e2e.
+#   4. assemblyCoverageGaps() (tickets-seams.mjs): every seam (shared
+#      deliverable) has a FIRST-CLASS assembly ticket (assembly_for) whose
+#      acceptance carries the seam's wiring evidence — assembly is planned
+#      work, not whatever remains.
+#   5. longTailWaveGaps() (tickets-seams.mjs): the board names its long-tail
+#      wave (first-run/empty-state/expired-session/error-path/migration/reset
+#      classes) at decomposition time.
+LEDGER="$ROOT/docs/work/requirement-ledger.json"
+if [[ -f "$LEDGER" ]]; then
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    case "$line" in
+      "LEDGER|"*)   gap "ledger-gap"        "${line#LEDGER|}" ;;
+      "ASSEMBLY|"*) gap "assembly-missing"  "${line#ASSEMBLY|}" ;;
+      "LONGTAIL|"*) gap "long-tail-missing" "${line#LONGTAIL|}" ;;
+      *)            gap "ledger-error"      "$line" ;;
+    esac
+  done < <(node --input-type=module -e '
+    import { readFileSync } from "fs";
+    import { extractStoryIds } from "'"$LIB_DIR"'/user-stories.mjs";
+    import { requirementLedgerGaps } from "'"$LIB_DIR"'/reconciliation-matrix.mjs";
+    import { assemblyCoverageGaps, longTailWaveGaps } from "'"$LIB_DIR"'/tickets-seams.mjs";
+    const ledger = JSON.parse(readFileSync(process.argv[1], "utf8"));
+    const plan = JSON.parse(readFileSync(process.argv[2], "utf8"));
+    const storyIds = extractStoryIds(readFileSync(process.argv[3], "utf8")).map((s) => s.id);
+    for (const g of requirementLedgerGaps(ledger, storyIds, plan)) console.log(`LEDGER|${g.id}: ${g.reason}`);
+    for (const g of assemblyCoverageGaps(plan)) console.log(`ASSEMBLY|${g.msg}`);
+    for (const g of longTailWaveGaps(plan)) console.log(`LONGTAIL|${g.msg}`);
+  ' "$LEDGER" "$PLAN" "$US" 2>&1)
+else
+  note "no docs/work/requirement-ledger.json -- P-A12 ledger layer not adopted, ledger/assembly/long-tail checks skipped"
+fi
+
 note "checked requirement closure for $rel against $(basename "$US")"
 validator_exit
