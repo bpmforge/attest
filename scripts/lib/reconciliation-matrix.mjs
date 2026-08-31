@@ -48,6 +48,46 @@ export function parseReconciliationMatrix(markdown) {
 // must appear with a DONE/PARTIAL verdict; OUTSTANDING or "in USER_STORIES.md
 // but no row at all" are both gaps (Phase-5 cannot treat "never reconciled"
 // as equivalent to "reconciled, in progress").
+// requirementLedgerGaps (P-A12/T1-12 §14.1, program law L9): the requirement
+// coverage ledger is decomposition's own denominator artifact —
+// docs/work/requirement-ledger.json, RE-DERIVED from the SRS/brief (never
+// from the node list; agents/shared/includes/denominator-discipline.md), one
+// entry per requirement:
+//
+//   { "source": "docs/SRS.md",
+//     "requirements": [
+//       { "id": "US-01",                       // requirement id from SRS/brief
+//         "tickets": ["M-checkout"],           // implementing module tickets
+//         "proof": "tests/checkout.e2e.ts" }   // the proving test/e2e
+//     ] }
+//
+// Extends THIS module (rather than a new file or tickets.mjs) because the
+// reconciliation matrix and the ledger answer the same Phase-4→5 question —
+// "is every requirement actually delivered?" — from two artifacts; the
+// parsing/gap idiom here carries over directly. Gaps mirror
+// reconciliationGaps(): every known story id must appear with ≥1 implementing
+// ticket and a proving test; ledger tickets must exist in the plan when a
+// plan is supplied. Pure — reads only the objects it is handed.
+export function requirementLedgerGaps(ledger, storyIds, plan = null) {
+  const gaps = [];
+  const reqs = ledger?.requirements;
+  if (!Array.isArray(reqs)) return [{ id: '(ledger)', reason: 'requirement-ledger.json has no requirements[] array' }];
+  const byId = new Map();
+  for (const r of reqs) if (r && typeof r.id === 'string') byId.set(r.id, r);
+  const modIds = plan ? new Set((plan.modules || []).map((m) => m.id)) : null;
+  for (const id of new Set(storyIds)) {
+    const r = byId.get(id);
+    if (!r) { gaps.push({ id, reason: 'requirement missing from the ledger — the denominator was not re-derived from the SRS/brief' }); continue; }
+    if (!Array.isArray(r.tickets) || r.tickets.length === 0)
+      gaps.push({ id, reason: 'no implementing tickets recorded in the ledger' });
+    else if (modIds)
+      for (const t of r.tickets) if (!modIds.has(t)) gaps.push({ id, reason: `ledger ticket '${t}' is not a module in the plan` });
+    if (typeof r.proof !== 'string' || !r.proof.trim())
+      gaps.push({ id, reason: 'no proving test/e2e recorded in the ledger' });
+  }
+  return gaps;
+}
+
 export function reconciliationGaps(markdown, storyIds) {
   const rows = parseReconciliationMatrix(markdown);
   const byId = new Map(rows.map((r) => [r.id, r]));

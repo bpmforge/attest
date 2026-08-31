@@ -26,7 +26,8 @@ export async function testRequirementClosure(
       pathToFileURL(path.join(root, "scripts/lib/tickets.mjs")).href
     );
     const { parseReconciliationMatrix, reconciliationGaps } = await import(
-      pathToFileURL(path.join(root, "scripts/lib/reconciliation-matrix.mjs")).href
+      pathToFileURL(path.join(root, "scripts/lib/reconciliation-matrix.mjs"))
+        .href
     );
 
     // -- extractStoryIds ----------------------------------------------------
@@ -39,7 +40,9 @@ export async function testRequirementClosure(
     ].join("\n");
     const ids = extractStoryIds(md).map((s: { id: string }) => s.id);
     if (JSON.stringify(ids) === JSON.stringify(["US-01", "US-02", "E1.1"]))
-      ok("user-stories — extractStoryIds finds US-NN and EN.N headings, skips Epic/Summary");
+      ok(
+        "user-stories — extractStoryIds finds US-NN and EN.N headings, skips Epic/Summary",
+      );
     else
       fail(
         "user-stories — extractStoryIds",
@@ -53,7 +56,10 @@ export async function testRequirementClosure(
         { id: "M-b", kind: "module", status: "in_progress" },
       ],
     };
-    const warns = tickets.storyCoverageWarnings(planCovered, ["US-01", "US-02"]);
+    const warns = tickets.storyCoverageWarnings(planCovered, [
+      "US-01",
+      "US-02",
+    ]);
     if (warns.length === 1 && warns[0].id === "US-02")
       ok("tickets — storyCoverageWarnings flags the unmapped story only");
     else
@@ -62,7 +68,9 @@ export async function testRequirementClosure(
         `expected exactly US-02 uncovered, got: ${JSON.stringify(warns)}`,
       );
     if (tickets.storyCoverageWarnings(planCovered, ["US-01"]).length === 0)
-      ok("tickets — storyCoverageWarnings clean when every known story is covered");
+      ok(
+        "tickets — storyCoverageWarnings clean when every known story is covered",
+      );
     else
       fail(
         "tickets — storyCoverageWarnings clean",
@@ -78,9 +86,16 @@ export async function testRequirementClosure(
         { id: "M-b", kind: "module", status: "done" }, // doesn't claim US-02 at all
       ],
     };
-    const closure1 = tickets.requirementClosure(allDoneOneOrphan, ["US-01", "US-02"]);
+    const closure1 = tickets.requirementClosure(allDoneOneOrphan, [
+      "US-01",
+      "US-02",
+    ]);
     const us02 = closure1.stories.find((s: { id: string }) => s.id === "US-02");
-    if (closure1.openCount === 1 && us02?.status === "open" && closure1.closedCount === 1)
+    if (
+      closure1.openCount === 1 &&
+      us02?.status === "open" &&
+      closure1.closedCount === 1
+    )
       ok(
         "tickets — requirementClosure: all modules done but an unmapped story stays OPEN (task closure != requirement closure)",
       );
@@ -92,11 +107,23 @@ export async function testRequirementClosure(
 
     // A story mapped to a module that ISN'T done is open too (partial task progress).
     const partial = {
-      modules: [{ id: "M-a", kind: "module", status: "in_progress", stories: ["US-01"] }],
+      modules: [
+        {
+          id: "M-a",
+          kind: "module",
+          status: "in_progress",
+          stories: ["US-01"],
+        },
+      ],
     };
     const closure2 = tickets.requirementClosure(partial, ["US-01"]);
-    if (closure2.stories[0].status === "open" && /in_progress/.test(closure2.stories[0].reason))
-      ok("tickets — requirementClosure: story mapped to a non-done module stays OPEN");
+    if (
+      closure2.stories[0].status === "open" &&
+      /in_progress/.test(closure2.stories[0].reason)
+    )
+      ok(
+        "tickets — requirementClosure: story mapped to a non-done module stays OPEN",
+      );
     else
       fail(
         "tickets — requirementClosure incomplete module",
@@ -105,11 +132,15 @@ export async function testRequirementClosure(
 
     // A story whose every referencing module is done is CLOSED.
     const done = {
-      modules: [{ id: "M-a", kind: "module", status: "done", stories: ["US-01"] }],
+      modules: [
+        { id: "M-a", kind: "module", status: "done", stories: ["US-01"] },
+      ],
     };
     const closure3 = tickets.requirementClosure(done, ["US-01"]);
     if (closure3.stories[0].status === "closed" && closure3.openCount === 0)
-      ok("tickets — requirementClosure: story whose only module is done is CLOSED");
+      ok(
+        "tickets — requirementClosure: story whose only module is done is CLOSED",
+      );
     else
       fail(
         "tickets — requirementClosure closed story",
@@ -132,7 +163,9 @@ export async function testRequirementClosure(
       rows[0].verdict === "DONE" &&
       rows[1].verdict === "OUTSTANDING"
     )
-      ok("reconciliation-matrix — parseReconciliationMatrix reads id + verdict per row");
+      ok(
+        "reconciliation-matrix — parseReconciliationMatrix reads id + verdict per row",
+      );
     else
       fail(
         "reconciliation-matrix — parseReconciliationMatrix",
@@ -151,12 +184,225 @@ export async function testRequirementClosure(
         `expected [US-02, US-03], got ${JSON.stringify(gapIds)}`,
       );
     if (reconciliationGaps(matrix, ["US-01"]).length === 0)
-      ok("reconciliation-matrix — reconciliationGaps clean when the only known story is DONE");
+      ok(
+        "reconciliation-matrix — reconciliationGaps clean when the only known story is DONE",
+      );
     else
       fail(
         "reconciliation-matrix — reconciliationGaps clean",
         "expected no gaps for a DONE-only story set",
       );
+    // -- P-A12 (T1-12 §14, law L9): requirement ledger + assembly tickets +
+    // named long-tail wave — the machinery behind validate-requirement-
+    // closure.sh's checks 3-5. Ledger parsing lives in reconciliation-matrix
+    // .mjs (same Phase-4→5 question, same gap idiom); assembly/long-tail
+    // checks in tickets-seams.mjs via the tickets.mjs barrel.
+    {
+      const ledger = {
+        source: "docs/SRS.md",
+        requirements: [
+          {
+            id: "US-01",
+            tickets: ["M-checkout"],
+            proof: "tests/checkout.e2e.ts",
+          },
+          { id: "US-02", tickets: ["M-ghost"], proof: "" },
+        ],
+      };
+      const plan = {
+        modules: [
+          {
+            id: "M-checkout",
+            kind: "module",
+            title: "Checkout",
+            lane: "backend",
+            owner: null,
+            status: "done",
+            write_scope: ["src/checkout/**"],
+            depends_on: [],
+            acceptance: ["works"],
+          },
+        ],
+      };
+      const { requirementLedgerGaps } = await import(
+        pathToFileURL(path.join(root, "scripts/lib/reconciliation-matrix.mjs"))
+          .href
+      );
+      const lg = requirementLedgerGaps(
+        ledger,
+        ["US-01", "US-02", "US-03"],
+        plan,
+      );
+      const reasons = lg
+        .map((g: { id: string; reason: string }) => `${g.id}:${g.reason}`)
+        .join(" | ");
+      if (
+        lg.length === 3 &&
+        /US-02:.*not a module in the plan/.test(reasons) &&
+        /US-02:.*no proving test/.test(reasons) &&
+        /US-03:.*missing from the ledger/.test(reasons)
+      )
+        ok(
+          "requirement-ledger — ghost ticket, missing proof and an un-derived requirement are all gaps",
+        );
+      else fail("requirement-ledger — gaps", reasons || "(none)");
+      if (requirementLedgerGaps(ledger, ["US-01"], plan).length === 0)
+        ok(
+          "requirement-ledger — a fully-recorded requirement (tickets + proof) is clean",
+        );
+      else
+        fail(
+          "requirement-ledger — clean case",
+          JSON.stringify(requirementLedgerGaps(ledger, ["US-01"], plan)),
+        );
+      if (
+        requirementLedgerGaps({}, ["US-01"]).length === 1 &&
+        /no requirements\[\] array/.test(
+          requirementLedgerGaps({}, ["US-01"])[0].reason,
+        )
+      )
+        ok(
+          "requirement-ledger — a ledger with no requirements[] is one structural gap, not a crash",
+        );
+      else
+        fail(
+          "requirement-ledger — structural",
+          JSON.stringify(requirementLedgerGaps({}, ["US-01"])),
+        );
+
+      // assemblyCoverageGaps: a shared deliverable (seam) with no first-class
+      // assembly ticket is the built-but-never-mounted defect class.
+      const seamed = (extra: Record<string, unknown>[] = []) => ({
+        modules: [
+          {
+            id: "M-a",
+            kind: "module",
+            title: "A",
+            lane: "a",
+            owner: null,
+            status: "done",
+            write_scope: ["src/a/**"],
+            depends_on: [],
+            acceptance: ["a"],
+          },
+          {
+            id: "M-b",
+            kind: "module",
+            title: "B",
+            lane: "b",
+            owner: null,
+            status: "done",
+            write_scope: ["src/b/**"],
+            depends_on: ["M-a"],
+            acceptance: ["b"],
+          },
+          ...extra,
+        ],
+        seams: [
+          {
+            contract: "docs/design/api/x.md",
+            producer_module: "M-a",
+            consumer_modules: ["M-b"],
+            wiring_evidence: "e2e: b renders a's data",
+          },
+        ],
+      });
+      const noAssembly = tickets.assemblyCoverageGaps(seamed());
+      const withAssembly = tickets.assemblyCoverageGaps(
+        seamed([
+          {
+            id: "M-asm",
+            kind: "module",
+            title: "Assemble",
+            lane: "int",
+            owner: null,
+            status: "ready",
+            write_scope: ["tests/e2e/**"],
+            depends_on: ["M-a", "M-b"],
+            acceptance: ["e2e: b renders a's data"],
+            assembly_for: "docs/design/api/x.md",
+          },
+        ]),
+      );
+      if (
+        noAssembly.length === 1 &&
+        /no assembly ticket/.test(noAssembly[0].msg) &&
+        withAssembly.length === 0
+      )
+        ok(
+          "assembly — a seam with no assembly_for ticket is a gap; acceptance carrying the wiring evidence is clean",
+        );
+      else
+        fail(
+          "assembly — coverage",
+          `no=${JSON.stringify(noAssembly)} with=${JSON.stringify(withAssembly)}`,
+        );
+      const wrongAcceptance = seamed([
+        {
+          id: "M-asm",
+          kind: "module",
+          title: "Assemble",
+          lane: "int",
+          owner: null,
+          status: "ready",
+          write_scope: ["tests/e2e/**"],
+          depends_on: ["M-a", "M-b"],
+          acceptance: ["looks about done"],
+          assembly_for: "docs/design/api/x.md",
+        },
+      ]);
+      if (
+        tickets
+          .assemblyCoverageGaps(wrongAcceptance)
+          .some((g: { msg: string }) =>
+            /does not carry the seam's wiring evidence/.test(g.msg),
+          )
+      )
+        ok(
+          "assembly — an assembly ticket whose acceptance drops the wiring evidence is a gap",
+        );
+      else
+        fail(
+          "assembly — wiring evidence in acceptance",
+          JSON.stringify(tickets.assemblyCoverageGaps(wrongAcceptance)),
+        );
+
+      // longTailWaveGaps: the wave must be NAMED at decomposition time.
+      const bare = seamed();
+      const waved = {
+        ...seamed(),
+        waves: [{ name: "long-tail", modules: ["M-b"] }],
+      };
+      const tagged = seamed([
+        {
+          id: "M-lt",
+          kind: "module",
+          title: "Long tail",
+          lane: "qa",
+          owner: null,
+          status: "ready",
+          write_scope: ["tests/lt/**"],
+          depends_on: [],
+          acceptance: ["error-path covered"],
+          wave: "long-tail",
+        },
+      ]);
+      if (
+        tickets.longTailWaveGaps(bare).length === 1 &&
+        /no named long-tail wave/.test(tickets.longTailWaveGaps(bare)[0].msg) &&
+        tickets.longTailWaveGaps(waved).length === 0 &&
+        tickets.longTailWaveGaps(tagged).length === 0 &&
+        tickets.longTailWaveGaps({ modules: [] }).length === 0
+      )
+        ok(
+          "long-tail — a decomposed board with no named long-tail wave fails; waves[] entry or wave-tagged module passes; empty board skips",
+        );
+      else
+        fail(
+          "long-tail — wave naming",
+          `bare=${JSON.stringify(tickets.longTailWaveGaps(bare))} waved=${JSON.stringify(tickets.longTailWaveGaps(waved))} tagged=${JSON.stringify(tickets.longTailWaveGaps(tagged))}`,
+        );
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     fail("requirement-closure", `import/exec failed: ${message}`);
