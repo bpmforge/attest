@@ -480,6 +480,22 @@ test('review triggers: the diff decides, and a declared reviewer still runs', ()
   // An unknown declared name is ignored rather than crashing runReviewRound.
   assert.deepEqual(t({ reviews: ['nonsense'] }, '+const x = 1;'),
     ['code-reviewer'], 'an unknown reviewer name is dropped');
+
+  // P-A4 (OPT-08): the two named false-positive classes are now NEGATIVE.
+  // The word `validate` in a comment recruited security; `.map(` on any file
+  // recruited perf — measured at 4.8 expert sessions per coding attempt.
+  assert.deepEqual(t({}, '+++ b/src/utils/format.ts\n@@\n+// validate the shape later'),
+    ['code-reviewer'], 'the word validate in a comment must NOT recruit security (scanner tier only)');
+  assert.deepEqual(t({}, '+++ b/src/utils/list.ts\n@@\n+const y = xs.map((x) => x + 1);'),
+    ['code-reviewer'], '.map on a non-DB file must NOT recruit perf');
+
+  // ...while the true positives those regexes hid still recruit, via path/high tiers.
+  assert.deepEqual(t({}, '+++ b/src/auth/login.ts\n@@\n+const t = 1;'),
+    ['code-reviewer', 'security'], 'touching an auth path recruits security regardless of content');
+  assert.deepEqual(t({}, '+++ b/src/tools/run.ts\n@@\n+const r = execSync(cmd);'),
+    ['code-reviewer', 'security'], 'an added execSync line recruits security off-path (high tier)');
+  assert.deepEqual(t({}, '+++ b/src/db/users.ts\n@@\n+x'),
+    ['code-reviewer', 'perf'], 'touching a db path recruits perf');
 });
 
 // Round 3 must be model-agnostic (v3.1.21). Its PASS/FAIL was pure model
