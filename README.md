@@ -101,6 +101,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 | "make the UI actually match the design / show me it's right visually" | `/design-iterate` |
 | "make this as good as <real product X> — keep going until it beats it" | `/gauntlet` |
 | "a wave of tickets just landed — review what they add up to" | `/wave` |
+| "keep going until metric X passes / budget Y runs out" | `/goal` |
 
 ## Highlights
 
