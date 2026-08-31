@@ -16,7 +16,7 @@ Load and follow the instructions in the `gauntlet-lead` agent.
 
 **Exit rules:** every unit clears the bar, OR two consecutive rounds show no improvement (stall — surfaced to you), OR budget exhausted. Below-bar residuals are always reported, never dropped.
 
-**Protocol:** `agents/shared/GAUNTLET_LOOP.md` — including how it composes with `frontend-design`/`coding-agent` builders and how it differs from the challenger, Fix-Verify, and Wiggum coverage loops.
+**Protocol:** `agents/shared/GAUNTLET_LOOP.md` — including how it composes with `frontend-design`/`coding-agent` builders, how it differs from the challenger, Fix-Verify, and Wiggum coverage loops, and the Consensus & agreement map for multi-model critic rounds (single-critic rounds remain the default and fully valid).
 
 **Workflow:** Write bar file → user nod (interactive) → split → build → blind critique with evidence → route FAILs back → exit check per round → smooth → report.
 

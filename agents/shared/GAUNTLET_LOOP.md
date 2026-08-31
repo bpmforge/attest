@@ -114,3 +114,22 @@ evidence, not retried a fourth.
   `gameplay-engineer`/`level-designer`.
 - **Findings vs quality**: if what you need is "are these claims true," use the challenger — a
   gauntlet critic grades quality against a bar; it does not fact-check prose.
+
+## Consensus & agreement map (P-A7 — multi-model critics)
+
+Additive option, not a replacement: a gauntlet round may dispatch the SAME
+unit to 2+ critic contexts on different models, each fully blind per the
+rules above. The LEAD merges their grades using the **Consensus & agreement
+map** defined in `CHALLENGER_PROTOCOL.md` (canonical — read it there):
+
+- 2+-model agreement on a criterion verdict or a gap = highest signal; those
+  gaps lead the fix input for the next build round (**Act On**).
+- A lone-model gap is **Consider** — kept in the critique, marked as
+  single-source; a lone-model HIGH/CRITICAL on a security surface is never
+  auto-dismissed.
+- **Dismissed** requires a written reason citing evidence, recorded in the
+  round log. Conflicting PASS/FAIL between models = no consensus → the unit
+  does NOT pass that criterion this round.
+
+Single-critic rounds (one model) remain the default and fully valid — this
+map only governs how to weigh multiple blind critics when you have them.
