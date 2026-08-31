@@ -138,6 +138,11 @@ populate_phase_artifacts() {
         "validate-file-size.sh"
         "validate-tickets.sh"
         "validate-ticket-hygiene.sh"
+        # P-A3 (T1-03): rules/ primitive -- glob-scoped context rules must
+        # carry parseable description/globs/alwaysApply frontmatter; a rule
+        # that can never load is coverage the rule set only appears to have.
+        # Self-skips when the project has no rules/ dir.
+        "validate-rules.sh"
         # T29.6: once a backlog snapshot exists, item-level integrity
         # (unlabeled items, unlinked stories, untagged strays polluting
         # scope math) -- the external-tracker analog of validate-tickets.sh
