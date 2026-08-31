@@ -58,6 +58,7 @@ MANIFEST=""
 COVERAGE=""
 RUNTIME=false
 PROJECT_ROOT_ARG=""
+REVIEW_FILE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -76,6 +77,14 @@ while [[ $# -gt 0 ]]; do
     --runtime)
       RUNTIME=true
       shift
+      ;;
+    --review)
+      # P-A13: the returning artifact is a REVIEW (verdict + findings). Runs
+      # the citation gate mechanically — a REJECT whose citations do not
+      # resolve fails intake (the fabricated-REJECT control). Non-review
+      # HANDOFFs never pass this flag and are untouched.
+      REVIEW_FILE="$2"
+      shift 2
       ;;
     --root)
       PROJECT_ROOT_ARG="$2"
@@ -169,6 +178,19 @@ else
   bash "$VALIDATORS_DIR/validate-tech-stack.sh" "$MANIFEST" "$ROOT" 2>&1 | tail -20 >&2 || true
   gate_fail "tech-stack" "manifest declares a dependency not in docs/TECH_STACK.md (Law 4)" \
     "add the dependency to docs/TECH_STACK.md, or remove the dependency"
+fi
+
+# ── Gate 2b: reviewer citations (P-A13 — only when --review is passed) ─────
+if [[ -n "$REVIEW_FILE" ]]; then
+  printf '\n%s== GATE: REVIEW CITATIONS ==%s\n' "$_BOLD" "$_RESET" >&2
+  _DG="$(cd "$(dirname "$0")/.." && pwd)/delegation-gate.mjs"
+  if (cd "$ROOT" && node "$_DG" --citations="$REVIEW_FILE") > /dev/null 2>&1; then
+    pass "review citations resolve"
+  else
+    (cd "$ROOT" && node "$_DG" --citations="$REVIEW_FILE") 2>&1 | tail -20 >&2 || true
+    gate_fail "citations" "review verdict cites evidence that does not resolve ($REVIEW_FILE)" \
+      "a REJECT must point at real file:line evidence — fix the citations or the review is discarded (fabricated-REJECT control, PROJ-234 class)"
+  fi
 fi
 
 # ── Gate 3: coverage (optional) ────────────────────────────────────────────
