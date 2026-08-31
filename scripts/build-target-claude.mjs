@@ -149,7 +149,7 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // the opencode side first; porting them into attest-claude/skills/ is the
 // tracked follow-up on those same tickets. Remove each id here when its
 // SKILL.md lands in attest-claude.
-export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave']);
+export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave', 'goal']);
 
 function parseSkillFrontmatter(skillMdPath) {
   const text = readFileSync(skillMdPath, 'utf8');
