@@ -54,6 +54,12 @@ export { STATUSES, validatePlan, recomputeStatus, claimable, claimableByLane, la
 // cross-artifact checks.
 import { extractStoryIds } from './user-stories.mjs';
 export { extractStoryIds };
+// Seam records + assembly/long-tail coverage (P-A10/P-A12, program laws
+// L8/L9) — own chapter module to keep tickets-graph.mjs under the file cap.
+// validateSeams() is a HARD check on the CLI validate path below; the
+// assembly/long-tail checks are consumed by validate-requirement-closure.sh.
+import { validateSeams, assemblyCoverageGaps, longTailWaveGaps, LONG_TAIL_CLASSES } from './tickets-seams.mjs';
+export { validateSeams, assemblyCoverageGaps, longTailWaveGaps, LONG_TAIL_CLASSES };
 // Backend-agnostic mirror seam (docs/DESIGN_JIRA_ADAPTER.md §6). A no-op unless
 // a tracker backend is configured; carries NO tracker/Jira knowledge and no
 // network — one synchronous JSONL append after a verb's savePlan() succeeds.
@@ -125,6 +131,12 @@ if (isMain) {
     const collisions = writeScopeCollisions(plan);
     for (const e of errors) console.log(`  [x] ${e}`);
     for (const c of collisions) console.log(`  [x] write-scope collision: ${c.a} vs ${c.b} (${c.scope})`);
+    // P-A10 (T1-09): seam-record integrity is a HARD check on the same path —
+    // exactly one interface-contract module per shared contract, every
+    // consumer depends_on the producer. No seams[] declared -> no output
+    // (additive layer, backward compatible).
+    const seamErrors = validateSeams(plan);
+    for (const e of seamErrors) console.log(`  [x] ${e}`);
     // Advisory [!] lines — surfaced to humans/leads; validate-tickets.sh gates on [x] only.
     for (const w of scopeCoverageWarnings(plan)) console.log(`  [!] ${w.msg}`);
     // Test-sibling coverage follows the same configurable-gap pattern as story
@@ -153,8 +165,8 @@ if (isMain) {
         else console.log(`  [!] ${w.msg}`);
       }
     }
-    const clean = ok && collisions.length === 0 && storyGaps === 0 && siblingGaps === 0;
-    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s), ${storyGaps} story gap(s), ${siblingGaps} test-sibling gap(s)`);
+    const clean = ok && collisions.length === 0 && seamErrors.length === 0 && storyGaps === 0 && siblingGaps === 0;
+    console.log(clean ? `ok — ${(plan.modules || []).length} module(s) valid, no collisions` : `INVALID — ${errors.length} error(s), ${collisions.length} collision(s), ${seamErrors.length} seam error(s), ${storyGaps} story gap(s), ${siblingGaps} test-sibling gap(s)`);
     process.exit(clean ? 0 : 1);
   } else if (cmd === 'requirement-status') {
     const storiesPath = rest[0];

@@ -1,0 +1,35 @@
+{
+  "goal": "Red fixture — a shared contract (dashboard API) with NO interface-contract module emitted, and a consumer that never depends on the producer (P-A10 acceptance)",
+  "modules": [
+    {
+      "id": "M-api",
+      "kind": "module",
+      "title": "Dashboard API",
+      "lane": "backend",
+      "owner": null,
+      "status": "ready",
+      "write_scope": ["src/api/**"],
+      "depends_on": [],
+      "acceptance": ["API serves widget data"]
+    },
+    {
+      "id": "M-frontend",
+      "kind": "module",
+      "title": "Dashboard page",
+      "lane": "frontend",
+      "owner": null,
+      "status": "ready",
+      "write_scope": ["src/dashboard/**"],
+      "depends_on": [],
+      "acceptance": ["page renders live widgets"]
+    }
+  ],
+  "seams": [
+    {
+      "contract": "docs/design/api/dashboard.md",
+      "producer_module": "M-dashboard-contract",
+      "consumer_modules": ["M-api", "M-frontend"],
+      "wiring_evidence": "e2e: page renders data served by the real API"
+    }
+  ]
+}

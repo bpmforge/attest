@@ -1,0 +1,19 @@
+{
+  "source": "docs/USER_STORIES.md",
+  "requirements": [
+    {
+      "id": "US-01",
+      "tickets": [
+        "M-checkout"
+      ],
+      "proof": "src/checkout/checkout.test.ts"
+    },
+    {
+      "id": "US-02",
+      "tickets": [
+        "M-catalog"
+      ],
+      "proof": "src/catalog/catalog.test.ts"
+    }
+  ]
+}

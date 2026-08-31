@@ -130,3 +130,151 @@ function squash(s, maxLen) {
   const t = String(s).replace(/\s+/g, ' ').trim();
   return t.length > maxLen ? `${t.slice(0, maxLen)}…` : t;
 }
+
+// ── P-A9: five-state runtime verdict contract ────────────────────────────────
+//
+// The binary PASS/FAIL contract collapsed three different situations into one
+// FAIL bucket: genuine candidate failures, pre-existing baseline breakage, and
+// infrastructure outages. Failure accounting (program law L6) has to budget
+// those separately, so the contract is now five structured states:
+//
+//   PASS                        — every command exited zero.
+//   FAIL_CANDIDATE              — the candidate's own change is (or must be
+//                                 presumed) broken. Legacy FAIL maps here.
+//   BLOCKED_BASELINE_CONFIRMED  — the same failure reproduced on the exact base
+//                                 commit: requires a quoted base SHA AND the
+//                                 same failing output shown for both runs.
+//   BLOCKED_BASELINE_SUSPECTED  — a shown failure the agent believes pre-dates
+//                                 the work, without base-commit reproduction.
+//                                 A CONFIRMED claim missing its evidence
+//                                 degrades here, never stands as confirmed.
+//   BLOCKED_INFRASTRUCTURE      — the non-zero exits are attributable to the
+//                                 environment (missing tooling, network,
+//                                 resources), not to code under test.
+//
+// HARD RULE — prose never overrides exit codes: a document that claims PASS
+// while its own quoted output evidences a real non-zero verify exit is
+// FAIL_CANDIDATE. Likewise a BLOCKED_* label cannot relabel a quoted genuine
+// test/build failure as somebody else's problem without the evidence that
+// state requires (base reproduction for BASELINE_CONFIRMED, an
+// infrastructure-shaped cause for INFRASTRUCTURE).
+//
+// Backward compatible: existing documents ending "RUNTIME: PASS" / "RUNTIME:
+// FAIL" classify exactly as before (PASS / FAIL_CANDIDATE), and the existing
+// grounded-FAIL rule is preserved — an ungrounded non-PASS classification
+// returns grounded:false so the caller keeps deferring to the ticket's own
+// verify command (conductor.mjs round 3), same as an ungrounded FAIL today.
+
+export const VERDICT_STATES = [
+  'PASS',
+  'FAIL_CANDIDATE',
+  'BLOCKED_BASELINE_CONFIRMED',
+  'BLOCKED_BASELINE_SUSPECTED',
+  'BLOCKED_INFRASTRUCTURE',
+];
+
+// The verdict line, tolerant like RUNTIME_PASS_RE. FAIL_CANDIDATE before FAIL
+// so alternation can't truncate the longer token; legacy FAIL maps to
+// FAIL_CANDIDATE in classifyRuntimeVerdict().
+const VERDICT_LINE_RE =
+  /runtime\s*(?:verdict)?\s*[:\-]?\s*\**\s*(PASS|FAIL_CANDIDATE|FAIL|BLOCKED_BASELINE_CONFIRMED|BLOCKED_BASELINE_SUSPECTED|BLOCKED_INFRASTRUCTURE)\b/i;
+
+// Infrastructure-shaped causes for a non-zero exit, beyond the missing-tooling
+// set isGroundedFailure() already discounts: network, DNS, disk, OOM, kills.
+const INFRA_CAUSE_RE =
+  /(ECONNREFUSED|ECONNRESET|ETIMEDOUT|EAI_AGAIN|ENETUNREACH|EADDRINUSE|ENOSPC|out of memory|OOM[- ]?kill|killed \(signal|npm ERR! network|registry (?:timeout|unreachable)|could not resolve host|connection timed out)/i;
+
+// A per-line failure matcher (REAL_FAILURE_RE's shapes, applied to one trimmed
+// line) used to find the failing signature quoted for the candidate run and
+// again for the base-commit run.
+const FAILURE_LINE_RE = new RegExp([
+  '\\bnot ok\\b',
+  'AssertionError',
+  '✖|✗',
+  '#\\s*fail\\s+[1-9]',
+  '\\b[1-9]\\d*\\s+(tests?\\s+)?fail(ed|ing)\\b',
+  '^FAILED\\s',
+  '^FAIL\\s+\\S',
+].join('|'), 'i');
+
+// Something readable as the base/baseline commit: a labeled SHA. "base commit
+// abc1234", "baseline: 5ca73de...", "reproduced on main @ deadbeef".
+const BASE_SHA_RE = /\b(?:base(?:line)?(?:\s+commit)?|merge-base|main|master)\b[^\n]{0,40}?\b[0-9a-f]{7,40}\b/i;
+
+/**
+ * BLOCKED_BASELINE_CONFIRMED's evidence bar: the document names the exact base
+ * commit (a SHA, labeled as base/baseline/main) AND quotes the SAME failing
+ * output twice — once for the candidate run, once for the base-commit
+ * reproduction. One quoted failure plus the ASSERTION "this also fails on
+ * main" is suspicion, not confirmation.
+ */
+export function hasBaselineReproduction(body) {
+  const b = String(body || '');
+  if (!BASE_SHA_RE.test(b)) return false;
+  const counts = new Map();
+  for (const raw of b.split('\n')) {
+    const l = raw.trim();
+    if (!l || !FAILURE_LINE_RE.test(l)) continue;
+    const key = l.replace(/\s+/g, ' ');
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.values()].some((c) => c >= 2);
+}
+
+/**
+ * Classify a round-3 runtime report into one of the five VERDICT_STATES.
+ *
+ * Returns { state, claimed, grounded, reason }:
+ *   state    — one of VERDICT_STATES (never the raw claim).
+ *   claimed  — the normalized token the document itself claimed, or null when
+ *              no verdict line was found (FAIL normalizes to FAIL_CANDIDATE).
+ *   grounded — whether evidence in the document backs a non-PASS state. Per
+ *              the existing grounded-FAIL rule, callers should defer an
+ *              ungrounded (grounded:false) non-PASS state to the ticket's own
+ *              verify command rather than trusting the prose.
+ *   reason   — extractFailureReason() for non-PASS states, else null.
+ */
+export function classifyRuntimeVerdict(body) {
+  const b = String(body || '');
+  const m = b.match(VERDICT_LINE_RE);
+  let claimed = m ? m[1].toUpperCase() : null;
+  if (claimed === 'FAIL') claimed = 'FAIL_CANDIDATE'; // backward compat
+  const groundedFailure = isGroundedFailure(b);
+  const codeFailure = REAL_FAILURE_RE.test(b);
+  const nonZeroExit = /exit(ed)?\s*(code)?\s*[:=]?\s*[1-9]/i.test(b);
+  const infraCause = nonZeroExit && (MISSING_TOOLING_RE.test(b) || INFRA_CAUSE_RE.test(b));
+
+  const out = (state, grounded) => ({
+    state,
+    claimed,
+    grounded,
+    reason: state === 'PASS' ? null : extractFailureReason(b),
+  });
+
+  if (claimed === 'PASS') {
+    // HARD RULE: a PASS claim over evidenced non-zero exits is FAIL_CANDIDATE.
+    if (groundedFailure) return out('FAIL_CANDIDATE', true);
+    return out('PASS', true);
+  }
+
+  if (claimed === 'BLOCKED_INFRASTRUCTURE') {
+    // A quoted genuine test/build failure cannot be relabeled infrastructure.
+    if (codeFailure) return out('FAIL_CANDIDATE', true);
+    if (infraCause) return out('BLOCKED_INFRASTRUCTURE', true);
+    // No evidence either way — resolves per the grounded-FAIL rules: an
+    // ungrounded non-PASS defers to the verify command close() runs.
+    return out('FAIL_CANDIDATE', false);
+  }
+
+  if (claimed === 'BLOCKED_BASELINE_CONFIRMED' || claimed === 'BLOCKED_BASELINE_SUSPECTED') {
+    if (!groundedFailure) return out('FAIL_CANDIDATE', false); // no shown failure at all
+    if (claimed === 'BLOCKED_BASELINE_CONFIRMED' && hasBaselineReproduction(b))
+      return out('BLOCKED_BASELINE_CONFIRMED', true);
+    // CONFIRMED without base-commit reproduction degrades; SUSPECTED stays.
+    return out('BLOCKED_BASELINE_SUSPECTED', true);
+  }
+
+  // FAIL/FAIL_CANDIDATE claims, unknown tokens, and documents with no verdict
+  // line all land here: FAIL_CANDIDATE, grounded per the existing rules.
+  return out('FAIL_CANDIDATE', groundedFailure);
+}
