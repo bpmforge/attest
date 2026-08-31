@@ -145,7 +145,11 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // simplify, steward) plus game-asset-pipeline were ported to attest-claude
 // for the v2 release; parity is now exact. Add entries here ONLY with a
 // tracked follow-up ticket.
-export const KNOWN_MISSING_IN_CLAUDE = new Set([]);
+// P-A5/P-A6 (Group P, IMPROVEMENT_BACKLOG.md): `wave` and `goal` shipped on
+// the opencode side first; porting them into attest-claude/skills/ is the
+// tracked follow-up on those same tickets. Remove each id here when its
+// SKILL.md lands in attest-claude.
+export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave']);
 
 function parseSkillFrontmatter(skillMdPath) {
   const text = readFileSync(skillMdPath, 'utf8');
