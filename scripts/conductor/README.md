@@ -140,3 +140,33 @@ model tier via `opencode-local`'s sync-then-exec wrapper, call
 `node scripts/sync-model-limits.mjs --config <opencode.json> --write`
 immediately before that spawn (same pattern as `scripts/opencode-local` and
 `run-until-done.sh`'s `sync_model_limits()`).
+
+## v3.9.0 — hardened by the first live /autopilot proof (2026-09-01)
+
+Four changes, each from a receipt in a real end-to-end run (two tickets,
+OpenAI terra/luna, full code → dual review → runtime → merge chain):
+
+- **Single-conductor lock.** `.git/conductor.lock` (runtime dir when the
+  board is file-backed). A second conductor on the same root exits 4 —
+  observed live: a supervised run and an orphaned detached run interleaved,
+  one released a ticket while the other's rounds went green, and the green
+  was never landed. Stale locks from dead pids clear themselves.
+- **The machine owns the runtime verdict.** Round 3's agent document is the
+  DIAGNOSIS; every FAIL is re-checked by the conductor running the ticket's
+  own `verify` in the worktree, and a fail the machine cannot reproduce is
+  overridden (logged `round3.runtime.overridden`). Observed live: a grounded
+  FAIL quoting a real exit 1 the agent produced by running the verify in the
+  wrong directory, while the identical candidate passed minutes later.
+- **Lean reviewer default.** `agents.reviewer` defaults to `build`: the
+  code-reviewer orchestrator (7-specialist dispatch) died docless four
+  consecutive bounded unattended rounds; the lean agent, given the round's
+  self-contained prompt, approved with a written document first try. Set
+  `agents.reviewer: "code-reviewer"` in models.json to restore the
+  orchestrator for attended runs.
+- **Evidence inside the project.** `docs/work/.conductor-evidence/`
+  (self-gitignored) — the old worktree-base location was outside the root
+  and unattended sessions' reads of their own run's evidence were
+  permission-auto-rejected.
+
+Operator loop (kick off / track / reconcile without handoffs): the OPERATE
+section of `skills/autopilot/SKILL.md`.

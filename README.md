@@ -102,7 +102,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 | "make this as good as <real product X> — keep going until it beats it" | `/gauntlet` |
 | "a wave of tickets just landed — review what they add up to" | `/wave` |
 | "keep going until metric X passes / budget Y runs out" | `/goal` |
-| "look at what's left, pick the path, and auto-run the product to completion" | `/autopilot` |
+| "look at what's left, pick the path, and auto-run the product to completion" | `/autopilot` **Field-proven 2026-09-01**: a two-ticket product driven end-to-end (OpenAI terra codes, luna reviews, runtime verified, merged, board drained) — the PRIMARY agent kicks off, tracks, and reconciles it per the skill's OPERATE section; handoffs only where the ladder names one. |
 
 ## Highlights
 
