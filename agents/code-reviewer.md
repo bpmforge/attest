@@ -327,6 +327,15 @@ Complete:   "challenge done — code-<module>"
 Before delivering any output:
 - [ ] Did I read `references/code-health-checklist.md`?
 - [ ] Did I read `references/anti-slop-audit.md`?
+  - **Unreadable references are NEVER a licence to write nothing.** In an
+    unattended session the install-dir references may sit outside the
+    project and the permission is auto-rejected (field trace 2026-09-01: a
+    conductor review round died docless twice this way and the whole run
+    no-progress-halted). If a reference cannot be read under current
+    permissions: SAY SO in one line inside the review document, review with
+    the inline rules in this prompt, and STILL WRITE the PRODUCE document
+    with a real VERDICT line. A missing checklist downgrades the review's
+    depth — a missing review document blocks the entire pipeline.
 - [ ] Does every finding have a verbatim code snippet from `read()`?
 - [ ] Does every finding have a file:line reference?
 - [ ] Did I run the anti-slop validator script?
