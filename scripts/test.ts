@@ -92,6 +92,7 @@ import {
   testClaimVsEvidence,
 } from "./test-retry-and-claims.ts";
 import { testRules } from "./test-rules.ts";
+import { testProductShape } from "./test-product-shape.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -716,6 +717,11 @@ console.log(
   "\n[Pass 54] Rules primitive — frontmatter, glob selection, validate-rules fixtures",
 );
 await testRules(root, ok, fail);
+
+// The P6 product-shape doctrine (roles + two-stack, feature map, feature-
+// grouped landing) — content + wiring, so the ported architecture cannot
+// silently regress out of the corpus sessions actually load.
+testProductShape(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this
