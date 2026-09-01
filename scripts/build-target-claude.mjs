@@ -149,6 +149,27 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // the opencode side first; porting them into attest-claude/skills/ is the
 // tracked follow-up on those same tickets. Remove each id here when its
 // SKILL.md lands in attest-claude.
+//
+// EXACT port recipe (verified 2026-08-31 while landing the P6 doctrine —
+// NOT doable from this repo's build config: skills/ is per-target
+// hand-maintained by design, see the file header and T22.12 notes above, so
+// the port is a hand-authored commit in attest-claude, made AFTER this
+// branch merges so the parity test's live-pair assertion stays consistent):
+//   1. In attest-claude, create skills/wave/SKILL.md and skills/goal/SKILL.md
+//      from this repo's skills/wave/SKILL.md and skills/goal/SKILL.md.
+//      Frontmatter per attest-claude convention: `name:` becomes a display
+//      label ("Wave" / "Goal") and add `trigger: /wave` / `trigger: /goal`
+//      (claudeSkillId() resolves identity from `trigger`), keep description.
+//   2. Body transforms: HANDOFF/paste dispatch -> Task-tool dispatch;
+//      `~/.config/opencode/` paths -> `~/.claude/` (same substitutions as
+//      transform() below — but applied by hand, since skills aren't built).
+//   3. Both skills cite agents/shared files (goal: RALPH_WIGGUM_LOOP.md,
+//      FIX_VERIFY_LOOP.md, GAUNTLET_LOOP.md; wave: GAUNTLET_LOOP.md,
+//      CHALLENGER_PROTOCOL.md) — those ARE generated (COPY_GLOBS 'agents'),
+//      so the references resolve after a normal build:claude run.
+//   4. Remove 'wave' and 'goal' from this set IN THE SAME CHANGE that lands
+//      step 1 (test-skills-parity.ts asserts live missingInClaude equals
+//      this set exactly — removing early or late goes red either way).
 export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave', 'goal']);
 
 function parseSkillFrontmatter(skillMdPath) {
