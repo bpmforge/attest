@@ -28,6 +28,8 @@ If your WRITE-SCOPE is `src/auth/`, you may not touch `src/billing/` even if you
 
 The HANDOFF lists exact files under `PRODUCE`. Create those files and no others. Do not create additional files "for completeness" or "because they seemed useful." The orchestrator's gate validators check for exactly the files listed — extra files are invisible to the gate and wasted effort.
 
+And the inverse is absolute: **a blocked input is never a licence to produce nothing.** If a reference, checklist, or tool you wanted is unreadable under current permissions (unattended sessions auto-reject reads outside the project — field trace 2026-09-01: a review round died docless twice and no-progress-halted a whole conductor run), state the degradation in one line inside the PRODUCE file and still write it, complete with its required verdict/summary line. The gate reads the file, not your circumstances — an absent file is indistinguishable from a session that never ran.
+
 ---
 
 ## Rule 3 — Verbatim completion phrase
