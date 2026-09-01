@@ -163,7 +163,14 @@ const CODER_MODEL = MODEL || ROLE_MODELS.coder || null;
 // expert-system default.
 const ROLE_AGENTS = MODELS_CONFIG?.agents ?? {};
 const CODER_AGENT = AGENT || ROLE_AGENTS.coder || 'coding-agent';
-const REVIEWER_AGENT = ROLE_AGENTS.reviewer || 'code-reviewer';
+// v3.9.0 (live field trace 2026-09-01): the code-reviewer ORCHESTRATOR
+// (7-specialist dispatch) died DOCLESS four consecutive bounded unattended
+// rounds — it reaches for subagents and external references a non-interactive
+// session cannot grant. The generic 'build' agent, given the round's fully
+// self-contained prompt, APPROVED with a written document on its first try.
+// Default is now the lean agent; models.json `agents.reviewer` restores the
+// orchestrator for teams that run attended.
+const REVIEWER_AGENT = ROLE_AGENTS.reviewer || 'build';
 const REVIEWER_MODEL = ROLE_MODELS.reviewer || CODER_MODEL;
 
 // ---------- Phase 4 mini-lifecycle (PARALLEL_WAVE_PROTOCOL) ----------
@@ -238,11 +245,44 @@ const LOG = resolve(ROOT, 'docs/work/conductor-log.jsonl');
 // Failure evidence must not dirty or commit the target repository's main
 // checkout. It is runtime state, stored beside the isolated worktrees.
 const RUNTIME_DIR = resolve(WT_BASE, '.runtime');
-const EVIDENCE_DIR = resolve(WT_BASE, '.evidence');
+// v3.9.0: evidence lives INSIDE the project (docs/work/, gitignored by the
+// conductor itself) — the old worktree-base location sat outside the root and
+// every unattended follow-up session's read of it was permission-auto-rejected
+// (live field trace 2026-09-01: the autopilot could not read its own run's
+// evidence to decide the next action).
+const EVIDENCE_DIR = resolve(ROOT, 'docs', 'work', '.conductor-evidence');
 const HALT_NOTICE = PLAN_IS_FILE_BACKED
   ? resolve(ROOT, 'docs/work/CONDUCTOR_HALT.md')
   : resolve(RUNTIME_DIR, 'CONDUCTOR_HALT.md');
 const STOPFILE = resolve(ROOT, 'STOP');
+// v3.9.0 — single-conductor lock (live /autopilot field trace 2026-09-01):
+// a supervised run and an orphaned detached run interleaved on one board;
+// one released a ticket mid-flight while the other's rounds went green, and
+// the green was never landed. Two conductors on one ROOT is never legal.
+// The lock lives in .git/ (or the runtime dir when file-backed boards have
+// no .git) — a lock in the worktree dirties the target and trips the
+// conductor's own clean-tree gate, which is how the first draft of this
+// lock was caught by the test suite.
+const LOCKFILE = existsSync(resolve(ROOT, '.git'))
+  ? resolve(ROOT, '.git', 'conductor.lock')
+  : resolve(RUNTIME_DIR, 'conductor.lock');
+function acquireRunLock() {
+  if (existsSync(LOCKFILE)) {
+    const pid = Number(readFileSync(LOCKFILE, 'utf8').trim() || '0');
+    let alive = false;
+    if (pid > 0) { try { process.kill(pid, 0); alive = true; } catch { /* stale */ } }
+    if (alive) {
+      console.error(`another conductor (pid ${pid}) holds ${LOCKFILE} — two conductors on one board release each other's work; stop it or remove the lock`);
+      process.exit(4);
+    }
+    log('conductor.lock', { msg: `stale lock from dead pid ${pid} removed` });
+  }
+  writeFileSync(LOCKFILE, String(process.pid));
+  const drop = () => { try { if (Number(readFileSync(LOCKFILE, 'utf8').trim()) === process.pid) rmSync(LOCKFILE); } catch { /* already gone */ } };
+  process.on('exit', drop);
+  process.on('SIGINT', () => { drop(); process.exit(130); });
+  process.on('SIGTERM', () => { drop(); process.exit(143); });
+}
 
 // ---------- utils ----------
 const now = () => new Date().toISOString();
@@ -596,6 +636,10 @@ function preserveAttemptEvidence(m, attempt, wt) {
     if (!existsSync(srcDir)) return kept;
     const outDir = resolve(EVIDENCE_DIR, `${m.id}-attempt${attempt}`);
     mkdirSync(outDir, { recursive: true });
+    // Self-gitignoring (the receipts pattern): runtime artifacts inside the
+    // project must never dirty the target's status or reach its history.
+    const selfIgnore = resolve(EVIDENCE_DIR, '.gitignore');
+    if (!existsSync(selfIgnore)) writeFileSync(selfIgnore, '*\n');
     for (const f of readdirSync(srcDir)) {
       if (!f.endsWith(`_${m.id}.md`) && !f.includes(m.id)) continue;
       try {
@@ -880,15 +924,20 @@ the ticket's own verify command.`;
   // genuinely fails still fails, so the gate never gets weaker — only harder
   // to trip on an opinion.
   if (body && !pass) {
+    // v3.9.0 (live /autopilot field trace 2026-09-01): a GROUNDED fail can
+    // still be wrong — the runtime agent quoted a real exit 1 it produced by
+    // running the verify in the wrong directory, and the identical candidate
+    // passed the machine's own run minutes later. The deterministic re-run in
+    // THIS worktree is now authoritative for every FAIL, grounded or not; the
+    // agent's document remains the diagnosis, never the verdict. The gate
+    // cannot get weaker: a verify that genuinely fails still fails.
     const grounded = isGroundedFailure(body);
-    if (!grounded) {
-      const v = m.verify ? runVerifyDirect(m, wt) : null;
-      if (v && v.ok) {
-        log('round3.runtime.unsubstantiated', { ticket: m.id, msg: `RUNTIME: FAIL cites no non-zero exit, and \`${m.verify}\` passes from outside the session — treating as PASS` });
-        pass = true;
-      } else if (v) {
-        log('round3.runtime.confirmed', { ticket: m.id, msg: `FAIL upheld — \`${m.verify}\` also fails (exit ${v.code})` });
-      }
+    const v = m.verify ? runVerifyDirect(m, wt) : null;
+    if (v && v.ok) {
+      log('round3.runtime.overridden', { ticket: m.id, msg: `RUNTIME: FAIL ${grounded ? 'was grounded but is not reproducible' : 'cites no non-zero exit'} — \`${m.verify}\` passes when the conductor runs it in the worktree; treating as PASS (agent evidence contradicted by the machine's own run)` });
+      pass = true;
+    } else if (v) {
+      log('round3.runtime.confirmed', { ticket: m.id, msg: `FAIL upheld — \`${m.verify}\` also fails (exit ${v.code})` });
     }
   }
 
@@ -1205,6 +1254,7 @@ function writeHaltNotice(plan) {
 
 // ---------- main ----------
 async function main() {
+  acquireRunLock();
   for (const bin of ['git']) {
     try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(1); }
   }
