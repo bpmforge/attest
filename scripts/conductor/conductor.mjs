@@ -57,11 +57,19 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, extractFailureReason } from '../lib/runtime-verdict.mjs';
-import { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release } from '../lib/tickets.mjs';
+import { exhaustionReason, latestAttemptGaps } from '../lib/attempt-outcome.mjs';
+// Board is pluggable: plan.json (tickets.mjs) is the default; set
+// CONDUCTOR_BOARD=jira to select the JIRA board driver (jira-tickets.mjs)
+// instead — same 13 names, identical signatures (docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md).
+const { loadPlan, savePlan, validatePlan, writeScopeCollisions, recomputeStatus, claimable, claim, start, comment, close, accept, release, BOARD_IS_FILE_BACKED } =
+  process.env.CONDUCTOR_BOARD === 'jira' ? await import('../lib/jira-tickets.mjs') : await import('../lib/tickets.mjs');
+// A board that keeps no plan file on disk must not be git-added/committed.
+// tickets.mjs exports no such flag -> undefined -> file-backed, unchanged.
+const PLAN_IS_FILE_BACKED = BOARD_IS_FILE_BACKED !== false;
 import { loadModelsConfig, resolveRole, checkMakerVerifierDistinct } from '../lib/model-tiers.mjs';
 import { findDrift, loadLogRows, startReceiptFromHistory, reconcileOrphan } from './resume.mjs';
 
@@ -76,6 +84,10 @@ const opt = (name, dflt) => {
   return i >= 0 ? (args[i + 1] && !args[i + 1].startsWith('--') ? args[i + 1] : true) : dflt;
 };
 const ROOT = resolve(String(opt('root', '.')));           // target project being conducted
+// Board drivers receive PLAN_PATH (a file) but may need the project root — the
+// JIRA driver resolves its scope map against it. Publish it unambiguously
+// rather than making a driver infer a directory from a file path.
+process.env.CONDUCTOR_ROOT = ROOT;
 
 // Where the module board lives, when --plan does not say.
 //
@@ -173,20 +185,63 @@ const REVIEW_AGENTS = {
 };
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode'; // overridable so tests/CI can stub it
 
+// Security review Finding 3 (docs/reviews/SECURITY_jira-board-driver_2026-07-31.md): spawnSync
+// with no `env` inherits the FULL parent environment, including JIRA_API_TOKEN if the operator
+// exported it (the conductor itself reads JIRA_BASE_URL directly, so that's plausible). The
+// coder/reviewer session's prompt is built partly from JIRA content an unattended agent reads and
+// acts on — an injected instruction that dumps env or embeds a var in a commit message would
+// exfiltrate the token. Only jira-tickets.mjs's own `runJira` (which shells to jira.sh) may see
+// the credential; every session spawned here gets an explicit allowlist instead of the ambient
+// environment. PATH/HOME/SHELL/TMPDIR are what a normal CLI process needs to run at all; the
+// LC_*/LANG pair avoids locale-dependent CLI output; the rest are model-provider auth opencode
+// itself may read from env (its own config file, keyed off HOME, covers the common case, but some
+// provider setups read the key from env directly) — none of these are JIRA-shaped.
+const SESSION_ENV_ALLOWLIST = [
+  'PATH', 'HOME', 'SHELL', 'TMPDIR', 'LANG', 'LC_ALL', 'USER',
+  'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'GITHUB_COPILOT_TOKEN',
+];
+function sessionEnv() {
+  const env = {};
+  for (const k of SESSION_ENV_ALLOWLIST) if (process.env[k] !== undefined) env[k] = process.env[k];
+  return env;
+}
+
 // ---------- config (target-project-specific; script itself stays repo-agnostic) ----------
 const DEFAULT_CONFIG = {
   branchSuffix: '-conductor',
   worktreeDir: '.conductor-worktrees',
   remotes: ['github', 'origin'],
+  // Command run inside each freshly created worktree, before any session.
+  // A git worktree is a bare checkout — it has no node_modules/vendor/target,
+  // so any `verify` that shells through a package manager ("pnpm check")
+  // cannot resolve its binaries and fails for reasons that have nothing to do
+  // with the ticket. Field-found on pilot run 1 (2026-07-31): every attempt
+  // failed on `Command "biome" not found` while the actual edits were correct
+  // and had already passed code review. null = no setup step (previous
+  // behaviour, unchanged for projects that need none).
+  setup: null,
+  setupTimeoutMs: 15 * 60_000,
+  // Optional repository-health command run once on a clean detached main
+  // worktree before any ticket is claimed. Unlike a ticket verify command, it
+  // must not require ticket-specific files or manifests.
+  baselineVerify: null,
+  baselineTimeoutMs: 15 * 60_000,
 };
-const CONFIG = (() => {
+function loadTargetConfig() {
   const f = resolve(ROOT, 'conductor.config.json');
   if (!existsSync(f)) return DEFAULT_CONFIG;
   return { ...DEFAULT_CONFIG, ...JSON.parse(readFileSync(f, 'utf8')) };
-})();
+}
+const CONFIG = loadTargetConfig();
 const WT_BASE = resolve(ROOT, '..', CONFIG.worktreeDir);
 const LOG = resolve(ROOT, 'docs/work/conductor-log.jsonl');
-const HALT_NOTICE = resolve(ROOT, 'docs/work/CONDUCTOR_HALT.md');
+// Failure evidence must not dirty or commit the target repository's main
+// checkout. It is runtime state, stored beside the isolated worktrees.
+const RUNTIME_DIR = resolve(WT_BASE, '.runtime');
+const EVIDENCE_DIR = resolve(WT_BASE, '.evidence');
+const HALT_NOTICE = PLAN_IS_FILE_BACKED
+  ? resolve(ROOT, 'docs/work/CONDUCTOR_HALT.md')
+  : resolve(RUNTIME_DIR, 'CONDUCTOR_HALT.md');
 const STOPFILE = resolve(ROOT, 'STOP');
 
 // ---------- utils ----------
@@ -210,6 +265,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // (TRACKER_BACKEND=jira / JIRA_BASE_URL set). Best-effort: a Jira failure never
 // breaks the conductor — the next reconcile catches up (lossless outbox).
 function mirrorJira(reason) {
+  // When the JIRA board driver is active it owns JIRA outright; running this
+  // second, plan.json-shaped integration alongside it would have two writers
+  // reconciling the same tickets against a PLAN_JSON that does not exist.
+  if (process.env.CONDUCTOR_BOARD === 'jira') return;
   const backend = (process.env.TRACKER_BACKEND || 'auto').toLowerCase();
   const on = backend === 'jira' || (backend === 'auto' && process.env.JIRA_BASE_URL);
   if (!on) return;
@@ -226,6 +285,7 @@ function loadFreshPlan() { return loadPlan(PLAN_PATH); }
 function persistPlan(plan, message) {
   savePlan(PLAN_PATH, plan);
   if (DRY) return;
+  if (!PLAN_IS_FILE_BACKED) return;   // JIRA board: no plan file exists to add
   git('add', PLAN_PATH);
   try { git('commit', '-q', '-m', message); }
   catch (e) { if (!/nothing to commit/i.test(String(e.stdout || e.message))) throw e; }
@@ -255,6 +315,11 @@ function persistPlan(plan, message) {
  */
 function commitArtifact(absPath, message) {
   if (DRY || !existsSync(absPath)) return;
+  const rel = relative(ROOT, absPath);
+  if (rel.startsWith('..') || isAbsolute(rel)) {
+    log('artifact.external', { msg: `${absPath} is runtime state outside the target repository — not committed` });
+    return;
+  }
   // `git check-ignore` exits 0 when the path IS ignored, 1 when it is not.
   // --no-index for the same reason G5 needs it: without it a tracked file under
   // an ignored directory reports not-ignored, and the `git add` below then
@@ -284,7 +349,112 @@ function makeWorktree(m) {
   try { git('branch', '-D', branch); } catch {}
   mkdirSync(WT_BASE, { recursive: true });
   git('worktree', 'add', '-q', '-b', branch, wt, 'main');
+  runWorktreeSetup(wt, m);
   return { branch, wt };
+}
+
+/**
+ * Prepare a fresh worktree so the ticket's `verify` command can actually run.
+ * Failure is fatal on purpose: continuing would spend two full sessions
+ * producing correct work that the runtime gate then rejects for a reason the
+ * agent cannot see or fix from inside the worktree.
+ */
+function runWorktreeSetup(wt, m) {
+  if (!CONFIG.setup) return;
+  log('worktree.setup', { ticket: m.id, msg: CONFIG.setup });
+  try {
+    sh('bash', ['-lc', CONFIG.setup], { cwd: wt, timeout: CONFIG.setupTimeoutMs });
+  } catch (e) {
+    const out = String(e.stderr || e.stdout || e.message).trim().split('\n').slice(-4).join(' | ');
+    throw new Error(`worktree setup failed (${CONFIG.setup}): ${out.slice(0, 400)}`);
+  }
+}
+
+function runBaselinePreflight() {
+  if (!CONFIG.baselineVerify) {
+    log('baseline.skip', { msg: 'no baselineVerify command configured' });
+    return { ok: true, skipped: true };
+  }
+
+  const sha = git('rev-parse', 'main');
+  const wt = resolve(WT_BASE, '.baseline');
+  try { git('worktree', 'remove', '--force', wt); } catch {}
+  try { rmSync(wt, { recursive: true, force: true }); } catch {}
+  mkdirSync(WT_BASE, { recursive: true });
+  git('worktree', 'add', '-q', '--detach', wt, 'main');
+
+  try {
+    runWorktreeSetup(wt, { id: 'BASELINE' });
+    log('baseline.start', { msg: `main=${sha.slice(0, 12)} command=${CONFIG.baselineVerify}` });
+    const r = spawnSync('bash', ['-lc', CONFIG.baselineVerify], {
+      cwd: wt,
+      encoding: 'utf8',
+      timeout: CONFIG.baselineTimeoutMs,
+      maxBuffer: 256 * 1024 * 1024,
+    });
+    const output = `${r.stdout || ''}\n${r.stderr || ''}`.trim();
+    if (r.status === 0) {
+      log('baseline.pass', { msg: `main=${sha.slice(0, 12)} exit=0` });
+      return { ok: true, sha };
+    }
+
+    mkdirSync(RUNTIME_DIR, { recursive: true });
+    const evidence = resolve(RUNTIME_DIR, `baseline-${sha.slice(0, 12)}.log`);
+    writeFileSync(evidence, `$ ${CONFIG.baselineVerify}\nexit=${r.status ?? -1}\n\n${output}\n`);
+    const detail = tailLines(output, 12);
+    log('baseline.fail', {
+      msg: `main=${sha.slice(0, 12)} exit=${r.status ?? -1} — ${detail}`.slice(0, 1200),
+      path: evidence,
+    });
+    return { ok: false, sha, code: r.status ?? -1, evidence, detail };
+  } finally {
+    removeWorktree(wt);
+  }
+}
+
+function syncMainFromRemotes() {
+  const configured = new Set(CONFIG.remotes || []);
+  const available = new Set(git('remote').split('\n').map((s) => s.trim()).filter(Boolean));
+  const refs = [];
+  for (const remote of configured) {
+    if (!available.has(remote)) continue;
+    try {
+      git('fetch', '-q', remote, 'main');
+      refs.push({ remote, sha: git('rev-parse', `refs/remotes/${remote}/main`) });
+    } catch (e) {
+      return { ok: false, reason: `could not fetch ${remote}/main: ${tailLines(e.stderr || e.stdout || e.message, 4)}` };
+    }
+  }
+  if (!refs.length) {
+    log('main.sync.skip', { msg: 'no configured remotes are present in the target repository' });
+    return { ok: true, skipped: true };
+  }
+
+  const remoteShas = new Set(refs.map((r) => r.sha));
+  if (remoteShas.size > 1) {
+    return {
+      ok: false,
+      reason: `configured remotes disagree on main: ${refs.map((r) => `${r.remote}=${r.sha.slice(0, 12)}`).join(', ')}`,
+    };
+  }
+
+  const remote = refs[0];
+  const local = git('rev-parse', 'main');
+  if (local === remote.sha) {
+    log('main.sync.pass', { msg: `main=${local.slice(0, 12)} matches ${remote.remote}/main` });
+    return { ok: true, sha: local };
+  }
+  try {
+    git('merge-base', '--is-ancestor', local, remote.sha);
+  } catch {
+    return {
+      ok: false,
+      reason: `local main ${local.slice(0, 12)} is not an ancestor of ${remote.remote}/main ${remote.sha.slice(0, 12)}; refusing to guess across divergence`,
+    };
+  }
+  git('merge', '--ff-only', '-q', `${remote.remote}/main`);
+  log('main.sync.fast-forward', { msg: `${local.slice(0, 12)} -> ${remote.sha.slice(0, 12)} from ${remote.remote}/main` });
+  return { ok: true, sha: remote.sha };
 }
 function removeWorktree(wt) {
   try { git('worktree', 'remove', '--force', wt); } catch {}
@@ -320,7 +490,6 @@ function actualSessionModel(wt) {
 async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL, role = 'coder' } = {}) {
   let backoff = 5 * 60_000;
   for (let attempt = 1; attempt <= 6; attempt++) {
-    if (existsSync(STOPFILE)) throw new Error('STOP file present');
     log('session.start', { msg: `attempt ${attempt}`, wt, role, agent, model });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
     // NOTE: no `--auto` here. It is a TUI-only flag — `opencode run` accepts it
@@ -333,6 +502,7 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     if (model) runArgs.push('--model', String(model));
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
+      env: sessionEnv(),
     });
     const out = `${res.stdout || ''}\n${res.stderr || ''}`;
     if (res.error) return { out: `${out}\n${res.error.message}`, code: 1 };
@@ -361,11 +531,16 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
 // behind — validate-scope.sh only inspects `git status --porcelain`, so it
 // must run BEFORE the conductor commits anything (a committed clean tree
 // would trivially pass regardless of what changed).
-// validate-scope.sh compares literal directory prefixes, not globs — strip a
-// trailing /**, /*, or bare * the same way tickets-graph.mjs's normScope()
-// does for write_scope comparisons elsewhere in this codebase.
+// validate-scope.sh now honours glob write_scope patterns natively
+// (matches_scope(), attest 1d4f5e4), so the pattern is passed through
+// UNCHANGED. The previous normScopeDir() stripped trailing globs as a
+// workaround for the validator's literal-prefix-only matching, and once that
+// was fixed the workaround became actively harmful: it rewrote
+// "docs/x/**library**" to "docs/x/**library", which matches nothing, so a
+// correctly-scoped ticket still failed the gate. Field-found 2026-08-28 on
+// PROJ-411 (gaps 4 -> 1 after the validator fix; the residual 1 was this).
 function normScopeDir(glob) {
-  return String(glob).replace(/\/\*\*?$/, '').replace(/\*+$/, '').replace(/\/$/, '');
+  return String(glob).replace(/\/$/, '');
 }
 
 function scopeGate(wt, writeScope) {
@@ -419,7 +594,7 @@ function preserveAttemptEvidence(m, attempt, wt) {
   try {
     const srcDir = resolve(wt, 'docs/reviews');
     if (!existsSync(srcDir)) return kept;
-    const outDir = resolve(ROOT, `docs/work/attempt-evidence/${m.id}-attempt${attempt}`);
+    const outDir = resolve(EVIDENCE_DIR, `${m.id}-attempt${attempt}`);
     mkdirSync(outDir, { recursive: true });
     for (const f of readdirSync(srcDir)) {
       if (!f.endsWith(`_${m.id}.md`) && !f.includes(m.id)) continue;
@@ -445,13 +620,13 @@ function preserveAttemptEvidence(m, attempt, wt) {
       }
     } catch { /* a worktree already half-removed still yields the docs above */ }
 
-    if (kept.length) log('gates.evidence-kept', { ticket: m.id, msg: `attempt ${attempt}: ${kept.join(', ')} -> docs/work/attempt-evidence/${m.id}-attempt${attempt}/` });
+    if (kept.length) log('gates.evidence-kept', { ticket: m.id, msg: `attempt ${attempt}: ${kept.join(', ')} -> ${outDir}` });
   } catch { /* never let evidence capture break the run */ }
   return kept;
 }
 
 function captureScopeEvidence(m, attempt, wt) {
-  const rel = `docs/work/scope-violation-${m.id}-attempt${attempt}.diff`;
+  const rel = `scope-violation-${m.id}-attempt${attempt}.diff`;
   let result = { feedback: null, path: null, abs: null };
   try {
     // Stage everything so untracked files appear too — `git diff` alone would
@@ -460,7 +635,7 @@ function captureScopeEvidence(m, attempt, wt) {
     gitIn(wt, 'add', '-A');
     const stat = gitIn(wt, 'diff', '--cached', '--stat');
     const diff = gitIn(wt, 'diff', '--cached');
-    const out = resolve(ROOT, rel);
+    const out = resolve(EVIDENCE_DIR, rel);
     mkdirSync(dirname(out), { recursive: true });
     writeFileSync(
       out,
@@ -498,15 +673,6 @@ function captureScopeEvidence(m, attempt, wt) {
     };
   } catch {
     // Evidence capture must never be what fails a run.
-  }
-  // Committing is deliberately OUTSIDE the try that builds `result`: a target
-  // repo that gitignores docs/work/** makes `git add` throw, and swallowing
-  // that inside the same try would discard the feedback we just built — the
-  // very failure mode this function exists to end. Force-add for the same
-  // reason: the diff is evidence, and an ignore rule must not silently drop it.
-  if (result.abs) {
-    try { git('add', '-f', result.abs); git('commit', '-q', '-m', `chore(${m.id}): scope violation evidence (attempt ${attempt})`); }
-    catch { /* uncommitted evidence still beats no evidence */ }
   }
   return result;
 }
@@ -579,11 +745,18 @@ followed by the blocking findings.
 
 Do NOT edit the implementation. Do NOT run git. You are reviewing, not fixing.`;
     log('round2.review.start', { ticket: m.id, msg: `${r} -> ${agent}`, role: 'reviewer', agent, model: REVIEWER_MODEL });
-    await runSession(prompt, wt, { agent, model: REVIEWER_MODEL, role: 'reviewer' });
+    const session = await runSession(prompt, wt, { agent, model: REVIEWER_MODEL, role: 'reviewer' });
     const abs = resolve(wt, doc);
     const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
     const ok = APPROVED_RE.test(body);
-    verdicts.push({ reviewer: r, doc, present: Boolean(body), approved: ok });
+    verdicts.push({
+      reviewer: r,
+      doc,
+      present: Boolean(body),
+      approved: ok,
+      sessionFailed: session.code !== 0,
+      sessionCode: session.code,
+    });
     log('round2.review.verdict', { ticket: m.id, msg: `${r}: ${!body ? 'NO DOCUMENT' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` });
   }
   return verdicts;
@@ -598,12 +771,34 @@ async function runFixLoop(m, wt, verdicts, startReceipt) {
       .map((v) => `${v.doc}:\n${existsSync(resolve(wt, v.doc)) ? readFileSync(resolve(wt, v.doc), 'utf8').slice(0, 4000) : '(missing)'}`)
       .join('\n\n');
     log('round2.fix.start', { ticket: m.id, msg: `iteration ${i}/${FIX_ITERATIONS}` });
-    await runSession(`${handoffPrompt(m, startReceipt, null)}
+    const fixSession = await runSession(`${handoffPrompt(m, startReceipt, null)}
 
 A reviewer rejected the previous attempt. Address every blocking finding below,
 then stop. Stay inside your write_scope — do not edit the review documents.
 
 ${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
+    if (fixSession.code !== 0) {
+      return {
+        ok: false,
+        infrastructure: true,
+        iterations: i,
+        blocking: blocking.map((v) => v.reviewer),
+        reason: `coder fix session exited ${fixSession.code}: ${tailLines(fixSession.out, 6)}`,
+      };
+    }
+    // Fold the fix into the checkpoint commit made before round 2 (see the
+    // caller) so HEAD reflects what the reviewer is about to re-check. Without
+    // this, a review round whose gate checks committed content (e.g. a
+    // citation gate comparing a cited line against `git show HEAD:<file>`)
+    // rejects an already-correct fix forever: the coder is told never to run
+    // git, so its changes sit uncommitted in the working tree across every
+    // iteration, and "review the work already committed" is simply false.
+    // Found 2026-08-03 (PROJ-253, batch-2 retry): 6 review rounds across 2
+    // attempts rejected identical, correct work for exactly this reason.
+    if (hasUncommittedWork(wt)) {
+      gitIn(wt, 'add', '-A');
+      gitIn(wt, 'commit', '-q', '--amend', '--no-edit');
+    }
     // Re-review only the reviewers that blocked.
     const rerun = await runReviewRound(m, wt, blocking.map((v) => v.reviewer));
     for (const nv of rerun) {
@@ -628,17 +823,24 @@ WRITE-SCOPE (exclusive):
 PRODUCE
 - \`${doc}\`
 
-Run the project's real build, lint/type-check and test commands. Paste each
-command, its actual output, AND its exit code. Do NOT edit implementation files.
+Run the ticket's own configured verify command — \`${m.verify || '(none configured)'}\` — and
+paste it, its actual output, and its exit code. Also run the project's build and lint/type-check
+commands for context. Paste each command, its actual output, AND its exit code. Do NOT edit
+implementation files.
 
 WHAT COUNTS AS FAIL — apply these literally, do not use judgement:
-- FAIL if any command you ran exited NON-ZERO. Quote that command and its exit code.
+- FAIL if the ticket's own verify command, or the build/lint/type-check commands, exited
+  NON-ZERO. Quote that command and its exit code.
 - PASS if every command you ran exited zero.
 - A command this project does not define (no build script, no linter) is SKIPPED,
   not a failure. Say it was skipped.
 - Lint/type WARNINGS are not failures. Only a non-zero exit is.
-- A failure in code OUTSIDE this ticket's write_scope (${(m.write_scope || []).join(', ')})
-  that you did not cause is PRE-EXISTING: record it, and do not fail on it.
+- The ticket's configured verify command is authoritative: if it exits non-zero, FAIL even when
+  you suspect the failing test is pre-existing. The conductor's base-revision preflight owns that
+  classification; a runtime expert must not override the deterministic close gate.
+- A failure from an ADDITIONAL context command outside the configured verify may be recorded as
+  PRE-EXISTING without failing the ticket, but state clearly that it was not part of the configured
+  verify command.
 - Uncertainty is not failure. If you could not run something, say so and skip it.
 
 IF YOU FAIL, EXPLAIN WHY. Include a section exactly titled:
@@ -657,7 +859,7 @@ accompanied by the failing command and its non-zero exit code somewhere in this
 document — an unsupported FAIL is treated as unsubstantiated and overridden by
 the ticket's own verify command.`;
   log('round3.runtime.start', { ticket: m.id, role: 'coder', agent: CODER_AGENT });
-  await runSession(prompt, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'runtime' });
+  const session = await runSession(prompt, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'runtime' });
   const abs = resolve(wt, doc);
   const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
   let pass = RUNTIME_PASS_RE.test(body);
@@ -698,7 +900,15 @@ the ticket's own verify command.`;
     ticket: m.id,
     msg: `${!body ? 'NO DOCUMENT' : pass ? 'PASS' : 'FAIL'}${reason ? ` — ${reason}` : ''}`,
   });
-  return { present: Boolean(body), pass, doc, reason };
+  return {
+    present: Boolean(body),
+    pass,
+    doc,
+    reason,
+    sessionFailed: session.code !== 0,
+    sessionCode: session.code,
+    sessionOutput: session.out,
+  };
 }
 
 /** Run the ticket's own verify command from OUTSIDE the session, as close() will. */
@@ -731,6 +941,15 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
   }
 
   const gapsPerAttempt = [];
+  const blockWithoutExhausting = (category, gaps, wt = null, attempt = null) => {
+    if (wt && attempt !== null) preserveAttemptEvidence(m, attempt, wt);
+    const reason = `conductor blocked on ${category} — ${gaps.join('; ')}`.slice(0, 1800);
+    comment(plan, m.id, ACTOR, reason.slice(0, 900));
+    const rel = release(plan, m.id, ACTOR, reason);
+    if (rel.ok) persistPlan(plan, `chore(${m.id}): conductor releases blocked ticket (${category})`);
+    if (wt) removeWorktree(wt);
+    return { ok: false, blocked: true, category, gaps, reason };
+  };
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
@@ -744,12 +963,8 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     // reads that as an agent problem and goes looking in the prompt.
     if (sess.code !== 0) {
       const gap = `session failed before finishing (exit ${sess.code}) — no work was attempted: ${tailLines(sess.out, 6)}`;
-      gapsPerAttempt.push([gap]);
       log('session.fail', { ticket: m.id, msg: gap.slice(0, 600), code: sess.code });
-      comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gap}`.slice(0, 900));
-      persistPlan(plan, `chore(${m.id}): conductor logs session failure (attempt ${attempt})`);
-      removeWorktree(wt);
-      continue;
+      return blockWithoutExhausting('coder-session', [gap], wt, attempt);
     }
 
     if (!hasUncommittedWork(wt)) {
@@ -773,6 +988,16 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       continue;
     }
 
+    // Checkpoint-commit before any review round. Reviewers are told they're
+    // reviewing "work already committed" (see runReviewRound's prompt below),
+    // and pickReviewers's own diff (`main...branch`) only sees committed
+    // commits — an uncommitted working tree makes both of those silently
+    // wrong. runFixLoop folds each subsequent fix into this same commit via
+    // --amend, so the ticket still lands as the single feat(...) commit the
+    // rest of the pipeline expects.
+    gitIn(wt, 'add', '-A');
+    gitIn(wt, 'commit', '-q', '-m', `feat(${m.id}): ${m.title}\n\nConductor-run opencode session; gates verified from outside.`);
+
     // ---- Rounds 2-3: review (different agent AND model) then runtime. ----
     // This is where maker != verifier stops being a declaration: the review
     // session runs on roles.reviewer, so the model judging the work is not the
@@ -781,18 +1006,25 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     if (ROUNDS >= 3) {
       const reviewers = pickReviewers(m, git('diff', `main...${branch}`));
       const verdicts = await runReviewRound(m, wt, reviewers);
+      const failedSessions = verdicts.filter((v) => v.sessionFailed);
+      if (failedSessions.length) {
+        return blockWithoutExhausting(
+          'reviewer-session',
+          failedSessions.map((v) => `${v.reviewer} session exited ${v.sessionCode}`),
+          wt,
+          attempt,
+        );
+      }
       const missing = verdicts.filter((v) => !v.present).map((v) => v.reviewer);
       if (missing.length) {
         const gaps = [`round 2: reviewer produced no document (${missing.join(', ')})`];
-        gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
-        preserveAttemptEvidence(m, attempt, wt);
-        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
-        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
-        removeWorktree(wt);
-        continue;
+        return blockWithoutExhausting('reviewer-output', gaps, wt, attempt);
       }
       const fixed = await runFixLoop(m, wt, verdicts, startReceipt);
+      if (fixed.infrastructure) {
+        return blockWithoutExhausting('coder-fix-session', [fixed.reason], wt, attempt);
+      }
       if (!fixed.ok) {
         const gaps = [`round 2: still blocking after ${fixed.iterations} fix iteration(s): ${(fixed.blocking || []).join(', ')}`];
         gapsPerAttempt.push(gaps);
@@ -804,9 +1036,25 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
         continue;
       }
       const runtime = await runRuntimeRound(m, wt);
-      if (!runtime.present || !runtime.pass) {
+      if (runtime.sessionFailed) {
+        return blockWithoutExhausting(
+          'runtime-session',
+          [`runtime session exited ${runtime.sessionCode}: ${tailLines(runtime.sessionOutput, 6)}`],
+          wt,
+          attempt,
+        );
+      }
+      if (!runtime.present) {
+        return blockWithoutExhausting(
+          'runtime-output',
+          [`round 3: runtime produced no document (${runtime.doc})`],
+          wt,
+          attempt,
+        );
+      }
+      if (!runtime.pass) {
         const gaps = [
-          `round 3: runtime verdict ${!runtime.present ? 'missing' : 'FAIL'} (${runtime.doc})` +
+          `round 3: runtime verdict FAIL (${runtime.doc})` +
           (runtime.reason ? `\nWhy it failed (from the runtime report): ${runtime.reason}` : ''),
         ];
         gapsPerAttempt.push(gaps);
@@ -832,10 +1080,15 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       }
     }
 
-    // Scope clean — commit the session's work as one checkpoint commit so
-    // close()'s verify (run-handoff-gates.sh) inspects a real, reviewable diff.
-    gitIn(wt, 'add', '-A');
-    gitIn(wt, 'commit', '-q', '-m', `feat(${m.id}): ${m.title}\n\nConductor-run opencode session; gates verified from outside.`);
+    // The checkpoint commit before round 2 (and any --amend from a fix
+    // iteration) already holds the session's work — commit again only if
+    // rounds 2-3 themselves left something uncommitted (e.g. ROUNDS < 3, so
+    // the checkpoint above was the only commit and nothing since needs
+    // folding in).
+    if (hasUncommittedWork(wt)) {
+      gitIn(wt, 'add', '-A');
+      gitIn(wt, 'commit', '-q', '--amend', '--no-edit');
+    }
     const sha = gitIn(wt, 'rev-parse', 'HEAD');
 
     const closeRes = close(plan, m.id, ACTOR, { branch, commits: [sha], cwd: wt });
@@ -864,21 +1117,47 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     log('ticket.receipt', { ticket: m.id, msg: 'close receipt', receipt: closeRes.receipt });
     return { ok: true, branch, wt, receipt: closeRes.receipt };
   }
-  const reason = `conductor exhausted ${maxAttempts} attempt(s) — ${gapsPerAttempt.map((g, i) => `[${i + 1}] ${g.join('; ')}`).join(' | ')}`.slice(0, 1800);
+  const reason = exhaustionReason(maxAttempts, gapsPerAttempt);
   const rel = release(plan, m.id, ACTOR, reason);
   if (rel.ok) persistPlan(plan, `chore(${m.id}): conductor releases after exhausting attempts`);
-  return { ok: false, exhausted: true, gaps: gapsPerAttempt.flat() };
+  return {
+    ok: false,
+    exhausted: true,
+    gaps: latestAttemptGaps(gapsPerAttempt),
+    attempts: gapsPerAttempt,
+    reason,
+  };
 }
 
-function pushRemotes(ticket) {
+// With --no-merge the ticket branch is never merged into main, so pushing
+// main would push nothing and strand the work on an unpushed local branch --
+// no PR could be opened from it. In that mode push the BRANCH instead, which
+// is what a review-before-merge (PR-per-ticket) workflow needs. Projects that
+// forbid direct-to-main merges (project AGENTS.md section 5) must run with
+// --no-merge and open the PR from the pushed branch.
+function pushRemotes(ticket, branch) {
   if (!DO_PUSH || DRY) return;
+  const ref = DO_MERGE ? 'main' : branch;
+  if (!ref) return;
   for (const rem of CONFIG.remotes) {
-    try { sh('git', ['push', rem, 'main'], { cwd: ROOT, timeout: 60_000 }); }
+    try { sh('git', ['push', '-u', rem, ref], { cwd: ROOT, timeout: 60_000 }); }
     catch (e) { log('push.fail', { ticket, msg: `${rem}: ${String(e.message).slice(0, 80)}` }); }
   }
 }
 
 function land(plan, m, branch, wt) {
+  if (!DO_MERGE) {
+    pushRemotes(m.id, branch);
+    comment(
+      plan,
+      m.id,
+      REVIEWER_ACTOR,
+      `CONDUCTOR gates passed; verified branch ${branch} pushed for PR review. Ticket remains In Progress until merge ancestry is verified.`,
+    );
+    removeWorktree(wt);
+    return true;
+  }
+
   // Reviewer-only accept(): a distinct actor from the ticket owner, per
   // don't-accept-your-own-work. T28.2 adds the model-identity half of that
   // split (checkMakerVerifierDistinct, enforced at conductor.start below) —
@@ -894,13 +1173,11 @@ function land(plan, m, branch, wt) {
     removeWorktree(wt);
     return false;
   }
-  if (DO_MERGE) {
-    git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
-  }
+  git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
   persistPlan(plan, `chore(${m.id}): conductor accepts ticket (done)`);
   removeWorktree(wt);
-  if (DO_MERGE) { try { git('branch', '-d', branch); } catch {} }
-  pushRemotes(m.id);
+  try { git('branch', '-d', branch); } catch {}
+  pushRemotes(m.id, branch);
   mirrorJira(`ticket ${m.id} done`);   // converge Jira to the accepted board state
   return true;
 }
@@ -931,7 +1208,7 @@ async function main() {
   for (const bin of ['git']) {
     try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(1); }
   }
-  if (!existsSync(PLAN_PATH)) {
+  if (PLAN_IS_FILE_BACKED && !existsSync(PLAN_PATH)) {
     console.error(
       `no plan.json at ${PLAN_PATH}\n` +
       `Probed (in producer order): ${PLAN_CANDIDATES.join(', ')} — pass --plan to name one explicitly.`,
@@ -991,6 +1268,23 @@ async function main() {
   }
   if (git('status', '--porcelain')) { console.error('target repo working tree not clean — commit or stash first'); process.exit(1); }
   if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'main') git('checkout', '-q', 'main');
+  const mainSync = syncMainFromRemotes();
+  if (!mainSync.ok) {
+    console.error(`main synchronization refused: ${mainSync.reason}`);
+    process.exit(5);
+  }
+  const refreshedConfig = loadTargetConfig();
+  const topologyChanged =
+    refreshedConfig.worktreeDir !== CONFIG.worktreeDir ||
+    JSON.stringify(refreshedConfig.remotes) !== JSON.stringify(CONFIG.remotes);
+  Object.assign(CONFIG, refreshedConfig);
+  if (topologyChanged) {
+    console.error(
+      'conductor configuration changed worktreeDir or remotes while main was synchronized. ' +
+      'Restart once so runtime paths and remote checks are derived from the new configuration.',
+    );
+    process.exit(6);
+  }
 
   const preflight = loadFreshPlan();
   const { ok, errors } = validatePlan(preflight);
@@ -1072,6 +1366,20 @@ async function main() {
     }
   }
 
+  // G7: prove the repository baseline is healthy before claiming any feature
+  // ticket. A red base is not a coding failure and must consume zero ticket
+  // attempts. The strict close gate remains unchanged; this prevents unrelated
+  // baseline debt from reaching it after expensive coding and review rounds.
+  const baseline = runBaselinePreflight();
+  if (!baseline.ok) {
+    console.error(
+      `baseline verification failed on main ${baseline.sha.slice(0, 12)} before any ticket was claimed.\n` +
+      `Evidence: ${baseline.evidence}\n` +
+      `Repair the baseline under its own ticket, then restart the conductor.`,
+    );
+    process.exit(4);
+  }
+
   // T28.5: resume + drift refusal. Any module left claimed/in_progress and
   // owned by THIS actor before a single ticket is (re-)claimed below is
   // either safely reconcilable from disk or a sign plan.json disagrees with
@@ -1109,6 +1417,7 @@ async function main() {
     const resumeCtx = {
       actor: ACTOR, maxAttempts: MAX_ATTEMPTS, log, git, gitIn, scopeGate, close, comment,
       persistPlan, removeWorktree, appendFileSync, resolvePath: resolve, land, executeTicket, loadFreshPlan,
+      rounds: ROUNDS,
     };
     for (const { m, disk } of safe) {
       const outcome = await reconcileOrphan(resumeCtx, m, disk, logRowsAtStart);
@@ -1122,13 +1431,23 @@ async function main() {
   // must not be immediately re-claimed in an infinite retry loop — skip them
   // for the rest of this process's lifetime; a future conductor invocation
   // (after a human looks at the gap history) is free to retry.
-  const exhaustedThisRun = new Set();
+  const skippedThisRun = new Set();
+  const landedThisRun = new Set();
   while (landed < MAX_TICKETS) {
     if (existsSync(STOPFILE)) { log('conductor.stop', { msg: 'STOP file present' }); break; }
 
     let plan = loadFreshPlan();
     recomputeStatus(plan);
-    const next = claimable(plan).find((m) => !exhaustedThisRun.has(m.id));
+    // A file-backed board reflects claim()/land() in the SAME in-memory
+    // object this iteration just mutated, so claimable() naturally excludes
+    // what was just landed. A live-queried board (JIRA) re-derives `ready`
+    // from an external system on every loadFreshPlan() call — if that system
+    // is even briefly slow to reflect a just-completed transition, this loop
+    // reclaims the same ticket it just landed. Found while writing the JIRA
+    // board driver's integration test (2026-07-31): a stub that didn't track
+    // state made this run 70+ times a second, which is exactly what a lagging
+    // real board would do, just slower. Defense in depth for either board.
+    const next = claimable(plan).find((m) => !skippedThisRun.has(m.id) && !landedThisRun.has(m.id));
     if (!next) {
       const counts = writeHaltNotice(plan);
       log('conductor.halt', { msg: `nothing claimable — board: ${JSON.stringify(counts)} — see ${HALT_NOTICE}` });
@@ -1143,11 +1462,22 @@ async function main() {
     const res = await executeTicket(plan, next);
     if (res.ok) {
       const landedOk = land(plan, next, res.branch, res.wt);
-      if (landedOk) { landed++; log('ticket.done', { ticket: next.id, msg: `${landed} landed this run` }); }
+      if (landedOk) {
+        landed++;
+        landedThisRun.add(next.id);
+        log(DO_MERGE ? 'ticket.done' : 'ticket.ready-for-pr', {
+          ticket: next.id,
+          msg: `${landed} verified ${DO_MERGE ? 'and landed' : 'for PR'} this run`,
+        });
+      }
       else log('ticket.accept-refused', { ticket: next.id });
     } else {
-      exhaustedThisRun.add(next.id);
-      log('ticket.exhausted', { ticket: next.id, msg: (res.gaps || []).join(' | ').slice(0, 400) });
+      skippedThisRun.add(next.id);
+      log(res.blocked ? 'ticket.blocked' : 'ticket.exhausted', {
+        ticket: next.id,
+        category: res.category,
+        msg: String(res.reason || (res.gaps || []).join(' | ')).slice(0, 1200),
+      });
     }
   }
 
