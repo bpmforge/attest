@@ -148,7 +148,9 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // P-A5/P-A6 (Group P, IMPROVEMENT_BACKLOG.md): `wave` and `goal` shipped on
 // the opencode side first; porting them into attest-claude/skills/ is the
 // tracked follow-up on those same tickets. Remove each id here when its
-// SKILL.md lands in attest-claude.
+// SKILL.md lands in attest-claude. `autopilot` (feat/autopilot, 2026-08-31)
+// follows the same pattern: opencode-first orchestrator entry point, port
+// per the recipe below is its tracked follow-up.
 //
 // EXACT port recipe (verified 2026-08-31 while landing the P6 doctrine —
 // NOT doable from this repo's build config: skills/ is per-target
@@ -170,7 +172,7 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 //   4. Remove 'wave' and 'goal' from this set IN THE SAME CHANGE that lands
 //      step 1 (test-skills-parity.ts asserts live missingInClaude equals
 //      this set exactly — removing early or late goes red either way).
-export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave', 'goal']);
+export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave', 'goal', 'autopilot']);
 
 function parseSkillFrontmatter(skillMdPath) {
   const text = readFileSync(skillMdPath, 'utf8');

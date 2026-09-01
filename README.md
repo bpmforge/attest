@@ -1,6 +1,6 @@
 # attest
 
-Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 32 cluster specialists (security, code-review, performance, onboarding, game dev), 41 skills, a 4-mode SDLC workflow, full git lifecycle management, and 71 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
+Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 32 cluster specialists (security, code-review, performance, onboarding, game dev), 48 skills, a 4-mode SDLC workflow, full git lifecycle management, and 71 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
 **Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
 
@@ -102,6 +102,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 | "make this as good as <real product X> — keep going until it beats it" | `/gauntlet` |
 | "a wave of tickets just landed — review what they add up to" | `/wave` |
 | "keep going until metric X passes / budget Y runs out" | `/goal` |
+| "look at what's left, pick the path, and auto-run the product to completion" | `/autopilot` |
 
 ## Highlights
 
