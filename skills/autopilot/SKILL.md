@@ -18,7 +18,14 @@ denominator for "what's left" is the SRS / user stories, not the ticket list.
 - `/autopilot --run --budget <N>` — override the iteration cap (defaults below; existing caps only, never invented numbers)
 
 Set `autonomy=auto` per `agents/shared/AUTONOMY_PROTOCOL.md` before `--run`
-(the NEVER-AUTO list still pauses — Discovery Interview, destructive ops).
+(the FULL NEVER-AUTO table below still pauses — all seven rows, NA-1..NA-7,
+not just interviews and destructive ops). **NA-3 stance, stated because DRIVE
+runs the conductor whose loop ends in `merge --no-ff` + dual push:** driving
+the conductor unattended is only legal under a STANDING founder approval that
+names merges-to-main as pre-approved for the board being driven (the
+conductor's own APPROVALS.md pattern); absent that document, autopilot must
+run the loop with merge disabled / park-at-review and surface the landings
+for a human.
 
 ## ASSESS — mechanical inventory, no narrative
 
