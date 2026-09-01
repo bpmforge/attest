@@ -49,14 +49,32 @@ done < <(find_source_files)
 # -- Scan 2: tool-based unused detection (best effort, advisory) ------------
 printf '\n[2] unused exports/symbols (tooling)\n' >&2
 RAN_TOOL=false
+# v3.9.0 (Challenger F9, root-caused): detection MUST match the eval harness's
+# own `requires` probe (`command -v`), or the same box passes one and fails the
+# other. npx-local wins (the project's pinned version), a PATH-global binary is
+# accepted second — a target with no node_modules (fresh fixture, scratch repo)
+# was silently demoted to the grep fallback while `knip` sat on PATH.
+knip_cmd=""; tsprune_cmd=""
 if [[ -f "$ROOT/package.json" ]]; then
   if command -v npx >/dev/null 2>&1 && npx --no-install knip --version >/dev/null 2>&1; then
+    knip_cmd="npx --no-install knip"
+  elif command -v knip >/dev/null 2>&1; then
+    knip_cmd="knip"
+  fi
+  if [[ -z "$knip_cmd" ]]; then
+    if command -v npx >/dev/null 2>&1 && npx --no-install ts-prune --version >/dev/null 2>&1; then
+      tsprune_cmd="npx --no-install ts-prune"
+    elif command -v ts-prune >/dev/null 2>&1; then
+      tsprune_cmd="ts-prune"
+    fi
+  fi
+  if [[ -n "$knip_cmd" ]]; then
     RAN_TOOL=true
-    out=$(cd "$ROOT" && npx --no-install knip --reporter compact 2>/dev/null | grep -iE 'unused (export|file)' | head -20 || true)
+    out=$(cd "$ROOT" && $knip_cmd --reporter compact 2>/dev/null | grep -iE 'unused (export|file)' | head -20 || true)
     [[ -n "$out" ]] && while IFS= read -r line; do [[ -n "$line" ]] && gap "unused-export" "knip: $line"; done <<< "$out"
-  elif command -v npx >/dev/null 2>&1 && npx --no-install ts-prune --version >/dev/null 2>&1; then
+  elif [[ -n "$tsprune_cmd" ]]; then
     RAN_TOOL=true
-    out=$(cd "$ROOT" && npx --no-install ts-prune 2>/dev/null | grep -v '(used in module)' | head -20 || true)
+    out=$(cd "$ROOT" && $tsprune_cmd 2>/dev/null | grep -v '(used in module)' | head -20 || true)
     [[ -n "$out" ]] && while IFS= read -r line; do [[ -n "$line" ]] && gap "unused-export" "ts-prune: $line"; done <<< "$out"
   fi
 fi
