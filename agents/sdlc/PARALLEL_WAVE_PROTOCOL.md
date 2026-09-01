@@ -15,6 +15,14 @@ Load this when the user has chosen parallel mode (`[P]`) for a Phase 4 wave. Seq
 
 A parallel wave runs THREE rounds per module: **code → review → runtime**. Every module produces its own `CODE_REVIEW_<module>_<date>.md` and `RUNTIME_<module>_<date>.md`. A wave does not advance until every module has its own runtime verdict `PASS`.
 
+**Roles (canonical names — `agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §1):** the wave machinery is
+the ORCHESTRATOR (claims, scopes, gates, lands — decides sequence, never doneness) driving BOTS (the
+per-module coding sessions, untrusted by construction) under a REVIEW PANEL (the wave-level expert
+pass — advisory, deterministic validators own the gate) and the HONESTY LOOPS (Wiggum coverage +
+Challenger veracity). Whether the PRODUCT is done belongs to the GOAL loop's evidence predicate, not
+to this protocol — a drained wave list proves nothing. Use these five names in every plan and
+report; also observe the two-stack rule there when a bootstrap harness and a product engine coexist.
+
 ---
 
 ## Round 1 — Code (N parallel coding-agent HANDOFFs)
@@ -97,6 +105,13 @@ A module that fails Round 3 blocks only itself — fix that module and re-run it
 ---
 
 ## Wave Gate (mandatory before Wave N+1)
+
+**Landing discipline:** the merge unit is the FEATURE, never the individual ticket
+(`agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §3). A module that passes Round 3 PARKS its branch
+(durable, committed board status — a park is not a landing, and parked is not claimable after a
+restart); the feature merges ONCE when every member is parked-done. A blocked member is not closed —
+it holds the whole feature in WAITING. If park durability or intra-feature branch-stacking isn't
+available yet, land per-ticket and name the gap instead of faking the mode.
 
 1. Every module in the wave has RUNTIME PASS and clean FIX_BACKLOG
 2. No write-scope collisions: `git status --porcelain` — no overlap between modules
