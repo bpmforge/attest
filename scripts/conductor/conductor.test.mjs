@@ -17,12 +17,14 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync,
 import { resolve, dirname } from 'node:path';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, RUNTIME_PASS_RE, extractFailureReason } from '../lib/runtime-verdict.mjs';
+import { exhaustionReason, latestAttemptGaps } from '../lib/attempt-outcome.mjs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));            // scripts/conductor
 const REPO_ROOT = resolve(HERE, '..', '..');                     // attest
 const CONDUCTOR = resolve(HERE, 'conductor.mjs');
+const SUPERVISOR = resolve(HERE, 'supervise.sh');
 const GATES_SH = resolve(REPO_ROOT, 'scripts/validators/run-handoff-gates.sh');
 const GATES_SCOPE = resolve(REPO_ROOT, 'scripts/validators/validate-scope.sh');
 
@@ -196,6 +198,8 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
     const exhausted = log.filter((r) => r.kind === 'ticket.exhausted');
     assert.equal(exhausted.length, 1, 'exactly 1 ticket should be logged exhausted');
     assert.equal(exhausted[0].ticket, 'TICK-3');
+    assert.equal(sh('git', ['status', '--porcelain'], { cwd: target }).trim(), '',
+      'failed-attempt evidence must not dirty the target repository');
 
     // Halt notice: nothing left claimable (TICK-3 is skipped-this-run, not reclaimed).
     assert.ok(existsSync(resolve(target, 'docs/work/CONDUCTOR_HALT.md')), 'halt notice should be written');
@@ -220,6 +224,111 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
     const plan2 = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
     assert.equal(plan2.modules.find((m) => m.id === 'TICK-3').status, 'ready');
     assert.equal(plan2.modules.find((m) => m.id === 'TICK-1').status, 'done');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('attempt outcome reports the terminal cause before historical failures', () => {
+  const attempts = [
+    ['formatting failed in changed source'],
+    ['repository baseline integration test failed'],
+  ];
+  assert.deepEqual(latestAttemptGaps(attempts), attempts[1]);
+  const reason = exhaustionReason(2, attempts);
+  assert.match(reason, /latest: repository baseline integration test failed/);
+  assert.match(reason, /prior: \[1\] formatting failed in changed source/);
+  assert.ok(reason.indexOf('latest:') < reason.indexOf('prior:'), 'terminal cause must be shown first');
+});
+
+test('supervisor preserves resume state and does not restart deterministic gate exits', () => {
+  const body = readFileSync(SUPERVISOR, 'utf8');
+  assert.doesNotMatch(body, /git\s+clean\s+-fd/);
+  assert.doesNotMatch(body, /git\s+checkout\s+-f/);
+  assert.doesNotMatch(body, /git\s+branch\s+-D/);
+  assert.match(body, /2\|3\|4\|5\|6/);
+  assert.match(body, /deterministic gate exit/);
+});
+
+test('conductor.mjs: red configured baseline refuses before claim and consumes zero coding attempts', { timeout: 60_000 }, () => {
+  const { base, target, stub, argsLog } = setupRoleRoutingFixture();
+  try {
+    writeFileSync(resolve(target, 'conductor.config.json'), JSON.stringify({ baselineVerify: 'exit 23' }, null, 2) + '\n');
+    sh('git', ['add', 'conductor.config.json'], { cwd: target });
+    sh('git', ['commit', '-q', '-m', 'configure a red baseline'], { cwd: target });
+
+    let err = null;
+    try {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '2', '--no-push'], {
+        cwd: target,
+        env: { ...process.env, OPENCODE_BIN: stub },
+      });
+    } catch (e) { err = e; }
+
+    assert.ok(err, 'a red baseline must refuse the run');
+    assert.equal(err.status, 4, 'baseline refusal has a distinct exit status');
+    assert.equal(existsSync(argsLog), false, 'no coding session may start');
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.equal(plan.modules[0].status, 'ready', 'the ticket must remain unclaimed');
+    const log = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8');
+    assert.match(log, /"kind":"baseline.fail"/);
+    assert.doesNotMatch(log, /"kind":"ticket.attempt"/);
+    assert.equal(sh('git', ['status', '--porcelain'], { cwd: target }).trim(), '',
+      'baseline evidence must live outside the target repository');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('conductor.mjs: provider failure blocks without exhausting the feature retry budget', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture();
+  try {
+    writeFileSync(stub, `#!/usr/bin/env bash
+if [[ "\${1:-}" == "models" ]]; then
+  printf '%s\\n' fixture/coder-model fixture/reviewer-model
+  exit 0
+fi
+echo 'provider authentication failed' >&2
+exit 9
+`);
+    chmodSync(stub, 0o755);
+
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '2', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.equal(plan.modules[0].status, 'ready', 'provider failure releases the ticket');
+    const rows = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.equal(rows.filter((r) => r.kind === 'ticket.attempt').length, 1,
+      'a provider failure must not start a second feature coding attempt');
+    assert.ok(rows.some((r) => r.kind === 'ticket.blocked' && r.category === 'coder-session'));
+    assert.equal(rows.some((r) => r.kind === 'ticket.exhausted'), false);
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('conductor.mjs: --no-merge pushes to PR boundary without accepting Done', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupRoleRoutingFixture();
+  try {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '1', '--no-merge', '--no-push'], {
+      cwd: target,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    const ticket = plan.modules.find((m) => m.id === 'TICK-ROLE');
+    assert.equal(ticket.status, 'in_review', 'verified PR-bound work must not become done before merge');
+    const rows = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
+      .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.ok(rows.some((r) => r.kind === 'ticket.ready-for-pr' && r.ticket === 'TICK-ROLE'));
+    assert.equal(rows.some((r) => r.kind === 'ticket.accept'), false,
+      'accept() is the Done transition and must not run in --no-merge mode');
+    assert.ok(existsSync(resolve(target, '.git', 'refs', 'heads', 'feat', 'tick-role-conductor')),
+      'the verified branch must remain available for PR creation');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

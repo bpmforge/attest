@@ -3,7 +3,7 @@
 #
 # Two independent recovery layers:
 #   - provider session/usage limits -> handled INSIDE conductor.mjs (sleep to reset)
-#   - conductor process crash/fatal -> handled HERE (reset target tree, relaunch)
+#   - conductor process crash/fatal -> handled HERE (preserve state, relaunch)
 #
 # Usage: nohup caffeinate -dimsu bash supervise.sh --root ~/Code/some-target-project \
 #          >> ~/Code/some-target-project/docs/work/conductor.out 2>&1 &
@@ -30,24 +30,10 @@ log(){ echo "[supervise $(date -u +%FT%TZ)] $*"; }
 while :; do
   if [ -f "$TARGET_ROOT/STOP" ]; then log "STOP present — exiting"; break; fi
 
-  # A crashed conductor can leave the target repo on a feature branch with
-  # uncommitted work (fails conductor.mjs's clean-tree preflight) and
-  # dangling conductor worktrees/branches. Reset to committed main so the
-  # next launch can re-claim from board state — only abandons the crashed
-  # attempt, which is redone idempotently via the ticket's release()/retry.
-  (
-    cd "$TARGET_ROOT" || exit 0
-    git checkout -f main >/dev/null 2>&1
-    git clean -fd >/dev/null 2>&1
-    git worktree prune >/dev/null 2>&1
-    git for-each-ref --format='%(refname:short)' refs/heads/ \
-      | grep -E -- '-conductor$' \
-      | while read -r b; do
-          wt="$(git worktree list --porcelain | grep -A2 "branch refs/heads/$b" | grep '^worktree ' | cut -d' ' -f2)"
-          [ -n "$wt" ] && git worktree remove --force "$wt" >/dev/null 2>&1
-          git branch -D "$b" >/dev/null 2>&1
-        done
-  )
+  # Do not reset, clean, or delete worktrees here. conductor.mjs's resume
+  # protocol reconciles board receipts against those exact branches and
+  # worktrees. Deleting them before relaunch converts recoverable state into
+  # fabricated drift and can destroy the only copy of reviewed code.
 
   log "starting conductor (launch $((n+1)))"
   node "$CONDUCTOR_DIR/conductor.mjs" "$@"
@@ -55,6 +41,12 @@ while :; do
   log "conductor exited code=$code"
 
   [ "$code" -eq 0 ] && { log "clean exit — board drained or halt; done"; break; }
+  case "$code" in
+    2|3|4|5|6)
+      log "deterministic gate exit code=$code — preserving state and stopping; repair the reported condition before restart"
+      break
+      ;;
+  esac
   [ -f "$TARGET_ROOT/STOP" ] && { log "STOP present after crash — exiting"; break; }
   n=$((n+1))
   [ "$n" -ge "$MAX" ] && { log "hit MAX=$MAX restarts — giving up, needs a human"; break; }
