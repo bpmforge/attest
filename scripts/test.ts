@@ -93,6 +93,7 @@ import {
 } from "./test-retry-and-claims.ts";
 import { testRules } from "./test-rules.ts";
 import { testProductShape } from "./test-product-shape.ts";
+import { testAutopilot } from "./test-autopilot.ts";
 
 const root = path.resolve(import.meta.dirname, "..");
 let passed = 0;
@@ -722,6 +723,12 @@ await testRules(root, ok, fail);
 // grouped landing) — content + wiring, so the ported architecture cannot
 // silently regress out of the corpus sessions actually load.
 testProductShape(root, ok, fail);
+
+// The /autopilot orchestrator skill (feat/autopilot) — contract content
+// (ASSESS/DECIDE/DRIVE/HEAL/EXIT, heal ladder, no-progress halt, iteration
+// cap) + registration parity with /goal and /wave, plus a planted-red
+// self-test of the phrase checks.
+await testAutopilot(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this
