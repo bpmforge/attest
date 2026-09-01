@@ -72,11 +72,23 @@ feature landings — sequence is autopilot's to decide; doneness never is
 
 ## DRIVE — existing loops only, one bounded unit at a time
 
+**Resolving the loops (v3.9.0, live field trace):** the loop scripts live in
+the FIRST of these that exists — `./scripts/`, `./.opencode/scripts/`
+(project install), or the global install (`~/.config/opencode/scripts/`).
+Probe with a symlink-following test (`test -f <path>`) — `find`/`git ls-files`
+do not traverse symlinks and produced a false "loops absent" halt in the
+field. Loops truly absent in all three → that IS the deterministic blocker;
+say so and halt. Never reimplement them.
+
 - **Ticket board** (`docs/work/plan.json`): `scripts/conductor/conductor.mjs`
   under `scripts/conductor/supervise.sh` — claim → isolated worktree →
   outside gates (`scripts/validators/run-handoff-gates.sh`) → distinct
   reviewer → merge. `STOP` file semantics and `--max-attempts` apply as
-  documented in `scripts/conductor/README.md`.
+  documented in `scripts/conductor/README.md`. The conductor holds a
+  `.conductor.lock` — a second conductor on the same root refuses (exit 4);
+  never delete a live lock, and WAIT for a spawned supervise.sh to exit
+  rather than ending your session over it (a killed parent orphans the
+  claim, and the next run's reconcile makes a human clean it up).
 - **SDLC phase work**: `scripts/run-until-done.sh` (resume from STATE.md,
   watchdog + stall detection, `<promise>COMPLETE</promise>` verified by
   validators, never trusted).
@@ -85,6 +97,35 @@ feature landings — sequence is autopilot's to decide; doneness never is
 
 Never drive two loops over the same write-scope concurrently. Never edit
 plan.json by hand mid-run — state changes go through the loops' own verbs.
+
+## OPERATE — the MAIN agent runs this itself; hand off only when named
+
+/autopilot is a PRIMARY-agent skill: the default (build) agent kicks it off,
+tracks it, and reconciles it — a specialist handoff happens only where a row
+below names one. The operating loop:
+
+1. **Kick off**: `/autopilot --run` (after the NA-3 approval question is
+   settled). Between consecutive `opencode run` invocations on the same
+   project leave a few seconds' gap — back-to-back launches have deadlocked
+   the runtime's bootstrap in the field.
+2. **Track, don't hover**: the run's truth is on disk, not in your context —
+   tail `docs/work/conductor-log.jsonl` (kind rows: `ticket.*`,
+   `round2.review.verdict`, `round3.runtime.verdict`, `conductor.end`),
+   the board statuses, and `docs/work/AUTOPILOT_*.md`. Evidence for any
+   attempt is under `docs/work/.conductor-evidence/`.
+3. **Reconcile orphans yourself**: a killed run leaves `in_progress` +
+   `owner` + a work-empty branch. The next run's reconcile REFUSES to guess
+   (correct). Your job: verify the branch tip is an ancestor of main
+   (`git log main..<branch>` empty = zero work lost), delete it, clear the
+   ticket's `owner`, set it `ready`, commit the reconcile with that
+   evidence in the message.
+4. **Read halts as instructions**: every halt doc names its blocker
+   (lane-law violation, unreachable model, absent loops). Fix exactly that
+   — via `models.json` for model/agent routing, the board's own verbs for
+   board defects — and re-enter DRIVE. No halt is a reason to bypass a gate.
+5. **Hand off ONLY when the ladder says so**: rung 4 (park with evidence)
+   names the specialist or the human; NEVER-AUTO rows name the human.
+   Everything else is yours.
 
 ## HEAL — the ladder, in order; never silently loop
 
