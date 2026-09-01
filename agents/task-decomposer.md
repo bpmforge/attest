@@ -178,7 +178,7 @@ racy — fix it, don't write it.
 ## Requirement ledger, assembly tickets, long-tail wave (program law L9)
 
 "Tickets closed" is *coded*; "requirements → e2e on `main`" is *done*. Every
-decomposition that emits `modules[]` also emits these three, at decomposition
+decomposition that emits `modules[]` also emits these four, at decomposition
 time — not as whatever remains at the end:
 
 1. **Requirement coverage ledger — `docs/work/requirement-ledger.json`
@@ -219,6 +219,19 @@ time — not as whatever remains at the end:
    (`{"name": "long-tail", "modules": [...]}`) or modules tagged
    `"wave": "long-tail"`. `longTailWaveGaps()` fails a decomposed board with
    no named long-tail wave.
+
+4. **The feature map — `docs/work/PRODUCT_MAP.md`
+   (`agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §2).** The plan's SHAPE, derived
+   deterministically from what you already wrote: tickets sharing any cited
+   `US-`/`FR-` story (same extractor as the requirement ledger — one regex,
+   one truth) are one FEATURE; a seam whose producer and consumer sit in
+   different features is a directed `connects_to` edge with a stated reason
+   (a connection is not an identity — it never merges the features); gaps are
+   reported in BOTH directions (a ticket citing no story, and a story no
+   feature picked up); storyless tickets land in an explicit `F-unmapped`
+   section that the rendered map SHOUTS about — reported, never dropped, and
+   never quietly absorbed into a neighboring feature. The feature map is also
+   the landing unit for Phase 4's one-merge-per-feature discipline.
 
 ## Node sizing rules
 
@@ -280,6 +293,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] plan.md DAG matches plan.json exactly
 - [ ] Requirement list re-derived from the SRS/brief (not from the node list) and diffed against DAG outputs — denominator discipline applied, no requirement silently uncovered
 - [ ] If `modules[]` is present: `docs/work/requirement-ledger.json` written from that re-derived list (requirement → implementing tickets → proving test); every `seams[]` entry has an `assembly_for` module whose acceptance is the seam's wiring evidence; a long-tail wave is NAMED (first-run/empty-state/expired-session/error-path/migration/reset) — `validate-requirement-closure.sh` reads the ledger and fails on any of these gaps
+- [ ] If `modules[]` is present: `docs/work/PRODUCT_MAP.md` written per `agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §2 — features from cited stories, `connects_to` edges from cross-feature seams (with reasons), gaps listed in both directions, `F-unmapped` explicit (loudly) or explicitly empty
 - [ ] If `modules[]` is present: every module has a `lane` derived via `deriveLane()`, not hand-named; `node ~/.config/opencode/scripts/lib/tickets.mjs validate <plan.json>` exits clean (no cross-lane collisions from `validatePlan()`, no same-lane-active collisions from `writeScopeCollisions()` — the CLI runs both). Exactly one interface-contract module per shared contract, and every lane module that needs it lists it in `depends_on`, is enforced by `validateSeams()` over your `seams[]` records — the same `tickets.mjs validate` run (and `scripts/validators/validate-seams.sh` in the phase-4 gate) fails on any seam violation, so emit the seam records and clear every seam `[x]` before finishing.
 
 Print: `✓ task-decomposer done — [N] nodes, [N] verify, max depth [D]`

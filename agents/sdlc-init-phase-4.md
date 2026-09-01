@@ -164,7 +164,13 @@ coding attempt and a ~8.8-minute serial pass repeated on every retry, with `.map
   deterministic check — deterministic validators own the gate** (`GATE_SCORING_PROTOCOL.md`, "Who
   holds the gate").
 - **Level 3 — merge train:** modules merge in dependency order once the wave's Level-2 pass is green;
-  a module changed after the wave pass invalidates only itself.
+  a module changed after the wave pass invalidates only itself. **The landing unit is the FEATURE,
+  not the ticket** (`agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §3): when the plan carries a feature
+  map, a done module PARKS its branch (durable board status, committed at the root board) and the
+  feature lands as EXACTLY ONE merge once every member is parked-done — a blocked member is NOT
+  closed and holds the whole feature; a feature never lands in pieces. Without a feature map, or
+  when the tooling cannot yet satisfy the park-durability/branch-stacking requirements, land
+  per-ticket and say so — don't fake the mode.
 
 **High-risk modules keep a per-module expert HANDOFF in addition to the wave pass** — high-risk =
 authn/authz, cryptography, secrets, unsafe deserialization, DB schema/query shape, public API
@@ -778,7 +784,10 @@ Then stop. Do not ask for follow-up. Do not run additional phases.
 ---
 ```
 
-**8. Git — three explicit steps, in order:**
+**8. Git — three explicit steps, in order.** When the plan carries a feature map, the PR in 8a/8c is
+the FEATURE's PR, not one PR per module ticket: modules of the same feature park their branches and
+the feature merges once, complete (`agents/shared/PRODUCT_SHAPE_PROTOCOL.md` §3 — one merge per
+feature; a blocked member holds the whole feature).
 
 **8a. Create branch + push + draft PR immediately (before code is written):**
 ```
