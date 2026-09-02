@@ -9,7 +9,7 @@
       "gate": "none"
     },
     "frontier": {
-      "match": ["*opus*", "*fable*", "*gpt-5*", "*gemini-*-pro*"],
+      "match": ["*opus*", "*sonnet*", "*fable*", "*gpt-5*", "*gemini-*-pro*"],
       "gate": "escalation-token"
     }
   },
@@ -17,8 +17,8 @@
     "lmstudio/qwen3.6-35b-a3b": { "max_output_real": 10000 }
   },
   "roles": {
-    "coder": "github-copilot/claude-haiku-4.5",
-    "reviewer": "github-copilot/claude-sonnet-5",
+    "coder": "github-copilot/claude-sonnet-5",
+    "reviewer": "openai/gpt-5.6-terra",
     "challenger": "github-copilot/gpt-5.4",
     "advisor": "github-copilot/claude-sonnet-5"
   }

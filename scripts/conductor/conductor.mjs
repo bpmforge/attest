@@ -259,13 +259,20 @@ const STOPFILE = resolve(ROOT, 'STOP');
 // a supervised run and an orphaned detached run interleaved on one board;
 // one released a ticket mid-flight while the other's rounds went green, and
 // the green was never landed. Two conductors on one ROOT is never legal.
-// The lock lives in .git/ (or the runtime dir when file-backed boards have
-// no .git) — a lock in the worktree dirties the target and trips the
-// conductor's own clean-tree gate, which is how the first draft of this
-// lock was caught by the test suite.
-const LOCKFILE = existsSync(resolve(ROOT, '.git'))
-  ? resolve(ROOT, '.git', 'conductor.lock')
-  : resolve(RUNTIME_DIR, 'conductor.lock');
+// The lock lives in Git's common directory so every linked worktree for the
+// repository shares one lock. In a linked worktree `.git` is a file, not a
+// directory, so appending `conductor.lock` to ROOT/.git fails with ENOTDIR.
+const LOCKFILE = (() => {
+  try {
+    const commonDir = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd: ROOT,
+      encoding: 'utf8',
+    }).trim();
+    return resolve(ROOT, commonDir, 'conductor.lock');
+  } catch {
+    return resolve(RUNTIME_DIR, 'conductor.lock');
+  }
+})();
 function acquireRunLock() {
   if (existsSync(LOCKFILE)) {
     const pid = Number(readFileSync(LOCKFILE, 'utf8').trim() || '0');
@@ -1483,7 +1490,8 @@ async function main() {
   // (after a human looks at the gap history) is free to retry.
   const skippedThisRun = new Set();
   const landedThisRun = new Set();
-  while (landed < MAX_TICKETS) {
+  let processed = landed;
+  while (processed < MAX_TICKETS) {
     if (existsSync(STOPFILE)) { log('conductor.stop', { msg: 'STOP file present' }); break; }
 
     let plan = loadFreshPlan();
@@ -1509,6 +1517,7 @@ async function main() {
     persistPlan(plan, `chore(${next.id}): conductor claims ticket`);
 
     log('ticket.start', { ticket: next.id, msg: next.title });
+    processed++;
     const res = await executeTicket(plan, next);
     if (res.ok) {
       const landedOk = land(plan, next, res.branch, res.wt);
@@ -1533,7 +1542,7 @@ async function main() {
 
   const finalPlan = loadFreshPlan();
   const counts = tallyStatuses(finalPlan);
-  log('conductor.end', { msg: `landed=${landed} board=${JSON.stringify(counts)}` });
+  log('conductor.end', { msg: `processed=${processed} landed=${landed} board=${JSON.stringify(counts)}` });
 }
 
 main().catch((e) => { log('conductor.fatal', { msg: e.message }); process.exit(1); });

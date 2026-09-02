@@ -146,8 +146,9 @@ immediately before that spawn (same pattern as `scripts/opencode-local` and
 Four changes, each from a receipt in a real end-to-end run (two tickets,
 OpenAI terra/luna, full code → dual review → runtime → merge chain):
 
-- **Single-conductor lock.** `.git/conductor.lock` (runtime dir when the
-  board is file-backed). A second conductor on the same root exits 4 —
+- **Single-conductor lock.** `<git-common-dir>/conductor.lock` (runtime dir
+  outside Git repositories), shared by the repository's linked worktrees. A
+  second conductor on the same repository exits 4 —
   observed live: a supervised run and an orphaned detached run interleaved,
   one released a ticket while the other's rounds went green, and the green
   was never landed. Stale locks from dead pids clear themselves.

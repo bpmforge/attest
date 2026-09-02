@@ -33,11 +33,17 @@ Collect each of these from its existing source; every line of the report
 cites the command output behind it. A source that does not exist in the
 target repo is recorded as ABSENT, never guessed at:
 
-1. **Board state** — `docs/work/plan.json` tickets by status
-   (ready / claimed / in_progress / in_review / blocked / parked / done),
-   via `scripts/validators/validate-tickets.sh` +
-   `scripts/lib/tickets.mjs`. Parked and blocked are listed by name — a
-   park is not a landing.
+1. **Board state** — select the same board driver DRIVE will use:
+   - `CONDUCTOR_BOARD=jira`: JIRA is authoritative. Run the target repo's
+     `./scripts/jira.sh stats`, `./scripts/jira.sh mine`, and
+     `./scripts/jira.sh ready`, then `./scripts/jira.sh blockers <key>` for
+     each candidate under consideration. Read `docs/work/ticket-scope-map.json`
+     for module contracts only; it does not own lifecycle state. An absent or
+     empty `docs/work/plan.json` is not a blocker in JIRA mode.
+   - Otherwise, read `docs/work/plan.json` tickets by status (ready / claimed /
+     in_progress / in_review / blocked / parked / done), via
+     `scripts/validators/validate-tickets.sh` + `scripts/lib/tickets.mjs`.
+   Parked and blocked work is listed by name — a park is not a landing.
 2. **Phase gates** — `scripts/validators/validate-phase-gate.sh <phase>`
    (read-only check) for the current phase per `docs/work/STATE.md`;
    receipts at `docs/work/gates/`.
@@ -80,15 +86,18 @@ do not traverse symlinks and produced a false "loops absent" halt in the
 field. Loops truly absent in all three → that IS the deterministic blocker;
 say so and halt. Never reimplement them.
 
-- **Ticket board** (`docs/work/plan.json`): `scripts/conductor/conductor.mjs`
-  under `scripts/conductor/supervise.sh` — claim → isolated worktree →
-  outside gates (`scripts/validators/run-handoff-gates.sh`) → distinct
-  reviewer → merge. `STOP` file semantics and `--max-attempts` apply as
-  documented in `scripts/conductor/README.md`. The conductor holds a
-  `.conductor.lock` — a second conductor on the same root refuses (exit 4);
-  never delete a live lock, and WAIT for a spawned supervise.sh to exit
-  rather than ending your session over it (a killed parent orphans the
-  claim, and the next run's reconcile makes a human clean it up).
+- **Ticket board**: `scripts/conductor/conductor.mjs` under
+  `scripts/conductor/supervise.sh` — claim → isolated worktree → outside gates
+  (`scripts/validators/run-handoff-gates.sh`) → distinct reviewer → merge.
+  With `CONDUCTOR_BOARD=jira`, the conductor uses the target repo's JIRA board
+  driver and `docs/work/ticket-scope-map.json`; never substitute or update
+  `plan.json` lifecycle state. Otherwise it uses `docs/work/plan.json`.
+  `STOP` file semantics and `--max-attempts` apply as documented in
+  `scripts/conductor/README.md`. The conductor holds a `.conductor.lock` — a
+  second conductor on the same root refuses (exit 4); never delete a live
+  lock, and WAIT for a spawned supervise.sh to exit rather than ending your
+  session over it (a killed parent orphans the claim, and the next run's
+  reconcile makes a human clean it up).
 - **SDLC phase work**: `scripts/run-until-done.sh` (resume from STATE.md,
   watchdog + stall detection, `<promise>COMPLETE</promise>` verified by
   validators, never trusted).

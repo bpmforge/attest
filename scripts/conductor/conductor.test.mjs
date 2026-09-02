@@ -229,6 +229,26 @@ test('conductor.mjs: 3-ticket fixture lands 2, releases the gate-failing one, ne
   }
 });
 
+test('conductor.mjs: shares its lock through the common Git directory when root is a linked worktree', { timeout: 180_000 }, () => {
+  const { base, target, stub } = setupFixture();
+  const linkedRoot = resolve(base, 'linked-target');
+  try {
+    sh('git', ['checkout', '--detach', '-q'], { cwd: target });
+    sh('git', ['worktree', 'add', '-q', linkedRoot, 'main'], { cwd: target });
+
+    sh('node', [CONDUCTOR, '--root', linkedRoot, '--rounds', '1', '--actor', 'conductor', '--reviewer-actor', 'conductor-review', '--max-attempts', '1', '--max-tickets', '1', '--no-push'], {
+      cwd: linkedRoot,
+      env: { ...process.env, OPENCODE_BIN: stub },
+    });
+
+    const commonDir = sh('git', ['rev-parse', '--git-common-dir'], { cwd: linkedRoot }).trim();
+    assert.equal(existsSync(resolve(linkedRoot, commonDir, 'conductor.lock')), false,
+      'the process exit handler should remove the shared lock from the common Git directory');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
 test('attempt outcome reports the terminal cause before historical failures', () => {
   const attempts = [
     ['formatting failed in changed source'],
@@ -283,6 +303,20 @@ test('conductor.mjs: red configured baseline refuses before claim and consumes z
 test('conductor.mjs: provider failure blocks without exhausting the feature retry budget', { timeout: 60_000 }, () => {
   const { base, target, stub } = setupRoleRoutingFixture();
   try {
+    const planPath = resolve(target, 'plan.json');
+    const plan = JSON.parse(readFileSync(planPath, 'utf8'));
+    plan.modules.push({
+      ...plan.modules[0],
+      id: 'TICK-SECOND',
+      title: 'Must remain unclaimed',
+      write_scope: ['b/**'],
+      verify: plan.modules[0].verify.replaceAll('TICK-ROLE', 'TICK-SECOND').replace('--scope a', '--scope b'),
+      manifest: 'docs/reviews/MANIFEST_TICK-SECOND.md',
+    });
+    writeFileSync(planPath, JSON.stringify(plan, null, 2) + '\n');
+    sh('git', ['add', 'plan.json'], { cwd: target });
+    sh('git', ['commit', '-q', '-m', 'add second ready ticket'], { cwd: target });
+
     writeFileSync(stub, `#!/usr/bin/env bash
 if [[ "\${1:-}" == "models" ]]; then
   printf '%s\\n' fixture/coder-model fixture/reviewer-model
@@ -293,19 +327,21 @@ exit 9
 `);
     chmodSync(stub, 0o755);
 
-    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '2', '--no-push'], {
+    sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--max-attempts', '2', '--max-tickets', '1', '--no-push'], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });
 
-    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
-    assert.equal(plan.modules[0].status, 'ready', 'provider failure releases the ticket');
+    const finalPlan = JSON.parse(readFileSync(planPath, 'utf8'));
+    assert.equal(finalPlan.modules[0].status, 'ready', 'provider failure releases the ticket');
+    assert.equal(finalPlan.modules[1].status, 'ready', 'the bounded run must not claim a second ticket');
     const rows = readFileSync(resolve(target, 'docs/work/conductor-log.jsonl'), 'utf8')
       .trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     assert.equal(rows.filter((r) => r.kind === 'ticket.attempt').length, 1,
       'a provider failure must not start a second feature coding attempt');
     assert.ok(rows.some((r) => r.kind === 'ticket.blocked' && r.category === 'coder-session'));
     assert.equal(rows.some((r) => r.kind === 'ticket.exhausted'), false);
+    assert.deepEqual(rows.filter((r) => r.kind === 'ticket.start').map((r) => r.ticket), ['TICK-ROLE']);
   } finally {
     rmSync(base, { recursive: true, force: true });
   }

@@ -12,7 +12,8 @@
  *      DRIVE / HEAL / EXIT), the story-denominated assessment ("a drained
  *      board proves nothing"), done-is-a-predicate, the heal ladder in order
  *      (narrowed retry → split → tier escalation → park with evidence), the
- *      byte-identical no-progress HALT, the mandatory iteration cap using
+ *      JIRA-authoritative board assessment, byte-identical no-progress HALT,
+ *      the mandatory iteration cap using
  *      existing tier ceilings (6 metered / 12 local), and that it DRIVES the
  *      existing machinery by path instead of inventing new loops.
  *   2. It is REGISTERED everywhere its siblings (/goal, /wave) are:
@@ -77,6 +78,11 @@ const REQUIRED: Array<[string, RegExp]> = [
   // exit shape
   ["assembly-gate-style exit predicate", /assembly-gate-style predicate/i],
   ["halt leaves stuck evidence", /AUTOPILOT_HALT\.md/],
+  // live JIRA projects do not mirror lifecycle state into plan.json
+  ["JIRA board mode is authoritative", /CONDUCTOR_BOARD=jira[\s\S]{0,200}JIRA is authoritative/i],
+  ["JIRA assessment uses live target commands", /jira\.sh stats[\s\S]{0,200}jira\.sh ready/i],
+  ["empty plan is allowed in JIRA mode", /empty `docs\/work\/plan\.json` is not a blocker in JIRA mode/i],
+  ["JIRA drive preserves board authority", /never substitute or update[\s\S]{0,80}`plan\.json` lifecycle state/i],
 ];
 
 export async function testAutopilot(

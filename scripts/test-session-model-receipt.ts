@@ -42,6 +42,7 @@ export async function testSessionModelReceipt(
     ["local — lmstudio/*", "lmstudio/qwen3.6-35b-a3b", "local"],
     ["cheap — *haiku*", "anthropic/claude-haiku-4-5", "cheap"],
     ["frontier — *opus*", "anthropic/claude-opus-4-8", "frontier"],
+    ["frontier — *sonnet*", "github-copilot/claude-sonnet-5", "frontier"],
     ["no match — unknown model", "unknown/foo-bar", null],
   ];
   for (const [label, modelId, expected] of cases) {
@@ -112,8 +113,8 @@ export async function testSessionModelReceipt(
     logSessionReceipt(dir, {
       sessionID: "sess-unclassified-1",
       mode: "build",
-      providerID: "anthropic",
-      modelID: "claude-sonnet-5",
+      providerID: "unknown",
+      modelID: "foo-bar",
       time: { created: 1752400000000 },
     });
     const rows = readReceipts(dir);

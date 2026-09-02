@@ -10,8 +10,9 @@
 // (unknown tier), not an error -- an unrecognized model id is exactly the
 // "any raw pin outside models.json" case the G3 lint warns on, not a crash.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, extname, relative } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 export function globToRegExp(glob) {
   const escaped = glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
@@ -168,6 +169,6 @@ function main() {
   process.exitCode = 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href) {
   main();
 }
