@@ -32,6 +32,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
 const CONDUCTOR = resolve(HERE, 'conductor.mjs');
 const GATES_SH = resolve(REPO_ROOT, 'scripts/validators/run-handoff-gates.sh');
+const GATES_SCOPE = resolve(REPO_ROOT, 'scripts/validators/validate-scope.sh');
 
 function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: 'utf8', ...opts });
@@ -1121,4 +1122,104 @@ test('a declared reviewer this conductor cannot route is reported, not silently 
   const ok = triggeredReviewers({ reviews: ['test'] }, '+++ b/a/x.txt\n+hi\n', KNOWN);
   assert.ok(ok.reviewers.includes('test'), 'a routable declared reviewer runs');
   assert.deepEqual(ok.dropped, [], 'and nothing is reported dropped');
+});
+
+// ── Found auditing the scope gate itself. Its header states the intent: "a
+// bare '*' / '**' is refused outright (would authorise the whole repo)". It
+// enforced that by blacklisting four LITERAL strings, so every other spelling
+// of the same thing walked through. ─────────────────────────────────────────
+function scopeRepo() {
+  const base = mkdtempSync(resolve(tmpdir(), 'scope-gate-'));
+  const repo = resolve(base, 'r');
+  mkdirSync(resolve(repo, 'src/auth'), { recursive: true });
+  mkdirSync(resolve(repo, 'a'), { recursive: true });
+  const git = (...args) => sh('git', args, { cwd: repo });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 't@example.com');
+  git('config', 'user.name', 'T');
+  git('config', 'commit.gpgsign', 'false');
+  writeFileSync(resolve(repo, 'src/auth/important.ts'), 'export const check = 1;\n');
+  writeFileSync(resolve(repo, 'a/keep.txt'), 'keep\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'init');
+  return { base, repo };
+}
+const scopeAllows = (repo, scope) => {
+  try {
+    sh('bash', [GATES_SCOPE, scope, '--root', repo], { cwd: repo, stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+test('a write_scope that names no path cannot authorise the whole repository',
+  { timeout: 60_000 }, () => {
+    const { base, repo } = scopeRepo();
+    try {
+      // An out-of-scope write that these patterns must not bless.
+      writeFileSync(resolve(repo, 'src/auth/session.ts'), 'sneaked in\n');
+
+      // Only '*' and '**' were refused; each of these is the same thing spelled
+      // differently, and each authorised every nested path in the repo.
+      for (const pattern of ['*', '**', '**/*', '*/**', '*/*', '?*/**', '[a-z]*/**']) {
+        assert.equal(scopeAllows(repo, pattern), false,
+          `write_scope '${pattern}' names no path and must not authorise the repository`);
+      }
+
+      // Patterns that DO name a path keep working exactly as before.
+      rmSync(resolve(repo, 'src/auth/session.ts'));
+      writeFileSync(resolve(repo, 'a/new.txt'), 'in scope\n');
+      assert.equal(scopeAllows(repo, 'a/**'), true, "'a/**' must still allow a/new.txt");
+      assert.equal(scopeAllows(repo, 'src/**'), false, "'src/**' must still refuse a/new.txt");
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('a rename is checked on BOTH sides — its source is a deletion', { timeout: 60_000 }, () => {
+  const { base, repo } = scopeRepo();
+  try {
+    // Moving a file OUT of an unrelated directory into scope. The destination
+    // is in scope; the source is a deletion outside it. Only the destination
+    // used to be checked, so this passed while having deleted src/auth code.
+    sh('git', ['mv', 'src/auth/important.ts', 'a/moved.ts'], { cwd: repo });
+    assert.equal(sh('git', ['status', '--porcelain'], { cwd: repo }).trim().startsWith('R'), true,
+      'fixture precondition: git must report this as a rename');
+
+    assert.equal(scopeAllows(repo, 'a/**'), false,
+      'a rename whose SOURCE is outside write_scope deleted a file it was not allowed to touch');
+
+    // A rename entirely inside scope is still fine.
+    sh('git', ['reset', '-q', '--hard'], { cwd: repo });
+    sh('git', ['mv', 'a/keep.txt', 'a/renamed.txt'], { cwd: repo });
+    assert.equal(scopeAllows(repo, 'a/**'), true, 'an in-scope rename must still pass');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// ── validate-scope.match.test.sh existed since v3.8.0 and NOTHING RAN IT. It
+// is referenced only in docs/RELEASE_TRACKER.md, as evidence that the matcher
+// is "fixture-backed". It also carried its own COPY of the matcher, so it
+// could not have failed when the product changed — only when the copy did.
+// Both halves are fixed (the copy now sources the real function); this test is
+// what makes the harness actually execute it. Same lesson as
+// scripts/test-conductor-suite.ts's own header, one directory over. ─────────
+test('the scope matcher fixture suite runs, and passes', { timeout: 60_000 }, () => {
+  const script = resolve(REPO_ROOT, 'scripts/validators/validate-scope.match.test.sh');
+  assert.ok(existsSync(script), 'the matcher fixture suite must exist');
+  let out = '';
+  try {
+    out = sh('bash', [script], { cwd: REPO_ROOT });
+  } catch (e) {
+    out = `${e.stdout || ''}${e.stderr || ''}`;
+    assert.fail(`matcher fixture suite failed:\n${out}`);
+  }
+  const m = /passed=(\d+) failed=(\d+)/.exec(out);
+  assert.ok(m, `could not parse the suite's own summary from:\n${out}`);
+  assert.equal(Number(m[2]), 0, `matcher fixtures failing:\n${out}`);
+  // A suite that matched nothing must never read as a pass — the same rule
+  // Pass 53 applies to node --test.
+  assert.ok(Number(m[1]) > 0, 'a zero-assertion run is not a passing run');
 });
