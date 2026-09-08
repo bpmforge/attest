@@ -62,6 +62,7 @@ import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
 import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
+import { containSessionGroup, isTimeout, CAN_CONTAIN_DESCENDANTS } from '../lib/session-containment.mjs';
 // Board is pluggable: plan.json (tickets.mjs) is the default; set
 // CONDUCTOR_BOARD=jira to select the JIRA board driver (jira-tickets.mjs)
 // instead — same 13 names, identical signatures (docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md).
@@ -125,9 +126,53 @@ function discoverPlanPath() {
 const PLAN_PATH = discoverPlanPath();
 const ACTOR = String(opt('actor', 'conductor'));
 const REVIEWER_ACTOR = String(opt('reviewer-actor', 'conductor-review'));
-const MAX_ATTEMPTS = Number(opt('max-attempts', 2));       // MASTER_PROMPT.md rule 9: ~2 sessions before giving up
-const MAX_TICKETS = Number(opt('max-tickets', 999));
-const SESSION_MIN = Number(opt('session-minutes', 45));
+//
+// Every numeric flag goes through intOpt(), which REFUSES a bad value instead
+// of coercing it. `Number(opt(...))` had two silent failure modes, and both
+// looked like success:
+//   - a typo (`--max-tickets five`) becomes NaN, so `while (landed < NaN)` is
+//     false on the first evaluation: the run exits immediately, claims nothing,
+//     and reports `landed=0` — indistinguishable from an empty board.
+//   - a bare flag with no value (`--max-tickets`) becomes `true`, and
+//     Number(true) is 1, so the run quietly does a tenth of what was asked.
+// Validation happens at module scope, before main() touches the board.
+function intOpt(name, dflt, { min = 0, allowInfinity = false } = {}) {
+  const raw = opt(name, null);
+  if (raw === null || raw === undefined) return dflt;
+  if (raw === true) {
+    console.error(`--${name} needs a value (got a bare flag)`);
+    process.exit(2);
+  }
+  if (allowInfinity && /^(inf|infinity|unbounded|none)$/i.test(String(raw))) return Infinity;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < min) {
+    console.error(`--${name} must be an integer >= ${min} (got "${raw}")`);
+    process.exit(2);
+  }
+  return n;
+}
+const MAX_ATTEMPTS = intOpt('max-attempts', 2, { min: 1 });  // MASTER_PROMPT.md rule 9: ~2 sessions before giving up
+// --max-tickets is a SUCCESS target: how many tickets should LAND (or reach the
+// PR boundary under --no-merge). It has never bounded how much work an
+// invocation performs, because `landed` only advances on a verified success —
+// so on a board with a low success rate, `--max-tickets 1` can claim, run and
+// fail an unbounded number of tickets before it stops. (GH issue #6, item 3.)
+const MAX_TICKETS = intOpt('max-tickets', 999);
+// --max-processed is the ACTIVITY ceiling: how many tickets this invocation may
+// claim at all, regardless of outcome. Default unbounded, so existing runs are
+// unchanged; set it to bound a run's blast radius on an unfamiliar board.
+const MAX_PROCESSED = intOpt('max-processed', Infinity, { allowInfinity: true });
+const SESSION_MIN = intOpt('session-minutes', 45, { min: 1 });
+// Same-worktree retries after a session TIMEOUT, bounded separately from the
+// provider rate-limit retries in runSession() (GH issue #6, item 4). Default 0
+// — the historical behaviour, where a timeout ends the attempt — because a
+// retry is only ever safe once the previous execution is proven gone, and
+// proving that is platform-specific. See containSessionGroup().
+const SESSION_TIMEOUT_RETRIES = intOpt('session-timeout-retries', 0);
+// CAN_CONTAIN_DESCENDANTS / containSessionGroup() are imported from
+// scripts/lib/session-containment.mjs — POSIX gives the child its own process
+// GROUP (`detached`), which is what makes a whole-tree kill expressible;
+// Windows would need a Job Object, so it never retries in the same worktree.
 const MODEL = opt('model', null);
 const AGENT = opt('agent', null);
 const DO_MERGE = !args.includes('--no-merge');
@@ -181,8 +226,8 @@ const REVIEWER_MODEL = ROLE_MODELS.reviewer || CODER_MODEL;
 // the real loop: a review session on the REVIEWER model and agent (so the
 // verifier genuinely is not the maker), a bounded fix loop, then a runtime
 // verdict. ROUNDS=1 keeps the old coder-only behaviour for a bare run.
-const ROUNDS = Number(opt('rounds', 3));
-const FIX_ITERATIONS = Number(opt('fix-iterations', 3)); // protocol: up to 3
+const ROUNDS = intOpt('rounds', 3, { min: 1 });
+const FIX_ITERATIONS = intOpt('fix-iterations', 3); // protocol: up to 3
 // Optional extra reviewers per ticket via `reviews: ["security", ...]`.
 const REVIEW_AGENTS = {
   security: 'security-auditor',
@@ -568,6 +613,7 @@ function actualSessionModel(wt) {
 
 async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL, role = 'coder' } = {}) {
   let backoff = 5 * 60_000;
+  let timeoutRetries = 0;
   for (let attempt = 1; attempt <= 6; attempt++) {
     log('session.start', { msg: `attempt ${attempt}`, wt, role, agent, model });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
@@ -582,10 +628,38 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
       env: sessionEnv(),
+      // Own process group, so a timeout can be contained as a TREE rather than
+      // as one pid. See containSessionGroup().
+      detached: CAN_CONTAIN_DESCENDANTS,
     });
     const out = `${res.stdout || ''}\n${res.stderr || ''}`;
+    // ORDER MATTERS. `if (res.error) return code 1` used to sit above the
+    // timeout check, and a timeout surfaces as `error.code === 'ETIMEDOUT'` on
+    // some platforms/runtimes and as `signal` on others — so the same timeout
+    // was reported as a generic session failure on one machine and as a
+    // timeout on the next. Classify the timeout FIRST, from either signal.
+    const timedOut = isTimeout(res);
+    if (timedOut) {
+      log('session.timeout', {
+        role, msg: `killed after ${SESSION_MIN}m (${res.signal || res.error?.code}) — containing descendants of pid ${res.pid}`,
+      });
+      const contained = await containSessionGroup(res.pid);
+      if (!contained.ok) {
+        // Never retry alongside an execution we cannot prove is over.
+        log('session.timeout.uncontained', { role, msg: `${contained.reason} — refusing any same-worktree retry` });
+        return { out, code: 124, timedOut: true, contained: false, reason: contained.reason };
+      }
+      log('session.timeout.contained', { role, msg: contained.reason });
+      if (timeoutRetries < SESSION_TIMEOUT_RETRIES) {
+        timeoutRetries++;
+        log('session.timeout.retry', {
+          role, msg: `retry ${timeoutRetries}/${SESSION_TIMEOUT_RETRIES} in the same worktree — previous process group is verified gone`,
+        });
+        continue;
+      }
+      return { out, code: 124, timedOut: true, contained: true };
+    }
     if (res.error) return { out: `${out}\n${res.error.message}`, code: 1 };
-    if (res.signal) { log('session.timeout', { msg: `killed after ${SESSION_MIN}m (${res.signal})` }); return { out, code: 124 }; }
     if (res.status !== 0 && LIMIT_RE.test(out)) {
       const wait = Math.min(backoff, 60 * 60_000);
       backoff *= 2;
@@ -1644,8 +1718,18 @@ async function main() {
   // (after a human looks at the gap history) is free to retry.
   const skippedThisRun = new Set();
   const landedThisRun = new Set();
-  while (landed < MAX_TICKETS) {
-    if (existsSync(STOPFILE)) { log('conductor.stop', { msg: 'STOP file present' }); break; }
+  // `landed` counts verified successes (the --max-tickets target); `processed`
+  // counts tickets this invocation CLAIMED, whatever came of them (the
+  // --max-processed ceiling). They are deliberately separate counters — see
+  // their declarations. Orphans reconciled at startup are reported as
+  // `resumed` and do NOT consume the processed budget: they were claimed by a
+  // previous invocation, so charging them here would make --max-processed mean
+  // two different things depending on how the last run died.
+  const resumed = landed;
+  let processed = 0;
+  let stopReason = 'board exhausted';
+  while (landed < MAX_TICKETS && processed < MAX_PROCESSED) {
+    if (existsSync(STOPFILE)) { log('conductor.stop', { msg: 'STOP file present' }); stopReason = 'STOP file present'; break; }
 
     let plan = loadFreshPlan();
     recomputeStatus(plan);
@@ -1662,11 +1746,16 @@ async function main() {
     if (!next) {
       const counts = writeHaltNotice(plan);
       log('conductor.halt', { msg: `nothing claimable — board: ${JSON.stringify(counts)} — see ${HALT_NOTICE}` });
+      stopReason = 'nothing claimable';
       break;
     }
 
     const claimRes = claim(plan, next.id, ACTOR);
-    if (!claimRes.ok) { log('claim.fail', { ticket: next.id, msg: claimRes.error }); break; }
+    if (!claimRes.ok) { log('claim.fail', { ticket: next.id, msg: claimRes.error }); stopReason = `claim refused: ${claimRes.error}`; break; }
+    // Charged on the CLAIM, not on the outcome: a ticket that fails, blocks,
+    // or dies on a provider error consumed this invocation's attention just as
+    // much as one that landed. That is the whole point of the ceiling.
+    processed++;
     persistPlan(plan, `chore(${next.id}): conductor claims ticket`);
 
     log('ticket.start', { ticket: next.id, msg: next.title });
@@ -1692,9 +1781,15 @@ async function main() {
     }
   }
 
+  if (landed >= MAX_TICKETS) stopReason = `--max-tickets ${MAX_TICKETS} reached`;
+  else if (processed >= MAX_PROCESSED) stopReason = `--max-processed ${MAX_PROCESSED} reached`;
+
   const finalPlan = loadFreshPlan();
   const counts = tallyStatuses(finalPlan);
-  log('conductor.end', { msg: `landed=${landed} board=${JSON.stringify(counts)}` });
+  log('conductor.end', {
+    landed, processed, resumed, stopReason,
+    msg: `landed=${landed} processed=${processed} resumed=${resumed} stop=${stopReason} board=${JSON.stringify(counts)}`,
+  });
 }
 
 main().catch((e) => { log('conductor.fatal', { msg: e.message }); process.exit(1); });
