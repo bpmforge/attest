@@ -69,45 +69,10 @@ note "assigned scope(s): ${NORMALIZED[*]}"
 note "always allowed: ${ALWAYS_ALLOWED[*]}"
 
 # -- scope matcher -----------------------------------------------------------
-# Historically this was a literal string + directory-prefix test with the
-# pattern QUOTED, which meant no globbing ever happened. Every write_scope
-# authored in glob syntax ("dir/**", "*.test.ts", "**word**") silently matched
-# nothing, so correctly-scoped tickets failed the gate while an agent that
-# literally created a directory named "**word**" passed it. Found 2026-08-28
-# when the conductor could not land any ticket.
-#
-# Containment is preserved deliberately:
-#   - literal/prefix behaviour is tried FIRST and is unchanged;
-#   - a bare "*" / "**" is refused outright (would authorise the whole repo);
-#   - any pattern containing ".." is refused (no traversal);
-#   - "dir/**" is resolved to a prefix test rather than a raw glob;
-#   - the pattern is only ever matched against a repo-relative path, anchored
-#     full-string by [[ ]], so it cannot match a prefix of a sibling directory
-#     ("apps/api" still does not match "apps/api-other/...").
-matches_scope() {
-  local path="$1" ok="$2"
-
-  # 1. exact file, or inside this directory (original behaviour, unchanged)
-  [[ "$path" == "$ok" || "$path" == "$ok/"* ]] && return 0
-
-  # 2. refuse patterns that would authorise far more than a scope contract should
-  case "$ok" in
-    '*'|'**'|'/*'|'/**') return 1 ;;
-    *'..'*) return 1 ;;
-  esac
-
-  # 3. glob forms
-  if [[ "$ok" == *[\*\?\[]* ]]; then
-    if [[ "$ok" == */'**' ]]; then
-      local base="${ok%/**}"
-      [[ "$path" == "$base" || "$path" == "$base/"* ]] && return 0
-    fi
-    # unquoted RHS = bash pattern match, anchored to the whole path
-    [[ "$path" == $ok ]] && return 0
-  fi
-
-  return 1
-}
+# The matcher itself lives in _scope-match.sh so that validate-scope.match.test.sh
+# tests THIS function rather than a copy of it (see that file's header).
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/_scope-match.sh"
 
 # -- enumerate changed/untracked files --------------------------------------
 if ! git -C "$ROOT" rev-parse --git-dir >/dev/null 2>&1; then
@@ -135,16 +100,37 @@ trap 'rm -f "$CHANGED"' EXIT
 #
 # -uall lists each untracked file individually, which is what the matcher has
 # always assumed it was reading.
-git -C "$ROOT" status --porcelain -uall 2>/dev/null | \
+#
+# BOTH SIDES OF A RENAME are checked. This printed only the destination, so
+# `R  src/important.ts -> a/moved.ts` under a write_scope of "a/**" passed the
+# gate — while having DELETED a file outside the scope. The destination being
+# in scope says nothing about the source. Reachable only when the session
+# stages the rename itself (it is told never to run git), which is exactly the
+# kind of thing this gate exists to not depend on: the conductor holds the
+# gates, not the agents.
+#
+# core.quotePath=false stops git octal-escaping non-ASCII paths ("caf\303\251"),
+# which the matcher then compared literally and reported out of scope — a
+# correctly-scoped file failing the gate because of its name. Surrounding
+# double quotes (paths with spaces/specials) are stripped for the same reason.
+git -C "$ROOT" -c core.quotePath=false status --porcelain -uall 2>/dev/null | \
   awk '
+    function emit(p) {
+      # git wraps paths needing quoting in double quotes; the matcher wants the
+      # bare path.
+      if (substr(p, 1, 1) == "\"" && substr(p, length(p), 1) == "\"")
+        p = substr(p, 2, length(p) - 2)
+      if (p != "") print p
+    }
     # Two chars of status, space, path. Renames look like "R  old -> new".
     {
       line = substr($0, 4)
       if (index(line, " -> ") > 0) {
         split(line, parts, " -> ")
-        print parts[2]
+        emit(parts[1])   # the SOURCE is a deletion and must be in scope too
+        emit(parts[2])
       } else {
-        print line
+        emit(line)
       }
     }
   ' > "$CHANGED"
