@@ -258,8 +258,16 @@ depends on which providers the developer has authenticated.
 
 All three files run inside `npm test` as **Pass 53**
 (`scripts/test-conductor-suite.ts`), which shells out to `node --test` with the
-TAP reporter pinned and fails the suite by name when any conductor test goes
-red. Until v3.1.2 they were standalone — out of the original ticket's
+TAP reporter pinned and fails the suite by name when any test goes red.
+
+That Pass **discovers** its suites — every `*.test.mjs` anywhere under
+`scripts/` — rather than carrying a list. It began as a list of two, and on
+2026-09-08 a sweep found six more suites no harness had ever run, including the
+JIRA board driver's entire unit, parity and integration coverage. All six were
+green, so nothing was broken; they were merely unprotected, which is the state
+`conductor.test.mjs` was in while it stayed RED for three releases. A list has
+to be updated by whoever adds a suite and fails silently when they don't;
+discovery cannot be forgotten. Until v3.1.2 they were standalone — out of the original ticket's
 `scripts/conductor/**` write scope — which is exactly how v3.1.0 and v3.1.1
 both shipped with all four of these tests RED while `npm test` reported green.
 A zero-test run is treated as a failure too: an empty match must never read as
