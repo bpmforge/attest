@@ -161,7 +161,9 @@ export function reconcileInProgress(ctx, plan, m, disk) {
     return { ok: false };
   }
   const sha = gitIn(disk.wt, 'rev-parse', 'HEAD');
-  const closeRes = close(plan, m.id, actor, { branch: disk.branch, commits: [sha], cwd: disk.wt });
+  const closeRes = close(plan, m.id, actor, {
+    branch: disk.branch, commits: [sha], cwd: disk.wt, timeoutMs: ctx.verifyTimeoutMs,
+  });
   if (!closeRes.ok) {
     log('gates.fail', { ticket: m.id, msg: closeRes.error.slice(0, 300) });
     comment(plan, m.id, actor, `CONDUCTOR resume re-verify failed: ${closeRes.error}`.slice(0, 900));
