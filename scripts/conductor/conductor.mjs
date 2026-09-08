@@ -742,17 +742,32 @@ function scopeGate(wt, writeScope) {
  * Best-effort by design — losing evidence must never fail a ticket that would
  * otherwise pass, so every step is swallowed.
  */
+/**
+ * Create the evidence directory, self-ignoring.
+ *
+ * Runtime artifacts written INSIDE the project must never dirty the target's
+ * `git status` — main() refuses to start on a dirty tree, so a run that leaves
+ * one behind takes down the NEXT run (the exact failure commitArtifact()
+ * documents). preserveAttemptEvidence() wrote this `.gitignore`;
+ * captureScopeEvidence() wrote into the same directory and did not — so
+ * whether a scope violation dirtied the target depended on whether some
+ * earlier ticket had happened to preserve attempt evidence first. In a project
+ * whose docs/work/ is not already ignored, a first-ticket scope violation
+ * therefore poisoned the next run. Both callers now go through here.
+ */
+function ensureEvidenceDir(dir = EVIDENCE_DIR) {
+  mkdirSync(dir, { recursive: true });
+  const selfIgnore = resolve(EVIDENCE_DIR, '.gitignore');
+  if (!existsSync(selfIgnore)) writeFileSync(selfIgnore, '*\n');
+}
+
 function preserveAttemptEvidence(m, attempt, wt) {
   const kept = [];
   try {
     const srcDir = resolve(wt, 'docs/reviews');
     if (!existsSync(srcDir)) return kept;
     const outDir = resolve(EVIDENCE_DIR, `${m.id}-attempt${attempt}`);
-    mkdirSync(outDir, { recursive: true });
-    // Self-gitignoring (the receipts pattern): runtime artifacts inside the
-    // project must never dirty the target's status or reach its history.
-    const selfIgnore = resolve(EVIDENCE_DIR, '.gitignore');
-    if (!existsSync(selfIgnore)) writeFileSync(selfIgnore, '*\n');
+    ensureEvidenceDir(outDir);
     for (const f of readdirSync(srcDir)) {
       if (!f.endsWith(`_${m.id}.md`) && !f.includes(m.id)) continue;
       try {
@@ -793,7 +808,7 @@ function captureScopeEvidence(m, attempt, wt) {
     const stat = gitIn(wt, 'diff', '--cached', '--stat');
     const diff = gitIn(wt, 'diff', '--cached');
     const out = resolve(EVIDENCE_DIR, rel);
-    mkdirSync(dirname(out), { recursive: true });
+    ensureEvidenceDir(dirname(out));
     writeFileSync(
       out,
       `# ${m.id} attempt ${attempt} — scope violation evidence\n` +
@@ -1108,6 +1123,14 @@ the ticket's own verify command.`;
     if (v && v.ok) {
       log('round3.runtime.overridden', { ticket: m.id, msg: `RUNTIME: FAIL ${grounded ? 'was grounded but is not reproducible' : 'cites no non-zero exit'} — \`${m.verify}\` passes when the conductor runs it in the worktree; treating as PASS (agent evidence contradicted by the machine's own run)` });
       pass = true;
+    } else if (v && v.inconclusive) {
+      // Could not run the check that would have overturned the FAIL. Say so:
+      // reporting this as "verify also fails" would attribute a harness
+      // problem to the candidate's code.
+      log('round3.runtime.inconclusive', {
+        ticket: m.id,
+        msg: `FAIL stands, but \`${m.verify}\` produced no exit code when the conductor re-ran it (${v.error}) — the override check could not be performed`,
+      });
     } else if (v) {
       log('round3.runtime.confirmed', { ticket: m.id, msg: `FAIL upheld — \`${m.verify}\` also fails (exit ${v.code})` });
     }
@@ -1135,8 +1158,23 @@ the ticket's own verify command.`;
 /** Run the ticket's own verify command from OUTSIDE the session, as close() will. */
 function runVerifyDirect(m, wt) {
   try {
-    const r = spawnSync('bash', ['-lc', m.verify], { cwd: wt, encoding: 'utf8', timeout: 10 * 60_000 });
-    return { ok: r.status === 0, code: r.status ?? -1 };
+    // maxBuffer matters here. The default is 1MB; a verbose test suite blows
+    // through that, spawnSync kills the process, and `status` comes back null
+    // — which this function reported as a failure. That is precisely
+    // backwards: its ONE job is to overturn an unsubstantiated FAIL by
+    // re-running the ticket's own verify, so an overflow made it uphold the
+    // FAIL it exists to check. runBaselinePreflight() already uses 256MB for
+    // the same command shape.
+    const r = spawnSync('bash', ['-lc', m.verify], {
+      cwd: wt, encoding: 'utf8', timeout: 10 * 60_000, maxBuffer: 256 * 1024 * 1024,
+    });
+    // A killed or never-started process is not a verdict. Only a real exit
+    // code decides; anything else is "could not determine", which must not
+    // read as either pass or fail.
+    if (r.error || r.status === null || r.status === undefined) {
+      return { ok: false, code: -1, inconclusive: true, error: String(r.error?.message || 'verify produced no exit code') };
+    }
+    return { ok: r.status === 0, code: r.status };
   } catch (e) {
     return { ok: false, code: -1, error: String(e.message) };
   }
@@ -1419,9 +1457,12 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
 // is what a review-before-merge (PR-per-ticket) workflow needs. Projects that
 // forbid direct-to-main merges (marauder AGENTS.md section 5) must run with
 // --no-merge and open the PR from the pushed branch.
-function pushRemotes(ticket, branch) {
+// `forceRef` overrides the mode-derived choice: the merge-conflict path in
+// land() has to push the BRANCH even under --merge, because main never
+// received the work and the branch is the only copy of it.
+function pushRemotes(ticket, branch, forceRef = null) {
   if (!DO_PUSH || DRY) return;
-  const ref = DO_MERGE ? 'main' : branch;
+  const ref = forceRef || (DO_MERGE ? 'main' : branch);
   if (!ref) return;
   for (const rem of CONFIG.remotes) {
     try { sh('git', ['push', '-u', rem, ref], { cwd: ROOT, timeout: 60_000 }); }
@@ -1457,7 +1498,43 @@ function land(plan, m, branch, wt) {
     removeWorktree(wt);
     return false;
   }
-  git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
+  // A CONFLICTING MERGE IS AN OUTCOME, NOT A CRASH.
+  //
+  // Every worktree is branched from `main` at claim time, so on a multi-ticket
+  // run a later ticket can conflict with one that landed while it was working.
+  // This call used to be bare: `sh` throws on a non-zero git exit, the throw
+  // escaped land() and main(), and main().catch logged `conductor.fatal` and
+  // exited 1 — leaving `main` sitting in a half-finished merge with conflict
+  // markers and MERGE_HEAD set. The next run then refused to start on "working
+  // tree not clean", blaming a dirty tree the conductor itself created, and
+  // the ticket was stranded in in_review having been accept()ed in memory only.
+  try {
+    git('merge', '--no-ff', '-q', '-m', `Merge ${branch}: ${m.id} ${m.title}\n\nConductor-verified: close() gate green (${m.verify}).`, branch);
+  } catch (e) {
+    // Leave main exactly as it was. A conflict needs a human; what it must not
+    // need is a repository rescued out of a mid-merge state first.
+    try { git('merge', '--abort'); } catch { /* nothing to abort */ }
+    const detail = tailLines(e.stdout || e.stderr || e.message, 6);
+    log('merge.conflict', {
+      ticket: m.id,
+      msg: `merging ${branch} into main conflicts — main left untouched, branch preserved for manual merge: ${detail}`,
+    });
+    // accept() already ran and marked this ticket Done IN MEMORY. It must not
+    // be persisted: main never received the work, so "Done" would be a lie the
+    // board tells every future reader. Re-load from disk to discard that
+    // transition, and record the conflict on the ticket as it actually stands
+    // (in_review — its gates did pass; only the merge did not happen).
+    const fresh = loadFreshPlan();
+    comment(fresh, m.id, REVIEWER_ACTOR,
+      `CONDUCTOR verified this ticket but could not merge ${branch} into main (conflict with work landed since it branched). ` +
+      `The branch is preserved. Resolve and merge by hand: ${detail}`.slice(0, 900));
+    persistPlan(fresh, `chore(${m.id}): conductor logs merge conflict`);
+    // The branch is the deliverable here; push THAT, not main (which never
+    // received this work), so the verified candidate is not local-only.
+    pushRemotes(m.id, branch, branch);
+    removeWorktree(wt);
+    return false;
+  }
   persistPlan(plan, `chore(${m.id}): conductor accepts ticket (done)`);
   removeWorktree(wt);
   try { git('branch', '-d', branch); } catch {}
