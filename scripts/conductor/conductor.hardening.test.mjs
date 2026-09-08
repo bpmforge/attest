@@ -13,18 +13,20 @@
 // loop: review -> bounded fix -> runtime. That path had no end-to-end coverage
 // at all before this file.
 //
-// Run standalone, like its sibling:
+// Runs inside `npm test` as Pass 53 (scripts/test-conductor-suite.ts), and
+// standalone:
 //   node --test scripts/conductor/conductor.hardening.test.mjs
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { readVerdict } from '../lib/runtime-verdict.mjs';
 import { reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
+import { containSessionGroup, isTimeout } from '../lib/session-containment.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
@@ -376,4 +378,178 @@ test('final blocking findings cross the attempt boundary, bounded and delimited'
   );
   assert.ok(huge.length <= 1200, `feedback must respect the overall limit (got ${huge.length})`);
   assert.match(huge, /truncated/i, 'truncation must be visible, not silent');
+});
+
+// ── Issue #6 item 4: `spawnSync`'s timeout signals the DIRECT child only, so a
+// shell/compiler/test-runner grandchild outlives it and races a same-worktree
+// retry. This is the negative control the report asks for: it asserts the
+// orphan is ALIVE after the direct kill, then that containment removes it. ──
+test('a timed-out session\'s descendants are killed and PROVEN gone before any retry',
+  { timeout: 60_000, skip: process.platform === 'win32' ? 'POSIX process groups only' : false },
+  async () => {
+    const alive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
+    const base = mkdtempSync(resolve(tmpdir(), 'conductor-contain-'));
+    try {
+      const pidFile = resolve(base, 'grandchild.pid');
+      const script = resolve(base, 'session.sh');
+      // Stands in for `opencode` shelling out to a build that outlives it.
+      writeFileSync(script, '#!/usr/bin/env bash\nsleep 30 &\necho $! > "$1"\nwait\n');
+      chmodSync(script, 0o755);
+
+      const child = spawn('bash', [script, pidFile], { detached: true, stdio: 'ignore' });
+      // Wait for the grandchild to exist.
+      for (let i = 0; i < 100 && !existsSync(pidFile); i++) await new Promise((r) => setTimeout(r, 50));
+      assert.ok(existsSync(pidFile), 'fixture precondition: the grandchild must have started');
+      const grandchild = Number(readFileSync(pidFile, 'utf8').trim());
+      assert.ok(alive(grandchild), 'fixture precondition: the grandchild is running');
+
+      // Exactly what Node's spawnSync timeout does: signal the direct child.
+      process.kill(child.pid, 'SIGKILL');
+      await new Promise((r) => setTimeout(r, 300));
+
+      // THE NEGATIVE CONTROL. If this assertion ever fails, the platform reaps
+      // the tree on its own and the rest of this test proves nothing.
+      assert.ok(alive(grandchild),
+        'killing the direct child must leave the grandchild running — this is the defect being contained');
+
+      const contained = await containSessionGroup(child.pid, { graceMs: 2000 });
+      assert.equal(contained.ok, true, `containment must succeed: ${contained.reason}`);
+      assert.ok(!alive(grandchild), 'the grandchild must be gone before any retry is permitted');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('containment fails CLOSED when it cannot prove the previous execution is over', async () => {
+  // No usable pid — a retry here would be pure optimism.
+  for (const bad of [undefined, null, 0, 1, -5, 1.5, 'nope']) {
+    const r = await containSessionGroup(bad);
+    assert.equal(r.ok, false, `pid ${JSON.stringify(bad)} must not read as contained`);
+  }
+  // A platform with no process-group semantics never claims containment.
+  const win = await containSessionGroup(4242, { canContain: false });
+  assert.equal(win.ok, false, 'a platform without tree containment must refuse');
+
+  // A group that survives SIGKILL is not contained, however many signals were
+  // delivered without error.
+  const stubborn = await containSessionGroup(4242, {
+    graceMs: 20, pollMs: 5,
+    kill: () => {},                       // every signal "succeeds"; nothing dies
+    sleep: () => Promise.resolve(),
+  });
+  assert.equal(stubborn.ok, false, 'a group still alive after SIGKILL must not read as contained');
+  assert.match(stubborn.reason, /still has live members/);
+});
+
+test('a timeout is classified as a timeout in both shapes Node reports it', () => {
+  assert.equal(isTimeout({ signal: 'SIGTERM' }), true, 'signal shape');
+  assert.equal(isTimeout({ error: { code: 'ETIMEDOUT' } }), true, 'ETIMEDOUT shape');
+  assert.equal(isTimeout({ status: 1, error: { code: 'ENOENT' } }), false, 'a real spawn error is not a timeout');
+  assert.equal(isTimeout({ status: 0 }), false, 'a clean exit is not a timeout');
+  assert.equal(isTimeout(null), false);
+});
+
+// ── Issue #6 item 3: --max-tickets bounds SUCCESSES, not work. `landed` only
+// advances on a verified success, so on a board with a low success rate one
+// invocation could claim, run and fail an unbounded number of tickets. ─────
+function setupBudgetFixture(ticketCount) {
+  const base = mkdtempSync(resolve(tmpdir(), 'conductor-budget-'));
+  const target = resolve(base, 'target-repo');
+  mkdirSync(target, { recursive: true });
+  const git = (...a) => sh('git', a, { cwd: target });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'conductor-test@example.com');
+  git('config', 'user.name', 'Conductor Test');
+  git('config', 'commit.gpgsign', 'false');
+
+  const modules = Array.from({ length: ticketCount }, (_, i) => ({
+    id: `BUD-${i + 1}`, kind: 'module', title: `Budget ticket ${i + 1}`, lane: `lane-${i}`,
+    owner: null, status: 'ready', write_scope: [`s${i + 1}/**`], depends_on: [],
+    acceptance: ['does nothing at all'],
+    verify: `bash ${GATES_SH} --scope s${i + 1} --manifest docs/reviews/MANIFEST_BUD-${i + 1}.md --root .`,
+    manifest: `docs/reviews/MANIFEST_BUD-${i + 1}.md`,
+  }));
+  writeFileSync(resolve(target, 'plan.json'), JSON.stringify({ goal: 'budget fixture', modules }, null, 2) + '\n');
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
+  mkdirSync(resolve(target, 'docs/reviews'), { recursive: true });
+  writeFileSync(resolve(target, 'docs/reviews/.gitkeep'), '');
+  mkdirSync(resolve(target, 'docs/work'), { recursive: true });
+  writeFileSync(resolve(target, '.gitignore'), 'docs/work/\n.conductor-worktrees/\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'initial fixture');
+
+  // Every session succeeds and produces nothing — so every ticket fails its
+  // gates, is released, and NEVER advances `landed`.
+  const binDir = resolve(base, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const stub = resolve(binDir, 'opencode-stub.sh');
+  writeFileSync(stub, `#!/usr/bin/env bash
+if [[ "\${1:-}" == "models" ]]; then printf '%s\\n' fixture/coder-model fixture/reviewer-model; exit 0; fi
+exit 0
+`);
+  chmodSync(stub, 0o755);
+  return { base, target, stub };
+}
+
+test('--max-processed bounds tickets CLAIMED, independently of tickets landed',
+  { timeout: 120_000 }, () => {
+    const { base, target, stub } = setupBudgetFixture(3);
+    try {
+      // A success target of 5 that can never be met: without a processing
+      // ceiling this claims all three, which is the reported defect.
+      const { log } = runConductor(target, stub, ['--max-tickets', '5', '--max-processed', '1', '--max-attempts', '1']);
+
+      const claims = log.filter((r) => r.kind === 'ticket.start');
+      assert.equal(claims.length, 1, `exactly one ticket may be claimed (claimed ${claims.length})`);
+
+      const end = log.find((r) => r.kind === 'conductor.end');
+      assert.ok(end, 'the run must report an end row');
+      assert.equal(end.landed, 0, 'nothing landed');
+      assert.equal(end.processed, 1, 'exactly one ticket was processed');
+      assert.match(end.stopReason, /max-processed/, 'the stopping reason must name the ceiling that stopped it');
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      const touched = plan.modules.filter((m) => (m.history || []).length > 0);
+      assert.equal(touched.length, 1, 'the other tickets must be left untouched on the board');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('--max-processed 0 claims nothing at all', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupBudgetFixture(2);
+  try {
+    const { log } = runConductor(target, stub, ['--max-processed', '0']);
+    assert.equal(log.filter((r) => r.kind === 'ticket.start').length, 0, 'no ticket may be claimed');
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.ok(plan.modules.every((m) => m.status === 'ready' && (m.history || []).length === 0),
+      'the board must be untouched');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+// A typo'd numeric flag used to become NaN, making `while (landed < NaN)` false
+// on the first evaluation: the run exited reporting landed=0, which is exactly
+// what an empty board looks like.
+test('an invalid numeric flag is refused before the board is touched', { timeout: 60_000 }, () => {
+  const { base, target, stub } = setupBudgetFixture(1);
+  try {
+    for (const bad of [['--max-tickets', 'five'], ['--max-attempts', '-1'], ['--max-processed', '1.5']]) {
+      let code = 0; let err = '';
+      try {
+        sh('node', [CONDUCTOR, '--root', target, '--no-push', ...bad], {
+          cwd: target, env: { ...process.env, OPENCODE_BIN: stub },
+        });
+      } catch (e) { code = e.status; err = `${e.stdout || ''}${e.stderr || ''}`; }
+      assert.equal(code, 2, `${bad.join(' ')} must exit 2, not run`);
+      assert.match(err, new RegExp(bad[0].replace(/^--/, '')), 'the error must name the offending flag');
+    }
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.ok(plan.modules.every((m) => (m.history || []).length === 0), 'no board mutation may have occurred');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
 });
