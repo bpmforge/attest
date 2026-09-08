@@ -19,8 +19,85 @@
 // Lives here rather than in conductor.mjs because that file calls main() at
 // import time, so nothing in it can be unit-tested without running the CLI.
 
-/** Matches the verdict line the round-3 prompt asks for, tolerantly. */
+/**
+ * Matches the verdict line the round-3 prompt asks for, tolerantly.
+ *
+ * DEPRECATED for gating. Kept only so existing callers/tests that ask "does
+ * this text contain a PASS-shaped verdict" keep working. It is UNANCHORED, so
+ * it matches the token anywhere in the document — including inside a quoted
+ * copy of the prompt's own instructions. Use readVerdict() to decide anything.
+ */
 export const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
+
+// ── Verdict reading: the LAST line that is itself a verdict ──────────────────
+//
+// WHY THIS EXISTS (found 2026-09-08, auditing GH issue #6).
+//
+// Both gate regexes — conductor.mjs's APPROVED_RE and RUNTIME_PASS_RE above —
+// were unanchored `.test(body)` calls. The prompts handed to the reviewer and
+// runtime sessions contain the literal strings "VERDICT: APPROVED" and
+// "RUNTIME: PASS" as instructions. A model that restates its instructions
+// before reporting — "I was asked to end with VERDICT: APPROVED or VERDICT:
+// CHANGES REQUESTED; my findings are..." — therefore SELF-APPROVED, no matter
+// what verdict it actually reached. Reproduced against the real regexes: a
+// document whose final line is "VERDICT: CHANGES REQUESTED" read as approved,
+// and one ending "RUNTIME: FAIL" read as pass.
+//
+// That is a false-APPROVAL path, so it fails open: the conductor's whole
+// maker != verifier guarantee rests on these two booleans. No adversary is
+// needed, only a chatty model.
+//
+// The fix is threefold:
+//   1. Only a line that IS a verdict counts (line-anchored, `^`), so a verdict
+//      quoted mid-sentence is inert.
+//   2. The LAST such line wins — the prompt asks for the verdict at the end,
+//      and a document that lists both options before deciding must be read by
+//      its decision, not its preamble.
+//   3. Ambiguity fails CLOSED: a verdict line naming both a positive and a
+//      negative token ("VERDICT: APPROVED or CHANGES REQUESTED") is a
+//      rejection, never an approval.
+//
+// Leading blockquote/list/emphasis markers are tolerated (models format
+// verdicts as `**VERDICT: APPROVED**`, `> VERDICT: PASS`, `- RUNTIME: PASS`)
+// but a quote character is not: a line starting `"VERDICT: APPROVED" is what
+// I was asked for` is prose about a verdict, not a verdict.
+const VERDICT_LABEL_RE =
+  /^[\s>*_#+.\-]*(?:\*\*)?\s*(?:RUNTIME(?:\s+VERDICT)?|VERDICT|STATUS|RESULT)\s*[:\-]+\s*(.*)$/i;
+
+const POSITIVE_VERDICT_RE = /\b(APPROVED?|PASS(?:ED|ING)?|ACCEPTED?|LGTM)\b/i;
+const NEGATIVE_VERDICT_RE =
+  /\b(CHANGES\s+REQUESTED|REJECTED?|FAIL(?:ED|ING|URE|_CANDIDATE)?|BLOCKED\w*|NEEDS\s+(?:WORK|CHANGES)|REQUEST\s+CHANGES)\b/i;
+
+/**
+ * Read a document's actual verdict: the last line that is itself a verdict.
+ *
+ * Returns { found, approved, token, line }:
+ *   found    — a verdict line was present at all. A document with none is NOT
+ *              an approval; callers must treat !found as "no verdict given".
+ *   approved — true only for an unambiguous positive verdict.
+ *   token    — the verdict text as written, for logs and receipts.
+ *   line     — the full line it was read from, so a log can quote its source.
+ */
+export function readVerdict(body) {
+  const lines = String(body || '').split('\n');
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const m = VERDICT_LABEL_RE.exec(lines[i]);
+    if (!m) continue;
+    const rest = m[1].replace(/\*\*/g, '').trim();
+    if (!rest) continue;
+    const negative = NEGATIVE_VERDICT_RE.test(rest);
+    const positive = POSITIVE_VERDICT_RE.test(rest);
+    if (!negative && !positive) continue;      // a label with no verdict token
+    // Fail closed: "APPROVED or CHANGES REQUESTED" is not an approval.
+    return {
+      found: true,
+      approved: positive && !negative,
+      token: rest.slice(0, 120),
+      line: lines[i].trim().slice(0, 200),
+    };
+  }
+  return { found: false, approved: false, token: null, line: null };
+}
 
 /** "This project does not define that command" — absent tooling, not a failure. */
 const MISSING_TOOLING_RE =
@@ -176,8 +253,21 @@ export const VERDICT_STATES = [
 // The verdict line, tolerant like RUNTIME_PASS_RE. FAIL_CANDIDATE before FAIL
 // so alternation can't truncate the longer token; legacy FAIL maps to
 // FAIL_CANDIDATE in classifyRuntimeVerdict().
+// Line-anchored and read LAST-match-wins, for the reason readVerdict() above
+// documents at length: unanchored, this matched the five state names where the
+// round-3 prompt LISTS them, so a report quoting its own instructions
+// classified on the first token it happened to mention rather than on the
+// verdict it reached.
 const VERDICT_LINE_RE =
-  /runtime\s*(?:verdict)?\s*[:\-]?\s*\**\s*(PASS|FAIL_CANDIDATE|FAIL|BLOCKED_BASELINE_CONFIRMED|BLOCKED_BASELINE_SUSPECTED|BLOCKED_INFRASTRUCTURE)\b/i;
+  /^[\s>*_#+.\-]*(?:\*\*)?\s*runtime\s*(?:verdict)?\s*[:\-]+\s*\**\s*(PASS|FAIL_CANDIDATE|FAIL|BLOCKED_BASELINE_CONFIRMED|BLOCKED_BASELINE_SUSPECTED|BLOCKED_INFRASTRUCTURE)\b/gim;
+
+/** The last line that is itself a runtime verdict, or null. */
+function lastRuntimeVerdictToken(body) {
+  VERDICT_LINE_RE.lastIndex = 0;
+  let token = null;
+  for (const m of String(body || '').matchAll(VERDICT_LINE_RE)) token = m[1];
+  return token;
+}
 
 // Infrastructure-shaped causes for a non-zero exit, beyond the missing-tooling
 // set isGroundedFailure() already discounts: network, DNS, disk, OOM, kills.
@@ -236,8 +326,8 @@ export function hasBaselineReproduction(body) {
  */
 export function classifyRuntimeVerdict(body) {
   const b = String(body || '');
-  const m = b.match(VERDICT_LINE_RE);
-  let claimed = m ? m[1].toUpperCase() : null;
+  const t = lastRuntimeVerdictToken(b);
+  let claimed = t ? t.toUpperCase() : null;
   if (claimed === 'FAIL') claimed = 'FAIL_CANDIDATE'; // backward compat
   const groundedFailure = isGroundedFailure(b);
   const codeFailure = REAL_FAILURE_RE.test(b);
