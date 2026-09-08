@@ -7,8 +7,11 @@
 // its write_scope so the scope gate fails on every attempt, proving a
 // gate-failing ticket goes back to `ready`, never forward to `in_review`/`done`.
 //
-// Not wired into scripts/test.ts's Pass-N suite (see README.md) — run
+// Runs inside `npm test` as Pass 53 (scripts/test-conductor-suite.ts), and
 // standalone: node --test scripts/conductor/conductor.test.mjs
+// (This comment used to say the opposite. It was true when written and stopped
+// being true in v3.1.2, which is how a stale comment earns its own anti-slop
+// rule — R-15.)
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

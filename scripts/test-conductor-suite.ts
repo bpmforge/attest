@@ -17,7 +17,7 @@
  * merges, and duplicating that setup is exactly the kind of second copy that
  * drifts from the original and then lies about it.
  *
- * Runtime is ~6s for six tests — real git and real validators, not stubs.
+ * Runtime is ~15s — real git, real worktrees and real validators, not stubs.
  */
 
 import * as path from "path";
@@ -26,6 +26,12 @@ import { spawnSync } from "child_process";
 const SUITES = [
   "scripts/conductor/conductor.test.mjs",
   "scripts/conductor/resume.test.mjs",
+  // Added with the GH #6 hardening. Same reason the two above are here: these
+  // are the only end-to-end coverage of the FULL 3-round loop (review ->
+  // bounded fix -> runtime), and every case in it is a negative control that
+  // passes silently when its defect is present. A file like that is worth
+  // exactly nothing if the suite does not run it.
+  "scripts/conductor/conductor.hardening.test.mjs",
 ];
 
 export function testConductorSuite(
@@ -84,13 +90,13 @@ export function testConductorSuite(
       .map((l) => `  ${l.trim()}`)
       .join("\n");
     fail(
-      "conductor suite: conductor.test.mjs + resume.test.mjs are green",
+      "conductor suite: conductor + resume + hardening suites are green",
       `${failCount} conductor test(s) failing (${passCount} passing):\n${failing || out.trim().split("\n").slice(-20).join("\n")}`,
     );
     return;
   }
 
   ok(
-    `conductor suite: conductor.test.mjs + resume.test.mjs green (${passCount} tests, real git worktrees + validators)`,
+    `conductor suite: conductor + resume + hardening green (${passCount} tests, real git worktrees + validators)`,
   );
 }

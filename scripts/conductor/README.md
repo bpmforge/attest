@@ -56,6 +56,96 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   config naming a model this opencode install cannot resolve
   (`--model-gate warn|off`).
 
+## Bounds (every loop has one)
+
+A bounded unattended run is only as bounded as its weakest loop, so each one
+has an explicit ceiling and they are reported separately:
+
+| Flag | Bounds | Default |
+| --- | --- | --- |
+| `--max-tickets N` | Tickets that successfully **land** (or reach the PR boundary under `--no-merge`). A **success target**, not a work budget. | 999 |
+| `--max-processed N` | Tickets this invocation may **claim at all**, whatever the outcome. A hard **activity ceiling**. | unbounded |
+| `--max-attempts N` | Coding attempts per ticket. | 2 |
+| `--fix-iterations N` | Bounded review→fix→re-review iterations per attempt. | 3 |
+| `--session-timeout-retries N` | Same-worktree retries after a session **timeout**, separate from the provider rate-limit retries inside `runSession()`. | 0 |
+| `--session-minutes N` | Wall-clock ceiling on one session. | 45 |
+
+`--max-tickets` and `--max-processed` are deliberately different counters.
+`landed` only advances on a *verified success*, so on a board with a low
+success rate `--max-tickets 1` can claim, run and fail an unbounded number of
+tickets before it stops — it is a target, and a target is not a budget. Set
+`--max-processed` to bound how much of an unfamiliar board one invocation may
+touch.
+
+Orphans reconciled at startup (see `resume.mjs`) are reported as `resumed` and
+do **not** consume the `--max-processed` budget: they were claimed by a
+previous invocation, so charging them here would make the flag mean two
+different things depending on how the last run died. `conductor.end` reports
+`landed`, `processed`, `resumed` and the `stopReason` that ended the loop.
+
+Every numeric flag is validated as an integer before the board is touched. A
+typo used to become `NaN` and silently exit reporting `landed=0`, which is
+indistinguishable from an empty board.
+
+## Timeout safety and platform support
+
+`spawnSync`'s `timeout` signals the **direct child only**, and a session is
+never one process — it is `opencode` shelling out to a package manager, a
+compiler, a formatter, a test runner. Those descendants outlive the timeout,
+so a same-worktree retry races them over source files, lockfiles, review
+documents and build output.
+
+Sessions therefore spawn into their own process group (`detached`), and a
+timeout kills the **whole group**: SIGTERM, a bounded grace period, SIGKILL,
+then a liveness check. A retry is permitted only once that check proves the
+group is empty (`scripts/lib/session-containment.mjs`).
+
+Containment **fails closed**. A missing pid, a group that survives SIGKILL, or
+a platform without process-group semantics all refuse the retry and return exit
+124 rather than starting a second writer beside an unknown descendant. On
+Windows that is always the case: it would need a Job Object, which nothing here
+creates, so Windows performs **zero** same-worktree timeout retries.
+
+Timeouts are also classified from *both* shapes Node reports them in — a
+`signal` and `error.code === 'ETIMEDOUT'` — because the check for the second
+used to sit below a generic error return, so the same timeout was logged as a
+timeout on one machine and as a session failure on the next.
+
+## What crosses an attempt boundary
+
+When the bounded fix loop stays red, the attempt is discarded and the next one
+starts from a fresh worktree off `main`. It receives the **final blocking
+findings themselves**, not just the reviewer names — reviewer names are routing
+metadata, not defect descriptions, and an attempt told only "code-reviewer
+still blocking" has to rediscover the defect from nothing.
+
+The findings are bounded twice (per-document and overall, with truncation
+announced), carry only *non-approved* verdicts, mark an unreadable review
+`(missing)` rather than inferring approval, and are fenced inside explicit
+`BEGIN/END UNTRUSTED REVIEW EVIDENCE` markers. That last part is not cosmetic:
+a review document quotes the source it reviewed, so it can carry
+instruction-shaped text into the prompt of the agent about to rewrite that
+source.
+
+## Verdicts are read, not grepped
+
+A review or runtime document's verdict is the **last line that is itself a
+verdict** (`readVerdict()` in `scripts/lib/runtime-verdict.mjs`), not any
+occurrence of the word anywhere in the body.
+
+The prompts contain the strings `VERDICT: APPROVED` and `RUNTIME: PASS` as
+instructions, so an unanchored match meant any model that restated its
+instructions self-approved — a document ending `VERDICT: CHANGES REQUESTED`
+read as APPROVED. A missing verdict line is treated as blocking, and a line
+naming both outcomes fails closed.
+
+Relatedly: **any code change after the last approving review invalidates that
+approval.** Round 3 runs as the coder agent with the worktree writable, so a
+runtime session that edits an implementation file — even one inside
+`write_scope` — produces a candidate nobody reviewed. Non-document changes
+found after the review rounds fail the attempt rather than being folded into
+the closed commit.
+
 ## Before you point it at a repo
 
 Three properties of the target repo are load-bearing, and all fail in ways
@@ -111,7 +201,7 @@ role model the install cannot resolve, and it must *not* read an empty
 its own `models.json` and every stub answers `models`, so the suite never
 depends on which providers the developer has authenticated.
 
-Both files now run inside `npm test` as **Pass 53**
+All three files run inside `npm test` as **Pass 53**
 (`scripts/test-conductor-suite.ts`), which shells out to `node --test` with the
 TAP reporter pinned and fails the suite by name when any conductor test goes
 red. Until v3.1.2 they were standalone — out of the original ticket's
@@ -119,6 +209,16 @@ red. Until v3.1.2 they were standalone — out of the original ticket's
 both shipped with all four of these tests RED while `npm test` reported green.
 A zero-test run is treated as a failure too: an empty match must never read as
 a pass.
+
+`node --test scripts/conductor/conductor.hardening.test.mjs` — the GH #6
+hardening regressions, and the only end-to-end coverage of the **full 3-round
+loop** (review → bounded fix → runtime); every other conductor fixture runs at
+`--rounds 1`. Every case is a **negative control**: it passes silently when its
+defect is present, which is why these defects survived a 725-test suite. The
+descendant-liveness case asserts the orphaned grandchild is *alive* after the
+direct child is killed before asserting containment removes it — if that first
+assertion ever fails, the platform is reaping the tree on its own and the rest
+of the test proves nothing.
 
 `node --test scripts/conductor/resume.test.mjs` (T28.5) — same
 real-fixture style: one case hand-reconstructs a killed-mid-ticket state
