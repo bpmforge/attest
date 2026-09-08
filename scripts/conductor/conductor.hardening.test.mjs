@@ -911,3 +911,73 @@ test('a runtime report that claims PASS while quoting its own failure is not bel
       rmSync(base, { recursive: true, force: true });
     }
   });
+
+// ── Found auditing the lifecycle verbs: close() is described as "the
+// load-bearing gate", and it ran the ticket's verify with execSync's DEFAULTS
+// — no timeout, 1MB maxBuffer. Every other loop in the executor is bounded;
+// this one was not. ─────────────────────────────────────────────────────────
+function closeFixture(verifyCmd) {
+  const base = mkdtempSync(resolve(tmpdir(), 'close-gate-'));
+  writeFileSync(resolve(base, 'MANIFEST.md'), '# manifest\n');
+  const plan = {
+    modules: [{
+      id: 'T-1', status: 'in_progress', owner: 'someone', lane: 'l', kind: 'module',
+      title: 'T', write_scope: ['a/**'], depends_on: [], acceptance: ['x'],
+      manifest: 'MANIFEST.md', verify: verifyCmd, history: [],
+    }],
+  };
+  return { base, plan };
+}
+
+test('a verify that exits 0 but prints a lot is not reported as a failing gate',
+  { timeout: 60_000 }, async () => {
+    const { close } = await import('../lib/tickets-lifecycle.mjs');
+    // Exits 0, prints ~2MB. Under execSync's 1MB default this throws ENOBUFS,
+    // which the old catch reported as "did not exit 0" — refusing a green
+    // ticket and stating a reason that was not true.
+    const { base, plan } = closeFixture(`head -c 2000000 /dev/zero | tr '\\0' 'x'; exit 0`);
+    try {
+      const r = close(plan, 'T-1', 'someone', { branch: 'b', commits: ['abc123'], cwd: base });
+      assert.equal(r.ok, true, `a passing verify must close the ticket, got: ${r.error}`);
+      assert.equal(plan.modules[0].status, 'in_review');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('a verify that hangs is killed and reported as unverified, not as a test failure',
+  { timeout: 60_000 }, async () => {
+    const { close } = await import('../lib/tickets-lifecycle.mjs');
+    const { base, plan } = closeFixture('sleep 60');
+    try {
+      const started = Date.now();
+      const r = close(plan, 'T-1', 'someone', {
+        branch: 'b', commits: ['abc123'], cwd: base, timeoutMs: 1500,
+      });
+      const elapsed = Date.now() - started;
+
+      assert.equal(r.ok, false, 'a hanging verify must not close the ticket');
+      assert.ok(elapsed < 20_000, `the gate must be bounded, took ${elapsed}ms`);
+      assert.match(r.error, /did not finish within/i, 'the reason must say it timed out');
+      assert.match(r.error, /NOT verified/i, 'and that the ticket is not verified');
+      assert.doesNotMatch(r.error, /did not exit 0/,
+        'it must NOT claim a non-zero exit — there was no exit code at all');
+      assert.equal(plan.modules[0].status, 'in_progress', 'status must not advance');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('a genuinely failing verify still fails, with its output', { timeout: 60_000 }, async () => {
+  const { close } = await import('../lib/tickets-lifecycle.mjs');
+  const { base, plan } = closeFixture('echo "3 tests failed" >&2; exit 1');
+  try {
+    const r = close(plan, 'T-1', 'someone', { branch: 'b', commits: ['abc123'], cwd: base });
+    assert.equal(r.ok, false, 'the gate must not get weaker');
+    assert.match(r.error, /did not exit 0/, 'a real non-zero exit is still reported as one');
+    assert.match(r.error, /3 tests failed/, 'and carries the output');
+    assert.equal(plan.modules[0].status, 'in_progress');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
