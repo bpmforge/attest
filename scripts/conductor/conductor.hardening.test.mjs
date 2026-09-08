@@ -553,3 +553,45 @@ test('an invalid numeric flag is refused before the board is touched', { timeout
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ── Found while auditing #6: land()'s `git merge` was a bare call, and `sh`
+// throws on a non-zero git exit. The throw escaped land() AND main(), so
+// main().catch logged conductor.fatal and exited 1 — leaving the target's main
+// branch sitting in a half-finished merge, which the NEXT run then refused to
+// start on ("working tree not clean"), blaming a dirty tree the conductor
+// itself created. ────────────────────────────────────────────────────────────
+test('a merge that fails leaves main untouched instead of crashing mid-merge',
+  { timeout: 120_000 }, () => {
+    const { base, target, stub } = setupFixture({ reviewVerdict: 'VERDICT: APPROVED' });
+    try {
+      // A pre-merge-commit hook that refuses reproduces the exact shape: git
+      // exits non-zero with MERGE_HEAD set and the merge staged but uncommitted.
+      const hook = resolve(target, '.git/hooks/pre-merge-commit');
+      mkdirSync(dirname(hook), { recursive: true });
+      writeFileSync(hook, '#!/bin/sh\nexit 1\n');
+      chmodSync(hook, 0o755);
+
+      const { log } = runConductor(target, stub, ['--max-attempts', '1']);
+
+      assert.equal(log.filter((r) => r.kind === 'conductor.fatal').length, 0,
+        'a failed merge must be an outcome, not a fatal crash');
+      const conflict = log.find((r) => r.kind === 'merge.conflict');
+      assert.ok(conflict, 'the failed merge must be logged as such');
+
+      // The state the old code left behind, and the whole point of the fix.
+      assert.ok(!existsSync(resolve(target, '.git/MERGE_HEAD')),
+        'main must not be left mid-merge');
+      assert.equal(sh('git', ['status', '--porcelain'], { cwd: target }).trim(), '',
+        'the target must be clean, so the NEXT run can start');
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.notEqual(plan.modules[0].status, 'done', 'an unmerged ticket must not read as Done');
+
+      // The verified work is the branch. It must survive.
+      const branches = sh('git', ['branch', '--list'], { cwd: target });
+      assert.match(branches, /TICK-1-conductor|tick-1-conductor/,
+        'the verified branch must be preserved for a manual merge');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
