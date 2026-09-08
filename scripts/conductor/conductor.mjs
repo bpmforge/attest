@@ -60,8 +60,8 @@ import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmS
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
-import { isGroundedFailure, extractFailureReason } from '../lib/runtime-verdict.mjs';
-import { exhaustionReason, latestAttemptGaps } from '../lib/attempt-outcome.mjs';
+import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
+import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
 // Board is pluggable: plan.json (tickets.mjs) is the default; set
 // CONDUCTOR_BOARD=jira to select the JIRA board driver (jira-tickets.mjs)
 // instead — same 13 names, identical signatures (docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md).
@@ -263,21 +263,60 @@ const STOPFILE = resolve(ROOT, 'STOP');
 // no .git) — a lock in the worktree dirties the target and trips the
 // conductor's own clean-tree gate, which is how the first draft of this
 // lock was caught by the test suite.
-const LOCKFILE = existsSync(resolve(ROOT, '.git'))
-  ? resolve(ROOT, '.git', 'conductor.lock')
-  : resolve(RUNTIME_DIR, 'conductor.lock');
+//
+// WHERE the lock lives (GH issue #6, comment 1 — field-reported 2026-09-04).
+// The first draft tested `existsSync(<root>/.git)` and appended to it. In a
+// LINKED git worktree `.git` is a regular FILE holding a `gitdir:` pointer, so
+// that path is `<file>/conductor.lock` and the very first thing the conductor
+// does is die with ENOTDIR — before its cleanliness, model, baseline or board
+// gates ever run. Reproduced here 2026-09-08 with `git worktree add`.
+//
+// `git rev-parse --git-common-dir` answers the question the lock actually
+// wants: the ONE directory shared by a repository and every linked worktree of
+// it. That also strengthens the invariant rather than merely un-breaking it —
+// two linked worktrees of the same repository now contend for the SAME lock,
+// which is correct, because they share the branches and the board that two
+// conductors would fight over.
+//
+// It returns a RELATIVE path (".git") when asked from the repository root and
+// an absolute one from a linked worktree, so it must be resolved against ROOT
+// explicitly — resolve() would otherwise anchor it to process.cwd(), which is
+// the conductor's own directory, not the target's. That mistake passes every
+// test run from the repository root and silently writes the lock to the wrong
+// place in the field.
+function resolveLockFile() {
+  try {
+    const common = execFileSync('git', ['rev-parse', '--git-common-dir'], {
+      cwd: ROOT, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    if (common) return resolve(isAbsolute(common) ? common : resolve(ROOT, common), 'conductor.lock');
+  } catch { /* not a git repository — fall through */ }
+  return resolve(RUNTIME_DIR, 'conductor.lock');
+}
+const LOCKFILE = resolveLockFile();
 function acquireRunLock() {
-  if (existsSync(LOCKFILE)) {
-    const pid = Number(readFileSync(LOCKFILE, 'utf8').trim() || '0');
+  mkdirSync(dirname(LOCKFILE), { recursive: true });
+  const refuse = (pid) => {
+    console.error(`another conductor (pid ${pid}) holds ${LOCKFILE} — two conductors on one board release each other's work; stop it or remove the lock`);
+    process.exit(4);
+  };
+  // Create-exclusive ('wx'), not existsSync-then-write: the check-then-act
+  // version loses the race it exists to prevent — two conductors starting in
+  // the same instant both see no lock, both write, and both run. The kernel
+  // decides here instead.
+  const claimLock = () => {
+    try { writeFileSync(LOCKFILE, String(process.pid), { flag: 'wx' }); return true; }
+    catch (e) { if (e.code === 'EEXIST') return false; throw e; }
+  };
+  if (!claimLock()) {
+    const pid = Number(String(readFileSync(LOCKFILE, 'utf8')).trim() || '0');
     let alive = false;
-    if (pid > 0) { try { process.kill(pid, 0); alive = true; } catch { /* stale */ } }
-    if (alive) {
-      console.error(`another conductor (pid ${pid}) holds ${LOCKFILE} — two conductors on one board release each other's work; stop it or remove the lock`);
-      process.exit(4);
-    }
+    if (pid > 0 && pid !== process.pid) { try { process.kill(pid, 0); alive = true; } catch { /* stale */ } }
+    if (alive) refuse(pid);
     log('conductor.lock', { msg: `stale lock from dead pid ${pid} removed` });
+    try { rmSync(LOCKFILE); } catch { /* another conductor cleaned up first */ }
+    if (!claimLock()) refuse(Number(String(readFileSync(LOCKFILE, 'utf8')).trim() || '0'));
   }
-  writeFileSync(LOCKFILE, String(process.pid));
   const drop = () => { try { if (Number(readFileSync(LOCKFILE, 'utf8').trim()) === process.pid) rmSync(LOCKFILE); } catch { /* already gone */ } };
   process.on('exit', drop);
   process.on('SIGINT', () => { drop(); process.exit(130); });
@@ -725,6 +764,20 @@ function hasUncommittedWork(wt) {
   return gitIn(wt, 'status', '--porcelain').length > 0;
 }
 
+// Rounds 2-3 are allowed to write exactly one kind of file: their own review
+// and runtime documents (and the manifest, which lives beside them). Anything
+// else in the tree after those rounds is a CODE change made after the last
+// approving review.
+const ROUND_DOC_PREFIXES = ['docs/reviews/', 'docs/work/'];
+function nonDocumentChanges(wt) {
+  return gitIn(wt, 'status', '--porcelain', '-uall')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((l) => l.replace(/^\S+\s+/, '').replace(/^.*\s->\s/, '').replace(/^"|"$/g, ''))
+    .filter((path) => path && !ROUND_DOC_PREFIXES.some((d) => path.startsWith(d)));
+}
+
 // ---------- prompts ----------
 const handoffPrompt = (m, startReceipt, feedback) => `You are executing exactly ONE ticket, unattended, with no git or plan.json access — the conductor handles both from outside this session.
 
@@ -749,8 +802,13 @@ Rules of engagement:
 // attempts already spent before the crash (see reconcileOrphan in main()).
 // ---------- Phase 4 rounds 2-3 (PARALLEL_WAVE_PROTOCOL) ----------
 const reviewDoc  = (m, kind) => `docs/reviews/${kind}_${m.id}.md`;
-const APPROVED_RE = /verdict\s*[:\-]?\s*\**\s*(APPROVED|PASS)/i;
-const RUNTIME_PASS_RE = /runtime\s*(verdict)?\s*[:\-]?\s*\**\s*PASS/i;
+// The verdict of a review/runtime document is read by readVerdict() (see
+// scripts/lib/runtime-verdict.mjs), NOT by an unanchored .test() of the whole
+// body. Both gates used to be unanchored, and both prompts below contain the
+// literal strings "VERDICT: APPROVED" and "RUNTIME: PASS" as instructions — so
+// any model that restated its instructions self-approved. Found 2026-09-08
+// while auditing GH issue #6; it is a false-APPROVAL path, which is the one
+// direction these gates must never fail in.
 
 /** Round 2 — one review session per triggered reviewer, on the REVIEWER model. */
 // Reviewer selection lives in ../lib/review-triggers.mjs (this file calls
@@ -792,16 +850,25 @@ Do NOT edit the implementation. Do NOT run git. You are reviewing, not fixing.`;
     const session = await runSession(prompt, wt, { agent, model: REVIEWER_MODEL, role: 'reviewer' });
     const abs = resolve(wt, doc);
     const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
-    const ok = APPROVED_RE.test(body);
+    const verdict = readVerdict(body);
+    // A document with NO verdict line is not an approval. It used to read as
+    // one whenever the body happened to contain the word "approved" anywhere.
+    const ok = verdict.found && verdict.approved;
     verdicts.push({
       reviewer: r,
       doc,
       present: Boolean(body),
       approved: ok,
+      verdictFound: verdict.found,
+      verdictLine: verdict.line,
       sessionFailed: session.code !== 0,
       sessionCode: session.code,
     });
-    log('round2.review.verdict', { ticket: m.id, msg: `${r}: ${!body ? 'NO DOCUMENT' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` });
+    log('round2.review.verdict', {
+      ticket: m.id,
+      msg: `${r}: ${!body ? 'NO DOCUMENT' : !verdict.found ? 'NO VERDICT LINE (treated as blocking)' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` +
+        (verdict.line ? ` — "${verdict.line}"` : ''),
+    });
   }
   return verdicts;
 }
@@ -839,7 +906,30 @@ ${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
     // iteration, and "review the work already committed" is simply false.
     // Found 2026-08-03 (RDSAD-253, batch-2 retry): 6 review rounds across 2
     // attempts rejected identical, correct work for exactly this reason.
+    //
+    // GATE THE REPAIR BEFORE COMMITTING IT (GH issue #6, comment 2 —
+    // field-reported 2026-09-08). This amend used to run unconditionally, and
+    // the attempt's only later scope check ran AFTER it, against
+    // `git status --porcelain` — which is empty once the tree is committed. So
+    // a reviewer-triggered repair that wrote outside write_scope had its
+    // violation folded into the checkpoint commit and then found nothing to
+    // report. That is a security-boundary defect, not an evidence gap: the
+    // repair session had strictly MORE write authority than the maker session
+    // whose identical violation the gate at the top of this attempt catches.
+    //
+    // The scope gate is a dirty-tree check by construction (see its comment),
+    // so it has to run here, before `git add`.
     if (hasUncommittedWork(wt)) {
+      const fixScope = scopeGate(wt, m.write_scope);
+      if (!fixScope.ok) {
+        return {
+          ok: false,
+          scopeViolation: true,
+          iterations: i,
+          detail: fixScope.detail,
+          blocking: blocking.map((v) => v.reviewer),
+        };
+      }
       gitIn(wt, 'add', '-A');
       gitIn(wt, 'commit', '-q', '--amend', '--no-edit');
     }
@@ -850,8 +940,15 @@ ${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
       if (idx >= 0) verdicts[idx] = nv;
     }
   }
-  const still = verdicts.filter((v) => !v.approved).map((v) => v.reviewer);
-  return { ok: still.length === 0, iterations: FIX_ITERATIONS, blocking: still };
+  const stillBlocking = verdicts.filter((v) => !v.approved);
+  return {
+    ok: stillBlocking.length === 0,
+    iterations: FIX_ITERATIONS,
+    blocking: stillBlocking.map((v) => v.reviewer),
+    // The verdicts themselves, so the caller can carry the FINDINGS (not just
+    // these names) into the next fresh attempt — see reviewFailureFeedback().
+    blockingVerdicts: stillBlocking,
+  };
 }
 
 /** Round 3 — runtime verdict (build/lint/smoke), by the coder agent. */
@@ -906,7 +1003,8 @@ the ticket's own verify command.`;
   const session = await runSession(prompt, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'runtime' });
   const abs = resolve(wt, doc);
   const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
-  let pass = RUNTIME_PASS_RE.test(body);
+  const runtimeVerdict = readVerdict(body);
+  let pass = runtimeVerdict.found && runtimeVerdict.approved;
 
   // EVIDENCE OUTRANKS THE CLAIM (the v2.47.0 principle, applied to this round).
   //
@@ -1074,8 +1172,37 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       if (fixed.infrastructure) {
         return blockWithoutExhausting('coder-fix-session', [fixed.reason], wt, attempt);
       }
+      if (fixed.scopeViolation) {
+        // An out-of-scope repair never advances to re-review or runtime. It is
+        // an ordinary red attempt — the bounded attempt policy decides whether
+        // to retry — and the violation itself is preserved as evidence.
+        const ev = captureScopeEvidence(m, attempt, wt);
+        const gaps = [
+          `scope gate failed during reviewer fix (iteration ${fixed.iterations}): ${fixed.detail}`,
+          ev.feedback,
+        ].filter(Boolean);
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
+        preserveAttemptEvidence(m, attempt, wt);
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
       if (!fixed.ok) {
-        const gaps = [`round 2: still blocking after ${fixed.iterations} fix iteration(s): ${(fixed.blocking || []).join(', ')}`];
+        // gaps[0] stays the concise one-liner: it is what reaches the board
+        // comment and exhaustionReason(). gaps[1] is the detailed, bounded,
+        // untrusted-delimited findings — read HERE, while the worktree holding
+        // the review documents still exists, and carried into the next fresh
+        // attempt's prompt so it does not have to rediscover the defect.
+        const detail = reviewFailureFeedback(fixed.blockingVerdicts || [], (doc) => {
+          const abs = resolve(wt, doc);
+          return existsSync(abs) ? readFileSync(abs, 'utf8') : null;
+        });
+        const gaps = [
+          `round 2: still blocking after ${fixed.iterations} fix iteration(s): ${(fixed.blocking || []).join(', ')}`,
+          detail,
+        ].filter(Boolean);
         gapsPerAttempt.push(gaps);
         log('gates.fail', { ticket: m.id, msg: gaps[0] });
         preserveAttemptEvidence(m, attempt, wt);
@@ -1129,6 +1256,40 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
       }
     }
 
+    // MODIFIED CODE INVALIDATES PRIOR REVIEW — enforced, not merely stated.
+    //
+    // Found 2026-09-08 auditing GH issue #6 (not in the report). The scope
+    // re-check above is the LAST gate before this amend, and it only asks
+    // whether a path is inside write_scope — not whether anyone reviewed it.
+    // The runtime session (round 3) runs as the CODER agent with the whole
+    // worktree writable, and its prompt's "do not edit implementation files"
+    // is an instruction, not a gate. So a runtime session that edited a file
+    // INSIDE write_scope had that edit silently folded into the candidate
+    // commit here and closed — after the last approving review, reviewed by
+    // nobody. The same hole swallows anything a reviewer session writes
+    // outside its own document.
+    //
+    // The invariant the report itself states is "any post-approval code change
+    // creates a new candidate and requires new independent evidence". Until
+    // --runtime-fix-iterations can produce that fresh evidence (see
+    // runRuntimeRepair), the fail-closed reading is the only honest one: the
+    // attempt is red, and the work is preserved as evidence.
+    if (ROUNDS >= 3) {
+      const unreviewed = nonDocumentChanges(wt);
+      if (unreviewed.length) {
+        const gaps = [
+          `rounds 2-3 changed ${unreviewed.length} non-document file(s) after the last approving review — ` +
+          `prior approval no longer covers this tree: ${unreviewed.slice(0, 20).join(', ')}`,
+        ];
+        gapsPerAttempt.push(gaps);
+        log('gates.fail', { ticket: m.id, msg: gaps[0].slice(0, 300) });
+        preserveAttemptEvidence(m, attempt, wt);
+        comment(plan, m.id, ACTOR, `CONDUCTOR attempt ${attempt}/${maxAttempts} failed: ${gaps[0]}`.slice(0, 900));
+        persistPlan(plan, `chore(${m.id}): conductor logs gate failure (attempt ${attempt})`);
+        removeWorktree(wt);
+        continue;
+      }
+    }
     // The checkpoint commit before round 2 (and any --amend from a fix
     // iteration) already holds the session's work — commit again only if
     // rounds 2-3 themselves left something uncommitted (e.g. ROUNDS < 3, so
