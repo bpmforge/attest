@@ -1,21 +1,10 @@
 #!/usr/bin/env bash
 # Proves the new matcher: POSITIVE cases must match, NEGATIVE must NOT.
-matches_scope() {
-  local path="$1" ok="$2"
-  [[ "$path" == "$ok" || "$path" == "$ok/"* ]] && return 0
-  case "$ok" in
-    '*'|'**'|'/*'|'/**') return 1 ;;          # too broad - never honour
-    *'..'*) return 1 ;;                        # no traversal
-  esac
-  if [[ "$ok" == *[\*\?\[]* ]]; then
-    if [[ "$ok" == */'**' ]]; then
-      local base="${ok%/**}"
-      [[ "$path" == "$base" || "$path" == "$base/"* ]] && return 0
-    fi
-    [[ "$path" == $ok ]] && return 0           # unquoted RHS = pattern match
-  fi
-  return 1
-}
+# Sources the REAL matcher. This file used to carry its own copy, which meant
+# it could not fail when the product changed — only when the copy did.
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/_scope-match.sh"
+
 p=0;f=0
 chk(){ local want="$1" scope="$2" path="$3"
   if matches_scope "$path" "$scope"; then got=MATCH; else got=NOMATCH; fi
@@ -38,6 +27,15 @@ chk NOMATCH "apps/api"                            "apps/api-other/secret.ts"
 chk NOMATCH "docs/reviews/**"                     "apps/api/src/server.ts"
 chk NOMATCH "**"                                  "apps/api/src/server.ts"
 chk NOMATCH "*"                                   "package.json"
+echo "=== NEGATIVE: an UNANCHORED pattern names no path and authorises nothing ==="
+# Each of these matched "src/auth/session.ts" before 2026-09-08, i.e. every
+# nested path in the repository, while only the two literals above were refused.
+chk NOMATCH "**/*"                                "src/auth/session.ts"
+chk NOMATCH "*/**"                                "src/auth/session.ts"
+chk NOMATCH "*/*"                                 "src/auth/session.ts"
+chk NOMATCH "?*/**"                               "src/auth/session.ts"
+chk NOMATCH "[a-z]*/**"                           "src/auth/session.ts"
+chk NOMATCH "*.ts"                                "vendor/other/thing.ts"
 chk NOMATCH "apps/web/**/../../../etc/passwd"     "etc/passwd"
 chk NOMATCH "apps/web/e2e/**connector**"          "apps/api/src/features/diagrams/diagram-service.ts"
 echo; echo "passed=$p failed=$f"; [[ $f -eq 0 ]]
