@@ -17,22 +17,41 @@
  * merges, and duplicating that setup is exactly the kind of second copy that
  * drifts from the original and then lies about it.
  *
- * Runtime is ~15s — real git, real worktrees and real validators, not stubs.
+ * Runtime is ~40s — real git, real worktrees and real validators, not stubs.
  */
 
 import * as path from "path";
+import * as fs from "fs";
 import { spawnSync } from "child_process";
 
-const SUITES = [
-  "scripts/conductor/conductor.test.mjs",
-  "scripts/conductor/resume.test.mjs",
-  // Added with the GH #6 hardening. Same reason the two above are here: these
-  // are the only end-to-end coverage of the FULL 3-round loop (review ->
-  // bounded fix -> runtime), and every case in it is a negative control that
-  // passes silently when its defect is present. A file like that is worth
-  // exactly nothing if the suite does not run it.
-  "scripts/conductor/conductor.hardening.test.mjs",
-];
+/**
+ * DISCOVERED, NOT LISTED.
+ *
+ * This Pass began as a hardcoded list of two files, and the list is how the
+ * problem recurs: on 2026-09-08 a sweep found SIX more `*.test.mjs` suites
+ * that no harness had ever run — the entire JIRA board driver's unit, parity
+ * and integration tests (jira-tickets*.test.mjs, 11 tests over a 342-line
+ * driver), plus annotate, img-gate and log-hop. All six were green when found,
+ * so nothing was broken; they were simply unprotected, which is the state
+ * conductor.test.mjs was in while it stayed RED across three releases.
+ *
+ * A list has to be updated by whoever adds a suite, and the failure is silent
+ * when they don't. Discovery cannot be forgotten: any `*.test.mjs` added
+ * anywhere under scripts/ is run from the moment it exists.
+ */
+function discoverSuites(root: string): string[] {
+  const found: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === "node_modules" || entry.name.startsWith(".")) continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".test.mjs")) found.push(path.relative(root, full));
+    }
+  };
+  walk(path.join(root, "scripts"));
+  return found.sort();
+}
 
 export function testConductorSuite(
   root: string,
@@ -43,10 +62,19 @@ export function testConductorSuite(
   // otherwise, and the two print different summaries (`ℹ pass 6` vs
   // `# pass 6`) — parsing whichever happened to be chosen would make this
   // Pass's own result depend on where it was run from.
+  const suites = discoverSuites(root);
+  if (suites.length === 0) {
+    fail(
+      "conductor suite: node --test suites are discovered",
+      "found no *.test.mjs under scripts/ — discovery is broken, which would make this Pass vacuously green",
+    );
+    return;
+  }
+
   const result = spawnSync(
     process.execPath,
-    ["--test", "--test-reporter=tap", ...SUITES.map((s) => path.join(root, s))],
-    { cwd: root, encoding: "utf8", timeout: 300_000 },
+    ["--test", "--test-reporter=tap", ...suites.map((s) => path.join(root, s))],
+    { cwd: root, encoding: "utf8", timeout: 600_000 },
   );
 
   const out = `${result.stdout || ""}${result.stderr || ""}`;
@@ -90,13 +118,13 @@ export function testConductorSuite(
       .map((l) => `  ${l.trim()}`)
       .join("\n");
     fail(
-      "conductor suite: conductor + resume + hardening suites are green",
+      "conductor suite: every discovered node --test suite is green",
       `${failCount} conductor test(s) failing (${passCount} passing):\n${failing || out.trim().split("\n").slice(-20).join("\n")}`,
     );
     return;
   }
 
   ok(
-    `conductor suite: conductor + resume + hardening green (${passCount} tests, real git worktrees + validators)`,
+    `conductor suite: ${suites.length} discovered node --test suite(s) green (${passCount} tests, real git worktrees + validators)`,
   );
 }
