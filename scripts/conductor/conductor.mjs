@@ -292,6 +292,11 @@ const DEFAULT_CONFIG = {
   // must not require ticket-specific files or manifests.
   baselineVerify: null,
   baselineTimeoutMs: 15 * 60_000,
+  // Bound on close()'s run of the ticket's own `verify`. That call had no
+  // timeout at all, so an unattended run hung forever on a verify that hangs
+  // (watch-mode runner, a prompt, a wedged container) — the one loop in this
+  // executor that was not bounded was the load-bearing gate itself.
+  verifyTimeoutMs: 30 * 60_000,
 };
 function loadTargetConfig() {
   const f = resolve(ROOT, 'conductor.config.json');
@@ -1667,7 +1672,9 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     }
     const sha = gitIn(wt, 'rev-parse', 'HEAD');
 
-    const closeRes = close(plan, m.id, ACTOR, { branch, commits: [sha], cwd: wt });
+    const closeRes = close(plan, m.id, ACTOR, {
+      branch, commits: [sha], cwd: wt, timeoutMs: CONFIG.verifyTimeoutMs,
+    });
     if (!closeRes.ok) {
       const gaps = [closeRes.error];
       gapsPerAttempt.push(gaps);
@@ -2034,6 +2041,7 @@ async function main() {
       actor: ACTOR, maxAttempts: MAX_ATTEMPTS, log, git, gitIn, scopeGate, close, comment,
       persistPlan, removeWorktree, appendFileSync, resolvePath: resolve, land, executeTicket, loadFreshPlan,
       rounds: ROUNDS,
+      verifyTimeoutMs: CONFIG.verifyTimeoutMs,
     };
     for (const { m, disk } of safe) {
       const outcome = await reconcileOrphan(resumeCtx, m, disk, logRowsAtStart);
