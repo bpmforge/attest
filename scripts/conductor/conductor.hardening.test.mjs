@@ -595,3 +595,319 @@ test('a merge that fails leaves main untouched instead of crashing mid-merge',
       rmSync(base, { recursive: true, force: true });
     }
   });
+
+// ═══ Issue #6 item 2 — bounded runtime repair ════════════════════════════════
+//
+// A deterministic runtime failure used to discard a candidate that had already
+// passed scope and independent review. The repair path must NOT be a shortcut
+// past those gates: it is a new candidate that re-earns all of them. These
+// cases are the reporter's negative controls for that.
+//
+// The fixture is STATEFUL — the same role is invoked more than once per
+// attempt and must behave differently each time (runtime FAILs, then PASSes;
+// the reviewer approves, then is silent). Each role keeps a counter file, so
+// `$CALL` below is that role's invocation number.
+function setupRepairFixture({
+  // 'fail-then-pass' (the repair works) | 'always-fail' (it never does)
+  runtimeMode = 'fail-then-pass',
+  repairWrites = 'mkdir -p "$DIR/a"; echo fixed > "$DIR/a/fixed.txt"',
+  reviewBehaviour = null,   // bash; default writes an APPROVED doc every call
+} = {}) {
+  const base = mkdtempSync(resolve(tmpdir(), 'conductor-repair-'));
+  const target = resolve(base, 'target-repo');
+  const state = resolve(base, 'state');
+  mkdirSync(target, { recursive: true });
+  mkdirSync(state, { recursive: true });
+  const git = (...a) => sh('git', a, { cwd: target });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'conductor-test@example.com');
+  git('config', 'user.name', 'Conductor Test');
+  git('config', 'commit.gpgsign', 'false');
+
+  // The verify command is the real gates PLUS a marker the maker never writes,
+  // so the first runtime genuinely fails when the conductor re-runs it
+  // deterministically — an asserted FAIL alone would be overridden as
+  // unsubstantiated, and this must be a REAL failure to be repaired.
+  const plan = {
+    goal: 'runtime repair fixture',
+    modules: [{
+      id: 'TICK-1', kind: 'module', title: 'Ticket one', lane: 'lane-a', owner: null, status: 'ready',
+      write_scope: ['a/**'], depends_on: [], acceptance: ['writes a/hello.txt and a/fixed.txt'],
+      verify: `bash ${GATES_SH} --scope a --manifest docs/reviews/MANIFEST_TICK-1.md --root . && test -f a/fixed.txt`,
+      manifest: 'docs/reviews/MANIFEST_TICK-1.md',
+    }],
+  };
+  writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
+  mkdirSync(resolve(target, 'docs/reviews'), { recursive: true });
+  writeFileSync(resolve(target, 'docs/reviews/.gitkeep'), '');
+  mkdirSync(resolve(target, 'docs/work'), { recursive: true });
+  writeFileSync(resolve(target, '.gitignore'), 'docs/work/\n.conductor-worktrees/\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'initial fixture');
+
+  const defaultReview = `cat > "$DIR/docs/reviews/CODE_REVIEW_TICK-1.md" <<EOF
+# Code review — TICK-1
+- a/hello.txt:1 reviewed (call \\$CALL)
+
+VERDICT: APPROVED
+EOF`;
+
+  const binDir = resolve(base, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const stub = resolve(binDir, 'opencode-stub.sh');
+  writeFileSync(stub, `#!/usr/bin/env bash
+set -euo pipefail
+STATE="${state}"
+if [[ "\${1:-}" == "models" ]]; then
+  printf '%s\\n' fixture/coder-model fixture/reviewer-model
+  exit 0
+fi
+[[ "\${1:-}" == "run" ]] || exit 0
+PROMPT="$2"; shift 2
+DIR=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in --dir) DIR="$2"; shift 2 ;; *) shift ;; esac
+done
+mkdir -p "$DIR/docs/reviews"
+# Per-role invocation counter, so one role can behave differently each call.
+bump() { local f="$STATE/$1"; local n=0; [[ -f "$f" ]] && n=$(cat "$f"); n=$((n+1)); echo "$n" > "$f"; echo "$n"; }
+
+if grep -qF 'THE RUNTIME VALIDATION OF YOUR PREVIOUS WORK FAILED' <<<"$PROMPT"; then
+  CALL=$(bump repair)
+  ${repairWrites}
+  exit 0
+fi
+
+if grep -qF 'Runtime-validate ticket' <<<"$PROMPT"; then
+  CALL=$(bump runtime)
+  # A report's quoted OUTPUT has to match its verdict, or the conductor's
+  # "evidence outranks the claim" rule (correctly) refuses to believe it.
+  if [[ "${runtimeMode}" == "lying-pass" ]]; then
+    # Claims PASS while quoting its own failure. The gate must not believe it.
+    VERDICT="RUNTIME: PASS"
+    EVIDENCE="exit code: 1"$'\n'"not ok 1 - a/fixed.txt is missing"
+  elif [[ "${runtimeMode}" == "always-fail" || "$CALL" == "1" ]]; then
+    VERDICT="RUNTIME: FAIL"
+    EVIDENCE="exit code: 1"$'\n'"not ok 1 - a/fixed.txt is missing"
+  else
+    VERDICT="RUNTIME: PASS"
+    EVIDENCE="exit code: 0"$'\n'"all commands exited 0"
+  fi
+  cat > "$DIR/docs/reviews/RUNTIME_TICK-1.md" <<EOF
+# Runtime — TICK-1 (call $CALL)
+\\\$ verify
+$EVIDENCE
+$VERDICT
+EOF
+  exit 0
+fi
+
+if grep -qF 'Review the work already committed' <<<"$PROMPT"; then
+  CALL=$(bump review)
+  ${reviewBehaviour || defaultReview}
+  exit 0
+fi
+
+if grep -qF 'A reviewer rejected the previous attempt' <<<"$PROMPT"; then
+  CALL=$(bump reviewfix)
+  exit 0
+fi
+
+CALL=$(bump maker)
+mkdir -p "$DIR/a"; echo hello > "$DIR/a/hello.txt"
+cat > "$DIR/docs/reviews/MANIFEST_TICK-1.md" <<EOF
+# Completion Manifest — TICK-1
+
+Maker: conductor
+Verifier: conductor-review
+Tracker updated: CHANGELOG.md
+
+## Files produced
+- \\\`a/hello.txt\\\`
+
+## Decisions
+- kept it simple
+
+## Known issues
+- none
+
+## Verify result
+- \\\`a/hello.txt\\\` written and present
+
+## Memory written
+- None — nothing durable
+
+TICK-1 done -- wrote a/hello.txt.
+EOF
+exit 0
+`);
+  chmodSync(stub, 0o755);
+  return { base, target, stub, state };
+}
+
+const callCount = (state, role) => {
+  const f = resolve(state, role);
+  return existsSync(f) ? Number(readFileSync(f, 'utf8').trim()) : 0;
+};
+
+test('a runtime failure is repaired, INDEPENDENTLY RE-REVIEWED, and only then closed',
+  { timeout: 180_000 }, () => {
+    const { base, target, stub, state } = setupRepairFixture();
+    try {
+      const { log } = runConductor(target, stub, ['--max-attempts', '1']);
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.equal(plan.modules[0].status, 'done', 'the repaired candidate should land');
+
+      // The ORDER is the guarantee. A repair that closed without re-review
+      // would still end in `done`, so status alone proves nothing.
+      const order = log
+        .map((r) => r.kind)
+        .filter((k) => ['round3.runtime.verdict', 'round3.repair.start', 'round3.repair.rereview',
+          'round3.repair.pass', 'ticket.receipt'].includes(k));
+      assert.deepEqual(order, [
+        'round3.runtime.verdict',   // FAIL
+        'round3.repair.start',
+        'round3.repair.rereview',
+        'round3.runtime.verdict',   // PASS, on the repaired candidate
+        'round3.repair.pass',
+        'ticket.receipt',
+      ], `unexpected gate order: ${order.join(' -> ')}`);
+
+      // Any code change invalidates prior approval: the reviewer ran again.
+      assert.equal(callCount(state, 'review'), 2,
+        'the repaired candidate must be reviewed again, not covered by the pre-repair approval');
+      assert.equal(callCount(state, 'repair'), 1, 'exactly one repair was needed');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('an exit-zero reviewer that writes no document cannot reuse its earlier APPROVED',
+  { timeout: 180_000 }, () => {
+    // Approves on the first call; on the re-review it exits 0 in silence. The
+    // stale APPROVED file must not be read as this round's verdict.
+    const { base, target, stub, state } = setupRepairFixture({
+      reviewBehaviour: `if [[ "$CALL" == "1" ]]; then
+  cat > "$DIR/docs/reviews/CODE_REVIEW_TICK-1.md" <<EOF
+# Code review — TICK-1
+VERDICT: APPROVED
+EOF
+fi`,
+    });
+    try {
+      const { log } = runConductor(target, stub, ['--max-attempts', '1']);
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.notEqual(plan.modules[0].status, 'done',
+        'repaired code with no fresh review must never close');
+      assert.equal(callCount(state, 'review'), 2, 'the reviewer was asked again');
+
+      const blocked = log.find((r) => r.kind === 'ticket.blocked');
+      assert.ok(blocked, 'the ticket must be blocked, not landed');
+      assert.match(String(blocked.msg), /FRESH review document/i,
+        'the block must name the missing fresh review, not a generic failure');
+      assert.equal(log.filter((r) => r.kind === 'ticket.receipt').length, 0, 'no close receipt');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('a no-op repair does not close the ticket', { timeout: 180_000 }, () => {
+  const { base, target, stub } = setupRepairFixture({ repairWrites: ': # changes nothing' });
+  try {
+    const { log } = runConductor(target, stub, ['--max-attempts', '1']);
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.notEqual(plan.modules[0].status, 'done', 'a no-op repair must not close anything');
+    const fail = log.find((r) => r.kind === 'gates.fail' && /changed no implementation file/i.test(r.msg || ''));
+    assert.ok(fail, 'the no-op must be reported as such');
+    assert.equal(log.filter((r) => r.kind === 'ticket.receipt').length, 0, 'no close receipt');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('an out-of-scope repair is rejected and preserved as evidence', { timeout: 180_000 }, () => {
+  const { base, target, stub } = setupRepairFixture({
+    repairWrites: 'echo escaped > "$DIR/outside-runtime-fix.txt"',
+  });
+  try {
+    const { log } = runConductor(target, stub, ['--max-attempts', '1']);
+    const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+    assert.notEqual(plan.modules[0].status, 'done', 'an out-of-scope repair must not close');
+    const fail = log.find((r) => r.kind === 'gates.fail' && /runtime repair 1: scope gate failed/i.test(r.msg || ''));
+    assert.ok(fail, 'the scope violation must be attributed to the runtime repair');
+    const diffs = evidenceFiles(target).map((f) => readFileSync(f, 'utf8')).join('\n');
+    assert.match(diffs, /outside-runtime-fix\.txt/, 'the violation diff must name the escaped file');
+    assert.equal(sh('git', ['status', '--porcelain'], { cwd: target }).trim(), '', 'target left clean');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('--runtime-fix-iterations 0 preserves the previous discard-and-retry behaviour',
+  { timeout: 180_000 }, () => {
+    const { base, target, stub, state } = setupRepairFixture();
+    try {
+      const { log } = runConductor(target, stub, ['--max-attempts', '1', '--runtime-fix-iterations', '0']);
+      assert.equal(callCount(state, 'repair'), 0, 'no repair session may be spawned');
+      assert.equal(log.filter((r) => r.kind === 'round3.repair.start').length, 0, 'no repair round');
+      const fail = log.find((r) => r.kind === 'gates.fail' && /runtime verdict FAIL/i.test(r.msg || ''));
+      assert.ok(fail, 'the runtime failure must still fail the attempt exactly as before');
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.equal(plan.modules[0].status, 'ready', 'and release the ticket');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('a repair that keeps failing respects its bound instead of looping',
+  { timeout: 180_000 }, () => {
+    // A real, in-scope change every call (so it is never a no-op) that never
+    // satisfies the verify command.
+    const { base, target, stub, state } = setupRepairFixture({
+      runtimeMode: 'always-fail',
+      repairWrites: 'mkdir -p "$DIR/a"; echo attempt > "$DIR/a/try-$CALL.txt"',
+    });
+    try {
+      const { log } = runConductor(target, stub, ['--max-attempts', '1', '--runtime-fix-iterations', '2']);
+      assert.equal(callCount(state, 'repair'), 2, 'exactly the configured number of repairs, no more');
+      assert.equal(log.filter((r) => r.kind === 'round3.repair.start').length, 2, 'bounded at 2 rounds');
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.notEqual(plan.modules[0].status, 'done', 'a still-failing candidate must not close');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+// ── Found while building the repair loop: the deterministic re-run applied to
+// FAIL only. A claimed PASS was taken at face value even when the SAME
+// document quoted a non-zero exit — an optimistic model got no scrutiny while
+// a pessimistic one got a full re-run. runtime-verdict.mjs already states the
+// rule ("prose never overrides exit codes"); nothing in the gate path called
+// it. ─────────────────────────────────────────────────────────────────────────
+test('a runtime report that claims PASS while quoting its own failure is not believed',
+  { timeout: 180_000 }, () => {
+    const { base, target, stub } = setupRepairFixture({
+      runtimeMode: 'lying-pass',
+      repairWrites: ': # never actually fixes anything',
+    });
+    try {
+      const { log } = runConductor(target, stub, ['--max-attempts', '1', '--runtime-fix-iterations', '0']);
+
+      const contradicted = log.find((r) => r.kind === 'round3.runtime.self-contradicted');
+      assert.ok(contradicted, 'the self-contradicting PASS must be caught at the runtime round');
+
+      const verdict = log.find((r) => r.kind === 'round3.runtime.verdict');
+      assert.match(String(verdict.msg), /FAIL/, 'the round must record FAIL, not the claimed PASS');
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.notEqual(plan.modules[0].status, 'done', 'work that does not build must not close');
+      assert.equal(log.filter((r) => r.kind === 'ticket.receipt').length, 0, 'no close receipt');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
