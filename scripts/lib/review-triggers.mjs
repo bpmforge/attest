@@ -82,7 +82,20 @@ export function triggeredReviewers(m, diff, known = {}) {
   // P-A4: recruit on TOUCHED RISK PATHS or a high-signal pattern on an ADDED
   // line — never on the scanner-tier regex alone. The diff's file headers
   // (+++ b/<path>) define what was touched; `+` lines define what was added.
-  const touched = [...String(diff || '').matchAll(/^\+\+\+ b\/(.+)$/gm)].map((m) => m[1]);
+  //
+  // BOTH SIDES of the file header, or deletions are invisible. Reading only
+  // `+++ b/<path>` misses every DELETED file — git renders those as
+  // `+++ /dev/null`, with the real path only on the `--- a/<path>` line. So
+  // deleting src/auth/session.ts recruited nobody but code-reviewer, while
+  // adding one line to it recruited security. Removing an auth check is not a
+  // lower-risk change than adding one; it is usually the higher-risk one.
+  // (Verified 2026-09-08 against the real function.) /dev/null is filtered so
+  // it can never look like a touched path.
+  const diffText = String(diff || '');
+  const touched = [
+    ...[...diffText.matchAll(/^\+\+\+ b\/(.+)$/gm)].map((x) => x[1]),
+    ...[...diffText.matchAll(/^--- a\/(.+)$/gm)].map((x) => x[1]),
+  ].filter((f) => f && f !== '/dev/null');
   for (const t of REVIEW_TRIGGERS) {
     const byPath = t.pathRe ? touched.some((f) => t.pathRe.test(f)) : false;
     const byHigh = t.highRe ? t.highRe.test(diff || '') : false;
@@ -94,11 +107,20 @@ export function triggeredReviewers(m, diff, known = {}) {
     );
   }
   // Declared reviewers with no trigger rule of their own (e.g. 'test') still run.
+  const dropped = [];
   for (const d of declared) {
     if (reviewers.includes(d)) continue;
-    if (Object.keys(known).length && !known[d]) continue; // unknown name — ignore
+    if (Object.keys(known).length && !known[d]) {
+      // A name this conductor cannot route. It used to be dropped in complete
+      // silence: a board declaring `reviews: ["securty"]` asked for a security
+      // review, got none, and NOTHING anywhere said so — the run reported the
+      // ticket as reviewed by code-reviewer and looked entirely normal. A
+      // requested gate that cannot run must at minimum be visible.
+      dropped.push(d);
+      continue;
+    }
     reviewers.push(d);
     reasons.push(`${d}(declared on the ticket)`);
   }
-  return { reviewers, reasons };
+  return { reviewers, reasons, dropped };
 }

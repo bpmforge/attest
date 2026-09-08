@@ -981,3 +981,144 @@ test('a genuinely failing verify still fails, with its output', { timeout: 60_00
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// ── Found auditing the session runner: exhausting the provider-limit retries
+// used to `throw`, and the throw escaped runSession, executeTicket AND main()
+// — main().catch logged conductor.fatal and exited 1 with the ticket still
+// claimed and owned, released by nobody. ────────────────────────────────────
+function setupLimitFixture({ stopAfterFirstSession = false } = {}) {
+  const base = mkdtempSync(resolve(tmpdir(), 'conductor-limit-'));
+  const target = resolve(base, 'target-repo');
+  mkdirSync(target, { recursive: true });
+  const git = (...a) => sh('git', a, { cwd: target });
+  git('init', '-q', '-b', 'main');
+  git('config', 'user.email', 'conductor-test@example.com');
+  git('config', 'user.name', 'Conductor Test');
+  git('config', 'commit.gpgsign', 'false');
+  writeFileSync(resolve(target, 'plan.json'), JSON.stringify({
+    goal: 'limit fixture',
+    modules: [{
+      id: 'TICK-1', kind: 'module', title: 'Ticket one', lane: 'lane-a', owner: null, status: 'ready',
+      write_scope: ['a/**'], depends_on: [], acceptance: ['writes a/hello.txt'],
+      verify: `bash ${GATES_SH} --scope a --manifest docs/reviews/MANIFEST_TICK-1.md --root .`,
+      manifest: 'docs/reviews/MANIFEST_TICK-1.md',
+    }],
+  }, null, 2) + '\n');
+  writeFileSync(resolve(target, 'models.json'), JSON.stringify({
+    roles: { coder: 'fixture/coder-model', reviewer: 'fixture/reviewer-model' },
+  }, null, 2) + '\n');
+  mkdirSync(resolve(target, 'docs/reviews'), { recursive: true });
+  writeFileSync(resolve(target, 'docs/reviews/.gitkeep'), '');
+  mkdirSync(resolve(target, 'docs/work'), { recursive: true });
+  writeFileSync(resolve(target, '.gitignore'), 'docs/work/\n.conductor-worktrees/\n');
+  git('add', '-A');
+  git('commit', '-q', '-m', 'initial fixture');
+
+  const binDir = resolve(base, 'bin');
+  mkdirSync(binDir, { recursive: true });
+  const stub = resolve(binDir, 'opencode-stub.sh');
+  // Always answers like a provider that is rate-limiting.
+  writeFileSync(stub, `#!/usr/bin/env bash
+if [[ "\${1:-}" == "models" ]]; then printf '%s\\n' fixture/coder-model fixture/reviewer-model; exit 0; fi
+${stopAfterFirstSession ? `# The operator touches STOP while the run is inside its backoff.
+touch "${target}/STOP"` : ''}
+echo "Error: 429 rate limit exceeded, please retry later" >&2
+exit 1
+`);
+  chmodSync(stub, 0o755);
+  return { base, target, stub };
+}
+
+test('an exhausted provider-limit budget blocks the ticket instead of crashing the run',
+  { timeout: 120_000 }, () => {
+    const { base, target, stub } = setupLimitFixture();
+    try {
+      const { log } = runConductor(target, stub,
+        ['--max-attempts', '2', '--session-limit-retries', '0', '--limit-backoff-minutes', '0']);
+
+      assert.equal(log.filter((r) => r.kind === 'conductor.fatal').length, 0,
+        'a provider outage must not be a fatal crash');
+      assert.ok(log.find((r) => r.kind === 'limit.exhausted'), 'the exhaustion must be logged');
+
+      const plan = JSON.parse(readFileSync(resolve(target, 'plan.json'), 'utf8'));
+      assert.equal(plan.modules[0].status, 'ready', 'the ticket must be released, not left claimed');
+      assert.equal(plan.modules[0].owner, null, 'and unowned — nobody is working it');
+
+      // A provider outage is not the ticket's fault: it must not burn the
+      // feature's coding attempts.
+      assert.equal(log.filter((r) => r.kind === 'ticket.attempt').length, 1,
+        'a provider outage must not consume the retry budget');
+      const blocked = log.find((r) => r.kind === 'ticket.blocked');
+      assert.ok(blocked, 'the ticket must be recorded as blocked, not exhausted');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('STOP is honoured during a provider-limit backoff, not only between tickets',
+  { timeout: 120_000 }, () => {
+    // The stub touches STOP on its first call — i.e. the operator asks the run
+    // to stop while it is already inside a provider-limit backoff. That
+    // backoff can total >2h across its retries, and STOP was previously read
+    // only BETWEEN tickets, so the request was ignored for hours.
+    const { base, target, stub } = setupLimitFixture({ stopAfterFirstSession: true });
+    try {
+      const started = Date.now();
+      const { log } = runConductor(target, stub,
+        ['--max-attempts', '1', '--session-limit-retries', '3', '--limit-backoff-minutes', '0']);
+      const elapsed = Date.now() - started;
+
+      assert.ok(elapsed < 60_000, `the run must stop promptly, took ${elapsed}ms`);
+      assert.ok(log.find((r) => r.kind === 'limit.stopped'),
+        'the backoff must report that STOP ended it');
+      assert.equal(log.filter((r) => r.kind === 'conductor.fatal').length, 0, 'and not crash');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+// ── Found auditing reviewer selection. Its own header says it is "biased
+// toward firing: a false negative ships unreviewed auth". Two ways it was
+// silently biased the other way. ────────────────────────────────────────────
+test('deleting a risk-path file recruits its reviewer, same as changing one', async () => {
+  const { triggeredReviewers } = await import('../lib/review-triggers.mjs');
+  const KNOWN = { security: 'security-auditor', perf: 'performance-engineer', ux: 'ux-engineer', test: 'test-engineer' };
+
+  // git renders a deletion with the real path on the `--- a/` line only; the
+  // `+++` side is /dev/null. Reading only `+++ b/` made deletions invisible.
+  const deleted = [
+    'diff --git a/src/auth/session.ts b/src/auth/session.ts',
+    'deleted file mode 100644',
+    '--- a/src/auth/session.ts',
+    '+++ /dev/null',
+    '@@ -1,20 +0,0 @@',
+    '-export function verifySession() { /* ... */ }',
+  ].join('\n');
+  assert.deepEqual(triggeredReviewers({}, deleted, KNOWN).reviewers, ['code-reviewer', 'security'],
+    'removing an auth check must recruit security — it is not a lower-risk change than adding one');
+
+  // /dev/null must never itself look like a touched path.
+  const added = '--- /dev/null\n+++ b/a/plain.txt\n@@ -0,0 +1 @@\n+hello\n';
+  assert.deepEqual(triggeredReviewers({}, added, KNOWN).reviewers, ['code-reviewer'],
+    'a plain new file still recruits only the always-on reviewer');
+
+  // The ordinary modify case must be unchanged.
+  assert.deepEqual(triggeredReviewers({}, '--- a/src/db/users.ts\n+++ b/src/db/users.ts\n@@\n+x', KNOWN).reviewers,
+    ['code-reviewer', 'perf'], 'touching a db path still recruits perf exactly once');
+});
+
+test('a declared reviewer this conductor cannot route is reported, not silently dropped', async () => {
+  const { triggeredReviewers } = await import('../lib/review-triggers.mjs');
+  const KNOWN = { security: 'security-auditor', perf: 'performance-engineer', ux: 'ux-engineer', test: 'test-engineer' };
+
+  // A board asking for "securty" asked for a security review and got none.
+  // Nothing anywhere said so: the run looked like a normally-reviewed ticket.
+  const r = triggeredReviewers({ reviews: ['securty'] }, '+++ b/a/x.txt\n+hi\n', KNOWN);
+  assert.deepEqual(r.reviewers, ['code-reviewer'], 'an unroutable name still must not be run');
+  assert.deepEqual(r.dropped, ['securty'], 'but it must be reported so the board defect is visible');
+
+  // A correctly spelled declaration still runs, and reports nothing dropped.
+  const ok = triggeredReviewers({ reviews: ['test'] }, '+++ b/a/x.txt\n+hi\n', KNOWN);
+  assert.ok(ok.reviewers.includes('test'), 'a routable declared reviewer runs');
+  assert.deepEqual(ok.dropped, [], 'and nothing is reported dropped');
+});
