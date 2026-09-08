@@ -176,6 +176,15 @@ const SESSION_MIN = intOpt('session-minutes', 45, { min: 1 });
 // retry is only ever safe once the previous execution is proven gone, and
 // proving that is platform-specific. See containSessionGroup().
 const SESSION_TIMEOUT_RETRIES = intOpt('session-timeout-retries', 0);
+// Provider rate-limit retries, bounded SEPARATELY from the timeout retries
+// above (GH issue #6, item 4: "keep them separate and bound both"). They used
+// to share one loop counter, so a timeout retry silently spent a rate-limit
+// retry and vice versa. 5 preserves the historical 6-iteration loop.
+const SESSION_LIMIT_RETRIES = intOpt('session-limit-retries', 5);
+// First backoff after a provider limit; it doubles per retry, capped at 60m.
+// Configurable because "wait 5 minutes for the quota to reset" is meaningless
+// against a local model server that rate-limits for entirely different reasons.
+const LIMIT_BACKOFF_MIN = intOpt('limit-backoff-minutes', 5);
 // CAN_CONTAIN_DESCENDANTS / containSessionGroup() are imported from
 // scripts/lib/session-containment.mjs — POSIX gives the child its own process
 // GROUP (`detached`), which is what makes a whole-tree kill expressible;
@@ -630,10 +639,34 @@ function actualSessionModel(wt) {
   }
 }
 
+/**
+ * Sleep, but stay stoppable.
+ *
+ * The provider-limit backoff below can total over two hours across its
+ * retries, and `STOP` was only ever read between TICKETS — so an operator who
+ * touched STOP during a rate-limit pause watched the run ignore them for the
+ * rest of the backoff. STOP is the only stop mechanism this executor has;
+ * a window where it does nothing is a window where the run cannot be stopped.
+ *
+ * Returns true if STOP appeared (caller should give up), false if it slept the
+ * whole interval.
+ */
+async function sleepUnlessStopped(ms, pollMs = 5_000) {
+  const deadline = Date.now() + ms;
+  while (Date.now() < deadline) {
+    if (existsSync(STOPFILE)) return true;
+    await sleep(Math.min(pollMs, Math.max(0, deadline - Date.now())));
+  }
+  return existsSync(STOPFILE);
+}
+
 async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL, role = 'coder' } = {}) {
-  let backoff = 5 * 60_000;
+  let backoff = LIMIT_BACKOFF_MIN * 60_000;
+  // Two independent budgets. Sharing one counter meant a timeout retry spent a
+  // rate-limit retry, and a run that hit both ran out of neither cleanly.
   let timeoutRetries = 0;
-  for (let attempt = 1; attempt <= 6; attempt++) {
+  let limitRetries = 0;
+  for (let attempt = 1; ; attempt++) {
     log('session.start', { msg: `attempt ${attempt}`, wt, role, agent, model });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
     // NOTE: no `--auto` here. It is a TUI-only flag — `opencode run` accepts it
@@ -680,10 +713,28 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     }
     if (res.error) return { out: `${out}\n${res.error.message}`, code: 1 };
     if (res.status !== 0 && LIMIT_RE.test(out)) {
+      if (limitRetries >= SESSION_LIMIT_RETRIES) {
+        // Was `throw new Error('limit retries exhausted')`. That escaped
+        // runSession, executeTicket AND main(), so main().catch logged
+        // conductor.fatal and exited 1 — with the ticket still claimed and
+        // owned, released by nobody. Returning a non-zero code instead routes
+        // it into the existing blockWithoutExhausting() path: the ticket is
+        // released with a reason, its evidence is preserved, and the provider
+        // outage does not consume the feature's coding attempts.
+        log('limit.exhausted', { role, msg: `provider limit persisted across ${SESSION_LIMIT_RETRIES} backoff(s) — giving this ticket back` });
+        return { out, code: 1, providerLimit: true, reason: `provider limit persisted across ${SESSION_LIMIT_RETRIES} backoff(s)` };
+      }
+      limitRetries++;
       const wait = Math.min(backoff, 60 * 60_000);
       backoff *= 2;
-      log('limit.pause', { msg: `provider limit; sleeping ${(wait / 60000).toFixed(0)}m` });
-      await sleep(wait);
+      log('limit.pause', {
+        role,
+        msg: `provider limit; sleeping ${(wait / 60000).toFixed(0)}m (backoff ${limitRetries}/${SESSION_LIMIT_RETRIES}) — STOP is honoured during this wait`,
+      });
+      if (await sleepUnlessStopped(wait)) {
+        log('limit.stopped', { role, msg: 'STOP appeared during the provider-limit backoff — abandoning this session' });
+        return { out, code: 1, stopped: true, reason: 'STOP requested during provider-limit backoff' };
+      }
       continue;
     }
     const ran = actualSessionModel(wt);
@@ -695,7 +746,6 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     }
     return { out, code: res.status ?? 1, model: ran || String(model || ''), role };
   }
-  throw new Error('limit retries exhausted');
 }
 
 // ---------- gates (run OUTSIDE the session) ----------
@@ -922,8 +972,18 @@ const reviewDoc  = (m, kind) => `docs/reviews/${kind}_${m.id}.md`;
 // Reviewer selection lives in ../lib/review-triggers.mjs (this file calls
 // main() at import time, so logic here cannot be unit-tested).
 function pickReviewers(m, diff) {
-  const { reviewers, reasons } = triggeredReviewers(m, diff, REVIEW_AGENTS);
+  const { reviewers, reasons, dropped } = triggeredReviewers(m, diff, REVIEW_AGENTS);
   log('round2.reviewers', { ticket: m.id, msg: `${reviewers.join(', ')}${reasons.length ? ` — triggered by ${reasons.join('; ')}` : ''}` });
+  // A reviewer the board ASKED for that this conductor cannot route is a board
+  // defect that silently removes a gate. It does not fail the ticket (the
+  // routable set here is deliberately small, and a board may name reviewers a
+  // different executor implements), but it is never silent again.
+  if (dropped?.length) {
+    log('round2.reviewers.dropped', {
+      ticket: m.id,
+      msg: `ticket declares reviewer(s) this conductor cannot route and they will NOT run: ${dropped.join(', ')} — routable names are ${Object.keys(REVIEW_AGENTS).join(', ')}, code-reviewer`,
+    });
+  }
   return reviewers;
 }
 
