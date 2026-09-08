@@ -67,6 +67,7 @@ has an explicit ceiling and they are reported separately:
 | `--max-processed N` | Tickets this invocation may **claim at all**, whatever the outcome. A hard **activity ceiling**. | unbounded |
 | `--max-attempts N` | Coding attempts per ticket. | 2 |
 | `--fix-iterations N` | Bounded review→fix→re-review iterations per attempt. | 3 |
+| `--runtime-fix-iterations N` | Bounded repairs of a **deterministic runtime failure**, each re-earning every gate. `0` restores the old discard-and-retry. | 1 |
 | `--session-timeout-retries N` | Same-worktree retries after a session **timeout**, separate from the provider rate-limit retries inside `runSession()`. | 0 |
 | `--session-minutes N` | Wall-clock ceiling on one session. | 45 |
 
@@ -110,6 +111,60 @@ Timeouts are also classified from *both* shapes Node reports them in — a
 `signal` and `error.code === 'ETIMEDOUT'` — because the check for the second
 used to sit below a generic error return, so the same timeout was logged as a
 timeout on one machine and as a session failure on the next.
+
+## Bounded runtime repair
+
+A runtime FAIL used to discard the whole candidate — including the independent
+review it had already passed — and restart the next attempt from `main`, over
+what is frequently one mechanical mistake. `--runtime-fix-iterations`
+(default 1) allows a bounded repair instead.
+
+The repair is **not** a shortcut past the gates. It produces a new candidate
+that re-earns all of them, in this order:
+
+```
+runtime FAIL -> repair -> no-op check -> scope -> reviewer RECOMPUTE
+             -> fresh review -> bounded review-fix -> fresh runtime
+             -> scope -> close
+```
+
+Three rules make that safe, and each exists because its absence is a way to
+launder unreviewed code into a closed ticket:
+
+1. **Any code change invalidates all prior approval.** The re-review is not
+   limited to reviewers who objected before; every required reviewer runs again
+   on the new tree.
+2. **Reviewers are recomputed** from the post-repair `main...branch` diff, never
+   reused from before it — a repair can touch a newly security-sensitive path,
+   and the reviewer set that never saw that path is the wrong one.
+3. **Freshness is proven, not assumed.** Every review document is archived and
+   removed before its session runs, so an exit-zero reviewer that writes
+   nothing reads as *no review* rather than silently re-using its earlier
+   `APPROVED`.
+
+A repair that changes no implementation file is a no-op and still a failure; a
+repair that leaves `write_scope` is rejected with its diff preserved; and the
+repair path never calls close, accept, merge or release itself.
+
+*Deviation from the reported spec, deliberate:* the report asks that the failed
+runtime report be committed separately so a no-op repair cannot look like a
+source change. The candidate is meant to land as a single commit, so the no-op
+check instead asks which **non-document** files the repair touched — documents
+are excluded by construction, so a repair that only rewrote its own report is
+still a no-op. Same guarantee, no extra commit.
+
+## Evidence outranks the claim — in both directions
+
+Round 3's verdict is the agent's *diagnosis*; the machine's own run of the
+ticket's `verify` is the *verdict*. An unsubstantiated FAIL is re-run and
+overturned if `verify` passes, and — since v3.10.0 — a claimed **PASS** whose
+own document quotes a non-zero exit is re-run too, and becomes a FAIL if
+`verify` genuinely fails.
+
+That second half was missing: the round scrutinised a pessimistic model and
+took an optimistic one at its word. `runtime-verdict.mjs` had stated the rule
+("prose never overrides exit codes") and implemented it in
+`classifyRuntimeVerdict()` since P-A9, but no gate ever called it.
 
 ## What crosses an attempt boundary
 
