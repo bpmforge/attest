@@ -144,7 +144,31 @@ export function comment(plan, id, actor, note) {
 // when run HERE (not claimed by the closer — RUN), (c) branch + at least one
 // commit supplied by the caller. cwd resolves module.manifest/module.verify
 // (both may be relative paths) — defaults to process.cwd().
-export function close(plan, id, actor, { branch, commits, cwd = process.cwd() } = {}) {
+// The close gate's own bounds. `execSync` defaults to NO timeout and a 1MB
+// maxBuffer, and both defaults are wrong for this call:
+//
+//   - No timeout means an unattended executor hangs FOREVER on a verify that
+//     hangs (a watch-mode test runner, a prompt, a wedged container). Every
+//     other loop in the conductor is bounded; this one — the load-bearing gate
+//     — was not. 30 minutes is deliberately generous; conductor.config.json's
+//     `verifyTimeoutMs` overrides it per project.
+//   - The 1MB maxBuffer makes execSync THROW ENOBUFS when a verify that exits
+//     ZERO simply prints a lot. That throw landed in the catch below and was
+//     reported as "verify gate did not exit 0" — so a fully green ticket was
+//     refused, and the stated reason was false: there was no exit code at all.
+//     Verified: `execSync` on a command printing 2MB and exiting 0 throws
+//     ENOBUFS. 256MB matches what conductor.mjs already uses for the same
+//     command shape.
+const VERIFY_TIMEOUT_MS = 30 * 60_000;
+const VERIFY_MAX_BUFFER = 256 * 1024 * 1024;
+
+export function close(plan, id, actor, {
+  branch,
+  commits,
+  cwd = process.cwd(),
+  timeoutMs = VERIFY_TIMEOUT_MS,
+  maxBuffer = VERIFY_MAX_BUFFER,
+} = {}) {
   const m = findModule(plan, id);
   if (!m) return { ok: false, error: `no such module '${id}'` };
   if (m.status !== 'in_progress') return { ok: false, error: `'${id}' is '${m.status}', not 'in_progress'` };
@@ -161,9 +185,27 @@ export function close(plan, id, actor, { branch, commits, cwd = process.cwd() } 
 
   let verifyOutput = '';
   try {
-    verifyOutput = execSync(m.verify, { cwd, stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+    verifyOutput = execSync(m.verify, {
+      cwd, stdio: ['ignore', 'pipe', 'pipe'], timeout: timeoutMs, maxBuffer,
+    }).toString();
   } catch (err) {
     const out = (err.stdout?.toString() ?? '') + (err.stderr?.toString() ?? '');
+    // SAY WHICH FAILURE THIS WAS. All three used to report "did not exit 0",
+    // and for two of them that sentence is simply untrue — there was no exit
+    // code. An operator reading "did not exit 0" goes looking for a failing
+    // test that does not exist.
+    if (err.code === 'ETIMEDOUT' || err.signal) {
+      return {
+        ok: false,
+        error: `verify gate '${m.verify}' did not finish within ${Math.round(timeoutMs / 60_000)} minute(s) and was killed — it produced no exit code, so the ticket is NOT verified${out ? `. Last output:\n${out.slice(-2000)}` : ''}`,
+      };
+    }
+    if (err.code === 'ENOBUFS') {
+      return {
+        ok: false,
+        error: `verify gate '${m.verify}' produced more than ${Math.round(maxBuffer / (1024 * 1024))}MB of output and was killed before reporting an exit code — the ticket is NOT verified (this is a harness limit, not a test failure; quieten the command or raise maxBuffer)`,
+      };
+    }
     return {
       ok: false,
       error: `verify gate '${m.verify}' did not exit 0${out ? `:\n${out.slice(0, 2000)}` : ''}`,
