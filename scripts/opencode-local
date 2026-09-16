@@ -23,6 +23,25 @@
 #   OPENCODE_CONFIG  path to the opencode config file (else resolved via
 #                     `opencode debug paths`'s `config` dir + opencode.json)
 #   LMSTUDIO_URL      LM Studio base URL (default http://127.0.0.1:1234)
+#
+# MTPLX providers are handled separately below. MTPLX has no JIT loading and no
+# catalog endpoint -- /v1/models reports only the model currently loaded -- so
+# sync-model-limits (which probes LM Studio's /api/v0/models) cannot see them.
+# The drift check warns when the loaded model is unregistered or its context has
+# changed; set OPENCODE_LOCAL_MTPLX_REFRESH=1 to re-register automatically
+# instead of just being told.
+#
+# It also sets the MTPLX thermal mode. Measured on M5 Max / Qwen3.8-27B over 8
+# consecutive 800-token generations, `default` pins the fans well below capacity
+# and decays 39.9 -> 36.1 tok/s, while `smart` ramps to ~5343rpm and holds 45.0
+# -- ~25% better sustained decode. `smart` only ramps while requests are in
+# flight, so an idle machine stays quiet. The setting is runtime-only and resets
+# when MTPLX restarts, which is why it belongs on the launch path.
+#   OPENCODE_LOCAL_FAN_MODE     default|smart|max|auto  (default: smart; "" skips)
+#   OPENCODE_LOCAL_FAN_TARGETS  space-separated provider names (default: "mtplx").
+#                               Add "mtplx-m4max" to cover the remote box too --
+#                               it measured +21% sustained there as well, at the
+#                               cost of one extra round-trip per launch.
 
 set -uo pipefail
 
@@ -45,6 +64,35 @@ if [[ -f "$CONFIG" ]]; then
   fi
 else
   echo "opencode-local: no opencode config found at '$CONFIG' -- skipping limit sync" >&2
+fi
+
+# MTPLX drift reminder. Same contract as the limit sync above: report loudly,
+# never block the launch -- a session may be cloud-tier with MTPLX off, and the
+# check stays silent when no MTPLX server answers.
+# Sibling first, PATH second: a deploy lands this next to the wrapper in
+# scripts/, which is not on PATH, and `command -v` alone would silently skip
+# every drift check on a freshly deployed machine. Same resolution the
+# sync-model-limits.mjs call above already uses.
+LOCAL_LLM="$SCRIPT_DIR/opencode-local-llm"
+if [[ ! -x "$LOCAL_LLM" ]]; then
+  LOCAL_LLM="$(command -v opencode-local-llm 2>/dev/null || true)"
+fi
+
+if [[ -n "$LOCAL_LLM" && -x "$LOCAL_LLM" ]]; then
+  if [[ "${OPENCODE_LOCAL_MTPLX_REFRESH:-0}" == "1" ]]; then
+    "$LOCAL_LLM" refresh --config "$CONFIG" >&2 || true
+  else
+    "$LOCAL_LLM" drift --config "$CONFIG" --timeout "${OPENCODE_LOCAL_DRIFT_TIMEOUT_MS:-2500}" >&2 || true
+  fi
+
+  FAN_MODE="${OPENCODE_LOCAL_FAN_MODE-smart}"
+  if [[ -n "$FAN_MODE" ]]; then
+    # Silent on success, never fatal -- MTPLX may simply not be running, and a
+    # thermal tweak must never stand between the user and a session.
+    for fan_target in ${OPENCODE_LOCAL_FAN_TARGETS:-mtplx}; do
+      "$LOCAL_LLM" fan "$fan_target" "$FAN_MODE" --config "$CONFIG" --timeout 4000 >/dev/null 2>&1 || true
+    done
+  fi
 fi
 
 exec opencode "$@"
