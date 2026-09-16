@@ -1,0 +1,719 @@
+#!/usr/bin/env node
+
+// opencode-local-llm -- scan OpenAI-compatible local LLM servers (LM Studio,
+// MTPLX) and register every reported model as an opencode provider.
+//
+// Ownership is tracked in a sidecar registry (local-providers.json) next to
+// the opencode config rather than by sniffing the apiKey, so a server that
+// needs a real credential is still refreshable. Legacy LM Studio providers
+// written by the old `opencode-lmstudio` script (apiKey "lm-studio", no
+// registry entry) are still recognized and adopted on first refresh.
+
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
+
+const DEFAULT_CONFIG = resolve(homedir(), ".config/opencode/opencode.json");
+const LEGACY_API_KEY = "lm-studio";
+
+// modelPolicy: LM Studio's /v1/models lists every downloaded model, so the
+// discovered set is the whole truth and replacing is correct. MTPLX has no
+// catalog endpoint -- /v1/models reports only the single currently-loaded
+// model -- so its provider entry is the accumulated union of everything we
+// have ever seen loaded, and pruning is an explicit user action.
+const KINDS = {
+  lmstudio: { port: 1234, apiKey: LEGACY_API_KEY, label: "LM Studio", modelPolicy: "replace" },
+  mtplx: { port: 8088, apiKey: null, label: "MTPLX", modelPolicy: "accumulate" },
+};
+
+function usage(message) {
+  if (message) console.error(`Error: ${message}\n`);
+  console.error(`Usage:
+  opencode-local-llm list [--config PATH]
+  opencode-local-llm scan [--kind KIND] [--port PORT] [--subnet 192.168.13] [--api-key KEY|--api-key-file PATH]
+  opencode-local-llm add <name> <host> [port] [options]
+  opencode-local-llm refresh [name ...] [--config PATH]
+  opencode-local-llm models <name>                  show registered models, marking what is loaded now
+  opencode-local-llm forget <name> <model-id> ...   drop specific model entries
+  opencode-local-llm prune <name>                   drop every model not loaded right now
+  opencode-local-llm drift [name ...] [--timeout MS]  warn if MTPLX is serving something the config does not match
+  opencode-local-llm thinking <name> [on|off|auto] [--effort low|medium|xhigh]   MTPLX reasoning controls
+  opencode-local-llm limits <name> [--max-response-tokens N|none]   cap total generation (thinking + answer)
+  opencode-local-llm fan <name> [default|smart|max|auto]            MTPLX thermal mode (affects sustained throughput)
+  opencode-local-llm remove <name> [name ...] [--config PATH]
+
+Options:
+  --kind lmstudio|mtplx   server flavor (default: lmstudio; sets default port)
+  --port PORT             override the port
+  --api-key KEY           bearer token for this server
+  --api-key-file PATH     read the bearer token from a file; re-read on refresh
+  --label TEXT            provider display name
+  --replace               update an existing provider (model tuning is merged)
+  --config PATH           opencode config (default ~/.config/opencode/opencode.json)
+
+Examples:
+  opencode-local-llm scan --kind mtplx --api-key-file ~/Library/Application\\ Support/MTPLX/daemon-api-key
+  opencode-local-llm add mtplx 127.0.0.1 --kind mtplx \\
+    --api-key-file "$HOME/Library/Application Support/MTPLX/daemon-api-key" --replace
+  opencode-local-llm add mtplx-m4max 192.168.13.166 --kind mtplx --api-key SECRET
+  opencode-local-llm refresh
+
+add/refresh read <endpoint>/v1/models and register every reported model.
+MTPLX has no catalog endpoint -- it reports only the loaded model -- so its
+providers ACCUMULATE: refresh after loading a model to add it to the picker,
+and use prune/forget to drop entries you no longer want.`);
+  process.exitCode = 1;
+}
+
+const FLAGS_WITH_VALUE = new Set(["--config", "--port", "--kind", "--api-key", "--api-key-file", "--label", "--subnet", "--timeout", "--effort", "--max-response-tokens"]);
+
+function parseArguments(argv) {
+  const opts = { config: DEFAULT_CONFIG, replace: false };
+  const args = [];
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const token = argv[i];
+    if (token === "--replace") {
+      opts.replace = true;
+    } else if (FLAGS_WITH_VALUE.has(token)) {
+      const value = argv[i + 1];
+      if (value === undefined) throw new Error(`${token} requires a value`);
+      opts[token.slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = value;
+      i += 1;
+    } else if (token.startsWith("--")) {
+      throw new Error(`unknown option '${token}'`);
+    } else {
+      args.push(token);
+    }
+  }
+
+  opts.config = resolve(opts.config);
+  if (opts.kind && !KINDS[opts.kind]) throw new Error(`--kind must be one of: ${Object.keys(KINDS).join(", ")}`);
+  return { args, opts };
+}
+
+function validateName(name) {
+  if (!/^[a-z][a-z0-9-]*$/.test(name)) {
+    throw new Error("provider name must start with a lowercase letter and use only lowercase letters, numbers, or hyphens");
+  }
+}
+
+function endpoint(host, port) {
+  if (!host || /[/:?#]/.test(host) || /\s/.test(host)) {
+    throw new Error("host must be a hostname or IPv4 address without a scheme or path");
+  }
+  const parsedPort = Number(port);
+  if (!Number.isInteger(parsedPort) || parsedPort < 1 || parsedPort > 65535) {
+    throw new Error("port must be an integer from 1 through 65535");
+  }
+  return `http://${host}:${parsedPort}/v1`;
+}
+
+// ---------------------------------------------------------------- registry
+
+function registryPath(configPath) {
+  return resolve(dirname(configPath), "local-providers.json");
+}
+
+async function loadRegistry(configPath) {
+  try {
+    const parsed = JSON.parse(await readFile(registryPath(configPath), "utf8"));
+    return parsed?.providers && typeof parsed.providers === "object" ? parsed : { providers: {} };
+  } catch (error) {
+    if (error.code === "ENOENT") return { providers: {} };
+    throw new Error(`could not parse ${registryPath(configPath)}: ${error.message}`);
+  }
+}
+
+async function saveRegistry(configPath, registry) {
+  await writeFile(registryPath(configPath), `${JSON.stringify(registry, null, 2)}\n`, "utf8");
+}
+
+// Sidecar entry first; otherwise adopt a provider the old script wrote.
+function ownership(name, provider, registry) {
+  if (registry.providers[name]) return registry.providers[name];
+  if (provider?.npm === "@ai-sdk/openai-compatible" && provider?.options?.apiKey === LEGACY_API_KEY) {
+    return { kind: "lmstudio", apiKey: LEGACY_API_KEY };
+  }
+  return null;
+}
+
+// --------------------------------------------------------------- key files
+
+async function resolveApiKey(opts, kind) {
+  if (opts.apiKeyFile) {
+    const key = (await readFile(resolve(opts.apiKeyFile.replace(/^~(?=\/)/, homedir())), "utf8")).trim();
+    if (!key) throw new Error(`${opts.apiKeyFile} is empty`);
+    return { apiKey: key, apiKeyFile: opts.apiKeyFile };
+  }
+  if (opts.apiKey) return { apiKey: opts.apiKey };
+  return { apiKey: KINDS[kind].apiKey ?? undefined };
+}
+
+// Refresh re-reads the key file so a rotated daemon key lands in the config.
+async function refreshApiKey(entry) {
+  if (!entry.apiKeyFile) return entry.apiKey;
+  try {
+    const key = (await readFile(resolve(entry.apiKeyFile.replace(/^~(?=\/)/, homedir())), "utf8")).trim();
+    return key || entry.apiKey;
+  } catch {
+    return entry.apiKey;
+  }
+}
+
+// ------------------------------------------------------------------ config
+
+async function loadConfig(configPath) {
+  let source;
+  try {
+    source = await readFile(configPath, "utf8");
+  } catch (error) {
+    if (error.code === "ENOENT") return { $schema: "https://opencode.ai/config.json" };
+    throw error;
+  }
+  try {
+    const config = JSON.parse(source);
+    if (!config || Array.isArray(config) || typeof config !== "object") throw new Error("must be an object");
+    return config;
+  } catch (error) {
+    throw new Error(`could not parse ${configPath} as JSON: ${error.message}`);
+  }
+}
+
+async function writeConfig(configPath, config) {
+  await mkdir(dirname(configPath), { recursive: true });
+  const serialized = `${JSON.stringify(config, null, 2)}\n`;
+  const temporaryPath = `${configPath}.${process.pid}.tmp`;
+
+  try {
+    await stat(configPath);
+    const backupPath = `${configPath}.backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+    await writeFile(backupPath, await readFile(configPath), "utf8");
+    console.log(`Backup: ${backupPath}`);
+  } catch (error) {
+    if (error.code !== "ENOENT") throw error;
+  }
+
+  await writeFile(temporaryPath, serialized, "utf8");
+  await rename(temporaryPath, configPath);
+}
+
+// --------------------------------------------------------------- discovery
+
+async function discoverModels(baseURL, apiKey, timeoutMs = 10_000) {
+  const headers = apiKey ? { Authorization: `Bearer ${apiKey}` } : {};
+  let response;
+  try {
+    response = await fetch(`${baseURL}/models`, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    throw new Error(`could not reach ${baseURL}/models: ${error.message}`);
+  }
+  if (response.status === 401 || response.status === 403) {
+    throw new Error(`${baseURL}/models rejected the API key (HTTP ${response.status}) -- pass --api-key or --api-key-file`);
+  }
+  if (!response.ok) throw new Error(`${baseURL}/models returned HTTP ${response.status}`);
+
+  const body = await response.json();
+  if (!Array.isArray(body?.data) || body.data.some((model) => typeof model?.id !== "string" || !model.id)) {
+    throw new Error(`${baseURL}/models did not return an OpenAI-compatible { data: [{ id }] } response`);
+  }
+  return [...body.data].sort((left, right) => left.id.localeCompare(right.id));
+}
+
+// MTPLX reports context_length / modalities / supports_vision per model, so the
+// entry carries real limits instead of opencode's 32k default. Serving is
+// uncapped and single-stream, so keep the long-generation options that the
+// hand-tuned entry used (chunkTimeout / timeout:false).
+function modelEntry(kind, model, existing = {}) {
+  if (kind !== "mtplx") return { name: model.id, ...existing };
+
+  const context = Number(model.max_model_len ?? model.max_context_length ?? model.context_length) || undefined;
+  const input = Array.isArray(model.modalities?.input)
+    ? model.modalities.input
+    : model.supports_vision ? ["text", "image"] : ["text"];
+
+  return {
+    name: `MTPLX ${model.id}`,
+    reasoning: true,
+    temperature: true,
+    tool_call: true,
+    // opencode's reasoning-effort variants are not part of MTPLX's contract;
+    // leaving them enabled makes the picker offer modes the server ignores.
+    variants: { high: { disabled: true }, minimal: { disabled: true }, none: { disabled: true } },
+    options: { reasoningEffort: "medium" },
+    // User tuning above is preserved across refreshes; the two facts below are
+    // reported by the server for the model as currently loaded, so a reload at
+    // a different context must not keep the stale value.
+    ...existing,
+    modalities: { input, output: model.modalities?.output ?? ["text"] },
+    ...(context ? { limit: { context, output: context } } : {}),
+  };
+}
+
+function providerOptions(kind, baseURL, apiKey, existing = {}) {
+  const options = { ...existing, baseURL };
+  if (apiKey) options.apiKey = apiKey;
+  else delete options.apiKey;
+  if (kind === "mtplx") {
+    options.headers = { ...(existing.headers ?? {}), "x-mtplx-client": "opencode" };
+    options.chunkTimeout ??= 900000;
+    options.timeout ??= false;
+  }
+  return options;
+}
+
+// ------------------------------------------------------------------ writes
+
+// Merge, never clobber: hand-tuned per-model keys (limits, variants, sampler
+// options) survive a re-add, and models the server no longer reports drop out.
+function upsertProvider(config, name, { kind, host, baseURL, apiKey, label, models }) {
+  const existing = config.provider?.[name] ?? {};
+  const existingModels = existing.models ?? {};
+  const discovered = Object.fromEntries(models.map((m) => [m.id, modelEntry(kind, m, existingModels[m.id])]));
+  // "accumulate" keeps entries for models that are not loaded right now, so a
+  // model you loaded once stays selectable; `prune`/`forget` remove them.
+  const nextModels = KINDS[kind].modelPolicy === "accumulate"
+    ? { ...existingModels, ...discovered }
+    : discovered;
+
+  config.provider ??= {};
+  config.provider[name] = {
+    ...existing,
+    npm: "@ai-sdk/openai-compatible",
+    name: label ?? existing.name ?? `${KINDS[kind].label} (${host}:${new URL(baseURL).port})`,
+    options: providerOptions(kind, baseURL, apiKey, existing.options),
+    models: nextModels,
+  };
+}
+
+// Liveness lives in the sidecar, never in opencode.json: it is observation,
+// not configuration, and `models`/`prune` are the only readers.
+function recordSeen(registry, name, models) {
+  const entry = registry.providers[name] ?? {};
+  const now = new Date().toISOString();
+  entry.lastSeen = { ...(entry.lastSeen ?? {}) };
+  for (const model of models) entry.lastSeen[model.id] = now;
+  registry.providers[name] = entry;
+  return models.map((m) => m.id);
+}
+
+// --------------------------------------------------------------------- CLI
+
+async function cmdList(opts) {
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  const rows = Object.entries(config.provider ?? {})
+    .map(([name, provider]) => [name, provider, ownership(name, provider, registry)])
+    .filter(([, , owned]) => owned);
+  if (!rows.length) return console.log("No local LLM providers configured.");
+  for (const [name, provider, owned] of rows) {
+    const keySource = owned.apiKeyFile ? ` key<-${owned.apiKeyFile}` : "";
+    console.log(`${name}\t${owned.kind}\t${provider.options.baseURL}\t${Object.keys(provider.models ?? {}).length} model(s)${keySource}`);
+  }
+}
+
+async function cmdScan(opts) {
+  const kind = opts.kind ?? "lmstudio";
+  const port = Number(opts.port ?? KINDS[kind].port);
+  const subnet = opts.subnet ?? "127.0.0";
+  const { apiKey } = await resolveApiKey(opts, kind);
+  const hosts = subnet === "127.0.0" ? ["127.0.0.1"] : Array.from({ length: 254 }, (_, i) => `${subnet}.${i + 1}`);
+
+  console.log(`Scanning ${hosts.length} host(s) on port ${port} for a ${kind} server...`);
+  const results = await Promise.all(hosts.map(async (host) => {
+    const baseURL = endpoint(host, port);
+    try {
+      const models = await discoverModels(baseURL, apiKey);
+      return { host, baseURL, models };
+    } catch (error) {
+      return /rejected the API key/.test(error.message) ? { host, baseURL, authFailed: true } : null;
+    }
+  }));
+
+  const found = results.filter(Boolean);
+  if (!found.length) return console.log("No servers found.");
+  for (const hit of found) {
+    if (hit.authFailed) {
+      console.log(`${hit.baseURL}\treachable, needs its own API key -- re-run 'add' with --api-key`);
+    } else {
+      console.log(`${hit.baseURL}\t${hit.models.length} model(s): ${hit.models.map((m) => m.id).join(", ")}`);
+    }
+  }
+}
+
+async function cmdAdd(args, opts) {
+  const [name, host, portArg, ...extra] = args;
+  if (!name || !host || extra.length) return usage("add requires <name> <host> and one optional port");
+  validateName(name);
+
+  const kind = opts.kind ?? "lmstudio";
+  const baseURL = endpoint(host, opts.port ?? portArg ?? KINDS[kind].port);
+  const { apiKey, apiKeyFile } = await resolveApiKey(opts, kind);
+
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  if (config.provider?.[name] && !opts.replace) {
+    throw new Error(`provider '${name}' already exists; use --replace to update it`);
+  }
+  if (config.provider?.[name] && !ownership(name, config.provider[name], registry) && !opts.kind) {
+    throw new Error(`provider '${name}' exists but is not managed here; pass --kind to adopt it`);
+  }
+
+  console.log(`Discovering models from ${baseURL}/models...`);
+  const models = await discoverModels(baseURL, apiKey);
+  upsertProvider(config, name, { kind, host, baseURL, apiKey, label: opts.label, models });
+
+  registry.providers[name] = {
+    ...(registry.providers[name] ?? {}),
+    kind,
+    ...(apiKeyFile ? { apiKeyFile } : {}),
+    ...(apiKey && !apiKeyFile ? { apiKey } : {}),
+  };
+  recordSeen(registry, name, models);
+  await writeConfig(opts.config, config);
+  await saveRegistry(opts.config, registry);
+  console.log(`Added '${name}' with ${models.length} model(s). Use models as ${name}/<model-id>.`);
+}
+
+async function cmdRefresh(args, opts) {
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  const entries = Object.entries(config.provider ?? {})
+    .map(([name, provider]) => [name, provider, ownership(name, provider, registry)])
+    .filter(([name, , owned]) => owned && (!args.length || args.includes(name)));
+
+  const found = new Set(entries.map(([name]) => name));
+  const unknown = args.filter((name) => !found.has(name));
+  if (unknown.length) throw new Error(`not a managed local provider: ${unknown.join(", ")}`);
+  if (!entries.length) throw new Error("no local LLM providers to refresh");
+
+  let failures = 0;
+  let updated = 0;
+  for (const [name, provider, owned] of entries) {
+    const baseURL = provider.options.baseURL;
+    const apiKey = await refreshApiKey(owned);
+    console.log(`Discovering models from ${baseURL}/models...`);
+    try {
+      const models = await discoverModels(baseURL, apiKey);
+      const host = new URL(baseURL).hostname;
+      upsertProvider(config, name, { kind: owned.kind, host, baseURL, apiKey, label: provider.name, models });
+      registry.providers[name] = { ...owned, ...(owned.apiKeyFile ? {} : apiKey ? { apiKey } : {}) };
+      recordSeen(registry, name, models);
+      updated += 1;
+      console.log(`Refreshed '${name}' with ${models.length} model(s).`);
+    } catch (error) {
+      failures += 1;
+      console.error(`Skipped '${name}': ${error.message}`);
+    }
+  }
+  // An all-failed refresh changed nothing; don't drop another backup for it.
+  if (updated) {
+    await writeConfig(opts.config, config);
+    await saveRegistry(opts.config, registry);
+  }
+  if (failures) process.exitCode = 1;
+}
+
+// Resolve one managed provider by name, or fail with a usable message.
+async function resolveProvider(name, opts) {
+  if (!name) throw new Error("a provider name is required");
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  const provider = config.provider?.[name];
+  const owned = ownership(name, provider, registry);
+  if (!owned) throw new Error(`not a managed local provider: ${name}`);
+  return { config, registry, provider, owned };
+}
+
+// Which model ids is the server serving right now? Empty on an unreachable
+// server, which callers must treat as "unknown", never as "nothing is loaded".
+async function currentlyLoaded(provider, owned, timeoutMs) {
+  const apiKey = await refreshApiKey(owned);
+  return new Set((await discoverModels(provider.options.baseURL, apiKey, timeoutMs)).map((m) => m.id));
+}
+
+async function cmdModels(args, opts) {
+  const [name] = args;
+  const { provider, registry, owned } = await resolveProvider(name, opts);
+
+  let live = null;
+  try {
+    live = await currentlyLoaded(provider, owned);
+  } catch (error) {
+    console.error(`Warning: could not reach ${provider.options.baseURL} (${error.message}) -- showing last-known state only.`);
+  }
+
+  const lastSeen = registry.providers[name]?.lastSeen ?? {};
+  const ids = Object.keys(provider.models ?? {}).sort();
+  if (!ids.length) return console.log(`'${name}' has no models registered.`);
+
+  for (const id of ids) {
+    const state = live === null ? "?" : live.has(id) ? "LOADED" : "not loaded";
+    const seen = lastSeen[id] ? `last seen ${lastSeen[id].slice(0, 10)}` : "never seen loaded";
+    const ctx = provider.models[id]?.limit?.context;
+    console.log(`${state === "LOADED" ? "*" : " "} ${id}\t${state}\t${seen}${ctx ? `\tctx ${ctx}` : ""}`);
+  }
+  if (live !== null && owned.kind === "mtplx") {
+    console.log(`\nMTPLX serves only the LOADED model. Requesting any other id here still returns HTTP 200,`);
+    console.log(`silently answered by the loaded model -- load the one you want in the MTPLX app first.`);
+  }
+}
+
+async function cmdForget(args, opts) {
+  const [name, ...modelIds] = args;
+  if (!modelIds.length) return usage("forget requires <provider> and at least one model id");
+  const { config, registry } = await resolveProvider(name, opts);
+
+  const forgotten = [];
+  for (const id of modelIds) {
+    if (!config.provider[name].models?.[id]) {
+      console.error(`Skipped '${id}': not registered under '${name}'.`);
+      continue;
+    }
+    delete config.provider[name].models[id];
+    delete registry.providers[name]?.lastSeen?.[id];
+    forgotten.push(id);
+  }
+  if (!forgotten.length) throw new Error("no models were removed");
+  await writeConfig(opts.config, config);
+  await saveRegistry(opts.config, registry);
+  console.log(`Forgot from '${name}': ${forgotten.join(", ")}`);
+}
+
+async function cmdPrune(args, opts) {
+  const [name] = args;
+  const { config, registry, provider, owned } = await resolveProvider(name, opts);
+
+  // Never prune against a guess: an unreachable server means "unknown", and
+  // dropping every model on a timeout would be the worst possible failure.
+  const live = await currentlyLoaded(provider, owned);
+  const stale = Object.keys(provider.models ?? {}).filter((id) => !live.has(id));
+  if (!stale.length) return console.log(`'${name}': nothing to prune (all ${live.size} registered model(s) are loaded).`);
+
+  for (const id of stale) {
+    delete config.provider[name].models[id];
+    delete registry.providers[name]?.lastSeen?.[id];
+  }
+  await writeConfig(opts.config, config);
+  await saveRegistry(opts.config, registry);
+  console.log(`Pruned ${stale.length} not-loaded model(s) from '${name}': ${stale.join(", ")}`);
+}
+
+// drift: is the config still truthful about what MTPLX is serving right now?
+// Called from the opencode-local wrapper at launch. Never blocks and never
+// writes -- an unreachable server is silence, not a warning, because the user
+// may be starting a cloud-tier session with MTPLX deliberately off.
+async function cmdDrift(args, opts) {
+  const timeoutMs = Number(opts.timeout ?? 2500);
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  const entries = Object.entries(config.provider ?? {})
+    .map(([name, provider]) => [name, provider, ownership(name, provider, registry)])
+    .filter(([name, , owned]) => owned?.kind === "mtplx" && (!args.length || args.includes(name)));
+
+  const notes = [];
+  await Promise.all(entries.map(async ([name, provider, owned]) => {
+    let live;
+    try {
+      const apiKey = await refreshApiKey(owned);
+      live = await discoverModels(provider.options.baseURL, apiKey, timeoutMs);
+    } catch {
+      return; // server down or unreachable: not drift, just absent
+    }
+    for (const model of live) {
+      const registered = provider.models?.[model.id];
+      if (!registered) {
+        notes.push(`${name}: '${model.id}' is loaded but NOT registered -- opencode cannot select it.`);
+        continue;
+      }
+      const ctx = Number(model.max_model_len ?? model.max_context_length ?? model.context_length) || null;
+      if (ctx && registered.limit?.context !== ctx) {
+        notes.push(`${name}/${model.id}: loaded at ctx ${ctx}, config says ${registered.limit?.context ?? "unset"}.`);
+      }
+    }
+  }));
+
+  if (!notes.length) return;
+  console.error("");
+  for (const note of notes) console.error(`opencode-local-llm: ${note}`);
+  console.error(`opencode-local-llm: run 'opencode-local-llm refresh' to make the config truthful.`);
+  console.error("");
+  process.exitCode = 1;
+}
+
+// MTPLX serializes control-plane calls behind in-flight generation, so a busy
+// server can stall these well past a normal control-plane timeout.
+function settingsCaller(base, apiKey, opts) {
+  return async (method, body) => {
+    const res = await fetch(`${base}/mtplx/settings`, {
+      method,
+      headers: { ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}), "Content-Type": "application/json" },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+      signal: AbortSignal.timeout(Number(opts.timeout ?? 30_000)),
+    });
+    if (!res.ok) throw new Error(`${method} ${base}/mtplx/settings returned HTTP ${res.status}`);
+    return res.json();
+  };
+}
+
+// limits: cap runaway generation. MTPLX ships max_response_tokens=null, and the
+// session plugin strips opencode's injected maxOutputTokens so that "MTPLX owns
+// the generation contract" -- which means nothing bounds a turn at all. Setting
+// the cap server-side keeps that design intact while making it actually bounded.
+// NOTE: this caps the WHOLE response, thinking included. There is no separate
+// thinking budget in MTPLX's API (only max_tokens / max_completion_tokens), so
+// a cap small enough to bound thinking can truncate the answer instead
+// (finish_reason: length). Size it above a normal turn, not at it.
+async function cmdLimits(args, opts) {
+  const [name] = args;
+  const { provider, owned } = await resolveProvider(name, opts);
+  if (owned.kind !== "mtplx") throw new Error(`'${name}' is not an MTPLX provider`);
+  const call = settingsCaller(provider.options.baseURL, await refreshApiKey(owned), opts);
+
+  if (opts.maxResponseTokens === undefined) {
+    const s = await call("GET");
+    const ctx = s.context_window_policy ?? {};
+    console.log(`${name}: max_response_tokens=${s.max_response_tokens ?? "null (UNBOUNDED)"}`);
+    console.log(`  context window: ${ctx.default ?? "?"} (min ${ctx.minimum ?? "?"}, max ${ctx.maximum ?? "?"})`);
+    console.log(`  reasoning_effort=${s.reasoning_effort ?? "(default)"}  enable_thinking=${s.enable_thinking}`);
+    return;
+  }
+
+  // The cap is one-way: POSTing null is a no-op (the server reads null as "no
+  // change"), and 0 is a hard stop that emits an empty completion rather than
+  // meaning "unbounded" -- both verified against a live server. So the only way
+  // back to a truly unset cap is restarting MTPLX; the practical "uncapped" is
+  // the context maximum. The server does not validate this field, so guard here.
+  const raw = String(opts.maxResponseTokens).toLowerCase();
+  if (["none", "null", "off", "0"].includes(raw)) {
+    const s = await call("GET");
+    const max = s.context_window_policy?.maximum ?? 262144;
+    throw new Error(
+      `MTPLX cannot clear max_response_tokens once set -- null is ignored and 0 stops generation entirely.\n` +
+      `  For an effectively uncapped server: --max-response-tokens ${max}\n` +
+      `  To restore a truly unset cap: restart MTPLX.`,
+    );
+  }
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error("--max-response-tokens must be a positive integer (or restart MTPLX to unset it)");
+  }
+  await call("POST", { max_response_tokens: value });
+  const after = await call("GET");
+  console.log(`${name}: max_response_tokens=${after.max_response_tokens ?? "null (UNBOUNDED)"}`);
+  console.log(`Server-side setting -- applies to every client of this MTPLX server.`);
+  if (value !== null) console.log(`Caps thinking + answer together; an over-tight cap truncates the answer (finish_reason: length).`);
+}
+
+// thinking: MTPLX's reasoning controls live on the server, not in the request
+// opencode can send. opencode emits `reasoning_effort` (via the model's
+// `options.reasoningEffort`) but has no vocabulary for `enable_thinking`, so
+// the on/off switch is only reachable through POST /v1/mtplx/settings.
+async function cmdThinking(args, opts) {
+  const [name, mode] = args;
+  const { provider, owned } = await resolveProvider(name, opts);
+  if (owned.kind !== "mtplx") throw new Error(`'${name}' is not an MTPLX provider`);
+  const apiKey = await refreshApiKey(owned);
+  const base = provider.options.baseURL;
+
+  const call = settingsCaller(base, apiKey, opts);
+  if (!mode) {
+    const s = await call("GET");
+    const policy = s.reasoning_policy ?? {};
+    console.log(`${name}: reasoning=${s.reasoning}  enable_thinking=${s.enable_thinking}  effort=${s.reasoning_effort ?? policy.default_effort}`);
+    console.log(`  modes: ${(policy.modes ?? []).join(" | ")}    effort levels: ${(policy.effort_levels ?? []).join(" | ")}`);
+    console.log(`  history: ${s.reasoning_history_mode} (parser ${s.reasoning_parser})`);
+    console.log(`  max_response_tokens: ${s.max_response_tokens ?? "null (UNBOUNDED -- see 'limits')"}`);
+    return;
+  }
+
+  const modes = { on: { reasoning: "on" }, off: { reasoning: "off" }, auto: { reasoning: "auto" } };
+  const body = modes[mode];
+  if (!body) throw new Error(`mode must be one of: on, off, auto (got '${mode}')`);
+  if (opts.effort) body.reasoning_effort = opts.effort;
+
+  await call("POST", body);
+  const after = await call("GET");
+  console.log(`${name}: reasoning=${after.reasoning}  enable_thinking=${after.enable_thinking}  effort=${after.reasoning_effort ?? "(default)"}`);
+  console.log(`Server-side setting -- applies to every client of this MTPLX server, not just opencode.`);
+}
+
+// fan: MTPLX's thermal mode materially changes SUSTAINED decode throughput.
+// Measured on M5 Max / Qwen3.8-27B, 8 consecutive 800-token generations:
+//   default -> 39.9 then 36.1 tok/s (-9.4% thermal decay), fans pinned ~3459rpm
+//   smart   -> ramps to ~5343rpm, recovers to 45.0 tok/s
+//   max     -> flat 43.8 -> 44.9 tok/s
+// `smart` ramps only while requests are in flight, so it is the default pick:
+// max's steady state without max's constant noise. Runtime-only -- it resets
+// when MTPLX restarts.
+async function cmdFan(args, opts) {
+  const [name, mode] = args;
+  const { provider, owned } = await resolveProvider(name, opts);
+  if (owned.kind !== "mtplx") throw new Error(`'${name}' is not an MTPLX provider`);
+  const apiKey = await refreshApiKey(owned);
+  const base = provider.options.baseURL;
+  const headers = { ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}), "Content-Type": "application/json" };
+  const timeout = Number(opts.timeout ?? 30_000);
+
+  if (mode) {
+    if (!["default", "smart", "max", "auto"].includes(mode)) {
+      throw new Error("fan mode must be one of: default, smart, max, auto");
+    }
+    const res = await fetch(`${base}/mtplx/thermal/fan_mode`, {
+      method: "POST", headers, body: JSON.stringify({ mode, timeout_s: 30 }),
+      signal: AbortSignal.timeout(timeout),
+    });
+    if (!res.ok) throw new Error(`fan_mode returned HTTP ${res.status}`);
+  }
+
+  const res = await fetch(`${base}/mtplx/thermal/status`, { headers, signal: AbortSignal.timeout(timeout) });
+  if (!res.ok) throw new Error(`thermal/status returned HTTP ${res.status}`);
+  const st = await res.json();
+  const f = st.fan_summary ?? {};
+  console.log(`${name}: fan_mode=${st.current_mode}  fans ${f.actual_min_rpm ?? "?"}/${f.actual_max_rpm ?? "?"} rpm (capacity ${f.capacity_min_rpm ?? "?"}/${f.capacity_max_rpm ?? "?"})`);
+  if (st.current_mode === "default") console.log(`  'smart' measured ~25% better sustained decode under load.`);
+}
+
+async function cmdRemove(args, opts) {
+  if (!args.length) return usage("remove requires at least one provider name");
+  const config = await loadConfig(opts.config);
+  const registry = await loadRegistry(opts.config);
+  const removed = [];
+  for (const name of args) {
+    if (!ownership(name, config.provider?.[name], registry)) {
+      console.error(`Skipped '${name}': not a local LLM provider managed by this command.`);
+      continue;
+    }
+    delete config.provider[name];
+    delete registry.providers[name];
+    removed.push(name);
+  }
+  if (!removed.length) throw new Error("no providers were removed");
+  await writeConfig(opts.config, config);
+  await saveRegistry(opts.config, registry);
+  console.log(`Removed: ${removed.join(", ")}`);
+}
+
+async function main() {
+  const { args, opts } = parseArguments(process.argv.slice(2));
+  const [command, ...rest] = args;
+
+  if (command === "list") return rest.length ? usage("list accepts no arguments") : cmdList(opts);
+  if (command === "scan") return cmdScan(opts);
+  if (command === "add") return cmdAdd(rest, opts);
+  if (command === "models") return cmdModels(rest, opts);
+  if (command === "forget") return cmdForget(rest, opts);
+  if (command === "prune") return cmdPrune(rest, opts);
+  if (command === "drift") return cmdDrift(rest, opts);
+  if (command === "thinking") return cmdThinking(rest, opts);
+  if (command === "limits") return cmdLimits(rest, opts);
+  if (command === "fan") return cmdFan(rest, opts);
+  if (command === "refresh") return cmdRefresh(rest, opts);
+  if (command === "remove" || command === "delete") return cmdRemove(rest, opts);
+  usage(command ? `unknown command '${command}'` : undefined);
+}
+
+main().catch((error) => {
+  console.error(`Error: ${error.message}`);
+  process.exitCode = 1;
+});
