@@ -20,14 +20,12 @@ existed**. This adapter is that importer.
 
 ## Flow
 
-```
-Figma file ──figma.sh pull──► docs/design/figma-snapshot.json  (normalized)
-                                        │ figma.sh derive-tokens
-                                        ▼
-              design-system-lead ──► docs/design/tokens.json   (authoritative)
-                                        │ frontend-design --system
-                                        ▼
-                            tailwind.config.ts / theme.ts / components  (code)
+```mermaid
+graph TD
+    F["Figma file"] -->|"figma.sh pull"| S["docs/design/figma-snapshot.json<br/>(normalized)"]
+    S -->|"figma.sh derive-tokens"| D["design-system-lead"]
+    D --> T["docs/design/tokens.json<br/>(authoritative)"]
+    T -->|"frontend-design --system"| C["tailwind.config.ts / theme.ts / components<br/>(code)"]
 ```
 
 One direction only (Figma → tokens.json → code). We never push design back —
