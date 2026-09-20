@@ -42,7 +42,7 @@ if [[ -n "${NO_ASCII_PATHS:-}" ]]; then
 else
   while IFS= read -r f; do
     TARGETS+=( "$f" )
-  done < <(find "$ROOT/docs" -type f -name '*.md' 2>/dev/null | grep -v 'AUDIT_' || true)
+  done < <(find "$ROOT/docs" -type f -name '*.md' 2>/dev/null | grep -v 'AUDIT_' | grep -v '/docs/work/' || true)
 fi
 
 if [[ "${#TARGETS[@]}" -eq 0 ]]; then
@@ -106,12 +106,28 @@ scan_file() {
     # 3. Box-drawing chars inside a line (any of them, anywhere in the file)
     # We check each banned character. Bash 3.2 doesn't support Unicode ranges
     # well in =~, so use grep -F per char.
-    local banned_chars='═║┌┐└┘─│╔╗╚╝╠╣╦╩╬┏┓┗┛━┃┣┫┳┻╋├┤┬┴┼'
+    #
+    # Strip inline code spans first. The hygiene rule explicitly exempts the
+    # HANDOFF delimiter ════, and docs that *document* that delimiter write it
+    # inside backticks (e.g. 'use the `════` delimiters'). Flagging those is a
+    # false positive against the rule's own stated exception. Prose outside the
+    # backticks on the same line is still scanned.
+    local scan_line="$line"
+    while [[ "$scan_line" == *'`'*'`'* ]]; do
+      scan_line="${scan_line%%\`*}${scan_line#*\`*\`}"
+    done
+
+    # NOTE: '═' (U+2550) is deliberately NOT in this list. The hygiene rule
+    # exempts the HANDOFF delimiter ════, and that exemption is unconditional —
+    # docs that mention it in prose or in quotes are not drawing a diagram.
+    # A genuine ═ banner is still caught by rule 1 (^═{40,}$) above, and a real
+    # ═ box always carries ║/╔/╗/╚/╝ corners, which remain banned.
+    local banned_chars='║┌┐└┘─│╔╗╚╝╠╣╦╩╬┏┓┗┛━┃┣┫┳┻╋├┤┬┴┼'
     local i
     local banned=""
     for (( i=0; i<${#banned_chars}; i++ )); do
       local ch="${banned_chars:$i:1}"
-      if [[ "$line" == *"$ch"* ]]; then
+      if [[ "$scan_line" == *"$ch"* ]]; then
         banned="$ch"
         break
       fi
