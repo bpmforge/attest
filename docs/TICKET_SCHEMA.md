@@ -50,10 +50,15 @@ task-decomposer `nodes[]`. A plan with only `nodes[]` stays valid (backward comp
 
 ## Lifecycle (T26.1) — enforced transition graph
 
-```
-ready ──claim──► claimed ──start──► in_progress ──close──► in_review ──accept──► done
-                                        │
-                                        └──────── release ────────► (back to ready, clears owner)
+```mermaid
+stateDiagram-v2
+    [*] --> ready
+    ready --> claimed: claim
+    claimed --> in_progress: start
+    in_progress --> in_review: close
+    in_review --> done: accept
+    in_progress --> ready: release (clears owner)
+    done --> [*]
 ```
 
 Agents never hand-edit `status`/`owner` again — these six CLI verbs (also exported as functions

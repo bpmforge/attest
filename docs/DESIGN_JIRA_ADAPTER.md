@@ -21,19 +21,15 @@ append-only `history[]`, and a `close` gate on manifest + `verify` exit-0
 (`docs/TICKET_SCHEMA.md`). **That engine is the methodology.** The Jira adapter
 does not replace it and does not become a second source of truth.
 
-```
-                 ┌──────────────────────────────────────────┐
-   the six       │  scripts/lib/tickets-lifecycle.mjs         │   ← SOURCE OF TRUTH
-   verbs  ─────► │  claim/start/comment/close/accept/release  │      (plan.json)
-                 │  writes plan.json  → returns {ok,error}     │
-                 └───────────────────┬──────────────────────┘
-                                     │ on ok, mirror (best-effort)
-                                     ▼
-                 ┌──────────────────────────────────────────┐
-                 │  scripts/jira/jira.mjs  (this adapter)      │   ← MIRRORED LEDGER
-                 │  projects each verb onto Jira REST v2       │      (Jira DC)
-                 │  failure → durable outbox, never blocks     │
-                 └──────────────────────────────────────────┘
+```mermaid
+graph TD
+    V["the six verbs<br/>claim / start / comment / close / accept / release"]
+    L["<b>SOURCE OF TRUTH</b> - plan.json<br/>scripts/lib/tickets-lifecycle.mjs<br/>writes plan.json, returns ok or error"]
+    J["<b>MIRRORED LEDGER</b> - Jira DC<br/>scripts/jira/jira.mjs (this adapter)<br/>projects each verb onto Jira REST v2<br/>failure falls back to a durable outbox, never blocks"]
+    V --> L
+    L -->|"on ok, mirror (best-effort)"| J
+    style L fill:#d5f5e3
+    style J fill:#fdebd0
 ```
 
 **Why plan.json-first, not Jira-first:** the local file write is cheap,
