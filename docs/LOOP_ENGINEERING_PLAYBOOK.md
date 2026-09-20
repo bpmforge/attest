@@ -251,11 +251,12 @@ goal:
 
 The system Brad is building is **micro-agents arranged in macro-loops, each micro-agent running its own bounded micro-loop** — canonicalized in `agents/shared/MICRO_LOOP.md`.
 
-```
-MACRO LOOP (orchestrator: RALPH_WIGGUM / FIX_VERIFY) — owns COVERAGE
-  ├─ micro-agent ─ MICRO LOOP ─ criterion → produce → self-verify → revise(≤2) → return
-  ├─ micro-agent ─ MICRO LOOP ─ …                                   (parallel)
-  └─ micro-agent ─ MICRO LOOP ─ …
+```mermaid
+graph TD
+    MACRO["MACRO LOOP - orchestrator: RALPH_WIGGUM / FIX_VERIFY<br/>owns COVERAGE"]
+    MACRO --> A["micro-agent - MICRO LOOP<br/>criterion then produce then self-verify then revise (≤2) --> return"]
+    MACRO --> B["micro-agent - MICRO LOOP<br/>(parallel)"]
+    MACRO --> C["micro-agent - MICRO LOOP<br/>(parallel)"]
 ```
 
 - **Macro loop** answers *"is every inventory row covered?"* (cap 3 / 2).

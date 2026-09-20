@@ -10,27 +10,25 @@ This document captures the agreed architecture evolution and phased build plan f
 
 ## Architecture Vision
 
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 1 — Memory & Search                                    │
-│  bpm-memory-mcp MCP  →  cross-session agent memory            │
-│  code-search MCP    →  semantic code retrieval on demand      │
-│  Agents pull context they need; never load whole files blind  │
-└──────────────────────────────────────────────────────────────┘
-              ↑  agents query and store
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 2 — Micro-Agent Specialists                            │
-│  One agent = one job = one context window                     │
-│  Orchestrators route; specialists execute                     │
-│  Context-budget aware; reads what search returns             │
-└──────────────────────────────────────────────────────────────┘
-              ↑  outputs verified by
-┌──────────────────────────────────────────────────────────────┐
-│  Layer 3 — Quality Gates                                      │
-│  Ralph Wiggum   →  coverage (did we cover every row?)        │
-│  Challenger     →  veracity (is what we covered actually true?)│
-│  Gate scripts   →  structure (is the artifact well-formed?)  │
-└──────────────────────────────────────────────────────────────┘
+```mermaid
+graph BT
+    subgraph L3["Layer 3 - Quality Gates"]
+        G1["Ralph Wiggum owns coverage<br/>did we cover every row?"]
+        G2["Challenger owns veracity<br/>is what we covered actually true?"]
+        G3["Gate scripts own structure<br/>is the artifact well-formed?"]
+    end
+    subgraph L2["Layer 2 - Micro-Agent Specialists"]
+        M1["One agent = one job = one context window"]
+        M2["Orchestrators route; specialists execute"]
+        M3["Context-budget aware; reads what search returns"]
+    end
+    subgraph L1["Layer 1 - Memory & Search"]
+        S1["bpm-memory-mcp MCP provides cross-session agent memory"]
+        S2["code-search MCP provides semantic code retrieval on demand"]
+        S3["Agents pull context they need; never load whole files blind"]
+    end
+    L2 -->|"agents query and store"| L1
+    L3 -->|"outputs verified by"| L2
 ```
 
 ---
