@@ -35,7 +35,7 @@ ROOT="$(detect_project_root "${1:-}")"
 # -- Targets -----------------------------------------------------------------
 # Default: every markdown file under docs/ EXCEPT the audit file (which
 # documents the patterns it's banning).
-declare -a TARGETS
+declare -a TARGETS=()
 if [[ -n "${NO_ASCII_PATHS:-}" ]]; then
   # shellcheck disable=SC2206
   TARGETS=( ${NO_ASCII_PATHS} )
