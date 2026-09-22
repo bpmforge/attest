@@ -123,7 +123,7 @@ if ! grep -qiE '^## (Accessibility|WCAG|A11y)' "$UX_SPEC" 2>/dev/null; then
 else
   pass "Accessibility Plan section present"
   # Check for key WCAG topics
-  for topic in "keyboard\|tab" "contrast\|color" "screen[[:space:]]\+reader\|aria\|ARIA" "focus"; do
+  for topic in "keyboard|tab" "contrast|color" "screen[[:space:]]+reader|aria|ARIA" "focus"; do
     if ! grep -qiE "$topic" "$UX_SPEC" 2>/dev/null; then
       gap "thin-accessibility-plan" "Accessibility Plan missing: $topic — WCAG 2.2 requires keyboard navigation, color contrast, screen reader support, focus indicators"
     fi

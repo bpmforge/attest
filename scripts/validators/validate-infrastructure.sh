@@ -37,7 +37,7 @@ if ! grep -qiE '(Environment[[:space:]]+Matrix|## Environment|dev.*stag.*prod|st
 else
   pass "Environment matrix present"
   # Check for the three standard environments
-  for env in "development\|dev\b" "staging" "production\|prod\b"; do
+  for env in "development|dev\b" "staging" "production|prod\b"; do
     if ! grep -qiE "$env" "$INFRA" 2>/dev/null; then
       gap "missing-environment" "INFRASTRUCTURE.md missing environment: $env"
     fi
@@ -77,7 +77,7 @@ if ! grep -qiE '^## Operational' "$INFRA" 2>/dev/null; then
 else
   pass "Operational concerns section present"
   # Check for key operational topics
-  for topic in "monitor" "log" "backup\|back up" "secret\|credential"; do
+  for topic in "monitor" "log" "backup|back up" "secret|credential"; do
     if ! grep -qiE "$topic" "$INFRA" 2>/dev/null; then
       gap "missing-operational-topic" "Operational Concerns section missing topic: $topic"
     fi
