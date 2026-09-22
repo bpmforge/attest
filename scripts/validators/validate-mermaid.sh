@@ -336,4 +336,13 @@ if [[ "${EXPERTS_TELEMETRY:-1}" != "0" ]]; then
   } 2>/dev/null || true
 fi
 
+# Machine contract on stdout — the same '"gaps":N' shape every other validator
+# emits via _lib.sh's validator_exit. Without it, validate-phase-gate.sh had no
+# gap count to read and defaulted to 0, so a failing mermaid run was reported as
+# "0 gap(s)" in the gate output and recorded as gaps:0 in the receipt. An exit
+# code is not a contract.
+printf '{"validator":"validate-mermaid","gaps":%d,"exit":%d,"warnings":%d,"filesScanned":%d}\n' \
+  "$total_errors" "$([[ $total_errors -eq 0 ]] && echo 0 || echo 1)" \
+  "$total_warnings" "$files_scanned"
+
 [[ $total_errors -eq 0 ]]

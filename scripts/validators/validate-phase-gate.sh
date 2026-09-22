@@ -414,9 +414,24 @@ for v in "${GATE_VALIDATORS[@]:-}"; do
   cat "$_stderr_tmp" >&2
   rm -f "$_stderr_tmp"
 
-  sub_gaps=$(printf '%s' "$json" | sed -nE 's/.*"gaps":([0-9]+).*/\1/p')
-  sub_gaps="${sub_gaps:-0}"
-  if [[ "$v_exit" -eq 0 && "$sub_gaps" -eq 0 ]]; then
+  # A sub-validator MUST emit the machine contract '"gaps":N' on stdout.
+  # Defaulting a missing field to 0 meant a validator that found problems but
+  # exited 0 was reported clean -- and the receipt below recorded gaps:0 as
+  # fact, which the prereq check then trusted. Treat an absent contract as
+  # UNKNOWN, never as zero.
+  if printf '%s' "$json" | grep -q '"gaps":[0-9]'; then
+    sub_gaps=$(printf '%s' "$json" | sed -nE 's/.*"gaps":([0-9]+).*/\1/p' | tail -n1)
+    sub_contract=1
+  else
+    sub_gaps=-1
+    sub_contract=0
+  fi
+
+  if [[ "$sub_contract" -eq 0 ]]; then
+    # No contract: the exit code is the only evidence, and it is not enough to
+    # assert "clean". Report it so a silent pass is impossible.
+    gap "sub-validator-no-contract" "$v emitted no '\"gaps\":N' summary (exit $v_exit) — its result cannot be trusted as clean; fix the validator to emit the JSON contract"
+  elif [[ "$v_exit" -eq 0 && "$sub_gaps" -eq 0 ]]; then
     pass "$v clean"
   else
     gap "sub-validator-failed" "$v reported $sub_gaps gap(s) (exit $v_exit)"
