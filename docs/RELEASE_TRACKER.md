@@ -3,7 +3,7 @@
 **Shipped:** v2.0.0 (2026-07-12) — field-lessons fold, M28 conductor ref impl, exact parity.
 **Target:** **v2.1.0 "v2 stream complete"** — every opencode-experts-related amplifier ticket
 done+merged, local-model work finished, conductor adapted to the module schema. Shipwright
-stays paused until this ships (founder decision 2026-07-12). Alignment: `docs/ALIGNMENT_MATRIX.md`.
+stays paused until this ships (founder decision 2026-07-12). Alignment: `docs/archive/ALIGNMENT_MATRIX.md`.
 
 ## R1 — Amplifier M26–M31 stream (the bulk; AUTOMATED)
 The 42-ticket go-forward stream (T26 lifecycle, T27 gate integrity, T28 conductor, T29 field

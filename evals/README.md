@@ -1,7 +1,7 @@
 # Eval Suite — golden tasks for the expert system itself
 
 Capability is measured by benchmarks; regressions are caught by evals, not
-vibes (ARCHITECTURE_EVOLUTION_PLAN.md §4.11). Each fixture is a tiny repo with
+vibes (docs/archive/ARCHITECTURE_EVOLUTION_PLAN.md §4.11). Each fixture is a tiny repo with
 PLANTED defects and a known architecture; the suite asserts the pipeline finds
 what it is supposed to find. A protocol edit's effect on output quality is now
 measurable — including "is model X good enough for this phase?" with data.

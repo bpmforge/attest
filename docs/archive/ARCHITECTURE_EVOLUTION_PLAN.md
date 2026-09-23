@@ -3,7 +3,7 @@
 **Date:** 2026-06-09
 **Scope:** Both repos (`attest-claude`, `attest`) and the shared expert-agent architecture.
 **Status:** Analysis complete; improvements proposed, not yet implemented.
-**Companion docs:** `IMPROVEMENT_BACKLOG.md` (28 tracked content items — this plan does not duplicate them), `docs/SYSTEM_REVIEW_2026-06-01.md`.
+**Companion docs:** `IMPROVEMENT_BACKLOG.md` (28 tracked content items — this plan does not duplicate them), `docs/archive/SYSTEM_REVIEW_2026-06-01.md`.
 
 ---
 
@@ -451,7 +451,7 @@ files ≤3. Total injected ≤1,200 tokens on tier=small. *(Amends 4.3 + 5.2 M4.
 
 ## Part 8 — Expert system review (2026-06-10)
 
-Full review in `docs/EXPERT_SYSTEM_REVIEW_2026-06-10.md`. Headlines:
+Full review in `docs/archive/EXPERT_SYSTEM_REVIEW_2026-06-10.md`. Headlines:
 
 - **Ralph Wiggum and Challenger are real wiring, not prose** — script-enforced iteration cap with disk-persisted state; gate-blocking CONTRADICTED verdicts with structural independence. Gaps: `/sdlc feature` and `/sdlc improve` run no coverage loop; onboard has no Challenger.
 - **Handoff output side is 84/85 standardized; input side is unspecified.** entry-point-tracer violates the manifest rule; preconditions/yields chaining exists only in the security cluster.

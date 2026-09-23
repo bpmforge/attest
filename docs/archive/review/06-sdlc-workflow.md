@@ -1,4 +1,4 @@
-[🏠 Index](README.md)  |  [← Agent System](05-agents.md)  |  [HANDOFF Delegation Protocol →](07-handoff-protocol.md)
+[🏠 Index](README.md)  |  [← Agent System](05-agents/README.md)  |  [HANDOFF Delegation Protocol →](07-handoff-protocol.md)
 
 ---
 
@@ -120,4 +120,4 @@ sequenceDiagram
 
 ---
 
-[🏠 Index](README.md)  |  [← Agent System](05-agents.md)  |  [HANDOFF Delegation Protocol →](07-handoff-protocol.md)
+[🏠 Index](README.md)  |  [← Agent System](05-agents/README.md)  |  [HANDOFF Delegation Protocol →](07-handoff-protocol.md)
