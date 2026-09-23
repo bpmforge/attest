@@ -1886,17 +1886,23 @@ function writeHaltNotice(plan) {
 }
 
 // ---------- main ----------
+// Exit 7: a preflight refusal about the environment (missing prerequisite,
+// no plan.json, dirty working tree). These used to exit 1 — the same code as
+// main()'s crash handler — so supervise.sh, which must retry crashes, also
+// relaunched a dirty tree up to 30 times. A distinct code lets it stop.
+const EXIT_PREFLIGHT = 7;
+
 async function main() {
   acquireRunLock();
   for (const bin of ['git']) {
-    try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(1); }
+    try { sh('which', [bin]); } catch { console.error(`missing prerequisite: ${bin}`); process.exit(EXIT_PREFLIGHT); }
   }
   if (PLAN_IS_FILE_BACKED && !existsSync(PLAN_PATH)) {
     console.error(
       `no plan.json at ${PLAN_PATH}\n` +
       `Probed (in producer order): ${PLAN_CANDIDATES.join(', ')} — pass --plan to name one explicitly.`,
     );
-    process.exit(1);
+    process.exit(EXIT_PREFLIGHT);
   }
   // G6: every ticket's manifest must sit where the scope gate permits writes.
   //
@@ -1949,7 +1955,7 @@ async function main() {
     );
     process.exit(2);
   }
-  if (git('status', '--porcelain')) { console.error('target repo working tree not clean — commit or stash first'); process.exit(1); }
+  if (git('status', '--porcelain')) { console.error('target repo working tree not clean — commit or stash first'); process.exit(EXIT_PREFLIGHT); }
   if (git('rev-parse', '--abbrev-ref', 'HEAD') !== 'main') git('checkout', '-q', 'main');
   const mainSync = syncMainFromRemotes();
   if (!mainSync.ok) {

@@ -42,7 +42,7 @@ while :; do
 
   [ "$code" -eq 0 ] && { log "clean exit — board drained or halt; done"; break; }
   case "$code" in
-    2|3|4|5|6)
+    2|3|4|5|6|7)
       log "deterministic gate exit code=$code — preserving state and stopping; repair the reported condition before restart"
       break
       ;;
