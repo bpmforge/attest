@@ -137,7 +137,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 
 | Step | What happens | Key HANDOFF | Output |
 |------|-------------|-------------|--------|
-| 1 | Discovery interview | (conversation) | docs/IMPROVE_CONTEXT.md |
+| 1 | Discovery interview | (conversation) | docs/improve/IMPROVE_CONTEXT.md |
 | 2 | Multi-specialist audit fan-out | code-reviewer, security-auditor, perf-engineer, ux-engineer (+ on-demand: a11y-compliance, data-steward, reliability-engineer, cost-engineer, analytics-architect) | Audit reports per specialist |
 | 3 | Synthesis | (direct write) | IMPROVEMENT_BACKLOG.md |
 | 4 | Prioritize with user | (conversation) | Approved backlog |

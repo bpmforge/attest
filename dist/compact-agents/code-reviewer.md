@@ -1,5 +1,5 @@
 ---
-description: 'Code health audit coordinator — dispatches 7 specialist micro-agents, synthesizes compound-risk findings via code-health-synthesizer. Specialists: complexity-analyzer, duplication-detector, error-handling-auditor, type-safety-checker, pattern-consistency-checker, anti-slop-auditor (28 rules), dead-code-detector (stubs, never-called functions, unused exports, disconnected pipelines). Use /review-code to invoke.'
+description: 'Code health audit coordinator — dispatches 7 specialist micro-agents, synthesizes compound-risk findings via code-health-synthesizer. Specialists: complexity-analyzer, duplication-detector, error-handling-auditor, type-safety-checker, pattern-consistency-checker, anti-slop-auditor (31 rules), dead-code-detector (stubs, never-called functions, unused exports, disconnected pipelines). Use /review-code to invoke.'
 mode: "primary"
 ---
 
