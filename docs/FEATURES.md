@@ -412,7 +412,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `LOOP_PREVENTION.md` | Tool-selection cheat-sheet + three loop classes (failure / schema-validation / success) + BLOCKED-template |
 | `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP) |
 | `CODE_SEARCH.md` | The `code-search` MCP surface (symbol/reference index): `code_symbols`/`code_references`/`code_outline`/`code_search` + `code_index`, when to prefer it over grep, and the mandatory `code_index()`-then-grep-fallback freshness contract. Inlined as the `## Code search` block into code-heavy agents |
-| `ANTI_SLOP_RULES.md` | 28-rule AI slop catalog (R-01..R-28) — over-engineering, defensive bloat, hallucinated patterns, slopsquatting, credential leakage |
+| `ANTI_SLOP_RULES.md` | 31-rule AI slop catalog (R-01..R-31) — over-engineering, defensive bloat, hallucinated patterns, slopsquatting, credential leakage |
 | `CHALLENGER_PROTOCOL.md` | Full Challenger adversarial review protocol — challenge categories, severity grades, rebuttal cycle, output format |
 | `GATE_SCORING_PROTOCOL.md` | HANDOFF resume scoring (1–10 scale, asymmetric threshold ≥7 pass / 5–6 revise / <5 auto-fail) + coverage validator table |
 | `PHASE_ROUTING_PROTOCOL.md` | Smart routing table per phase, escape hatches, validation gate chain, two-track system (Track 1: coverage loop; Track 2: confidence loop) |
@@ -433,6 +433,14 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `CODE_BOOK_PROTOCOL.md` | The book protocol applied to code: a source file over the size cap becomes a directory (index/barrel + one-concern chapter modules); enforced by `validate-file-size.sh` |
 | `BROWSER_TESTING.md` | Browser-automation / E2E primer — when and how to use `playwright-mcp` for screenshots and runtime UI verification |
 | `TUI_SESSION_HYGIENE.md` | TUI session-hygiene protocol — thin orchestrator, mandatory fresh-context (Executor A/B, never inline D) dispatch for tool-heavy specialists, scan-output-to-disk hard rule, 70%-of-truthful-context-display checkpoint-and-resume |
+| `SDLC_RESUME_PROTOCOL.md` | Deterministic resume of an incomplete SDLC (`status: partial`): gate-verify every claimed-complete phase, then give each artifact a disposition (locked / repair / redo) before continuing |
+| `CONTAINER_RUNTIMES.md` | Runtime detection and cloud-portability knowledge behind container-ops — which CLI/compose flavor is present, rootless gotchas, multi-arch, GCP/AWS-portable images |
+| `QA_VNV_TESTING.md` | Runnable QA/V&V technique library for qa-vnv-engineer — layout-defect detection, visual regression, resilient journey automation, evidence reporting |
+| `GAUNTLET_LOOP.md` | The `/gauntlet` harness: a real reference bar, builders in clean context, blind fresh-per-round critics; the builder never grades its own work |
+| `PRODUCT_SHAPE_PROTOCOL.md` | Canonical orchestration role names (GOAL / ORCHESTRATOR / BOTS / REVIEW PANEL / HONESTY LOOPS), the two-stack rule, the feature-map planning artifact, and feature-grouped landing |
+| `TOOL_PREFLIGHT.md` | Enforced tool-preflight + diagnose-before-retry contract for agents that run external scanners and profilers (semgrep, checkov, trivy, py-spy, lizard, jscpd …) |
+| `GAME_PRODUCTION.md` | How games are actually produced, indie and AAA — lifecycle gates on builds, discipline map and indie role-collapse, the artifacts that matter |
+| `GAME_TOOLING.md` | Game-tool MCP landscape and agentic engine loops for the game cluster — maintained engine/art/audio MCP servers and how to wire them |
 
 ---
 
@@ -507,7 +515,7 @@ Install: `claude mcp add playwright -- npx -y @playwright/mcp@latest`
 
 ## Validators
 
-Seventy-one bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
+Seventy-nine bash validators + gate runners in `scripts/validators/`. Each returns exit 0 (clean) / 1 (gaps) / 2 (validator error) and emits a JSON gap envelope to stdout. Bash 3.2 compatible (macOS default).
 
 | Script | Checks |
 |--------|--------|
@@ -585,6 +593,11 @@ Seventy-one bash validators + gate runners in `scripts/validators/`. Each return
 | `validate-flows.sh` | `docs/design/flows.md` (ux-researcher's output, the ROOT of the design chain) is structurally sound: exists (unless headless), has at least one Mermaid flow diagram and a screen-inventory section, no placeholder text. Flags a missing flows.md only when downstream design artifacts (tokens.json/components.md/UX_SPEC.md) exist without their derivation root; skips clean before the design phase |
 | `validate-design-tokens.sh` | Figma-source ↔ `tokens.json` drift (offline-safe; active only when `docs/design/figma-snapshot.json` exists): flags a Figma color dropped from `tokens.json`, a snapshot pulled but never derived, and (advisory) a color that diverged. No-op for the prose-authored `tokens.json` path (wraps `scripts/lib/design-tokens.mjs`; see `references/figma-adapter.md`) |
 | `validate-wcag-coverage.sh` | Accessibility (WCAG) evidence exists for UI-bearing components |
+| `validate-qa-evidence.sh` | A qa-vnv-engineer V&V report is evidence-backed — traceability plus attached artifacts, not confident prose |
+| `validate-rules.sh` | Lints the `rules/` primitive: every rule file has parseable frontmatter (`description`, boolean `alwaysApply`, and `globs` unless always-applied) |
+| `validate-invariants.sh` | Enforces a project's declared cross-cutting invariants (e.g. every route goes through the audited-transaction seam) — catches violations a ticket's own tests pass |
+| `validate-seams.sh` | Seam-record integrity for module boards: each shared contract has exactly one producer module, every consumer depends on it, and wiring evidence exists (wraps `validateSeams()` in `scripts/lib/tickets-seams.mjs`) |
+| `validate-scope.match.test.sh` | Self-test, not a gate: proves the real `_scope-match.sh` matcher accepts its positive cases and rejects its negative ones |
 
 Route discovery covers Express/Fastify/Next.js app router/FastAPI/Flask/Go net-http. Table discovery covers Prisma/TypeORM/Sequelize/Knex/SQLAlchemy/Django/raw SQL.
 
