@@ -350,7 +350,7 @@ On return: verify all 3 files exist. Tracker row 6 → `✅ DONE`.
 
 LANDSCAPE.md and HEALTH_ASSESSMENT.md are dense with factual claims — versions, counts, "no tests for X", health scores. Onboard claims are exactly the kind that get hallucinated or go stale. Challenge them before they become the project's ground truth.
 
-Emit (per this file's Delegation Rule):
+Emit (per this file's Delegation Rule). The two challenges may run concurrently, so write them to separate files — `docs/work/HANDOFF_challenger-landscape.md` and `docs/work/HANDOFF_challenger-health.md` — never one shared `HANDOFF_challenger.md`:
 
 ```
 HANDOFF to: challenger
