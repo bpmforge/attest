@@ -10,10 +10,10 @@ Planning stays interactive. The board comes from Phases 0–3 and `task-decompos
 
 ```mermaid
 flowchart TD
-    SV["supervise.sh: relaunch loop, max 30"] --> P["Prereqs + plan.json load - exit 1"]
+    SV["supervise.sh: relaunch loop, max 30"] --> P["Prereqs + plan.json load - exit 7"]
     P --> G6["G6: manifest outside docs/work or docs/reviews - exit 2"]
     G6 --> G5["G5: board is gitignored - exit 2"]
-    G5 --> CL["Working tree not clean - exit 1"]
+    G5 --> CL["Working tree not clean - exit 7"]
     CL --> SY["Sync main from remotes - exit 5; config topology changed - exit 6"]
     SY --> LI["Board lint + write-scope collisions - exit 2"]
     LI --> G4["G4: coder model equals reviewer model - exit 2"]
@@ -50,7 +50,7 @@ A ticket's own `reviews` list adds reviewers on top of these triggers. The revie
 
 ## Supervisor and resume
 
-- **`supervise.sh`** stops for good on exits 2–6, because those are deterministic refusals that a retry won't fix. It restarts on any other non-zero exit, waiting 30 seconds between tries, up to 30 times. It never deletes worktrees, so `resume.mjs` can reconcile them.
+- **`supervise.sh`** stops for good on exits 2–7, because those are deterministic refusals that a retry won't fix. Exit 1 is reserved for crashes. It restarts on any other non-zero exit, waiting 30 seconds between tries, up to 30 times. It never deletes worktrees, so `resume.mjs` can reconcile them.
 - **`resume.mjs`** runs at every startup. It checks `plan.json` against the ticket receipts and against git. A mismatch refuses the run with exit 3. A safe orphan (work that finished but was never recorded) is re-verified rather than re-run.
 - **`--no-merge`** pushes the branch for PR review and leaves the ticket In Progress.
 - **A merge conflict** aborts the merge. The ticket stays `in_review` and its branch is kept.

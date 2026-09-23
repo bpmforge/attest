@@ -14,7 +14,7 @@ _Diagrams of how attest's agents actually run, each checked against the agent so
 | Unattended Phase 4 | `scripts/conductor/conductor.mjs` | [unattended.md](unattended.md) |
 | HANDOFFs, gates, Ralph Wiggum loop, challenger | (all of the above) | [protocols.md](protocols.md) |
 
-Each page ends with a **Known gaps** or **Known inconsistencies** section. These are places where the agent sources contradict one another, or where a validator can't be satisfied by the flow that runs it. They're listed so the diagrams stay honest until those gaps are fixed in the sources.
+The gaps these pages listed when they were first written, where agent sources contradicted each other or a validator couldn't be satisfied by the flow that runs it, have been fixed in the sources. If you find a new one, record it on the page it affects in a **Known gaps** section, so the diagram doesn't claim something the agents don't do.
 
 ## How a request reaches a flow
 

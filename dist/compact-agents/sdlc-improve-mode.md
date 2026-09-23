@@ -12,7 +12,64 @@ This file contains the Mode 4 workflow. The spine, shared protocols, discovery i
 
 # MODE 4: Audit & Improve Existing System (`/sdlc improve`)
 
-**Start with the Mode 4 Improvement Discovery Interview above. Do not skip it.**
+**Start with the Mode 4 Improvement Discovery Interview below. Do not skip it.**
+
+## Mode 4: Improvement Discovery Interview
+
+**Run this BEFORE Step 1. Present ALL questions at once. Do NOT proceed until the user responds.** Protocol: `sdlc-lead.md` § Discovery interviews (NEVER-AUTO — pauses even in `autonomy: auto`).
+
+Parse the invocation first:
+
+| Invocation | Scope |
+|---|---|
+| `/sdlc improve` | General health check — ask all questions |
+| `/sdlc improve "ux"` or `"frontend"` | UX/frontend focused — skip Q2, auto-set scope |
+| `/sdlc improve "backend"` | Backend/API/DB focused — skip Q2 |
+| `/sdlc improve "security"` / `"performance"` | Single-dimension pass — skip Q2 |
+| `/sdlc improve "feature:payments"` | One feature — runs Step 1.75 (app-cartographer) before the audits |
+
+Output exactly this block, then stop and wait:
+
+```
+Before I start analyzing, I need to understand what you're looking for.
+Please answer these questions:
+
+1. What's prompting this? (something feels slow, UX complaints, tech debt,
+   security concerns, scaling up — or "I just want it to be better")
+
+2. What scope? Pick one or combine:
+   - "the whole app" — full health check across all dimensions
+   - "just the frontend" — UI/UX design + frontend code quality
+   - "just the backend" — API, database, services, performance
+   - "just this feature: [name]" — deep-dive on one specific feature
+   - "just the design" — UX workflows, visual polish, accessibility
+
+3. What should it BECOME? This is the most important question.
+   Not "what's broken" — what does the IMPROVED version look like?
+   (e.g. "as fast and polished as Linear", "handles 10x the traffic",
+   "feels intentional and branded", "I don't know yet — show me what's possible")
+
+4. What do your users say? Complaints, confusion points, feature requests?
+
+5. What's off-limits? (areas being rewritten, too risky to touch, out of scope)
+
+6. How much change? (S = polish only, M = moderate refactors, L = willing to
+   make breaking changes if they pay off)
+
+7. Timeline? (specific event like a demo, or general investment?)
+
+The more specific #3 is, the better the improvement plan will be.
+```
+
+After the user responds:
+1. **Parse the scope** into the Step 2 audit set (five core audits: ux-engineer, code-reviewer, performance-engineer, security-auditor, db-architect):
+   - "whole app" → all five core audits, plus on-demand specialists whose trigger fires (Step 2 table)
+   - "frontend" / "design" → ux-engineer + code-reviewer (frontend dirs only), + a11y-compliance if UI-bearing
+   - "backend" → code-reviewer + security-auditor + performance-engineer + db-architect
+   - "feature:[name]" → Step 1.75 first, then the core audits scoped to that feature's files
+   - combinations → the union
+2. Summarize in 3-5 bullets and ask: "Does this capture it correctly?" Proceed only after the user confirms.
+3. Write the confirmed answers to `docs/improve/IMPROVE_CONTEXT.md`. Q3 is the vision Step 2.5 researches. Q5 (off-limits) and Q6 (change tolerance) reach every Step 2 audit through the IMPROVE_CONTEXT.md line in its CONTEXT list.
 
 Improve a system you understand — or are about to understand — without adding new features.
 Improvements are discovered through audits, not spec'd upfront. The user doesn't know

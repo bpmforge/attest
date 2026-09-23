@@ -32,7 +32,7 @@ validator_init "validate-use-cases"
 ROOT="$(detect_project_root "${1:-}")"
 
 UC=""
-for f in "$ROOT/docs/USE_CASES.md" "$ROOT/docs/testing/USE_CASES.md"; do
+for f in "$ROOT/docs/testing/USE_CASES.md" "$ROOT/docs/USE_CASES.md"; do
   [[ -f "$f" ]] && UC="$f" && break
 done
 

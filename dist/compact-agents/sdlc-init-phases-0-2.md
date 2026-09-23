@@ -327,7 +327,7 @@ For each requirement:
 
 **After SRS.md + USER_STORIES.md, produce the use case catalog (INLINE — do this yourself):**
 
-Write `docs/USE_CASES.md` — derive one use case per user story:
+Write `docs/testing/USE_CASES.md` — derive one use case per user story:
 - For each user story in USER_STORIES.md:
   - Which persona from USER_PERSONAS.md does this?
   - What are the preconditions?
@@ -350,7 +350,7 @@ Write `docs/USE_CASES.md` — derive one use case per user story:
 
 Alternatively put them in the index table as columns named `Persona`, `Trigger`, `Main flow`, `Success criteria`, `Priority` — the gate accepts either form, and a short index table plus detail sections is the normal shape. `Source:` (or any `FR-NN` reference) is required per use case for traceability.
 
-Write it to `docs/USE_CASES.md`. `docs/testing/USE_CASES.md` is also accepted for existing projects — pick **one**, never both, or every future edit has to be made twice.
+Write it to `docs/testing/USE_CASES.md` — the path Phase 4, test-engineer, onboarding and `validate-tests-mapping.sh` all read. Validators still accept a legacy `docs/USE_CASES.md` on older projects — keep **one**, never both, or every future edit has to be made twice.
 
 **Gate Loop — Phase 2 Coverage (Ralph Wiggum style, 3-iteration max):**
 
@@ -393,7 +393,7 @@ This chains `validate-use-cases.sh` + `validate-user-stories.sh` + `validate-req
 
 **Git checkpoint — commit Phase 2 docs before advancing:**
 ```
-task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
+task(agent="git-expert", prompt="Commit all new docs/ files from Phase 2 (SRS.md, USER_STORIES.md, docs/design/USER_FLOWS.md, docs/testing/USE_CASES.md, docs/work/REQUIREMENTS_MATRIX.md) to the sdlc/setup branch. Conventional commit: 'docs(phase-2): add requirements — SRS, user stories, use cases, requirements matrix'. Push sdlc/setup to origin. Do NOT push to main.", timeout=60)
 ```
 **Inter-Phase Check-In:** After the gate passes AND docs are committed, run the Inter-Phase Check-In Protocol. Do NOT auto-advance.
 **Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.

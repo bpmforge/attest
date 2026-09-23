@@ -249,7 +249,7 @@ test('supervisor preserves resume state and does not restart deterministic gate 
   assert.doesNotMatch(body, /git\s+clean\s+-fd/);
   assert.doesNotMatch(body, /git\s+checkout\s+-f/);
   assert.doesNotMatch(body, /git\s+branch\s+-D/);
-  assert.match(body, /2\|3\|4\|5\|6/);
+  assert.match(body, /2\|3\|4\|5\|6\|7/);
   assert.match(body, /deterministic gate exit/);
 });
 
@@ -278,6 +278,29 @@ test('conductor.mjs: red configured baseline refuses before claim and consumes z
     assert.doesNotMatch(log, /"kind":"ticket.attempt"/);
     assert.equal(sh('git', ['status', '--porcelain'], { cwd: target }).trim(), '',
       'baseline evidence must live outside the target repository');
+  } finally {
+    rmSync(base, { recursive: true, force: true });
+  }
+});
+
+test('conductor.mjs: a dirty working tree refuses with exit 7, not the crash code 1', { timeout: 60_000 }, () => {
+  // Exit 1 is main()'s crash path, which supervise.sh must retry. A dirty tree
+  // used to exit 1 too, so the supervisor relaunched it up to 30 times.
+  const { base, target, stub, argsLog } = setupRoleRoutingFixture();
+  try {
+    writeFileSync(resolve(target, 'uncommitted.txt'), 'dirty\n');
+    let err = null;
+    try {
+      sh('node', [CONDUCTOR, '--root', target, '--rounds', '1', '--no-push'], {
+        cwd: target,
+        env: { ...process.env, OPENCODE_BIN: stub },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+    } catch (e) { err = e; }
+    assert.ok(err, 'a dirty tree must refuse the run');
+    assert.equal(err.status, 7, 'preflight refusal has its own exit status');
+    assert.match(String(err.stderr), /working tree not clean/);
+    assert.equal(existsSync(argsLog), false, 'no coding session may start');
   } finally {
     rmSync(base, { recursive: true, force: true });
   }
