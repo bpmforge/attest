@@ -108,7 +108,7 @@ Next after resume: synthesize HEALTH_ASSESSMENT.md
 
 > **Executor rule:** check `docs/work/.model-context` for `has_task_tool` (see `agents/shared/EXECUTOR_SELECTION.md`). If true, dispatch these reviews as subagents. Otherwise (opencode / no task tool) emit all HANDOFFs as text — every target below has a user-facing `/skill` (named in each block), so the user opens each session and pastes; the user MAY run them one at a time instead of in parallel. Either way: same outputs, same files.
 
-Emit ALL HANDOFFs in one message (write the manifest first). Each block names the `/skill` to open. Wait for ALL to return before Phase 2.
+Emit ALL HANDOFFs in one message (write the manifest first). The three code-reviewer HANDOFFs run concurrently, so each gets its own file (`HANDOFF_code-reviewer-health.md`, `-debt.md`, `-patterns.md`) — one shared `HANDOFF_code-reviewer.md` would be overwritten by the next write before the first session reads it. Each block names the `/skill` to open. Wait for ALL to return before Phase 2.
 
 Write `docs/work/HANDOFF_MANIFEST.md` before emitting:
 ```markdown
@@ -127,7 +127,7 @@ Write `docs/work/HANDOFF_MANIFEST.md` before emitting:
 
 **HANDOFF 1 — code-reviewer (full health):**
 ```
-Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
+Write this block to `docs/work/HANDOFF_code-reviewer-health.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer-health.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
@@ -138,7 +138,7 @@ Print exactly: "review done — [overall verdict and worst dimension]" then stop
 
 **HANDOFF 2 — code-reviewer (tech debt):**
 ```
-Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
+Write this block to `docs/work/HANDOFF_code-reviewer-debt.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer-debt.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
@@ -149,7 +149,7 @@ Print exactly: "debt done — [item count and top leverage item]" then stop.
 
 **HANDOFF 3 — code-reviewer (pattern drift):**
 ```
-Write this block to `docs/work/HANDOFF_code-reviewer.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer.md` and follow it (it reads the doc — nothing is pasted):
+Write this block to `docs/work/HANDOFF_code-reviewer-patterns.md`, then tell the user: open `/review-code` and have it read `docs/work/HANDOFF_code-reviewer-patterns.md` and follow it (it reads the doc — nothing is pasted):
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
