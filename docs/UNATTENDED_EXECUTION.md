@@ -79,16 +79,17 @@ wasted afternoon and a corrected board.
 | **G4b** | a configured model this install cannot resolve | 2 |
 | **G5** | the board is covered by `.gitignore` — every transition commits it | 2 |
 | **G6** | a ticket's manifest is outside `docs/work/` or `docs/reviews/` | 2 |
-| clean tree | the target's working tree has uncommitted changes | 1 |
+| preflight | a prerequisite is missing, there is no `plan.json`, or the target's working tree has uncommitted changes | 7 |
 | board lint | `plan.json` fails lint, or two ready tickets' write-scopes collide | 2 |
 | sync | configured remotes' `main` diverge, or local `main` is not a remote ancestor | 5 |
 | topology | syncing `main` changed the configured `worktreeDir` or remotes — restart once | 6 |
 | **G7** | the baseline verify fails on `main` before any ticket is claimed | 4 |
 | resume | `plan.json` disagrees with its own receipts or git reality | 3 |
 
-`supervise.sh` stops for good on exits 2–6 (deterministic refusals) and restarts
-on any other non-zero exit — so exit 1 (dirty tree, missing `plan.json`) is
-retried up to 30 times. Fix the tree before launching under the supervisor.
+`supervise.sh` stops for good on exits 2–7 (deterministic refusals) and restarts
+on any other non-zero exit, up to 30 times. Exit 1 now means only a crash; the
+environment refusals that used to share it (dirty tree, missing `plan.json`,
+missing prerequisite) exit 7, so the supervisor no longer relaunches them.
 
 `--role-gate warn` downgrades G4; `--model-gate warn|off` downgrades G4b. Do not
 downgrade them for an unattended run — G4b exists because
