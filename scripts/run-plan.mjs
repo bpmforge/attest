@@ -17,7 +17,7 @@
 //                        automatically (default: stop with exit 3)
 //   --parallel <n>       max concurrent ready nodes (default 1)
 //
-// Behavior per node (per ARCHITECTURE_EVOLUTION_PLAN.md 4.1 + G2/G5/G6):
+// Behavior per node (per docs/archive/ARCHITECTURE_EVOLUTION_PLAN.md 4.1 + G2/G5/G6):
 //   pre-flight health check (local model server re-warm) → spawn with
 //   tier-scaled timeout → verify the output artifact exists → journal it.
 //   Incomplete node: retry FROM ITS CHECKPOINT (never from scratch), max

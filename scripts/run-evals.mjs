@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // run-evals.mjs — golden-task eval suite for the expert system itself
-// (ARCHITECTURE_EVOLUTION_PLAN.md §4.11).
+// (docs/archive/ARCHITECTURE_EVOLUTION_PLAN.md §4.11).
 //
 // Runs the pipeline against tiny fixture repos with PLANTED defects and
 // asserts the expected artifacts/findings appear. Makes "did this protocol

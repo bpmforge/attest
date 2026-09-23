@@ -2,7 +2,7 @@
 
 **Status:** Report-only. No files were edited as part of this audit — per the ticket contract, this document classifies every instruction block found across `agents/**` and `skills/**` and surfaces contradictions, stale calibration, and weaker-model scaffolding. Fixes are out of scope here; they belong to the follow-up tickets named throughout (T13.2 core/shell split + tier rendering, T13.3 shared includes, T13.4 fable-mode discipline into MICRO_LOOP, T13.5 gate).
 
-**Date:** 2026-07-06 · **Ticket:** T13.1 (module M13, lane `prompt`) · **Program:** [bpm-agent-amplifier EXECUTION_TICKETS.md](../../bpm-agent-amplifier/docs/sdlc/EXECUTION_TICKETS.md)
+**Date:** 2026-07-06 · **Ticket:** T13.1 (module M13, lane `prompt`) · **Program:** [bpm-agent-amplifier EXECUTION_TICKETS.md](../../../bpm-agent-amplifier/docs/sdlc/EXECUTION_TICKETS.md)
 
 ## 0. Scope & methodology
 
