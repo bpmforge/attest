@@ -67,7 +67,7 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 | HANDOFF field | Expected |
 |---|---|
-| CONTEXT (≤3 files) | `docs/design/ARCHITECTURE.md` (or equivalent component map); `docs/security/SEMGREP_FINDINGS_<date>.md` if it exists |
+| CONTEXT (≤3 files) | `docs/ARCHITECTURE.md` (or equivalent component map); `docs/security/SEMGREP_FINDINGS_<date>.md` if it exists |
 | WRITE-SCOPE | `docs/security/` (exclusive) |
 | PRODUCE | `THREAT_MODEL_<date>.md` |
 
@@ -130,7 +130,7 @@ Per methodology Phase 4b Step 5. Required sections:
 - Threats table (ID, STRIDE category, component, severity, description)
 - Mitigations table (threat ID → proposed control)
 
-Output: `docs/design/THREAT_MODEL.md` (SDLC design doc) or `docs/security/THREAT_MODEL_<date>.md` (standalone audit).
+Output: `docs/THREAT_MODEL.md` (SDLC design doc — the path Phase 3, Gate B and `validate-security-controls.sh` read) or `docs/security/THREAT_MODEL_<date>.md` (standalone audit).
 
 Write findings to `docs/security/THREAT_MODEL_FINDINGS_<date>.md` using `FINDING_SCHEMA.md`. Category: `threat-model`.
 

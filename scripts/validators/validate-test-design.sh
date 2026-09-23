@@ -62,7 +62,7 @@ fi
 
 # -- P0 use case coverage -----------------------------------------------------
 UC=""
-for f in "$ROOT/docs/USE_CASES.md" "$ROOT/docs/testing/USE_CASES.md"; do
+for f in "$ROOT/docs/testing/USE_CASES.md" "$ROOT/docs/USE_CASES.md"; do
   [[ -f "$f" ]] && UC="$f" && break
 done
 

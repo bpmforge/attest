@@ -434,7 +434,9 @@ The coordinator then writes `docs/security/final-report.md`, and any HIGH/CRITIC
 
 **`--deep`** runs every wave and then `./scripts/validators/run-coverage-loop.sh security-deep` until every OWASP category is covered, with a 3-iteration cap. Use it before production deploys and compliance audits, after auth/crypto/input changes, and to check whether a CVE is reachable.
 
-Wave-by-wave and fix-loop diagrams: [docs/flows/security.md](flows/security.md). The focused flags `--owasp`, `--threat-model` and `--deps` are listed in the skill, but the coordinator doesn't implement them yet (see that page's Known gaps).
+Focused modes run one surface: `--owasp` (semgrep-runner + OWASP checkers; combines with `--deep`), `--threat-model` (threat-modeler only) and `--deps` (dependency-auditor only).
+
+Wave-by-wave and fix-loop diagrams: [docs/flows/security.md](flows/security.md).
 
 **Semgrep setup:**
 - Custom gap-filler rules (98 rules across C#, Kotlin, Swift, Rust, PHP, C++) installed to `~/.config/opencode/.semgrep/` — loaded automatically per detected language
