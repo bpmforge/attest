@@ -112,7 +112,7 @@ flowchart LR
     IM["/sdlc improve security: targeted audit"] -.-> P5
 ```
 
-Design-time threat models must cover the bootstrap and authority archetypes (first-admin creation, empty-state authority, role union across N roles) listed in `security-auditor.md`.
+Design-time threat models must explicitly assess three bootstrap and authority archetypes listed in `security-auditor.md`, each either mitigated or ruled N/A with a reason: **bootstrap-authority** (no safe way to create the first privileged user), **self-referential permission gate** (a role only that role can grant), and **RBAC highest-role-wins** (N roles per principal, but enforcement picks one role instead of the union of grants).
 
 ## Known gaps (as of 2026-09-23)
 
