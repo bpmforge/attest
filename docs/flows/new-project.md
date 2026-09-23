@@ -51,11 +51,11 @@ flowchart TD
 flowchart TD
     A["ux-engineer: docs/design/USER_FLOWS.md"] --> B["Lead writes docs/work/REQUIREMENTS_MATRIX.md"]
     B --> C["User reviews candidate requirements - NEVER-AUTO"]
-    C --> D["Lead writes SRS.md + USER_STORIES.md + docs/USE_CASES.md"]
+    C --> D["Lead writes SRS.md + USER_STORIES.md + docs/testing/USE_CASES.md"]
     D --> G["run-coverage-loop.sh phase-2"]
     G -->|exit 1 gaps| D
     G -->|"exit 2 or 3"| E[Escalate to user]
-    G -->|exit 0| K["git-expert commit"] --> GA{"Human Approval Gate A"}
+    G -->|exit 0| K["git-expert commit"] --> CA["challenger: SRS.md"] --> GA{"Human Approval Gate A"}
 ```
 
 ## Phase 3 — Design, then 3.5 Test Design
@@ -78,7 +78,7 @@ flowchart TD
     INF --> SY["Lead writes ARCHITECTURE.md + PARALLELIZATION_MAP.md + TRACEABILITY.md"]
     SY --> G["run-coverage-loop.sh phase-3"]
     G --> TD["Phase 3.5 - test-engineer: docs/testing/TEST_DESIGN.md"]
-    TD --> G35["run-coverage-loop.sh phase-3.5"] --> GB{"Human Approval Gate B"}
+    TD --> G35["run-coverage-loop.sh phase-3.5"] --> CB["challenger: TECH_STACK, THREAT_MODEL, SECURITY_CONTROLS"] --> GB{"Human Approval Gate B"}
     GB --> MG["git-expert: merge sdlc/setup to main"]
 ```
 
@@ -126,10 +126,8 @@ flowchart TD
 
 Phase 5 tags and publishes a release. It does not deploy.
 
-## Known inconsistencies (as of 2026-09-23)
+## Paths every phase agrees on
 
-These are in the agent sources and haven't been fixed yet:
-
-- **Use cases are written to one path and read from another.** Phase 2 writes `docs/USE_CASES.md`; Phase 4 and onboarding use `docs/testing/USE_CASES.md`. Validators accept both.
-- **Phase 4 updates a TEST_PLAN.md that Mode 1 never creates.** Only onboarding writes one.
-- **Gate A challenges a file that doesn't exist yet.** The Gate A text (`sdlc-lead.md`) runs challenger on TECH_STACK.md, which isn't written until Phase 3.
+- Use cases: `docs/testing/USE_CASES.md`. Validators and state detection still accept a legacy `docs/USE_CASES.md`, preferring the canonical path.
+- Test design: `docs/testing/TEST_DESIGN.md` (Phase 3.5), which Phase 4 updates with each P0's test file and result. `TEST_PLAN.md` belongs to onboarding.
+- Gate fact-checks: Gate A challenges `docs/SRS.md`. Gate B challenges `docs/TECH_STACK.md`, `docs/THREAT_MODEL.md` and `docs/SECURITY_CONTROLS.md`.

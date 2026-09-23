@@ -31,7 +31,7 @@ Onboard to this existing codebase by following the SDLC Lead agent Mode 2 method
 
 After step 7:
 
-L1. **Lightweight inventory** — produce `docs/onboard/INVENTORY.md` with rows ONLY for ROUTE and TABLE categories (no SERVICE / FLOW / ENTRY).
+L1. **Lightweight inventory** — produce `docs/onboard/INVENTORY.md` headed `Scope: ROUTE, TABLE`, with rows ONLY for those categories (no SERVICE / FLOW / ENTRY). The Scope line tells `validate-inventory.sh` not to re-derive SERVICE rows.
 L2. **Verify** — run `./scripts/validators/run-coverage-loop.sh onboard-deep`. If clean → done. If gaps → emit gap-fill HANDOFFs (up to 3 iterations).
 L3. **Escalate** — after 3 iterations, surface the escalation block and stop.
 

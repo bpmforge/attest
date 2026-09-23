@@ -26,7 +26,7 @@ Performs a professional security assessment following OWASP, NIST, and industry-
 - `/security --owasp` — OWASP vulnerability scan only (skip threat model / deps)
 - `/security --deps` — Dependency vulnerability audit only
 
-Combine flags: `/security --deep --owasp` runs deep mode on OWASP surface only.
+Combine flags: `/security --deep --owasp` runs deep mode on the OWASP surface only. `--threat-model` and `--deps` are single-pass (no coverage gate measures them).
 
 ## Workflow
 

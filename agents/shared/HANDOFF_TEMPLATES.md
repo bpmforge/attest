@@ -47,6 +47,7 @@ interactive case: no board, no conductor, or a human deliberately driving each s
 **The handoff is a DOCUMENT the specialist reads, not a block the user pastes.** For each handoff:
 
 1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.
+   **Two or more HANDOFFs to the same agent in flight at once** (parallel waves, fan-outs) each get their own file: `docs/work/HANDOFF_<agent>-<slug>.md`, with `<slug>` the module or task (the same slug as the specialist's `TASKS_<agent>-<slug>.md` ledger). A second write to a shared `HANDOFF_<agent>.md` overwrites the first before its session reads it. The intake rule matches any `HANDOFF_*.md`, so specialists need no change.
 2. **Print a short pointer to the user** — which agent to open, the exact line to paste, and which report they'll submit back:
    ```
    ── NEXT HANDOFF ──────────────────────────────
@@ -284,7 +285,7 @@ Emit N HANDOFF blocks in ONE message -- one per module. User opens N concurrent 
 ---
   PARALLEL WAVE -- ROUND 1 (CODE) -- N concurrent HANDOFFs
 ---
-Write each block to its own `docs/work/HANDOFF_<agent>.md`, then tell the user to open the N agents (`/<skill>` each) and have each read its handoff doc. The docs are read — nothing is pasted.
+Write each block to its own `docs/work/HANDOFF_<agent>-<module>.md` (e.g. `HANDOFF_coding-agent-auth.md` — N coding-agent HANDOFFs must not share one file), then tell the user to open the N agents (`/<skill>` each) and have each read its handoff doc. The docs are read — nothing is pasted.
 
 --- HANDOFF #1 (<module-A>) -> /code ---
 SDLC-TASK for coding-agent:

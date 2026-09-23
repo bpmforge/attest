@@ -12,7 +12,34 @@ This file contains the Mode 3 workflow. The spine, shared protocols, discovery i
 
 # MODE 3: Add Feature (`/sdlc feature`)
 
-**Start with the Mode 3 Feature Discovery Interview above. Do not skip it.**
+**Start with the Mode 3 Feature Discovery Interview below. Do not skip it.**
+
+## Mode 3: Feature Discovery Interview
+
+**Run this BEFORE Step 0. Present ALL questions at once. Do NOT proceed until the user responds.** Protocol: `sdlc-lead.md` § Discovery interviews (NEVER-AUTO — pauses even in `autonomy: auto`).
+
+Output exactly this block, then stop and wait:
+
+```
+Before I analyze the codebase impact, I need to understand this feature clearly.
+Please answer these questions:
+
+1. What problem does this feature solve for users? (not what it does — why it matters)
+2. Who uses this feature? (role, how often, what triggers them to use it)
+3. What does "done" look like? What would you demo to confirm this is working?
+4. Any constraints? (must use existing patterns, can't change X, must ship by Y)
+5. Priority — must-have for next release, or nice-to-have?
+6. Are there similar features in the codebase we should follow as a pattern?
+7. Any security, performance, or accessibility concerns specific to this feature?
+
+Your answers will drive the impact analysis and design.
+```
+
+After the user responds:
+1. Summarize: "Based on your input: **Feature:** [1-line]. **Success criteria:** [criteria]. **Constraints:** [constraints]. **Priority:** [X]."
+2. Ask: "Does this look right before I start the impact analysis?"
+3. Proceed only after the user confirms
+4. Write the summary to `docs/FEATURE_CONTEXT.md` — Step 1's app-cartographer HANDOFF and every Step 2 design HANDOFF read it. Q7 decides which Step 3.4 reviewers are triggered.
 
 Add a feature to an existing system without breaking it.
 
@@ -135,13 +162,14 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 
 | Step | What happens | Key HANDOFF | Output |
 |------|-------------|-------------|--------|
-| 1 | Impact analysis + design | researcher, architecture-designer (if needed) | FEATURE_CONTEXT.md, impact assessment |
-| 2 | Implementation | coding-agent (1-4 per wave) | src/** |
-| 3 | Review + security | code-reviewer, security-auditor | FIX_BACKLOG_*.md |
-| 4 | Verify | code-reviewer (re-verify) | VERIFY_*.md |
-| 5 | Document | coding-agent (docs update) | Updated ARCHITECTURE.md, API docs |
-| 6 | Runtime gate | validators (local) | RUNTIME_*.md |
-| 7 | Merge | git-expert | PR merged to main |
+| — | Feature Discovery Interview (above) | — (user) | `docs/FEATURE_CONTEXT.md` |
+| 0 | Initialize tracker | — | `docs/sdlc/SDLC_TRACKER.md` |
+| 1 | Impact analysis | app-cartographer (`/explore`) | `docs/explore/EXPLORE_[feature].md` |
+| 1.5 | Atomic or split | — | `docs/features/<slug>/COMPONENT_DAG.md` if split |
+| 2 | Design | db-architect, migration-planner, api-designer, security-auditor (as needed) | design docs, `SECURITY_DESIGN_<feature>_<date>.md` |
+| 3 | Implement: branch + draft PR, failing test first, code, review fan-out, FIX_BACKLOG + `run-coverage-loop.sh feature`, challenger if HIGH, fix-verify | git-expert, test-engineer, coding-agent, code-reviewer (+ security / perf / ux if triggered) | `src/**`, `FIX_BACKLOG_<feature>_<date>.md` |
+| 4 | Verify | — (full suite, backlog closed) | test results |
+| 5 | Document + runtime gate + merge | validators, git-expert | updated docs, `RUNTIME_<feature>_<date>.md`, PR merged |
 
 **Load deeper sections as you reach each step. Do not read the whole file upfront.**
 
