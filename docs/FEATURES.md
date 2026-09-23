@@ -624,10 +624,10 @@ Deterministic scaffolding in `scripts/` — these own control flow and verificat
 
 `--quick` and `--deep` flags on `/sdlc onboard` and `/security`:
 
-| Skill | `--quick` (default) | `--deep` |
-|-------|---------------------|----------|
-| `/sdlc onboard` | 7-step high-level pass (~15 min) | Ralph Wiggum inventory loop (~45-90 min) |
-| `/security` | Phases 1-3: understand + scan + OWASP once-over (~10 min) | Ralph Wiggum loop over OWASP + semgrep rule files + iterative attack-chain (~45-90 min) |
+| Skill | `--quick` | (default) | `--deep` |
+|-------|-----------|-----------|----------|
+| `/sdlc onboard` | Steps 0–7, no inventory check (~15–20 min) | Steps 0–7 + ROUTE/TABLE inventory loop (~30–40 min) | + full Ralph Wiggum inventory loop (~45–90 min) |
+| `/security` | Wave 1 scanners + OWASP Web (~10 min) | same as `--quick` | All four specialist waves + attack chainer + `security-deep` coverage loop (~45–90 min) |
 
 Deep modes block until their corresponding validator gate exits clean.
 
