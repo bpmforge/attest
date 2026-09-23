@@ -84,7 +84,7 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop Prevention
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 total coordinator tool calls (specialists have their own budgets).
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 total coordinator tool calls for quick and focused runs, 30 for `--deep` (four waves + challenger + up to three coverage rounds do not fit in 15). Specialists have their own budgets.
 
 ---
 
@@ -98,16 +98,21 @@ Deliverables > 300 lines → book format. Read `agents/shared/BOOK_PROTOCOL.md`.
 
 ### Phase 0 — Announce Plan
 
+Pick the mode from the flags first (see **Modes** below), then announce only what that mode runs. Deep mode:
+
 ```
-Starting security audit. Specialists:
+Starting security audit (--deep). Specialists:
   Wave 1 (parallel): semgrep-runner, secrets-scanner, dependency-auditor
   Wave 2 (parallel): owasp-web-checker [+ owasp-llm-checker if LLM code detected]
   Wave 3 (parallel): threat-modeler [+ cloud-security-checker if cloud code] [+ iac-security-checker if IaC]
   Wave 4: attack-chainer (reads all wave 1-3 output)
   Wave 5: final-report synthesis + Challenger Gate
+  Then: run-coverage-loop.sh security-deep (max 3 rounds)
 ```
 
-Read `docs/design/ARCHITECTURE.md`, `README.md`, and entry points to understand the system before dispatching.
+Quick mode announces Wave 1 + owasp-web-checker + synthesis; a focused mode announces its one specialist.
+
+Read `docs/ARCHITECTURE.md` (if present), `README.md`, and entry points to understand the system before dispatching.
 
 > **Executor rule (T30.10 — must never be dispatched inline):** check
 > `docs/work/.model-context` for `has_task_tool` (see
@@ -174,7 +179,7 @@ Complete: "owasp-llm done"
 ```
 HANDOFF to: security/threat-modeler
 Context: Read SEMGREP_FINDINGS and OWASP_WEB_FINDINGS.
-Produce: docs/security/THREAT_MODEL_FINDINGS_<date>.md, docs/design/THREAT_MODEL.md
+Produce: docs/security/THREAT_MODEL_FINDINGS_<date>.md, docs/THREAT_MODEL.md
 Complete: "threat-model done"
 ```
 
@@ -258,9 +263,38 @@ specialists, each of whom stores its own slice.
 
 ---
 
-## Quick Mode (`--quick`, no flag)
+## Modes
+
+| Flags | Runs |
+|-------|------|
+| none, or `--quick` | **Quick** — below |
+| `--deep` | **Deep** — below |
+| `--owasp` / `--threat-model` / `--deps` | **Focused** — below; combine with `--deep` to put that surface under the coverage loop |
+| `--fix` (with any of the above) | The chosen audit, then **Fix Mode** |
+
+### Quick Mode (`--quick`, no flag)
 
 Only Wave 1 + OWASP Web pass. Skip LLM, cloud, IaC, threat model. Skip attack chainer. Still run Challenger if HIGH/CRITICAL found.
+
+### Deep Mode (`--deep`)
+
+Run the full **Execution** above — Waves 1–4, final-report synthesis, and the Challenger Gate, which is **mandatory** in deep mode whatever the severities. Then close the loop with coverage facts instead of self-assessed confidence (`agents/shared/RALPH_WIGGUM_LOOP.md`):
+
+1. Run `~/.config/opencode/scripts/validators/run-coverage-loop.sh security-deep` — the wrapper, never the bare `validate-phase-gate.sh` (the wrapper counts rounds in `docs/work/COVERAGE_LOOP_security-deep_<date>.md`, caps at 3, and exits 3 when a round changes nothing). The gate chains `validate-owasp.sh` (all 10 categories ≥ 7 and DONE in `OWASP_TRACKER.md`, plus an `ATTACK_CHAINS_<date>.md`) and `validate-deps.sh`.
+2. Exit 0 → done. Exit 1 → read the gap list and re-dispatch **only** what it names: `owasp-web-checker` for the uncovered or low-confidence categories (name them in the HANDOFF), `attack-chainer` if chains are missing, `dependency-auditor` for dependency gaps. Re-synthesize `final-report.md`, re-run the wrapper.
+3. Exit 2 or 3, or a third round with gaps → stop and print the escalation block from `RALPH_WIGGUM_LOOP.md` (waive / lower bar / specialist / manual). Never loop past the wrapper's cap.
+
+### Focused Modes
+
+One surface only; skip everything else, still write `final-report.md` scoped to that surface, still run the Challenger if HIGH/CRITICAL.
+
+| Flag | Dispatch |
+|------|----------|
+| `--owasp` | Wave 1 `semgrep-runner` (owasp-web-checker reads its output), then `owasp-web-checker` [+ `owasp-llm-checker` if LLM code] |
+| `--threat-model` | `threat-modeler` only (STRIDE, DFD, trust boundaries) |
+| `--deps` | `dependency-auditor` only (CVEs, SBOM/SCA, slopsquatting) |
+
+Only `--owasp` combines with `--deep`: it runs the focused dispatch, then the same `run-coverage-loop.sh security-deep` wrapper as Deep Mode (the wrapper takes gate modes, not single validators). That gate also runs `validate-deps.sh`, which does its own `npm audit`/`pip-audit`, so an unwaived HIGH advisory holds the loop open even under `--owasp` — fix it or record it in `.sdlc/deps-waivers.txt`. `--threat-model` and `--deps` are single-pass; `validate-deps.sh` is already deterministic, and no gate measures threat-model coverage.
 
 ## Fix Mode (`--fix`)
 
