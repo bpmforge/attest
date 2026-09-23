@@ -85,11 +85,11 @@ All review outputs land in `docs/reviews/`. HEALTH_ASSESSMENT.md carries a 1–1
 
 ```mermaid
 flowchart TD
-    Start[After Step 7] --> Inv["researcher: docs/onboard/INVENTORY.md - ROUTE and TABLE rows only"]
+    Start[After Step 7] --> Inv["researcher: docs/onboard/INVENTORY.md - Scope: ROUTE, TABLE"]
     Inv --> Gate["run-coverage-loop.sh onboard-deep"]
     Gate --> Exit{Exit code}
     Exit -->|0| Done([Done])
-    Exit -->|1 gaps| GapFill[One gap-fill HANDOFF per uncovered row]
+    Exit -->|1 gaps| GapFill["Route each gap: api-designer, db-architect, researcher, or fix ARCHITECTURE.md"]
     GapFill --> Iter{3 iterations reached?}
     Iter -->|no| Gate
     Iter -->|yes| Rec[Escalate and recommend re-running with --deep]
@@ -124,10 +124,13 @@ The `onboard-deep` gate chains `validate-inventory.sh`, `validate-architecture.s
 
 Sub-skills run individual deep steps: `/onboard-inventory` (D1), `/onboard-verify` (D3), `/onboard-gap-fill` (D4).
 
-## Known gaps (as of 2026-09-23)
+## What the gate needs from Steps 0–7
 
-These are behavior mismatches in the agents and validators, recorded here and not yet fixed:
+The default pass runs the same `onboard-deep` gate as `--deep`, so Steps 0–7 have to leave output it accepts. `scripts/test-onboard-gate.ts` checks this end to end.
 
-1. **Default mode can't close on most repos.** The lightweight inventory writes only ROUTE and TABLE rows. The gate it runs, `validate-inventory.sh`, re-derives SERVICE rows from the top-level `src/` subdirectories (and similar source roots) and reports `inventory-missing-service` for each one it doesn't find. On any project with source subdirectories, default mode spends its 3 iterations and then recommends `--deep`.
-2. **Onboard sequence diagrams aren't counted by the gate.** Step 2b writes `docs/diagrams/sequences/*.md`. `validate-sequence-coverage.sh` only accepts `docs/sequences/<UC-id>*.md`, or a UC-headed `sequenceDiagram` in ARCHITECTURE.md. Step 7 has to embed the sequences in ARCHITECTURE.md under UC-id headings for them to count.
-3. **The three parallel code-reviewer HANDOFFs share one file.** In Step 6, health-coordinator writes HANDOFFs 1–3 to the same `docs/work/HANDOFF_code-reviewer.md`. When they're dispatched in parallel through a paste-based executor, each write overwrites the one before it.
+- **`Scope: ROUTE, TABLE`** as the first line of the lightweight INVENTORY.md. `validate-inventory.sh` then skips re-deriving SERVICE rows from `src/`. A deep inventory has no Scope line, so all five categories are checked.
+- **A `## HLA Overview` section** at the top of ARCHITECTURE.md, which `validate-architecture.sh` requires.
+- **A UC-id heading above each P0 use case's sequence diagram** (`## UC-01: User login`), either in ARCHITECTURE.md or in `docs/diagrams/sequences/*.md`. Step 2b draws the diagrams before Step 6 assigns UC-ids, so Step 7 links them.
+- **The ERD at `docs/diagrams/erd.md`**, where Step 3 writes it and `validate-erd-coverage.sh` looks for it.
+
+The three parallel code-reviewer HANDOFFs in Step 6 each get their own file (`HANDOFF_code-reviewer-health.md`, `-debt.md`, `-patterns.md`), and so do the two Step 6b challenger HANDOFFs.
