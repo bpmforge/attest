@@ -34,6 +34,7 @@ import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
 import { testOnboardGate } from "./test-onboard-gate.ts";
+import { testInstallVersion } from "./test-install-version.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
@@ -737,6 +738,10 @@ console.log(
   "\n[Pass 56] Onboard gate — default-onboard output passes, deep stays strict",
 );
 testOnboardGate(root, ok, fail);
+
+// install.sh's banner said "v1.6.0" from 1.6.0 through 3.11.0.
+console.log("\n[Pass 57] Install version — derived from package.json, never a literal");
+testInstallVersion(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

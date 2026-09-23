@@ -6,14 +6,23 @@ echo "Removing attest..."
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
 
-for dir in agents skills commands references tools hooks scripts .semgrep; do
+# Same list as `install.sh --uninstall` — this file used to miss exemplars/ and
+# plugins/, so a standalone uninstall left the resume-anchor plugin loading.
+for dir in agents skills commands references exemplars tools hooks plugins scripts .semgrep; do
   if [ -d "$GLOBAL_DIR/$dir" ]; then
-    rm -rf "$GLOBAL_DIR/$dir"
+    rm -rf "${GLOBAL_DIR:?}/$dir"
     echo "  Removed $GLOBAL_DIR/$dir/"
   fi
   if [ -d "$PROJECT_DIR/$dir" ]; then
-    rm -rf "$PROJECT_DIR/$dir"
+    rm -rf "${PROJECT_DIR:?}/$dir"
     echo "  Removed $PROJECT_DIR/$dir/"
+  fi
+done
+# The version stamp would otherwise keep claiming an install that is gone.
+for stamp in "$GLOBAL_DIR/experts-version" "$PROJECT_DIR/experts-version"; do
+  if [ -f "$stamp" ]; then
+    rm -f "$stamp"
+    echo "  Removed $stamp"
   fi
 done
 
