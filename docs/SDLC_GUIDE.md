@@ -251,24 +251,28 @@ Understand a codebase you've never seen. Creates `docs/onboard` branch. Produces
 
 | Flag | Scope | Time |
 |------|-------|------|
-| `--quick` (default) | Single-pass high-level docs | ~15 min |
-| `--deep` | Ralph Wiggum inventory loop — every route / table / service / P0 flow / entry point as an inventory row, one artifact per row, iterates until validators exit clean | ~45-90 min |
+| `--quick` | Steps 0–7 only, no inventory verification | ~15–20 min |
+| (default) | Steps 0–7 + lightweight inventory (ROUTE + TABLE rows) verified by `run-coverage-loop.sh onboard-deep` | ~30–40 min |
+| `--deep` | Steps 0–7 + Ralph Wiggum inventory loop — every route / table / service / flow / entry point as an inventory row, one artifact per row, iterates until validators exit clean | ~45–90 min |
 
-**Produces (quick mode):**
-- `docs/LANDSCAPE.md` — Tech stack, project size, directory structure, UI detection
-- `docs/ARCHITECTURE.md` — High-level architecture with C4 diagrams
-- `docs/diagrams/entry-points.md` — Sequence diagrams for every route/entry point
-- `docs/diagrams/sequence-*.md` — Key operation flows
-- `docs/db/SCHEMA.md` — Inferred or documented schema
-- `docs/security/THREAT_SURFACE.md` — Attack surface overview
-- `docs/ONBOARDING.md` — How to run, test, add features
-- `docs/git/HISTORY_INSPECTION_<date>.md` — Git history analysis (hot files, patterns)
-- `docs/design/UX_AUDIT.md` — UX audit (if UI-bearing)
+**Produces (every depth):**
+- `docs/git/HISTORY_INSPECTION_<date>.md` — git history analysis (hot files, patterns)
+- `docs/LANDSCAPE.md` — tech stack, project size, directory structure, UI detection
+- `docs/diagrams/entry-points.md` + `docs/diagrams/sequences/*.md` — entry-point and key-flow sequence diagrams
+- `docs/diagrams/erd.md` — Mermaid ERD
+- `docs/diagrams/c2-containers.md`, `docs/diagrams/c3-components.md` — C4 container and component diagrams
+- `docs/PATTERNS.md` — error handling, state, data access, testing, naming
+- `docs/HEALTH_ASSESSMENT.md` — per-dimension scores from code-review ×3, security, test coverage, perf (+ UX if UI-bearing); reports in `docs/reviews/`
+- `docs/testing/USE_CASES.md`, `docs/testing/TEST_PLAN.md`
+- `docs/reviews/CHALLENGE_REPORT_{landscape,health}_<date>.md` — challenger gate (zero CONTRADICTED required)
+- `docs/ARCHITECTURE.md`, `docs/ONBOARDING.md`, `docs/DECISION_LOG.md`
 
 **Deep mode additionally produces:**
 - `docs/onboard/INVENTORY.md` — Every unit of the codebase as a row (ROUTE / TABLE / SERVICE / FLOW / ENTRY); status tracked per row
 - One artifact per inventory row (API_DESIGN row, ERD node, C3 section, sequence diagram, entry-point doc)
-- Passing validator: `./scripts/validators/validate-phase-gate.sh onboard-deep` exits 0
+- Passing validator: `./scripts/validators/run-coverage-loop.sh onboard-deep` exits 0
+
+Step-by-step diagrams: [flows/onboard.md](flows/onboard.md).
 
 **Deep-mode sub-skills:**
 

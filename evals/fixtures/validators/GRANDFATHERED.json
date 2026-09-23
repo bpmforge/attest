@@ -24,7 +24,6 @@
   "validate-module-design.sh",
   "validate-no-ascii-art.sh",
   "validate-observability.sh",
-  "validate-owasp.sh",
   "validate-release-readiness.sh",
   "validate-resilience-patterns.sh",
   "validate-sequence-coverage.sh",
