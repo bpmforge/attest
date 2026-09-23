@@ -117,6 +117,8 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 
 ## Docs
 
+Full index: [docs/README.md](docs/README.md).
+
 - [docs/SETUP.md](docs/SETUP.md) — **start here**: prerequisites, embedding models, env vars, troubleshooting
 - [docs/USERGUIDE.md](docs/USERGUIDE.md) — how to invoke each expert
 - [docs/FEATURES.md](docs/FEATURES.md) — full agent, skill, validator, and protocol catalog
