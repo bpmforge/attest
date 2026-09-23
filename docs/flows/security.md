@@ -12,6 +12,9 @@ Source of truth: `agents/security-auditor.md` (coordinator), `agents/security/*.
 | `/security --deep` | All four waves, then `run-coverage-loop.sh security-deep` until every OWASP category is covered (max 3 iterations) | ~45–90 min |
 | `/security --fix` | The audit (quick unless combined with `--deep`), then the verified fix loop | audit + fixes |
 | `/security --deep --fix` | Exhaustive find-and-fix | longest |
+| `/security --owasp` | semgrep-runner, then owasp-web-checker (+ LLM checker); combines with `--deep` | ~10 min |
+| `/security --threat-model` | threat-modeler only, single pass | short |
+| `/security --deps` | dependency-auditor only, single pass | short |
 
 ## Full audit — specialist waves
 
@@ -36,7 +39,7 @@ flowchart TD
     QW2 --> Report
     W4 --> Report["Phase 5: coordinator writes docs/security/final-report.md"]
     Report --> HC{HIGH or CRITICAL?}
-    HC -->|yes, or any deep run| Chal["challenger: CHALLENGE_REPORT_security_date.md"]
+    HC -->|"yes, or any deep run"| Chal["challenger: CHALLENGE_REPORT_security_date.md"]
     HC -->|no, quick| Out([Completion output])
     Chal --> DeepQ{--deep?}
     DeepQ -->|no| Out
@@ -114,9 +117,4 @@ flowchart LR
 
 Design-time threat models must explicitly assess three bootstrap and authority archetypes listed in `security-auditor.md`, each either mitigated or ruled N/A with a reason: **bootstrap-authority** (no safe way to create the first privileged user), **self-referential permission gate** (a role only that role can grant), and **RBAC highest-role-wins** (N roles per principal, but enforcement picks one role instead of the union of grants).
 
-## Known gaps (as of 2026-09-23)
-
-These are mismatches between the skill and the coordinator, recorded here and not yet fixed:
-
-1. **`--deep` exists only in the skill.** `skills/security/SKILL.md` and `RALPH_WIGGUM_LOOP.md` define deep mode and its `security-deep` coverage loop. `agents/security-auditor.md` has a Quick Mode section and a Fix Mode section but no Deep Mode section, and it never says which flag selects the full four-wave run. The deep row in the diagram above is the intended behavior, assembled from the skill.
-2. **The focused flags aren't implemented.** The skill lists `--threat-model`, `--owasp` and `--deps`. The coordinator doesn't mention any of them.
+In deep mode the coordinator's tool-call cap is 30, not 15, so four waves plus the challenger plus three coverage rounds fit. A coverage round re-dispatches only what the gate's gap list names: uncovered OWASP categories, missing attack chains, or dependency gaps.
