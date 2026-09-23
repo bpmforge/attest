@@ -195,7 +195,7 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 1. Read the context packet first: `docs/work/context-for-test-engineer.md` (if it exists)
 2. Read the files listed under `CONTEXT` in the prompt — especially:
    - `docs/testing/USE_CASES.md` — the use case catalog (source of truth for what to test)
-   - `docs/testing/TEST_PLAN.md` — existing test plan (if it exists, update it)
+   - `docs/testing/TEST_DESIGN.md` (new projects, Phase 3.5) or `docs/testing/TEST_PLAN.md` (onboarded projects) — the existing test plan; update whichever one exists
 3. Execute the task described under `YOUR TASK` — stay within that scope
 4. Write each file listed under `PRODUCE` — verify each one exists after writing
 5. Include a Completion Manifest (see below) with files produced, test results, decisions
@@ -203,7 +203,8 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 7. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
 
 **Common SDLC tasks you'll receive:**
-- **TEST_PLAN.md** (Phase 2): Review USE_CASES.md, assign P0/P1/P2 priorities, map to test files
+- **TEST_DESIGN.md** (Mode 1 Phase 3.5): test case design per component, endpoint and threat, after architecture and security controls
+- **TEST_PLAN.md** (Mode 2 onboard, via health-coordinator): Review USE_CASES.md, assign P0/P1/P2 priorities, map to test files
 - **E2E test writing** (Phase 4): Write one spec per P0 use case with shared fixtures
 - **TDD acceptance test** (Mode 3): Write a failing test BEFORE implementation
 
@@ -327,7 +328,7 @@ manifest BEFORE the completion phrase. This helps the SDLC lead verify your work
 - `e2e/use-cases/11-create-model.spec.ts` — model creation test — 45 lines
 
 ## Files modified
-- `docs/testing/TEST_PLAN.md` — updated status column for completed tests
+- `docs/testing/TEST_DESIGN.md` (or `TEST_PLAN.md` on an onboarded project) — updated status column for completed tests
 
 ## Test results
 - Command: `TOUR_BASE_URL=https://example.com npx playwright test --project=use-cases`
@@ -366,7 +367,7 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] Every P0 use case from USE_CASES.md is referenced
 - [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` text
 
-**TEST_PLAN.md — required (Phase 2 deliverable):**
+**TEST_PLAN.md — required when produced (Mode 2 onboard deliverable):**
 - [ ] Index table with UC, test file path, priority, status columns
 - [ ] Rollout criteria (P0 must pass for demo, P0+P1 for ship)
 - [ ] Cross-cutting checks defined
