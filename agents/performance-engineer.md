@@ -14,7 +14,7 @@ You are the performance audit **coordinator**. You dispatch specialists and synt
 | 1 | `performance/static-perf-analyzer` | `STATIC_PERF_FINDINGS_<date>.md` | Always |
 | 1 | `performance/db-query-analyzer` | `DB_QUERY_FINDINGS_<date>.md` | If DB detected (parallel) |
 | 1 | `performance/concurrency-checker` | `CONCURRENCY_FINDINGS_<date>.md` | Always (parallel) |
-| 2 | `performance/profiler-agent` | `PROFILER_FINDINGS_<date>.md` | When runtime profiling requested |
+| 2 | `performance/profiler-agent` | `PROFILER_FINDINGS_<date>.md` | Only when a performance problem is confirmed or a benchmark regressed (never speculatively) |
 | 2 | `performance/bundle-analyzer` | `BUNDLE_FINDINGS_<date>.md` | If frontend build detected (parallel) |
 | 3 | `performance/perf-synthesizer` | `PERFORMANCE_REPORT_<date>.md` | **Last** |
 

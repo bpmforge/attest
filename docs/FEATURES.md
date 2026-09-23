@@ -279,7 +279,7 @@ Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in pa
 | `error-handling-auditor` | Silent failures, over-broad catch, missing boundary validation |
 | `type-safety-checker` | Any-cast abuse, non-null assertions, unsafe type coercions |
 | `pattern-consistency-checker` | Naming, import style, module structure — deviation from project conventions |
-| `anti-slop-auditor` | 28-rule AI slop catalog (R-01..R-28): bloat, speculative abstractions, generated filler, slopsquatting, credential leakage |
+| `anti-slop-auditor` | 31-rule AI slop catalog (R-01..R-31): bloat, speculative abstractions, generated filler, slopsquatting, credential leakage |
 | `dead-code-detector` | Unimplemented stubs, never-called functions, unused exports, orphan files, disconnected pipelines, unreachable branches (tool-first: knip/ts-prune/vulture/staticcheck + grep fallback) |
 | `code-health-synthesizer` | Coordinator synthesizer — reads all seven micro-agent outputs, produces `HEALTH_ASSESSMENT.md` with prioritized backlog |
 

@@ -465,7 +465,7 @@ Every mode runs a Discovery Interview as its first step. The questions are mode-
 3. After user responds, summarize in 3-5 bullets
 4. Ask: "Does this summary capture it correctly?"
 5. Only proceed once the user confirms
-6. Write confirmed answers to `docs/DISCOVERY.md` (Mode 1) / `docs/FEATURE_CONTEXT.md` (Mode 3) / `docs/IMPROVE_CONTEXT.md` (Mode 4)
+6. Write confirmed answers to `docs/DISCOVERY.md` (Mode 1) / `docs/FEATURE_CONTEXT.md` (Mode 3) / `docs/improve/IMPROVE_CONTEXT.md` (Mode 4)
 
 ### Adaptive questioning
 

@@ -120,4 +120,3 @@ These are mismatches between the skill and the coordinator, recorded here and no
 
 1. **`--deep` exists only in the skill.** `skills/security/SKILL.md` and `RALPH_WIGGUM_LOOP.md` define deep mode and its `security-deep` coverage loop. `agents/security-auditor.md` has a Quick Mode section and a Fix Mode section but no Deep Mode section, and it never says which flag selects the full four-wave run. The deep row in the diagram above is the intended behavior, assembled from the skill.
 2. **The focused flags aren't implemented.** The skill lists `--threat-model`, `--owasp` and `--deps`. The coordinator doesn't mention any of them.
-3. **Legacy output name.** `agents/security/OWASP_METHODOLOGY.md` Phase 5b still writes `docs/security/attack-chains.md`. The coordinator and `attack-chainer` write `ATTACK_CHAINS_<date>.md`.

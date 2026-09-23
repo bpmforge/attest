@@ -79,7 +79,7 @@ Produce an inventory file that enumerates every unit requiring coverage. Format:
 | `validate-adrs.sh` | Every ADR-NNN reference has a corresponding ADR file with status |
 | `validate-migrations.sh` | Every migration file is referenced in DATABASE.md |
 | `validate-inventory.sh` | Every INVENTORY.md row has its artifact (deep mode) |
-| `validate-owasp.sh` | All 10 OWASP categories ≥ confidence 7, attack-chains.md present |
+| `validate-owasp.sh` | All 10 OWASP categories ≥ confidence 7, `ATTACK_CHAINS_<date>.md` (or legacy `attack-chains.md`) present |
 | `validate-no-ascii-art.sh` | No box-drawing chars or banner separators in deliverables |
 | `validate-build.sh` / `validate-tests.sh` / `validate-lint.sh` / `validate-smoke.sh` / `validate-deps.sh` | Operational checks — actually execute build/test/lint/smoke/audit |
 

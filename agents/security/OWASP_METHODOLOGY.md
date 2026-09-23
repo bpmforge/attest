@@ -1217,7 +1217,7 @@ Step 3 — [exploit Finding #Z]:
   Priority fix: [The finding that, if fixed, collapses the most chains]
 ```
 
-Save all chains to `docs/security/attack-chains.md`.
+Save all chains to `docs/security/ATTACK_CHAINS_<date>.md` (the same file `security/attack-chainer` writes when the coordinator dispatches it).
 
 **Step 4: Severity bump rule**
 
@@ -1244,7 +1244,7 @@ Document it as `CHAIN-SYSTEMIC-N` and recommend a single architectural fix.
 ```
 edit(filePath="docs/security/OWASP_TRACKER.md",
   oldString="## Attack Chain Analysis\n<!-- Filled in after Phase 5b -->",
-  newString="## Attack Chain Analysis\nChains found: <N>\n  CRITICAL: <N>\n  HIGH: <N>\n  Systemic enablers: <N>\n  See: docs/security/attack-chains.md")
+  newString="## Attack Chain Analysis\nChains found: <N>\n  CRITICAL: <N>\n  HIGH: <N>\n  Systemic enablers: <N>\n  See: docs/security/ATTACK_CHAINS_<date>.md")
 ```
 
 ---
@@ -1415,7 +1415,7 @@ Group findings by root cause. 3+ occurrences = architectural issue. Recommend a 
 
 **Step 5b: Fill in Attack Chain Analysis section**
 
-Read `docs/security/attack-chains.md` (written in Phase 5b). For each chain, write a full finding section in the report using the same format as individual findings, but with:
+Read `docs/security/ATTACK_CHAINS_<date>.md` (written in Phase 5b). For each chain, write a full finding section in the report using the same format as individual findings, but with:
 - Severity = chain severity (often bumped above the highest individual link)
 - Finding ID = `C-N` prefix (e.g., `C-1`)
 - A multi-step exploit narrative (one paragraph per step) instead of a single exploit payload

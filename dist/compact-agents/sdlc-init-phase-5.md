@@ -42,9 +42,9 @@ fine; re-issuing your own task is not.
 Phase 5 runs in **five rounds**. Rounds 1 and 3 can overlap (audit HANDOFFs in Round 3 are parallel-safe with the fix-verify work in Round 2). Rounds 4 and 5 are strictly sequential.
 
 ```
-Round 1: Reviews fan-out  — 4 parallel HANDOFFs (always parallel)
+Round 1: Reviews fan-out  — 3 parallel HANDOFFs, 5 if UI-bearing (always parallel)
 Round 2: Fix-Verify loop  — up to 3 iterations (coding-agent + re-verify)
-Round 3: Audit fan-out    — 3 parallel HANDOFFs (parallel-safe with Round 2 iteration N-1)
+Round 3: Audit fan-out    — 4 parallel HANDOFFs (parallel-safe with Round 2 iteration N-1)
 Round 4: Release Gate     — run-coverage-loop.sh phase-5 (must exit 0)
 Round 5: Release          — git-expert --release
 ```

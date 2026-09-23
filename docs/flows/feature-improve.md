@@ -74,4 +74,3 @@ These specialists are added on demand: a11y-compliance, data-steward, reliabilit
 
 - **The interview questions aren't in the mode files.** Both `sdlc-feature-mode.md` and `sdlc-improve-mode.md` refer to "the interview above", and neither contains it. Mode 3's count of 7 questions appears only in `commands/sdlc-feature.md`.
 - **The step counts disagree.** Mode 3's roadmap table lists 7 steps and the command lists 5. Both differ from the body, which this diagram follows.
-- **IMPROVE_CONTEXT.md has two paths.** `sdlc-lead.md` says `docs/IMPROVE_CONTEXT.md`, while the improve mode and its command say `docs/improve/IMPROVE_CONTEXT.md`.

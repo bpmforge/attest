@@ -98,10 +98,18 @@ while IFS= read -r cat; do
 done < <(printf '%s\n' "${OWASP_CATEGORIES[@]}")
 
 # -- Attack chain analysis present? (Phase 5b output) ----------------------
+# security/attack-chainer (dispatched by the security-auditor coordinator)
+# writes the DATED name ATTACK_CHAINS_<date>.md. Accepting only the two
+# undated names meant every coordinator-run --deep audit gapped here on a
+# chain file it had in fact produced. The newest dated file wins; the undated
+# names are still accepted for older reports.
 CHAINS_FILE=""
+DATED_CHAINS="$(ls -1 "$ROOT"/docs/security/ATTACK_CHAINS_*.md 2>/dev/null | sort | tail -1 || true)"
 for candidate in \
+  "$DATED_CHAINS" \
   "$ROOT/docs/security/attack-chains.md" \
   "$ROOT/docs/security/ATTACK_CHAINS.md"; do
+  [[ -z "$candidate" ]] && continue
   if file_exists_nonempty "$candidate"; then
     CHAINS_FILE="$candidate"
     break
@@ -109,7 +117,7 @@ for candidate in \
 done
 
 if [[ -z "$CHAINS_FILE" ]]; then
-  gap "missing-attack-chains" "no attack chain analysis (docs/security/attack-chains.md)"
+  gap "missing-attack-chains" "no attack chain analysis (docs/security/ATTACK_CHAINS_<date>.md)"
 else
   pass "attack-chain analysis found: ${CHAINS_FILE#"$ROOT/"}"
 fi
