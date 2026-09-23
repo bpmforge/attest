@@ -14,8 +14,15 @@ set -e
 #                             internal-use-only; client scans use Opengrep + in-house
 #                             bpm-rulepacks.
 #   ./install.sh --uninstall  Remove installed files
+#   ./install.sh --version    Print the attest version and exit
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# The version comes from package.json, never a literal: the banner said
+# "v1.6.0" for every release from 1.6.0 to 3.11.0. sed, not node — this runs
+# before the Node check.
+ATTEST_VERSION="$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' "$SCRIPT_DIR/package.json" 2>/dev/null | head -1)"
+ATTEST_VERSION="${ATTEST_VERSION:-unknown}"
+for _arg in "$@"; do [ "$_arg" = "--version" ] && { echo "attest v$ATTEST_VERSION"; exit 0; }; done
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
 SEMGREP_CACHE="$HOME/.semgrep/rules"
@@ -238,8 +245,6 @@ elif command -v curl &>/dev/null; then
 else
   echo "  wget ✓ (no curl — used as the download fallback)"
 fi
-JQ_OK=false
-command -v jq &>/dev/null && JQ_OK=true
 # ─────────────────────────────────────────────────────────────────────────────
 
 echo -n "Checking Node version... "
@@ -352,7 +357,7 @@ for arg in "$@"; do
     --game-experts)         INSTALL_GAME=true ;;
     --yes|-y)               : ;;  # non-interactive, accept all current defaults
     --help|-h)
-      echo "attest — Installation"
+      echo "attest v$ATTEST_VERSION — Installation"
       echo ""
       echo "Usage:"
       echo "  ./install.sh                       Install globally to ~/.config/opencode/"
@@ -370,8 +375,9 @@ for arg in "$@"; do
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
       echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
       echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
-  echo "  ./install.sh --uninstall           Remove installed files"
-  echo "  ./install.sh --yes                 Accept all defaults non-interactively"
+      echo "  ./install.sh --uninstall           Remove installed files"
+      echo "  ./install.sh --version             Print the attest version and exit"
+      echo "  ./install.sh --yes                 Accept all defaults non-interactively"
       exit 0
       ;;
   esac
@@ -445,7 +451,7 @@ fi
 # ─── Interactive prompts (when run with no flags from a terminal) ───
 if [ $# -eq 0 ] && [ -t 0 ] && [ "$MODE" != "uninstall" ]; then
   echo ""
-  echo "attest v1.6.0 — Installation"
+  echo "attest v$ATTEST_VERSION — Installation"
   echo "==========================================="
   echo ""
   echo "Core install (always): agents, skills, shared protocols, tools, plugins, scripts, semgrep rules"
@@ -480,9 +486,11 @@ fi
 if [ "$MODE" = "uninstall" ]; then
   echo "Removing attest..."
   for dir in agents skills commands references exemplars tools hooks plugins scripts .semgrep; do
-    rm -rf "$GLOBAL_DIR/$dir"
-    rm -rf "$PROJECT_DIR/$dir"
+    rm -rf "${GLOBAL_DIR:?}/$dir"
+    rm -rf "${PROJECT_DIR:?}/$dir"
   done
+  # The version stamp would otherwise keep claiming an install that is gone.
+  rm -f "${GLOBAL_DIR:?}/experts-version" "${PROJECT_DIR:?}/experts-version"
   echo "Done. Removed from both global and project locations."
   echo "Note: ~/.semgrep/rules/ community rule cache was NOT removed."
   echo "      Remove manually if desired:  rm -rf ~/.semgrep/rules/"
@@ -518,7 +526,7 @@ for dir in $DIRS; do
 
   # Clean out existing directory first (fresh install every time)
   if [ -d "$DEST/$dir" ]; then
-    rm -rf "$DEST/$dir"
+    rm -rf "${DEST:?}/$dir"
   fi
 
   if [ "$METHOD" = "link" ]; then
@@ -595,8 +603,8 @@ if [ "$MODE" = "global" ]; then
   # self-identify it — every field trace then answers "which version was
   # this box running?" without a trip to the machine.
   if [ -f "$SCRIPT_DIR/package.json" ]; then
-    EXPERTS_VERSION=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "$SCRIPT_DIR/package.json" | head -n 1)
-    if [ -n "$EXPERTS_VERSION" ]; then
+    EXPERTS_VERSION="$ATTEST_VERSION"
+    if [ "$EXPERTS_VERSION" != "unknown" ]; then
       printf '%s\n' "$EXPERTS_VERSION" > "$DEST/experts-version"
       echo "  Stamped version: v$EXPERTS_VERSION → $DEST/experts-version"
     fi
@@ -1062,7 +1070,6 @@ echo "Checking Semgrep community rules (~/.semgrep/rules/)..."
 # Ensure the cache directory exists (primes the path even if rules not cloned yet)
 mkdir -p "$SEMGREP_CACHE"
 
-COMMUNITY_STATUS=""
 COMMUNITY_SOURCES=(trailofbits elttam gitlab 0xdea)
 missing_sources=()
 found_sources=()
@@ -1383,7 +1390,7 @@ if [ -n "${MCP_REGISTRATION_SKIPPED:-}" ]; then
   exit 1
 fi
 
-echo "Installation complete!"
+echo "Installation complete! (attest v$ATTEST_VERSION)"
 echo ""
 
 # --- Status summary ---
