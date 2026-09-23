@@ -50,7 +50,9 @@ mkdir -p "$WORK_DIR" "$GATES_DIR"
 
 PHASE_0_FILES="docs/VISION.md docs/COMPETITIVE_ANALYSIS.md"
 PHASE_1_FILES="docs/SCOPE.md docs/RISKS.md docs/CONSTRAINTS.md docs/USER_PERSONAS.md"
-PHASE_2_FILES="docs/SRS.md docs/USER_STORIES.md docs/USE_CASES.md"
+# "a|b" = either path satisfies the slot (same convention as validate-phase-gate.sh GATE_FILES).
+# docs/testing/USE_CASES.md is canonical; docs/USE_CASES.md is accepted for older projects.
+PHASE_2_FILES="docs/SRS.md docs/USER_STORIES.md docs/testing/USE_CASES.md|docs/USE_CASES.md"
 PHASE_3_FILES="docs/MODULE_DESIGN.md docs/ARCHITECTURE.md docs/API_DESIGN.md docs/TECH_STACK.md docs/THREAT_MODEL.md docs/SECURITY_CONTROLS.md docs/INFRASTRUCTURE.md"
 PHASE_35_FILES="docs/testing/TEST_DESIGN.md"
 PHASE_4_FILES="src"  # Phase 4 = code exists; check for src/ or app/ directory
@@ -77,6 +79,17 @@ check_phase() {
       else
         missing=$((missing + 1))
         missing_list="$missing_list src/"
+      fi
+    elif [[ "$f" == *"|"* ]]; then
+      local alt hit=0
+      for alt in ${f//|/ }; do
+        [[ -f "$ROOT/$alt" && -s "$ROOT/$alt" ]] && hit=1 && break
+      done
+      if [[ "$hit" -eq 1 ]]; then
+        found=$((found + 1))
+      else
+        missing=$((missing + 1))
+        missing_list="$missing_list $(basename "${f%%|*}")"
       fi
     elif [[ -f "$full" && -s "$full" ]]; then
       found=$((found + 1))
