@@ -162,13 +162,14 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 
 | Step | What happens | Key HANDOFF | Output |
 |------|-------------|-------------|--------|
-| 1 | Impact analysis + design | researcher, architecture-designer (if needed) | FEATURE_CONTEXT.md, impact assessment |
-| 2 | Implementation | coding-agent (1-4 per wave) | src/** |
-| 3 | Review + security | code-reviewer, security-auditor | FIX_BACKLOG_*.md |
-| 4 | Verify | code-reviewer (re-verify) | VERIFY_*.md |
-| 5 | Document | coding-agent (docs update) | Updated ARCHITECTURE.md, API docs |
-| 6 | Runtime gate | validators (local) | RUNTIME_*.md |
-| 7 | Merge | git-expert | PR merged to main |
+| — | Feature Discovery Interview (above) | — (user) | `docs/FEATURE_CONTEXT.md` |
+| 0 | Initialize tracker | — | `docs/sdlc/SDLC_TRACKER.md` |
+| 1 | Impact analysis | app-cartographer (`/explore`) | `docs/explore/EXPLORE_[feature].md` |
+| 1.5 | Atomic or split | — | `docs/features/<slug>/COMPONENT_DAG.md` if split |
+| 2 | Design | db-architect, migration-planner, api-designer, security-auditor (as needed) | design docs, `SECURITY_DESIGN_<feature>_<date>.md` |
+| 3 | Implement: branch + draft PR, failing test first, code, review fan-out, FIX_BACKLOG + `run-coverage-loop.sh feature`, challenger if HIGH, fix-verify | git-expert, test-engineer, coding-agent, code-reviewer (+ security / perf / ux if triggered) | `src/**`, `FIX_BACKLOG_<feature>_<date>.md` |
+| 4 | Verify | — (full suite, backlog closed) | test results |
+| 5 | Document + runtime gate + merge | validators, git-expert | updated docs, `RUNTIME_<feature>_<date>.md`, PR merged |
 
 **Load deeper sections as you reach each step. Do not read the whole file upfront.**
 
