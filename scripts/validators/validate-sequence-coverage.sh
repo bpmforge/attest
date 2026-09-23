@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# validate-sequence-coverage.sh -- confirm every P0 use case in docs/USE_CASES.md
+# validate-sequence-coverage.sh -- confirm every P0 use case in docs/testing/USE_CASES.md
+# (or legacy docs/USE_CASES.md)
 # has a matching sequence diagram in docs/ARCHITECTURE.md (or docs/sequences/).
 #
 # Use case detection: looks for rows in USE_CASES.md with priority marker P0,
@@ -20,10 +21,10 @@ validator_init "validate-sequence-coverage"
 
 ROOT="$(detect_project_root "${1:-}")"
 USECASES=""
-for _uc in "$ROOT/docs/USE_CASES.md" "$ROOT/docs/testing/USE_CASES.md"; do
+for _uc in "$ROOT/docs/testing/USE_CASES.md" "$ROOT/docs/USE_CASES.md"; do
   [[ -f "$_uc" ]] && USECASES="$_uc" && break
 done
-[[ -z "$USECASES" ]] && USECASES="$ROOT/docs/USE_CASES.md"
+[[ -z "$USECASES" ]] && USECASES="$ROOT/docs/testing/USE_CASES.md"
 ARCH="$ROOT/docs/ARCHITECTURE.md"
 SEQ_DIR="$ROOT/docs/sequences"
 DIAG_SEQ_DIR="$ROOT/docs/diagrams/sequences"
