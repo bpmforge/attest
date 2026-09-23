@@ -1,15 +1,25 @@
 import { test, describe, beforeEach, afterEach } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { join, dirname, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'url';
 import { DatabaseSync } from 'node:sqlite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-describe('log-hop.mjs', () => {
+// log-hop.mjs loads the escalation-ledger from the sibling bpm-agent-amplifier
+// checkout and, by design, exits 0 without writing when it is absent. CI checks
+// out only this repo, so every assertion below failed there (since v3.10.x) on a
+// DB that was correctly never written. Skip — visibly — when the package is not
+// built; on a machine with the sibling repo the suite runs in full.
+const LEDGER = resolve(__dirname, '../../bpm-agent-amplifier/packages/escalation-ledger/dist/index.js');
+const SKIP = existsSync(LEDGER)
+  ? false
+  : `escalation-ledger not built at ${LEDGER} (sibling bpm-agent-amplifier checkout)`;
+
+describe('log-hop.mjs', { skip: SKIP }, () => {
   let tempDir;
   let dbPath;
 
