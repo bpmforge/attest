@@ -28,12 +28,13 @@ for candidate in \
   "$ROOT/docs/DATABASE.md" \
   "$ROOT/docs/ARCHITECTURE.md" \
   "$ROOT/docs/database/ERD.md" \
-  "$ROOT/docs/erd.md"; do
+  "$ROOT/docs/erd.md" \
+  "$ROOT/docs/diagrams/erd.md"; do
   [[ -f "$candidate" ]] && ERD_SOURCES+=("$candidate")
 done
 
 if [[ "${#ERD_SOURCES[@]}" -eq 0 ]]; then
-  gap "missing-file" "no ERD source found (checked docs/DATABASE.md, docs/ARCHITECTURE.md, docs/database/ERD.md)"
+  gap "missing-file" "no ERD source found (checked docs/DATABASE.md, docs/ARCHITECTURE.md, docs/database/ERD.md, docs/erd.md, docs/diagrams/erd.md)"
   validator_exit
 fi
 

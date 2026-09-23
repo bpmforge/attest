@@ -26,6 +26,7 @@ done
 [[ -z "$USECASES" ]] && USECASES="$ROOT/docs/USE_CASES.md"
 ARCH="$ROOT/docs/ARCHITECTURE.md"
 SEQ_DIR="$ROOT/docs/sequences"
+DIAG_SEQ_DIR="$ROOT/docs/diagrams/sequences"
 
 if ! file_exists_nonempty "$USECASES"; then
   # No use cases file -- nothing to enforce. Warn and pass clean.
@@ -55,6 +56,13 @@ pass "found $P0_COUNT P0 use case(s)"
 #      (a ## or ### heading within 10 lines above it, OR a title inside the
 #      block) references the UC-id
 #   2. A file docs/sequences/<UC-id>*.md containing a sequenceDiagram block
+#   3. A file under docs/diagrams/sequences/ (where /sdlc onboard's
+#      entry-point-tracer writes them, named by flow: auth.md,
+#      write-operation.md ...) with a heading naming the UC-id within 5
+#      lines above a sequenceDiagram -- the same heading rule as (1).
+#      Onboard sequences used to count for nothing here: the default and
+#      deep onboard gates both failed missing-sequence on diagrams that
+#      existed, one directory over.
 
 while IFS= read -r uc; do
   [[ -z "$uc" ]] && continue
@@ -95,8 +103,19 @@ while IFS= read -r uc; do
     fi
   fi
 
+  # Check docs/diagrams/sequences/*.md by heading
+  if [[ "$found" -eq 0 && -d "$DIAG_SEQ_DIR" ]]; then
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      if grep -B 5 'sequenceDiagram' "$f" 2>/dev/null | grep -E '^#' | grep -qw "$uc"; then
+        found=1
+        break
+      fi
+    done < <(find "$DIAG_SEQ_DIR" -type f -name '*.md' 2>/dev/null)
+  fi
+
   if [[ "$found" -eq 0 ]]; then
-    gap "missing-sequence" "$uc (P0 use case) has no sequence diagram in ARCHITECTURE.md or docs/sequences/"
+    gap "missing-sequence" "$uc (P0 use case) has no sequence diagram in ARCHITECTURE.md, docs/sequences/ or docs/diagrams/sequences/"
   fi
 done < "$P0_CASES"
 
