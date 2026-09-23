@@ -95,7 +95,7 @@ Ready for: {next agent or "SDLC lead resume"}
 - **Track 1, coverage loop.** `scripts/validators/run-coverage-loop.sh <phase>` wraps `validate-phase-gate.sh <phase>`, counts iterations, stops after 3, and halts at once (exit 3) when a round changes nothing. Always call the wrapper. The bare gate has no counter.
 - **Track 2, confidence loop.** Phases 0 and 1 produce prose (vision, scope, risks). Nothing there can be counted mechanically, so the lead rates its own confidence and loops until the rating is ≥ 7.
 
-Gate modes: `phase-2`, `phase-3`, `phase-3.5`, `phase-4`, `phase-5`, `onboard-deep`, `security-deep`, `feature`, `improve`. A clean gate writes a receipt to `docs/work/gates/<phase>-receipt.json`, which records what ran and hashes the phase's files.
+Gate modes: `phase-0`, `phase-1`, `phase-2`, `phase-3`, `phase-3.5`, `phase-4`, `phase-5`, `onboard-deep`, `security-deep`, `feature`, `improve`. A clean gate writes a receipt to `docs/work/gates/<phase>-receipt.json`, which records what ran and hashes the phase's files.
 
 ## Ralph Wiggum loop (deep verification)
 
