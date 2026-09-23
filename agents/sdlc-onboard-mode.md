@@ -382,11 +382,11 @@ Input extracts:
 - `docs/diagrams/erd.md` → extract data model summary
 - `docs/HEALTH_ASSESSMENT.md` → extract top issues
 
-**Write `docs/ARCHITECTURE.md`** — must include all 6 diagram types:
+**Write `docs/ARCHITECTURE.md`** — starts with a `## HLA Overview` section (a short high-level summary grounded in LANDSCAPE, C2 and HEALTH_ASSESSMENT; `validate-architecture.sh` requires it and the onboard gate chains that validator), then all 6 diagram types:
 1. System Context (C1) — system + external actors
 2. Container Diagram (C2) — embed or reference c2-containers.md
 3. Component Diagram (C3) — embed or reference c3-components.md
-4. Sequence Diagrams — reference ≥3 key operations from sequences/
+4. Sequence Diagrams — reference ≥3 key operations from sequences/. **Every P0 use case in `docs/testing/USE_CASES.md` needs a sequence diagram under a heading that names its UC-id** (`## UC-01: User login`) — either embedded here or as a heading added above the matching diagram in `docs/diagrams/sequences/*.md`. Step 2b wrote those diagrams before Step 6 assigned UC-ids, so this is where they are linked; `validate-sequence-coverage.sh` counts nothing else.
 5. Data Flow Diagram — how data moves end-to-end
 6. Deployment Diagram — inferred from docker-compose, CI config, cloud config
 
@@ -442,7 +442,7 @@ WRITE-SCOPE: docs/onboard/
 YOUR TASK: Enumerate every ROUTE (Express/Fastify/Next/FastAPI/Flask/Go handler) and every TABLE (Prisma/SQLAlchemy/TypeORM/Knex/raw SQL CREATE TABLE). One row per unit. Skip SERVICE, FLOW, ENTRY categories.
 
 PRODUCE:
-- docs/onboard/INVENTORY.md — table: ID, Category, Description, Artifact, Status (PENDING). Categories: ROUTE, TABLE only.
+- docs/onboard/INVENTORY.md — first line under the title MUST be `Scope: ROUTE, TABLE` (validate-inventory.sh honors it; without it the gate re-derives SERVICE rows and fails). Then a table: ID, Category, Description, Artifact, Status (PENDING). Categories: ROUTE, TABLE only.
 - docs/onboard/INVENTORY_NOTES.md — discovery method and ambiguities.
 
 Print: "researcher done — lightweight inventory: N routes, M tables"
@@ -451,7 +451,7 @@ Print: "researcher done — lightweight inventory: N routes, M tables"
 
 Then run: `./scripts/validators/run-coverage-loop.sh onboard-deep`
 
-Exit 0 → done. Exit 1 → emit gap-fill HANDOFFs (one per uncovered row), re-run. Exit 2 → escalate via `RALPH_WIGGUM_LOOP.md`. After 3 iterations with persistent gaps → recommend re-run with `--deep`.
+Exit 0 → done. Exit 1 → route each gap, re-run: `uncovered-route` / `no-api-design` → one api-designer HANDOFF that writes or extends the route table in `docs/API_DESIGN.md`; `uncovered-table` / `inventory-missing-table` → db-architect (`docs/diagrams/erd.md`); `inventory-missing-route` → researcher adds the row; structural gaps from the other chained validators (`missing-section`, `missing-sequence`, `no-mermaid-erd`) → fix ARCHITECTURE.md / the sequence headings yourself per Step 7. Exit 2 → escalate via `RALPH_WIGGUM_LOOP.md`. After 3 iterations with persistent gaps → recommend re-run with `--deep`.
 
 ---
 
@@ -463,7 +463,7 @@ Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 
 **Deep-mode flow:**
 
-**Step D1 — INVENTORY:** HANDOFF to researcher for full 5-category inventory (ROUTE / TABLE / SERVICE / FLOW / ENTRY). Schema: `| ID | Category | Description | Artifact | Status |`. Write to `docs/onboard/INVENTORY.md`.
+**Step D1 — INVENTORY:** HANDOFF to researcher for full 5-category inventory (ROUTE / TABLE / SERVICE / FLOW / ENTRY). Schema: `| ID | Category | Description | Artifact | Status |`. Write to `docs/onboard/INVENTORY.md`, **replacing** any lightweight inventory — and with **no `Scope:` line** (a deep inventory covers all five categories, and a Scope line would switch off the SERVICE re-derivation).
 
 **Step D2 — DISCOVER (parallel waves):**
 

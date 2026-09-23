@@ -33,6 +33,7 @@ import { testCloseReceipt } from "./test-close-receipt.ts";
 import { testRefuseNextWork } from "./test-refuse-next-work.ts";
 import { testBootstrapChecklist } from "./test-bootstrap-checklist.ts";
 import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-regressions.ts";
+import { testOnboardGate } from "./test-onboard-gate.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
@@ -729,6 +730,13 @@ testProductShape(root, ok, fail);
 // cap) + registration parity with /goal and /wave, plus a planted-red
 // self-test of the phrase checks.
 await testAutopilot(root, ok, fail);
+
+// Default /sdlc onboard could never pass its own onboard-deep gate (four
+// causes, reproduced against mode-file-exact output). Guards the fixes.
+console.log(
+  "\n[Pass 56] Onboard gate — default-onboard output passes, deep stays strict",
+);
+testOnboardGate(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

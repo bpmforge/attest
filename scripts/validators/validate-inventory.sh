@@ -58,6 +58,22 @@ awk -F'|' '
   }
 ' "$INVENTORY" > "$ROWS"
 
+# -- Declared scope (lightweight inventories) --------------------------------
+# The default /sdlc onboard pass inventories ROUTE and TABLE only, and says so
+# with a line like "Scope: ROUTE, TABLE". Without honoring it, the second pass
+# below re-derived SERVICE rows from src/ subdirectories and failed every
+# default onboard on any repo with source folders -- rows the lightweight pass
+# is documented never to write. No Scope line (every --deep inventory) means
+# all five categories, so deep mode is exactly as strict as before. A declared
+# scope is always announced below, never silent.
+INV_SCOPE="$(grep -iE '^[*_]*scope[*_]*:' "$INVENTORY" 2>/dev/null | head -1 \
+  | sed -E 's/^[^:]*:[*_ ]*//' | tr '[:lower:],' '[:upper:] ' \
+  | grep -oE 'ROUTE|TABLE|SERVICE|FLOW|ENTRY' | tr '\n' ' ' || true)"
+in_scope() { [[ -z "$INV_SCOPE" || " $INV_SCOPE " == *" $1 "* ]]; }
+if [[ -n "$INV_SCOPE" ]]; then
+  pass "declared scope: ${INV_SCOPE% } -- categories outside it are not re-derived from source"
+fi
+
 ROW_COUNT=$(wc -l < "$ROWS" | tr -d ' ')
 if [[ "$ROW_COUNT" -eq 0 ]]; then
   gap "empty-inventory" "INVENTORY.md has 0 parseable rows (expected markdown table with ID|Category|Description|Artifact|Status)"
@@ -223,7 +239,9 @@ else
     fi
   done
 
-  if [[ -z "$SRC_ROOT" ]]; then
+  if ! in_scope SERVICE; then
+    note "SERVICE outside the declared inventory scope -- second-pass SERVICE re-derivation skipped"
+  elif [[ -z "$SRC_ROOT" ]]; then
     note "no source directory found (src, app, server, internal, pkg, packages, services, modules) -- second-pass SERVICE re-derivation skipped"
   else
     DERIVED_SERVICES="$(mktemp -t "inv-services.XXXXXX")"
