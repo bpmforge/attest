@@ -632,18 +632,18 @@ Two phase transitions require explicit human approval before any work begins. Th
 
 ### Gate A: Phase 2→3 (Requirements → Design)
 
-**Before presenting Gate A to the user, run Challenger on TECH_STACK.md:**
+**Before presenting Gate A to the user, run Challenger on SRS.md** (the requirements baseline Gate A freezes — its constraints, compliance obligations and NFR numbers must trace to DISCOVERY.md and the Phase 0–1 research, not be invented):
 
 ```
 HANDOFF to: challenger
-Artifact:   docs/design/TECH_STACK.md
-Context:    Gate A pre-check — verifying technology choices before requirements are frozen.
-Trigger:    TECH_STACK.md at Gate A — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_tech-stack_<date>.md
-Complete:   "challenge done — tech-stack"
+Artifact:   docs/SRS.md
+Context:    Gate A pre-check — every requirement, constraint and NFR number traces to DISCOVERY.md, REQUIREMENTS_MATRIX.md or a Phase 0-1 research report.
+Trigger:    SRS.md at Gate A — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_srs_<date>.md
+Complete:   "challenge done — srs"
 ```
 
-Wait for the challenge report. If any claims are CONTRADICTED, revise TECH_STACK.md before proceeding to the human approval block. If no TECH_STACK.md exists yet, skip this step.
+Wait for the challenge report. If any claims are CONTRADICTED, revise SRS.md before proceeding to the human approval block. (TECH_STACK.md is not written until Phase 3 — it is challenged at Gate B.)
 
 After Phase 2 gate passes and docs are committed, emit this block and **STOP**:
 
@@ -672,11 +672,20 @@ Record approval: append `HUMAN GATE A APPROVED: <date> <user response>` to `docs
 
 ### Gate B: Phase 3.5→4 (Test Design → Implementation)
 
-**Before presenting Gate B to the user, run Challenger on THREAT_MODEL.md and SECURITY_CONTROLS.md:**
+**Before presenting Gate B to the user, run Challenger on TECH_STACK.md, THREAT_MODEL.md and SECURITY_CONTROLS.md:**
 
 ```
 HANDOFF to: challenger
-Artifact:   docs/design/THREAT_MODEL.md
+Artifact:   docs/TECH_STACK.md
+Context:    Gate B pre-check — verifying technology choices and registry-verified versions before implementation begins.
+Trigger:    TECH_STACK.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_tech-stack_<date>.md
+Complete:   "challenge done — tech-stack"
+```
+
+```
+HANDOFF to: challenger
+Artifact:   docs/THREAT_MODEL.md
 Context:    Gate B pre-check — verifying threat model before implementation begins.
 Trigger:    THREAT_MODEL.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
 Produce:    docs/reviews/CHALLENGE_REPORT_threat-model_<date>.md
@@ -685,14 +694,14 @@ Complete:   "challenge done — threat-model"
 
 ```
 HANDOFF to: challenger
-Artifact:   docs/design/SECURITY_CONTROLS.md
+Artifact:   docs/SECURITY_CONTROLS.md
 Context:    Gate B pre-check — verifying security controls before implementation begins.
 Trigger:    SECURITY_CONTROLS.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
 Produce:    docs/reviews/CHALLENGE_REPORT_security-controls_<date>.md
 Complete:   "challenge done — security-controls"
 ```
 
-Both challenge reports must return with no CONTRADICTED verdicts before presenting the human approval block. If CONTRADICTED, revise the affected doc and re-run challenger.
+All three challenge reports must return with no CONTRADICTED verdicts before presenting the human approval block. If CONTRADICTED, revise the affected doc and re-run challenger.
 
 After Phase 3.5 gate passes and test design is committed, emit this block and **STOP**:
 
