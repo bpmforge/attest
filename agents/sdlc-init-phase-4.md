@@ -451,7 +451,7 @@ PRODUCE exactly these files:
 - e2e/use-cases/_fixtures.ts (or equivalent) — shared helpers for login,
   API calls, model creation, clean check
 - e2e/use-cases/*.spec.ts — one per P0 use case, describe named "UC-NNN: <name>"
-- Update docs/testing/TEST_PLAN.md — mark each P0 with its test file path and PASS/FAIL
+- Update docs/testing/TEST_DESIGN.md (the Phase 3.5 test design; Mode 1 has no TEST_PLAN.md — it was renamed to TEST_DESIGN.md and moved to 3.5) — mark each P0 with its test file path and PASS/FAIL
 - Run:  (or pytest equivalent) so the
   validate-tests-mapping.sh gate can produce UC-level pass/fail verdicts
 
