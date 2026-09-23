@@ -291,7 +291,7 @@ node ~/.config/opencode/scripts/conductor/conductor.mjs \
 ```
 
 Read the landing rate before scaling. 3/3 → drop `--max-tickets`. Otherwise read
-`docs/work/attempt-evidence/` — a failed attempt's review documents, runtime
+`docs/work/.conductor-evidence/` — a failed attempt's review documents, runtime
 verdict and full diff are preserved there before its worktree is destroyed.
 
 Reviewers are chosen by what the diff touches: `code-reviewer` always, plus
