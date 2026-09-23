@@ -132,5 +132,4 @@ These are in the agent sources and haven't been fixed yet:
 
 - **Use cases are written to one path and read from another.** Phase 2 writes `docs/USE_CASES.md`; Phase 4 and onboarding use `docs/testing/USE_CASES.md`. Validators accept both.
 - **Phase 4 updates a TEST_PLAN.md that Mode 1 never creates.** Only onboarding writes one.
-- **The Phase 5 round counts undercount.** The summary says Round 1 has 4 HANDOFFs and Round 3 has 3; the body dispatches 5 (adding qa-vnv when UI-bearing) and 4.
 - **Gate A challenges a file that doesn't exist yet.** The Gate A text (`sdlc-lead.md`) runs challenger on TECH_STACK.md, which isn't written until Phase 3.

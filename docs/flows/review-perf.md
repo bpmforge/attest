@@ -56,9 +56,3 @@ flowchart TD
 ```
 
 The rule is to measure before optimizing. A slow query inside an O(n²) loop with no caching is scored as multiplicative, not additive.
-
-## Known inconsistencies (as of 2026-09-23)
-
-- **The synthesizer's own spec disagrees on its input count.** The description in `code-health-synthesizer.md` says it reads 6 specialist outputs; its body requires 7.
-- **The anti-slop rule count is stale.** `code-reviewer.md`'s description says the anti-slop auditor has 28 rules; it checks 31 (R-01 to R-31).
-- **The profiler's trigger differs between files.** `performance-engineer.md` runs it "when runtime profiling requested". `profiler-agent.md` says it runs only when a problem is confirmed or a benchmark regresses.

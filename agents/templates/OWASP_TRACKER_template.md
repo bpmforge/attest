@@ -50,7 +50,7 @@ Chains found: ⏳
   CRITICAL: ⏳
   HIGH: ⏳
   Systemic enablers: ⏳
-  See: docs/security/attack-chains.md
+  See: docs/security/ATTACK_CHAINS_<date>.md
 
 ---
 
