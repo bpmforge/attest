@@ -11,7 +11,7 @@ mode: "subagent"
 > - `agents/sdlc-init-phase-4.md` — Phase 4 (Implementation) + Phase 5 (Release)
 >
 > `sdlc-init-mode.md` already uses those files. This file is retained only because
-> `docs/GOFORWARD_PLAN.md`, `docs/review/A-appendices.md`, and `agents/templates/ARCHITECTURE_template.md`
+> `docs/archive/GOFORWARD_PLAN.md`, `docs/archive/review/A-appendices.md`, and `agents/templates/ARCHITECTURE_template.md`
 > still reference the old name. Update those references — then delete this file.
 
 # Mode 1 — Phases 3–4: Design, Test Design, Implementation
