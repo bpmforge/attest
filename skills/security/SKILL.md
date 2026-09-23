@@ -37,7 +37,10 @@ In `--deep` mode, the Plan-Execute-Verify loop iterates per Ralph Wiggum until e
 ## Output
 
 - `docs/security/OWASP_TRACKER.md` — per-category confidence tracker
-- `docs/security/attack-chains.md` — multi-step exploit chains
+- `docs/security/ATTACK_CHAINS_<date>.md` — multi-step exploit chains (deep mode)
+- `docs/security/*_FINDINGS_<date>.md` — one per specialist (semgrep, secrets, dependencies, OWASP web, …)
+
+Flow diagrams: `docs/flows/security.md`.
 - `docs/security/final-report.md` — findings with severity, file:line, evidence, remediation
 
 ## When to pick deep
