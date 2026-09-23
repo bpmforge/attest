@@ -1,4 +1,4 @@
-[🏠 Index](README.md)  |  [← Plugin Hook System](03-plugin-hooks.md)  |  [Agent System →](05-agents.md)
+[🏠 Index](README.md)  |  [← Plugin Hook System](03-plugin-hooks.md)  |  [Agent System →](05-agents/README.md)
 
 ---
 
@@ -119,4 +119,4 @@ sequenceDiagram
 
 ---
 
-[🏠 Index](README.md)  |  [← Plugin Hook System](03-plugin-hooks.md)  |  [Agent System →](05-agents.md)
+[🏠 Index](README.md)  |  [← Plugin Hook System](03-plugin-hooks.md)  |  [Agent System →](05-agents/README.md)

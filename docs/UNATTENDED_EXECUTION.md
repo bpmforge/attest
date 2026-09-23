@@ -41,7 +41,7 @@ node ~/.config/opencode/scripts/conductor/conductor.mjs \
 ```
 
 Then read the landing rate before scaling. 3/3 → remove `--max-tickets`.
-Anything less → read `docs/work/attempt-evidence/` before spending more.
+Anything less → read `docs/work/.conductor-evidence/` before spending more.
 
 ---
 
@@ -75,11 +75,20 @@ wasted afternoon and a corrected board.
 
 | Gate | Refuses when | Exit |
 |---|---|---|
-| **G4** | coder and reviewer resolve to the same model | 1 |
+| **G4** | coder and reviewer resolve to the same model | 2 |
 | **G4b** | a configured model this install cannot resolve | 2 |
 | **G5** | the board is covered by `.gitignore` — every transition commits it | 2 |
 | **G6** | a ticket's manifest is outside `docs/work/` or `docs/reviews/` | 2 |
+| clean tree | the target's working tree has uncommitted changes | 1 |
+| board lint | `plan.json` fails lint, or two ready tickets' write-scopes collide | 2 |
+| sync | configured remotes' `main` diverge, or local `main` is not a remote ancestor | 5 |
+| topology | syncing `main` changed the configured `worktreeDir` or remotes — restart once | 6 |
+| **G7** | the baseline verify fails on `main` before any ticket is claimed | 4 |
 | resume | `plan.json` disagrees with its own receipts or git reality | 3 |
+
+`supervise.sh` stops for good on exits 2–6 (deterministic refusals) and restarts
+on any other non-zero exit — so exit 1 (dirty tree, missing `plan.json`) is
+retried up to 30 times. Fix the tree before launching under the supervisor.
 
 `--role-gate warn` downgrades G4; `--model-gate warn|off` downgrades G4b. Do not
 downgrade them for an unattended run — G4b exists because
@@ -132,7 +141,7 @@ audit trail.
   reaches `done`.
 - **Evidence survives.** A failed attempt's review documents, runtime verdict
   and full diff are copied to
-  `docs/work/attempt-evidence/<id>-attempt<n>/` before the worktree is
+  `docs/work/.conductor-evidence/<id>-attempt<n>/` before the worktree is
   destroyed. Read that before re-running anything.
 
 Useful flags: `--max-tickets N`, `--max-attempts N` (default 2),
@@ -190,7 +199,7 @@ coding session before it was gated.
 `modules[]` layer. Name one explicitly with `--plan`.
 
 **A ticket exhausted and you want to know why** — read
-`docs/work/attempt-evidence/<id>-attempt<n>/`. The runtime report has a
+`docs/work/.conductor-evidence/<id>-attempt<n>/`. The runtime report has a
 `## Why it failed` section; `attempt.diff` has everything the session wrote.
 
 **Everything fails instantly with a provider error** — that is quota or auth,

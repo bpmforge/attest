@@ -114,7 +114,7 @@ These directories are gitignored by default — they are per-project generated r
 
 Gates run in two forms, depending on whether the artifact is mechanically validatable:
 
-**Automated validators** (deterministic coverage checks) — `scripts/validators/` has 74 validators plus gate orchestrators. Used for any artifact where "covered or not" is an objective question: architecture diagrams, OWASP tracker rows, API route coverage, ERD table coverage, sequence-diagram coverage, inventory-row coverage, post-HANDOFF scope + manifest, and delegation discipline (HANDOFF-not-spawn). Each returns exit 0 (clean) / 1 (gap) / 2 (validator errored). The `/gate` skill wraps `validate-phase-gate.sh <phase>` for the active phase. Full catalog: [FEATURES.md](FEATURES.md#validators).
+**Automated validators** (deterministic coverage checks) — `scripts/validators/` has 79 validators plus gate orchestrators. Used for any artifact where "covered or not" is an objective question: architecture diagrams, OWASP tracker rows, API route coverage, ERD table coverage, sequence-diagram coverage, inventory-row coverage, post-HANDOFF scope + manifest, and delegation discipline (HANDOFF-not-spawn). Each returns exit 0 (clean) / 1 (gap) / 2 (validator errored). The `/gate` skill wraps `validate-phase-gate.sh <phase>` for the active phase. Full catalog: [FEATURES.md](FEATURES.md#validators).
 
 **Confidence gates** (subjective 1-10 score) — used only for artifacts validators cannot check mechanically: narratives, research summaries, rationale. Asymmetric:
 - Score < 5 on any dimension = automatic fail, surface the gap, do NOT iterate
@@ -204,17 +204,17 @@ Describe your goal in plain English ("securely check all my source and help fix 
 ```
 /sdlc init my-app "Short description of what it is"
 ```
-`sdlc-lead` runs a discovery interview, calls `git-expert --init` (repo bootstrap + branch protection on `main`), creates a `sdlc/setup` branch, then walks through Phase 0 → Phase 3 with git checkpoints after every phase. After Phase 3 gate passes, `sdlc/setup` merges to `main` via PR. Phase 4 feature work runs on `feat/[slug]` branches. Expect 6–8 agent delegations across the full run.
+`sdlc-lead` runs a discovery interview, calls `git-expert --init` (repo bootstrap + branch protection on `main`), creates a `sdlc/setup` branch, then walks through Phase 0 → Phase 3 with git checkpoints after every phase. After Phase 3.5 (Test Design) and Human Approval Gate B, `sdlc/setup` merges to `main` via PR. Phase 4 feature work runs on `feat/[slug]` branches. Expect 6–8 agent delegations across the full run.
 
 ### Existing codebase you don't understand
 ```
-/sdlc onboard             # default: --quick pass, ~15 min
-/sdlc onboard --quick     # explicit quick pass, 7-step high-level
-/sdlc onboard --deep      # Ralph Wiggum inventory loop, ~45-90 min
+/sdlc onboard             # default: Steps 0-7 + lightweight ROUTE/TABLE inventory, ~30-40 min
+/sdlc onboard --quick     # Steps 0-7 only, no inventory verification, ~15-20 min
+/sdlc onboard --deep      # Steps 0-7 + full Ralph Wiggum inventory loop, ~45-90 min
 ```
-`sdlc-lead` creates a `docs/onboard` branch, runs `git-expert --inspect` first (hot files, commit history), detects if the project has a UI, then produces architecture docs and an onboarding guide. If UI-bearing, `ux-engineer --audit` runs automatically. All produced docs are committed via PR to `main`.
+`sdlc-lead` creates a `docs/onboard` branch, runs `git-expert --inspect` first (hot files, commit history), then dispatches four onboard specialists: `landscape-mapper` (LANDSCAPE.md, UI detection), `entry-point-tracer` (entry-point and sequence diagrams), `component-mapper` (C2/C3), and `health-coordinator`. The health-coordinator fans out to code-reviewer ×3, security-auditor, test-engineer and performance-engineer, adding ux-engineer if the project has a UI. `db-architect` draws the ERD. A challenger pass has to find zero contradicted claims before the lead writes ARCHITECTURE.md, ONBOARDING.md and DECISION_LOG.md. All produced docs are committed via PR to `main`. Step-by-step diagrams: [docs/flows/onboard.md](flows/onboard.md).
 
-**`--deep` mode** (`agents/shared/RALPH_WIGGUM_LOOP.md`) runs the quick pass first, then enumerates every unit of the codebase — routes, tables, services, P0 flows, entry points — into `docs/onboard/INVENTORY.md`, produces one artifact per row, and re-iterates on any uncovered rows. Blocks until `./scripts/validators/validate-phase-gate.sh onboard-deep` exits clean. Three sub-skills trigger the individual steps:
+**`--deep` mode** (`agents/shared/RALPH_WIGGUM_LOOP.md`) runs the standard pass first, then enumerates every unit of the codebase — routes, tables, services, flows, entry points — into `docs/onboard/INVENTORY.md`, produces one artifact per row, and re-iterates on any uncovered rows. Blocks until `./scripts/validators/run-coverage-loop.sh onboard-deep` exits clean (3-iteration cap). Three sub-skills trigger the individual steps:
 
 | Skill | Step | Effect |
 |-------|------|--------|
@@ -291,7 +291,7 @@ node ~/.config/opencode/scripts/conductor/conductor.mjs \
 ```
 
 Read the landing rate before scaling. 3/3 → drop `--max-tickets`. Otherwise read
-`docs/work/attempt-evidence/` — a failed attempt's review documents, runtime
+`docs/work/.conductor-evidence/` — a failed attempt's review documents, runtime
 verdict and full diff are preserved there before its worktree is destroyed.
 
 Reviewers are chosen by what the diff touches: `code-reviewer` always, plus
@@ -303,7 +303,7 @@ A ticket can also request them explicitly with `"reviews": ["security", "test"]`
 Interview marked NEVER-AUTO — it pauses for a human even in `autonomy: auto`.
 Plan interactively, then automate the coding.
 
-Full guide, including the five startup gates, Jira mirroring, and the board
+Full guide, including the startup gates, Jira mirroring, and the board
 mistakes that waste sessions: **[UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md)**.
 
 ---
@@ -412,26 +412,29 @@ Safety rails (always enforced, cannot be bypassed silently):
 Reference: `references/git-workflow-checklist.md`. Output: `docs/git/*.md`.
 
 ### `/security`
-**Depth flags:** `--quick` (default) / `--deep`
-**Focused modes:** `--owasp`, `--semgrep`, `--threat-model`, `--deps`
+**Depth flags:** `--quick` (default) / `--deep` / `--fix`
 
 ```
-/security                       # --quick by default: phases 1-3, ~10 min
-/security --quick               # explicit: single-pass OWASP + semgrep scan
-/security --deep                # Ralph Wiggum loop: ~45-90 min, all OWASP + all semgrep rules + iterative attack-chain
-/security --owasp               # OWASP Top 10 pass only
-/security --semgrep             # deep static analysis only
-/security --threat-model        # STRIDE threat model only
-/security --deps                # dependency vulnerability audit only
+/security                       # --quick by default: Wave 1 scanners + OWASP Web, ~10 min
+/security --deep                # all four specialist waves + attack chainer + coverage loop, ~45-90 min
+/security --fix                 # audit, then verified fix loop (re-scan proves each fix)
+/security --deep --fix          # exhaustive find-and-fix
 ```
 
-**`--quick`** (default) — phases 1-3: understand → automated scan → OWASP once-over. ~10 min.
+`security-auditor` is a coordinator. It dispatches specialists in waves, each in fresh context:
 
-**`--deep`** — full Ralph Wiggum loop over every OWASP category iterated to confidence ≥ 7, every custom semgrep rule file walked, iterative attack-chain until a full pass finds no new chains. Blocks until `./scripts/validators/validate-phase-gate.sh security-deep` exits clean. Use before production deploys, compliance audits, post auth/crypto/input changes, CVE-reachability checks.
+1. **Wave 1**, in parallel: semgrep-runner (Opengrep + bpm-rulepacks), secrets-scanner, dependency-auditor.
+2. **Wave 2**: owasp-web-checker, plus owasp-llm-checker if LLM code is present.
+3. **Wave 3**: threat-modeler, plus cloud-security-checker and iac-security-checker when they apply.
+4. **Wave 4**: the attack-chainer runs last. It links each finding's *yields* to another finding's *preconditions* to build multi-step exploit paths, and rates a chain above any single finding in it.
 
-Runs as a 5-phase orchestrator: understand → automated scan (Semgrep + deps) → OWASP manual (10 passes) → verify findings → **attack chain analysis** → write report.
+The coordinator then writes `docs/security/final-report.md`, and any HIGH/CRITICAL result triggers a mandatory challenger pass.
 
-**Attack chain analysis (Phase 5b):** After all individual findings are verified, the agent builds a pre/post-condition inventory and tests finding pairs and triples for multi-step exploit paths. Chains get their own `C-N` finding entries with combined severity (often higher than any single link) and a "break the chain" remediation priority. Nine chain patterns are tested explicitly: recon→targeted attack, XSS→session hijack, SSRF→pivot, path traversal→credential theft, auth bypass→privilege escalation, and more.
+**`--quick`** runs Wave 1 and OWASP Web only.
+
+**`--deep`** runs every wave and then `./scripts/validators/run-coverage-loop.sh security-deep` until every OWASP category is covered, with a 3-iteration cap. Use it before production deploys and compliance audits, after auth/crypto/input changes, and to check whether a CVE is reachable.
+
+Wave-by-wave and fix-loop diagrams: [docs/flows/security.md](flows/security.md). The focused flags `--owasp`, `--threat-model` and `--deps` are listed in the skill, but the coordinator doesn't implement them yet (see that page's Known gaps).
 
 **Semgrep setup:**
 - Custom gap-filler rules (98 rules across C#, Kotlin, Swift, Rust, PHP, C++) installed to `~/.config/opencode/.semgrep/` — loaded automatically per detected language

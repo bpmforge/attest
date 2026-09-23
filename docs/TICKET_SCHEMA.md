@@ -2,7 +2,7 @@
 
 Canonical schema for the module layer added to `plan.json`. Machine contract for
 `scripts/lib/tickets.mjs`, the `/reflow` skill (T3), and the ticket validators (T6).
-Human-facing rationale lives in `docs/SDLC_TICKETS_REFLOW_RESUME_PLAN.md`.
+Human-facing rationale lives in `docs/archive/SDLC_TICKETS_REFLOW_RESUME_PLAN.md`.
 
 ## Shape
 

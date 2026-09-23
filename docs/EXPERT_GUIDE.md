@@ -2,6 +2,8 @@
 
 This document explains each expert agent's methodology, when to use them, and what they produce.
 
+It covers the slash-command experts. Every other agent — verification (challenger, gauntlet, ui-verifier, qa-vnv), the design loop, the end-user guide pipeline, docs/release helpers and the game cluster — has a one-paragraph entry in [AGENT_REFERENCE.md](AGENT_REFERENCE.md). For how the experts chain together, see the diagrams in [flows/](flows/README.md).
+
 ---
 
 ## Guide — Concierge (`/guide`)
@@ -34,9 +36,9 @@ It never produces deliverables itself — it gets you to the expert that does.
 - Is the architecture modular?
 
 **Four modes** (split into their own files — spine at `agents/sdlc-lead.md`, modes at `agents/sdlc-<mode>-mode.md`):
-1. **`/sdlc init`** — New project through 6 phases: Ideation → Planning → Requirements → Design → Implementation → Review
-2. **`/sdlc onboard [--quick | --deep]`** — Reverse-engineer codebase. `--deep` runs the Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`).
-3. **`/sdlc feature`** — Impact analysis → Design → Implement → Verify → Document
+1. **`/sdlc init`** — New project: Ideation → Planning → Requirements → *Gate A* → Design → Test Design (3.5) → *Gate B* → Implementation → Review + Release
+2. **`/sdlc onboard [--quick | --deep]`** — Reverse-engineer codebase through four onboard specialists + a health-assessment fan-out. The default adds a ROUTE/TABLE inventory check; `--deep` runs the full Ralph Wiggum inventory loop (`agents/shared/RALPH_WIGGUM_LOOP.md`).
+3. **`/sdlc feature`** — Impact analysis (app-cartographer) → atomic/split → Design → test-first Implement + review + fix-verify → Verify → Document + runtime gate → merge
 4. **`/sdlc improve ["<scope>"]`** — Audit, synthesize findings into ranked backlog, execute chosen items. Routes Size-L items into Mode 3 sub-workflows.
 
 **Plus two utility commands:** `/sdlc gate` (SDLC-aware gate check, auto-detects phase from `docs/work/sdlc-state.md`) and `/sdlc status` (phase progress overview without running validators).
@@ -48,11 +50,11 @@ It never produces deliverables itself — it gets you to the expert that does.
 - **Mode 1 (Phase 3):** Runs a Design Clarification Interview before architecture work — deployment env, scale, performance targets, integrations, team experience. Writes `docs/DESIGN_CONTEXT.md`.
 - **Mode 3 (feature):** Runs a Feature Discovery Interview before impact analysis — problem, users, done criteria, constraints, priority, patterns, concerns.
 
-**Confidence-based gate loop (not one-shot pass/fail):**
-- Score each deliverable 1-10 on Completeness + Quality
-- < 5 = automatic fail, surface to user immediately
-- 5-6 = revise (up to 3 iterations)
-- >= 7 = pass and advance
+**Two-track gate loop (not one-shot pass/fail):**
+- **Coverage loop** (Phases 2–5, onboard, feature, improve): `run-coverage-loop.sh <phase>` runs the deterministic validators, loops on gaps, caps at 3 iterations
+- **Confidence loop** (Phases 0–1, prose deliverables): score 1-10 on Completeness + Quality — < 5 automatic fail, 5-6 revise (up to 3 iterations), >= 7 pass
+
+Diagrams for every mode: [flows/](flows/README.md).
 
 **Produces:** VISION.md, SCOPE.md, RISKS.md, SRS.md, ARCHITECTURE.md, and more
 
@@ -100,7 +102,7 @@ It never produces deliverables itself — it gets you to the expert that does.
 
 ## Security Auditor (`/security`)
 
-**Role:** Senior security engineer performing professional security assessments.
+**Role:** Security audit coordinator. Dispatches specialist micro-agents in waves (each in fresh context), synthesizes the report, and drives the verified fix loop.
 
 **When to use:**
 - Before shipping to production
@@ -115,14 +117,15 @@ It never produces deliverables itself — it gets you to the expert that does.
 - What's the simplest exploit path?
 
 **Methodology:**
-1. Map the attack surface (entry points, trust boundaries)
-2. Run dependency audits (`npm audit`, etc.)
-3. Grep for vulnerability patterns (SQL injection, XSS, command injection)
-4. Systematic OWASP Top 10 review
-5. Verify every finding against actual code (no false positives)
-6. Report with severity, evidence, and remediation
+1. Read architecture, README and entry points; announce the plan
+2. Wave 1 (parallel): semgrep-runner (Opengrep + bpm-rulepacks), secrets-scanner, dependency-auditor
+3. Wave 2: owasp-web-checker, + owasp-llm-checker if LLM code
+4. Wave 3 (`--deep`): threat-modeler, + cloud/IaC checkers when detected
+5. Wave 4 (`--deep`): attack-chainer links findings' yields → preconditions into multi-step exploit chains
+6. Synthesize `docs/security/final-report.md`; challenger gate on any HIGH/CRITICAL
+7. `--fix`: fix backlog → coding-agent → `fix-verify.mjs` re-scan proves each finding closed
 
-**Produces:** Security audit report with findings by severity
+**Produces:** `docs/security/*_FINDINGS_<date>.md` per specialist, `ATTACK_CHAINS_<date>.md` (deep), `final-report.md`, and with `--fix` a `SECURITY_FIX_REPORT_<date>.md`. Diagrams: [flows/security.md](flows/security.md).
 
 **Reference docs used:** `owasp-checklist.md`, `severity-matrix.md`, `report-template.md`
 

@@ -167,15 +167,15 @@ write-scopes → these can be worked in parallel by separate contributors/agents
 ```mermaid
 graph LR
   T1[T1 schema+plan.json ext] --> T2[T2 TICKETS.md board gen]
-  T1 --> T3[T3 /reflow skill+logic]
+  T1 --> T3["T3 /reflow skill+logic"]
   T2 --> T3
   T1 --> T4[T4 STATE.md checkpoint discipline]
-  T4 --> T5[T5 /sdlc resume]
-  T1 --> T6[T6 validators: ticket-graph + write-scope disjointness]
+  T4 --> T5["T5 /sdlc resume"]
+  T1 --> T6["T6 validators: ticket-graph + write-scope disjointness"]
   T3 --> T7[T7 wire into sdlc-lead + modes]
   T5 --> T7
   T6 --> T7
-  T7 --> T8[T8 docs: FEATURES/USERGUIDE + counts]
+  T7 --> T8["T8 docs: FEATURES/USERGUIDE + counts"]
   T7 --> T9[T9 tests]
 ```
 

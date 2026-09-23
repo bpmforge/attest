@@ -31,7 +31,7 @@ Stdout JSON schema:
 | Script | Checks |
 |--------|--------|
 | `validate-architecture.sh` | 6 diagram types present, Mermaid syntax valid, HLA overview, no placeholders |
-| `validate-owasp.sh` | All 10 OWASP categories present, confidence >= 7, status DONE, attack-chains.md present |
+| `validate-owasp.sh` | All 10 OWASP categories present, confidence >= 7, status DONE, `ATTACK_CHAINS_<date>.md` (or legacy `attack-chains.md`) present |
 | `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md AND openapi.yaml |
 | `validate-erd-coverage.sh` | Every table/model has an ERD entry; erDiagram mermaid block present |
 | `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |

@@ -24,28 +24,28 @@ One-page summary per agent. For full docs, read the agent file directly.
 **Output:** Delegates to mode agents; produces phase plan and HANDOFF chains.
 
 ### sdlc-init-mode
-**What:** Executes the 6-phase new-project pipeline.  
+**What:** Executes the new-project pipeline (Phases 0–5, plus 3.5 Test Design).  
 **When to use:** Called automatically by `sdlc-lead` on `/sdlc init`. Do not call directly.  
-**Modes:** Phase 0 (ideation) → Phase 1 (planning) → Phase 2 (requirements) → Phase 3 (design) → Phase 4 (implementation) → Phase 5 (release)  
-**Output:** Full SDLC document set + working implementation.
+**Modes:** Phase 0 (ideation) → 1 (planning) → 2 (requirements) → Gate A → 3 (design) → 3.5 (test design) → Gate B → 4 (implementation) → 5 (review + release)  
+**Output:** Full SDLC document set, working implementation, signed release tag. Diagrams: [flows/new-project.md](flows/new-project.md).
 
 ### sdlc-onboard-mode
 **What:** Understands an existing codebase at three depth levels.  
 **When to use:** Called by `sdlc-lead` on `/sdlc onboard`. Do not call directly.  
-**Modes:** quick (30min) · default (2-3h) · deep (full audit)  
-**Output:** CODEBASE_MAP.md, MODULE_DESIGN.md, gap list, improvement plan.
+**Modes:** `--quick` (~15–20 min) · default, + ROUTE/TABLE inventory (~30–40 min) · `--deep`, full Ralph Wiggum inventory (~45–90 min)  
+**Output:** LANDSCAPE.md, entry-point + sequence diagrams, ERD, C2/C3, PATTERNS.md, HEALTH_ASSESSMENT.md, ARCHITECTURE.md, ONBOARDING.md, DECISION_LOG.md. Diagrams: [flows/onboard.md](flows/onboard.md).
 
 ### sdlc-feature-mode
 **What:** Adds a single feature to an existing codebase safely.  
 **When to use:** Called by `sdlc-lead` on `/sdlc feature`. Do not call directly.  
-**Modes:** 5 steps: discover → design → implement → verify → document  
-**Output:** Implemented feature + updated docs + passing tests.
+**Modes:** interview → impact analysis (app-cartographer) → atomic/split → design → test-first implement + review + fix-verify → verify → document + runtime gate → merge  
+**Output:** Implemented feature on `feat/<slug>`, FIX_BACKLOG closed, RUNTIME PASS, squash-merged PR. Diagram: [flows/feature-improve.md](flows/feature-improve.md).
 
 ### sdlc-improve-mode
-**What:** Parallel specialist audits across UX, code quality, performance, and security.  
-**When to use:** Called by `sdlc-lead` on `/sdlc improve`. Can target a single area with `--focus`.  
-**Modes:** `/sdlc improve` · `/sdlc improve --focus security` · `/sdlc improve --focus ux`  
-**Output:** Ranked finding list + prioritized fix HANDOFFs.
+**What:** Audit-driven improvement: specialist audits (UX, code quality, performance, security, database + on-demand) → sized backlog → user-approved execution, each item re-verified by the auditor who found it.  
+**When to use:** Called by `sdlc-lead` on `/sdlc improve`, optionally with a focus.  
+**Modes:** `/sdlc improve` · `/sdlc improve "security"` · `/sdlc improve "ux"`  
+**Output:** `docs/improve/*_AUDIT.md`, `IMPROVEMENT_BACKLOG.md`, `EXECUTION_PLAN.md`, `VERIFY_ITEM_n.md`, `IMPROVEMENT_SUMMARY.md`, PR. Diagram: [flows/feature-improve.md](flows/feature-improve.md).
 
 ---
 
@@ -188,12 +188,77 @@ Activated by `/sdlc init "<name>" "<desc>" --game`:
 - **game-designer** — GDD, core loop, pillars, vertical-slice scoping
 - **gameplay-engineer** — engine-grain implementation (frame budget, timestep, determinism)
 - **game-balance-designer** — progression/economy, simulates 1000 sessions before shipping numbers
+- **level-designer** — player flow, encounters, greybox blockout, pacing beat charts
+- **narrative-designer** — story through systems: branching, quests, barks, dialogue data formats
+- **game-audio-designer** — sonic direction, SFX/music/VO plan, middleware choice, mix rules
+- **game-producer** — build-based lifecycle gates (prototype → slice → alpha → beta → cert → gold), scope control, indie go-to-market
 - **playtest-evaluator** — blind-first playtest, 6 fun heuristics
 - **game-asset-pipeline** — sprite batch: gen → pixel-snap/transparency cleanup (deterministic scripts) → sprite-sheet pack → portable atlas manifest
 
+---
+
+## Verification & quality gates
+
+### challenger
+**What:** Veracity challenger — checks factual claims in high-stakes artifacts with evidence-only verdicts: CONFIRMED / CONTRADICTED / UNVERIFIABLE.  
+**When to use:** Automatic on HIGH/CRITICAL findings, onboard Step 6b, and Gates A/B. `/challenge`
+
+### gauntlet-lead
+**What:** Gauntlet-loop orchestrator — sets a real reference bar, splits the goal into gradeable units, sends builders (clean context) and blind per-round critics until every unit beats the bar. Never builds, never grades.  
+**When to use:** "Make this as good as <named real thing>". `/gauntlet`
+
+### ui-verifier
+**What:** Live browser verification with playwright-mcp — screenshots, accessibility snapshots, flows checked against use cases or UX specs. No vision model needed.  
+**When to use:** After implementation or for regression checks. `/ui-verify`
+
+### qa-vnv-engineer
+**What:** QA / V&V owner — automated, evidence-producing validation of the rendered app: layout-defect detection, visual regression, resilient journey automation.  
+**When to use:** Phase 5 Round 1 on UI-bearing projects; whenever "it looks broken" needs proof.
+
+### design-iterator
+**What:** Render → screenshot → critique → fix → re-verify loop until a running UI matches its design system (cap 3 iterations); `--sync` extracts a token baseline, `--real` audits logged-in browsers.  
+**When to use:** Phase 4 Round 3b, or any UI that drifted from its tokens. `/design-iterate`
+
+---
+
+## Design loop (Phase 3.5 design chain)
+
+These exist as agents, but sdlc-lead does not dispatch them as a phase — they are reached through the ux-engineer HANDOFF's `--auto` note or invoked directly. See [flows/new-project.md](flows/new-project.md).
+
+### ux-researcher
+**What:** Turns personas and user stories into user-flow diagrams (`docs/design/flows.md`) and a screen inventory before any wireframe or token work.
+
+### design-system-lead
+**What:** Pre-code token spec (`docs/design/tokens.json`) and component inventory (`docs/design/components.md`) that mockups and implementation build from.
+
+### content-designer
+**What:** Writes the actual UI text — labels, empty states, errors, confirmations, onboarding copy — as a reviewable spec before implementation.
+
+---
+
+## Documentation & release
+
+### documentation-gap-finder
+**What:** Scans source exports against docs — undocumented public functions/classes/endpoints, stale references, coverage percentage.  
+**When to use:** Before a public release or contributor onboarding. `/documentation-gap-finder`
+
+### changelog-writer
+**What:** Reads a git log range, classifies commits, writes Keep-a-Changelog entries.  
+**When to use:** Before any version bump or release tag.
+
+### migration-planner
+**What:** Compares two schema states and produces ordered migration steps with a rollback per step.  
+**When to use:** Before any schema change touching existing tables; dispatched by Mode 3 Step 2. `/migration-planner`
+
+### End-user guide pipeline (M21)
+Runs in order:
+- **app-cartographer** — page-graph state inventory + per-state interactive-element inventory of the running app (`APP_MAP.md`, `STORIES.md`); the denominator every guide artifact is graded against. Also Mode 3 Step 1 impact analysis (`/explore`).
+- **guide-scribe** — turns STORIES.md into replayable step specs, executes them, captures gated annotated screenshots, triages errors.
+- **manual-writer** — assembles the Diátaxis-shaped user manual; never invents a step without a spec + screenshot behind it.
+
 ## Notes
 
-- All specialist agents use the **Ralph Wiggum loop**: 3 iterations max, then escalate.
+- Deep modes (`/sdlc onboard --deep`, `/security --deep`) use the **Ralph Wiggum loop**: 3 iterations max, then escalate. Fix loops (`FIX_VERIFY_LOOP.md`) share the same 3-cycle cap.
 - All HANDOFFs follow the canonical format in `agents/shared/HANDOFF_TEMPLATES.md`.
-- Confidence scores follow the unified 1-10 scale in `references/confidence-scale.md` (to be created — see IMPROVEMENT_BACKLOG.md A5).
+- Confidence scores follow the 1–10 scale in `agents/shared/GATE_SCORING_PROTOCOL.md` (≥7 pass, 5–6 revise, <5 fail).
 - For full agent instructions, read the agent file in `agents/<name>.md`.

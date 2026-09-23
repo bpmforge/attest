@@ -234,12 +234,13 @@ Before baseline verification, the conductor fetches every configured remote's
 with exit 5 when they diverge or local history is not a remote ancestor. This
 prevents a green preflight against stale local source.
 
-When a scope or later gate fails, evidence is preserved under the external
-worktree directory (`.evidence/`) rather than inside the target repository.
-The worktree that held it is destroyed immediately after, so this is the only
-record of what actually changed. Keeping runtime evidence outside the target
-also prevents a failed ticket from dirtying `main` or being force-committed by
-the conductor.
+When a scope or later gate fails, evidence is preserved under
+`docs/work/.conductor-evidence/<id>-attempt<n>/` inside the target repository
+(gitignored by the conductor itself, so it never dirties `main` or gets
+committed). The worktree that held it is destroyed immediately after, so this
+is the only record of what actually changed. It used to live outside the
+target under the worktree base; v3.9.0 moved it in because unattended
+follow-up sessions could not read an out-of-project path.
 
 ## Test
 
