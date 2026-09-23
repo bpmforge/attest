@@ -69,8 +69,3 @@ flowchart TD
 - db-architect
 
 These specialists are added on demand: a11y-compliance, data-steward, reliability-engineer, cost-engineer and analytics-architect. Every approved item is verified by the specialist who found it, not the one who fixed it.
-
-## Known inconsistencies (as of 2026-09-23)
-
-- **The interview questions aren't in the mode files.** Both `sdlc-feature-mode.md` and `sdlc-improve-mode.md` refer to "the interview above", and neither contains it. Mode 3's count of 7 questions appears only in `commands/sdlc-feature.md`.
-- **The step counts disagree.** Mode 3's roadmap table lists 7 steps and the command lists 5. Both differ from the body, which this diagram follows.
