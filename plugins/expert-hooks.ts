@@ -1,6 +1,7 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { appendFileSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
+import { configProtectionCheck, gateguardCheck } from "../scripts/lib/hook-guards.mjs";
 import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
@@ -145,6 +146,7 @@ function basename(filePath: string): string {
 }
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
+  const gated = new Set<string>();
   return {
     "tool.execute.before": async (input, _output) => {
       // Bash: block dangerous commands
@@ -165,6 +167,11 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
           input.args?.filePath ?? input.args?.file_path ?? "";
         if (!filePath) return;
 
+        // K1/K2 (ECC): config-protection + opt-in fact-forcing gate.
+        const exists = existsSync(filePath);
+        const cfg = configProtectionCheck(filePath, exists, process.env);
+        if (cfg) throw new Error(cfg);
+
         for (const [pattern, reason] of BLOCKED_FILE_PATTERNS) {
           if (pattern.test(filePath) || pattern.test(basename(filePath))) {
             throw new Error(
@@ -172,6 +179,9 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
             );
           }
         }
+
+        const gate = gateguardCheck(gated, (input as any).sessionID, filePath, exists, process.env);
+        if (gate) throw new Error(gate);
       }
     },
 
