@@ -97,10 +97,13 @@ export async function testTraceOrder(
     check("K4 trace rows keep a bounded output (no file contents)", rows[1].out.length <= 205 && rows[1].file === "src/a.ts");
     await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c5", args: { command: "pytest" } }, { title: "", output: "x".repeat(1000) + " FAILED 2", metadata: {} });
     const tailRow = JSON.parse(fs.readFileSync(log, "utf8").trim().split("\n").at(-1)!);
+    await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c6", args: { command: "x".repeat(2000) + " --final-flag" } }, { title: "", output: "", metadata: {} });
+    const cmdRow = JSON.parse(fs.readFileSync(log, "utf8").trim().split("\n").at(-1)!);
+    check("K4 a long command keeps its TAIL (where the path or flag that matters may sit) and stays bounded", /--final-flag$/.test(cmdRow.cmd) && cmdRow.cmd.length <= 605);
     check("K4 long output keeps its TAIL (the failure summary), not only the head", /FAILED 2$/.test(tailRow.out) && tailRow.out.length <= 205);
     delete process.env.EXPERTS_TRACE_LOG;
     await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c3", args: { command: "ls" } }, { title: "", output: "", metadata: {} });
-    check("K4 tracing is off unless EXPERTS_TRACE_LOG is set", fs.readFileSync(log, "utf8").trim().split("\n").length === 3);
+    check("K4 tracing is off unless EXPERTS_TRACE_LOG is set", fs.readFileSync(log, "utf8").trim().split("\n").length === 4);
     process.env.EXPERTS_TRACE_LOG = path.join(tmp, "no", "such", "dir", "t.jsonl");
     let threw = false;
     try { await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c4", args: { command: "ls" } }, { title: "", output: "", metadata: {} }); } catch { threw = true; }

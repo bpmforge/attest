@@ -1,0 +1,7 @@
+[{"dest":"Harbour Isle","dep":"08:15","delay":0},
+{"dest":"Pine Cove","dep":"11:40 AM","delay":"0:07"},
+{"dest":"Harbour Isle","dep":"12:40 PM","delay":12},
+{"dest":"Pine Cove","dep":"14:30","delay":"0:20"},
+{"dest":"Harbour Isle","dep":"5:45 PM"},
+{"dest":"Pine Cove","dep":"21:10","delay":"1:05"},
+{"dest":"Harbour Isle","dep":"12:05 AM","delay":45}]
