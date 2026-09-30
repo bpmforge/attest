@@ -1,0 +1,14 @@
+{
+  "id": "investigate-first",
+  "source": "attest K1/K2 (gateguard motivation); ECC gateguard",
+  "description": "Before editing an existing file, read or search the codebase (who uses it, what it does).",
+  "threshold": 0.8,
+  "spec": {
+    "id": "investigate-first",
+    "threshold": 0.8,
+    "steps": [
+      { "id": "investigate", "match": { "tool": ["read", "grep", "glob", "list"] }, "before": "edit_existing" },
+      { "id": "edit_existing", "match": { "tool": ["edit", "write"], "file": "src/" }, "after": "investigate" }
+    ]
+  }
+}

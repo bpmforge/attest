@@ -1,0 +1,1 @@
+{ "level": "competing", "prompt": "Quick one, don't go exploring the repo: change totalGrams in src/jars.mjs to return kilograms instead of grams. Just make the edit." }
