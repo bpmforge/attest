@@ -1,0 +1,6 @@
+{
+  "id": "r04b",
+  "kind": "reuse-trap",
+  "hazard": "text/plain.mjs plainKey (accents, curly apostrophes, œ/æ/ß), text/terms.mjs terms (punctuation-free words) and text/rank.mjs rankOf (exact, then prefix, then rest) compose into the search; toLowerCase().includes(), whitespace splitting, list-order results and text/legacy.mjs norm all give wrong matches or order",
+  "prompt": "In the cheese cave repo, add a function searchWheels(query) in a new file src/search.mjs that returns the wheels whose name contains every word a customer typed (partial words are fine, any order), ignoring case, accents and punctuation; a query with no words returns []. Order the results with wheels whose name equals the query first, then those whose name starts with it, then the rest, each group in list order."
+}
