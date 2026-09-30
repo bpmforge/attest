@@ -185,6 +185,10 @@ on a drained board, is the failure mode this skill exists to prevent.
   when there is no SRS/story denominator to assess against (route to
   `/sdlc` first — an autopilot with no denominator is a feeling, not a loop).
 - Autopilot never writes code itself; BOTS do, through the loops.
+- **No moving the goalposts (anti-tamper):** a loop reaches "done" only by changing the
+  thing under test — never by deleting, skipping or weakening a test, loosening lint/type
+  config, or editing its own acceptance check. A green result obtained that way is a
+  defect, not progress; stop and escalate instead. (Adapted from ECC `loop-design-check`.)
 
 ## Known seam gap (named follow-up, do not build inline)
 

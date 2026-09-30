@@ -1,56 +1,69 @@
-# Group K — ECC intake: design (2026-09-29)
+# Group K — ECC intake: design (rev 2, 2026-09-29, after 3 challenger passes)
 
-Source: affaan-m/ECC (MIT). Backlog: `IMPROVEMENT_BACKLOG.md` Group K. This doc applies K3's
-own framework to K's items: machine-decidable done-criterion, must-NOT-do boundaries, retry
-cap, escalation. Nothing here goes default-on without an eval that was pre-registered.
+Source: affaan-m/ECC (MIT). Backlog: `IMPROVEMENT_BACKLOG.md` Group K. Applies K3's own framework to K's items:
+machine-decidable done-criterion, must-NOT-do boundaries, retry cap, escalation. Nothing goes default-on without an
+eval that was pre-registered. Rev 1 was challenged by three independent reviewers who read primary sources; their
+findings changed the plan (see "What the challenge changed").
 
-## Global boundaries (apply to every item)
-- No merge on a red suite (`npm test` = 0 failed). No hand-edits to generated files (`GENERATED_FILES.txt`); `npm run build:claude` then commit both repos.
+## Global boundaries
+- No merge on a red suite (`npm test` = 0 failed). No hand-edits to generated files; `npm run build:claude`, commit both repos.
 - No edits to the user's `~/.claude/settings.json` or global hooks. Installers print, never write.
-- Branch per item; commit per wave; push `gitea` AND `github` (no `origin` remote in these repos).
+- Branch per item; commit per wave; push `gitea` AND `github` (neither repo has an `origin`; verified for both).
 - Every new gate ships with a red fixture and is proven RED by breaking the subject (law L3).
-- A test that greps source text does not count as wiring proof. Call the real entry point.
-- Retry cap: 2 fix-and-recheck cycles per item; then stop and escalate.
-- Stop and ask the user for: model/`claude -p` spend (K2 runs, K4 runs), any external dependency (AgentShield), any change to global config.
+- Wiring proof = calling the real entry point with the host's real argument shape. A source-text grep is not proof.
+- Retry cap: cite `skills/goal/SKILL.md` (2 same-tier attempts then escalate) — no second number here.
+- Stop and ask the user for: model / `claude -p` spend, any external dependency, any change to global config.
 
-## Found while closing K1/K2 (already fixed, `fix/expert-hooks-args`)
-opencode 1.4.0 passes call args in `output.args` for `tool.execute.before`; the plugin read
-`input.args`, so the dangerous-bash, secret-file, K1 and K2 guards never fired. The Pass 58
-"wiring" test grepped source text and passed. Now calls the real hook (RED on old plugin).
-Lesson generalises: enforcement code needs a test that drives the real hook signature.
+## What the challenge changed
+| Item | Rev 1 | Now | Evidence |
+|------|-------|-----|----------|
+| K3 | validator for 5 loop-goal criteria | **validator CUT**; add the missing anti-tamper "must NOT" clause to goal/autopilot/wave | attest already has `validate-loop-readiness.sh`, goal intake gate (refuses "no checkable success"), 3-iteration cap; "loop spec" is not a locatable artifact; keyword-stuffable |
+| K5 | rationalization warn-only scanner | **CUT** (revisit only with a named consumer) | Pass 51 already checks claims against run evidence (stronger); ECC's 4 regexes have no measured precision |
+| K2 | A/B, n=10, 1 flip rule | **redesigned** (below); harness built, **runs need user approval** | forced-pause confound; under-powered; survivorship filter; coverage holes |
+| K4 | port skill-comply | **trace capture first**, then a predicate-based ordering checker | attest has counts-only telemetry, no per-tool-call trace; ECC's grader needs an LLM classifier for step detection |
+| K6 | 8 items adopt/mine/skip | verdicts below (mostly SKIP / small MINE) | full-file reads: 4 of 8 ECC files are thinner than attest's counterpart |
+
+## Already fixed while closing K1/K2
+- opencode 1.4.0 passes call args in `output.args` for `tool.execute.before`; the plugin read `input.args`, so every guard was a no-op. Fixed; Pass 58 drives the real hook (RED on the old plugin).
+- gateguard: deny log (`EXPERTS_GATEGUARD_LOG`), 30-min TTL, `multiedit` covered, Write-gate schema fact; Claude hook: never-shared session key, TTL, log, loud jq-missing.
+- Disclosed divergences from ECC (deliberate): no Bash gate; no subagent exemption (subagent sessions gate separately); no denial condensing; no exempt globs.
 
 ## K1 config-protection — DONE
-- Done: Pass 58 drives the real plugin hook: existing `tsconfig.json` edit blocked; new config file and ordinary source allowed; bypass env honoured.
-- NOT: block creating configs; block non-config files; write to user settings.
-- Open: Claude-side registration is manual (install.sh prints the entry).
+Existing lint/type/test config edits blocked (incl. `multiedit`); creation allowed; bypass env. Claude registration is manual (installer prints the entry).
 
-## K2 gateguard — opt-in until A/B passes (pre-registered below)
-### A/B pre-registration (fixed BEFORE any run)
-- **Design guarantees:** the gate can only change behaviour if (a) it fires, (b) the model sees the deny, (c) the model retries with facts. Each run logs `gate_denied` count and whether a retry followed. **A run where the gate never fired in the gated arm is discarded, not scored** — otherwise both arms are the same treatment (the −0.4% failure).
-- **Tasks:** ≥10 edit tasks, each a tiny repo + a HIDDEN behavioural test the agent cannot see. ≥4 multi-module (edit must respect an importer / data schema), ≥3 single-file isolated (the gate is expected to be pure tax here), ≥3 "trap" (an existing helper exists; new-file-vs-reuse). Fixtures under `evals/edit-tasks/`.
-- **Arms:** same model, same prompt, `EXPERTS_GATEGUARD=0|1`. ≥3 runs per task per arm (variance; ECC used n=2 single runs).
-- **Metrics:** primary = hidden-test pass rate. Secondary = turns, tokens/cost, wall time. Grading of any non-test quality is blind to arm (outputs stripped of gate text) and by reading the diff, not sampling.
-- **Flip rule (default-on only if ALL hold):** gated pass-rate ≥ ungated + 10 points on multi-module tasks; gated not worse on isolated tasks by >5 points; median cost/turn overhead ≤ 25%. Otherwise stays opt-in; result recorded either way.
-- **Confound to check first:** a gated model may just be "made to read more". Include a third arm `EXPERTS_GATEGUARD=0` + a prompt line "list importers before editing" — if that matches the gate, ship the prompt line, not the hook.
-- **Escalate:** run budget/model choice (LM Studio is currently hung; frontier runs cost money).
+## K2 gateguard — opt-in; default-on requires this pre-registered A/B
+- **Guarantee check:** every run logs `gate_denied` rows. Report **intent-to-treat** (all runs) AND **fired-only**; a fired-only result that disagrees with ITT is reported as such, never chosen after the fact.
+- **Arms (same model/prompt):** A ungated · B gate with the fact request · C ungated + prompt line "before editing, list importers and affected APIs" · D gate with a neutral "retry" message (pure pause). B>A but B≈D means the benefit is a forced pause, not facts; B≈C means ship the prompt line, not the hook. Score "facts given" by transcript (did importer Grep/Read occur between deny and retry).
+- **Tasks:** ≥16 across: ≥6 multi-module (importer/data-schema hazards), ≥4 isolated single-file (gate expected to be pure tax), ≥4 reuse-vs-create traps, ≥2 authored **blind to the gate's fact list** by someone other than its author. Hidden behavioural tests live OUTSIDE the workdir, are hashed, and tool logs are scanned for reads of them (gamed runs discarded, counted).
+- **Runs:** ≥5 per task per arm. **Analysis:** paired per-task deltas, sign test / McNemar with a 95% CI; secondary: turns, tokens, wall time.
+- **Flip rule (all must hold):** B−A lower CI bound > 0 on multi-module; B not worse than A on isolated beyond the pre-set margin; median cost overhead ≤ 25%; B−D reported (if ≈0, prefer the cheaper design). Else stays opt-in, result recorded either way.
+- **Write-path holes:** tool names used per run are logged; runs where an ungated path (bash write, `apply_patch`) did the edit are flagged and reported separately.
+- **Escalate:** model choice and spend (LM Studio here is unresponsive; frontier runs cost money). Harness built; runs not started.
 
-## K3 loop-design-check → loop skills
-- Done: a validator (`validate-loop-spec.sh`) fails on a loop spec missing any of: machine-decidable done-criterion, must-NOT-do boundaries, retry cap + escalation, layered goal, reconciliation-over-assertion; RED fixture (loop spec with "make it good") + GREEN fixture; wired into the gate chain that reads autopilot/goal/wave specs; skills cite it.
-- NOT: rewrite the loop skills wholesale; block existing specs without a grandfather list; count prose mentions as satisfying the criteria (check structure).
-- Wiring proof: run the gate chain entry point on the fixtures.
+## K3 (changed) — anti-tamper boundary in the loop skills
+- Done: `skills/goal`, `skills/autopilot`, `skills/wave` each carry, in their Boundaries section, an explicit clause: the loop must not delete/skip/weaken tests, loosen lint/type config, or edit its own acceptance check to reach "done"; a test asserts all three skills carry it (gap-fill test, RED when a clause is removed).
+- NOT: a new validator; new loop-spec artifact; restating the retry cap.
 
-## K4 skill-comply → evals
-- Done: deterministic core only — spec→trace ordering checker (`scripts/lib/trace-order.mjs`) with fixtures of a compliant and a non-compliant trace; unit-tested RED/GREEN. LLM scenario generation/classification is a later wave gated on budget.
-- NOT: run `claude -p` at scale without approval; port ECC's Python verbatim; claim compliance rates from <3 scenarios/level.
-- Escalate: spend for the LLM half.
+## K4 (changed) — trace capture, then deterministic ordering
+1. **Trace capture:** `tool.execute.after` appends `{ts, seq, session, tool, args-summary}` JSONL when `EXPERTS_TRACE_LOG` is set (opt-in, counts nothing else). Test drives the real hook.
+2. **Ordering checker** `scripts/lib/trace-order.mjs`: spec steps are **predicates on tool + args** (no LLM); supports `after`/`before`; keeps ECC's demotion pass (a dependant may not pass on a failed prerequisite) and forward-reference rule; **tie rule:** events sharing one `seq` group (parallel calls in one assistant message) are unordered, so ordering constraints across a tie never fail. Fixtures: ECC's compliant/non-compliant TDD traces re-expressed for predicates (MIT attribution); RED when order is broken.
+- NOT: `claude -p` runs or an LLM classifier without approval; porting the Python verbatim; claiming compliance rates from <3 scenarios per level.
 
-## K5 rationalization warn-only check
-- Done: a pure `scanRationalization(text)` returning matches, used by a warn-only path; every pattern graded by reading its hits on a real corpus (own past transcripts / docs) — patterns with false positives dropped, not tuned around.
-- NOT: block on a hit (regex false-positives; ECC never blocks either).
+## K5 — CUT.
 
-## K6 mine, don't adopt
-- Done: per item a verdict (adopt / mine / skip) that cites a **diff of ECC's full file vs the attest counterpart**, not a description. Items: pr-test-analyzer, spec-miner, config-surface scan (AgentShield-style), click-path-audit, inherit-legacy-style, rust/ts/python reviewers.
-- NOT: adopt an external dependency without asking; copy text without MIT attribution.
+## K6 — verdicts from full-file reads (expected outcome: mostly SKIP / small MINE)
+| ECC item | Verdict | Action |
+|----------|---------|--------|
+| spec-miner | **MINE** (only high-value item) | invariants, `enforced:` code anchor, `test:` anchor, cross-validate against callers, commit-stamp freshness, sample-and-expand cap → `/sdlc onboard` |
+| silent-failure-hunter | MINE 4 checks | error-handling-auditor: `.catch(() => [])` promise form, rethrow dropping cause, no timeout on network/db, no rollback |
+| type-design-analyzer | MINE 2 checks | type-safety-checker: illegal-state representability, invariant encapsulation |
+| click-path-audit | MINE (new pattern set) | static state-store side-effect map + 6 patterns; code-health/frontend lane, not `/ui-verify` |
+| security-scan (AgentShield) | MINE checklist, SKIP dependency | `/security`: `.claude/settings.json` + hooks + CLAUDE.md + agent-tools checklist (grep-based). External package needs user approval |
+| pr-test-analyzer | SKIP agent; MINE one mode | `test-engineer --coverage` diff-scoped to a PR's changed symbols |
+| comment-analyzer | SKIP | R-13/14/15 cover it; add one sentence (over-promising comments) |
+| inherit-legacy-style | SKIP | covered by pre-code + pattern-consistency + `delegation-gate --patterns`; signal-threshold idea noted |
+| rust/typescript/python reviewers | **UNVERIFIED** | read full files before any verdict |
+- NOT: adopt an external dependency; copy text without MIT attribution; add an agent where a section suffices.
 
-## Challenge protocol
-`challenger` runs on this doc BEFORE execution (claims verified against ECC source in the scratchpad clone and attest files), and again on each shipped wave's diff. A HIGH/CRITICAL finding blocks the wave.
+## Challenge loop
+Each shipped wave's diff is challenged again (read-only reviewer, primary sources) until no HIGH remains; a HIGH blocks the wave. Cap: 2 fix cycles per wave, then escalate.

@@ -61,6 +61,10 @@ adds up to, because integration defects live between tickets, not inside them.
   artifact; here it is invoked ON this gate's HIGH/CRITICAL findings, not as
   the review itself.
 - Reviewers never fix; findings route back to the introducing ticket's owner.
+- **No moving the goalposts (anti-tamper):** a loop reaches "done" only by changing the
+  thing under test — never by deleting, skipping or weakening a test, loosening lint/type
+  config, or editing its own acceptance check. A green result obtained that way is a
+  defect, not progress; stop and escalate instead. (Adapted from ECC `loop-design-check`.)
 
 ## Outputs
 
