@@ -1,0 +1,6 @@
+{"id":"tdd-workflow","threshold":0.8,"steps":[
+ {"id":"write_test","match":{"tool":["write","edit"],"file":"test"},"before":"write_impl"},
+ {"id":"run_red","match":{"tool":["bash"],"cmd":"pytest|npm test|vitest","out":"fail|error"},"after":"write_test","before":"write_impl"},
+ {"id":"write_impl","match":{"tool":["write","edit"],"notFile":"test"},"after":"run_red"},
+ {"id":"run_green","match":{"tool":["bash"],"cmd":"pytest|npm test|vitest","out":"pass"},"after":"write_impl"},
+ {"id":"refactor","required":false,"match":{"tool":["edit"],"notFile":"test"},"after":"run_green"}]}
