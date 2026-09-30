@@ -221,6 +221,23 @@ Write `docs/testing/USE_CASES.md`:
 
 One use case per major route/feature found. Cover all the entry points documented in `docs/diagrams/entry-points.md`.
 
+**Invariants (append to the same file).** Use cases say what users do; invariants say what must ALWAYS be true
+(mined from ECC `spec-miner`, MIT). For each high-risk module (auth, money, permissions, migrations — cap at 15 files;
+list the rest under `deferred:`), add:
+
+```markdown
+## Invariants
+> Last verified: <date> (commit <short-sha>)
+
+### INV-01: [always-true rule, e.g. "an order total equals the sum of its line items"]
+- **enforced:** `path/file.ext:function()`   <!-- the code that upholds it; if none, write `enforced: NONE` — that is the finding -->
+- **test:** `path/test.ext:testName` or `NONE`
+- **cross-checked against callers:** [yes — N call sites read; or "docstring only" = unverified]
+```
+
+Rules: derive each invariant from the CODE and its callers, never from a docstring or comment alone; never invent
+behavior — mark doubt `uncertain:`; an invariant with `enforced: NONE` or `test: NONE` goes to the health findings.
+
 ### Phase 3 — Dispatch Test Plan (After Coverage Returns)
 
 When "test done" returns and `docs/reviews/COVERAGE_<date>.md` exists, dispatch:

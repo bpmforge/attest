@@ -93,6 +93,30 @@ grep -rn "0.0.0.0\|host=\|bind\|SSE\|sse\|streamable" <server-source-or-deploy-c
 
 ---
 
+## MCP06 — Agent-config surface (settings, hooks, CLAUDE.md, agent tools)
+
+Checklist mined from ECC `security-scan` (MIT; ECC ships only this list plus an npm wrapper, `ecc-agentshield`
+— an external dependency this system does NOT take without the user's approval). Grep-based, read-only:
+
+```bash
+# .claude/settings*.json, opencode.json — over-broad permissions
+grep -nE '"(Bash|Write|Edit)\(\*\)"|"allow"\s*:\s*\[[^]]*\*' .claude/settings*.json opencode.json 2>/dev/null
+# deny list absent entirely?
+grep -L '"deny"' .claude/settings*.json 2>/dev/null
+# hooks that interpolate model-controlled data into a shell, or hide failure
+grep -nE '\$\{?(file|path|command|prompt)\}?|2>/dev/null|\|\|\s*true' .claude/settings*.json .claude/hooks/* 2>/dev/null
+# MCP servers launched via unpinned npx -y (supply-chain)
+grep -nE 'npx\s+-y|uvx\s+[^=]*$' .claude/settings*.json .mcp.json opencode.json 2>/dev/null
+# auto-run / auto-approve instructions planted in CLAUDE.md / AGENTS.md
+grep -niE 'always (run|execute)|without (asking|confirmation)|auto[- ]?approve|ignore (previous|all) instructions' CLAUDE.md AGENTS.md 2>/dev/null
+# agents with unrestricted tools
+grep -LE '^tools:' .claude/agents/*.md agents/*.md 2>/dev/null
+```
+
+Each hit is read before it is reported (a `2>/dev/null` in a hook is a finding only when it hides a security
+check's failure). Severity: `Bash(*)` allow with no deny list = HIGH; hook shell-interpolation of model data = HIGH;
+unpinned `npx -y` MCP = MEDIUM; agent with unrestricted tools = LOW unless it reads untrusted input.
+
 ## Deep tooling (`--deep` / owned servers only — not an inline audit step)
 
 These are **live** tests; run only against servers you own or are authorized to assess. They fit a tool-invocation phase (like semgrep-runner), gated behind `--deep`:
@@ -118,4 +142,5 @@ Use `FINDING_SCHEMA.md`. Category `owasp-llm`; title prefixed with the MCP id (e
 - [ ] URL-fetching tools checked for SSRF allowlisting (MCP03)
 - [ ] Server transport checked for auth + bind interface (MCP04)
 - [ ] Reader+privileged-sink toxic flows flagged and cross-referenced to M23 (MCP05)
+- [ ] Agent-config surface (MCP06) grep pass ran on settings, hooks, MCP launch lines, CLAUDE.md, agent tools
 - [ ] Findings mapped to ATLAS AML.T0010 / OWASP MCP03:2025 with severity + remediation
