@@ -84,3 +84,11 @@ Model `mtplx-m4max/qwen3.8-27b-uncensored-mtplx-q4-1` (local hardware, no API co
 - **Ceiling effect:** this model passes m02, m04 and i03 in the UNGATED arm 2/2, so those tasks cannot show lift. m05 (real hazard: `report.mjs` branches on `null`) fails 0/2 in A, B and D and 1/2 in C, even when the agent searched first (B: facts given 2/2) — a discriminating task, but n=2 per cell says nothing.
 - **Do not read the pass-rate table as evidence about gateguard.** Everything a pilot of this size can show is that the machinery measures what it claims to.
 - **For the full run (320 runs, ~12 h on this box):** consider a weaker model or harder tasks first to avoid the ceiling, otherwise the multi-module lift is unmeasurable by construction.
+
+## K2 task selection rule (pre-registered 2026-09-30, BEFORE the calibration run)
+The pilot showed a ceiling: 3 of 4 tasks pass ungated every time, so they cannot show lift. To fix that without touching any arm:
+- **Calibration:** run **arm A only** (ungated, no prompt line, no gate) on all 16 tasks, 3 runs each (48 runs), same model and runner. No gated arm is run or looked at.
+- **Selection (by arm-A pass rate only):** keep every **isolated** task (they are the cost/tax control, not a lift target); keep a **multi-module** or **reuse-trap** task only if its arm-A pass rate is **1/3 or 2/3**. Drop tasks at 0/3 (unsolvable for this model, no signal) and 3/3 (ceiling).
+- **If fewer than 6 multi-module tasks survive:** harden the ceiling ones (more hidden importers / data-format traps), re-verify each task is RED as shipped and GREEN with its solution, and re-calibrate them — do not proceed with a thin set. Hardening is decided from the task, never from any gated result (none exists).
+- **Post-calibration minimums** for the analysis (`--post-calibration`): >= 6 multi-module, >= 4 isolated, >= 2 reuse-trap, >= 12 tasks total; still >= 5 valid runs per cell per arm. The flip rule itself is unchanged.
+- **Full run:** the surviving tasks x arms A,B,C,D x 5 runs. The calibration arm-A runs are NOT reused in the full run (fresh runs, so selection cannot inflate arm A).
