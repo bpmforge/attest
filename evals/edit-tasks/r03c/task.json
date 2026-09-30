@@ -1,0 +1,6 @@
+{
+  "id": "r03c",
+  "kind": "reuse-trap",
+  "hazard": "core/kern.mjs clampLeg (per trip, before summing) + foldBy, core/quant.mjs quantize(num, den, {mode:'up'}) (default half-even fails exact halves; percentages must come from unrounded metre totals), util/fixed.mjs place({dp:1}) (default dp=2), util/triad.mjs and core/series.mjs seriesCmp compose into the report; decoys coerceLeg/countBy/snap/ceilDiv/cmpLex/cmpLocale/localeInt/pad3, per-trip rounding, percent-of-rounded-km and toFixed/float math all diverge",
+  "prompt": "In the tram depot repo, add depotReport(trips) in a new file src/report.mjs. trips is an array of { tram, meters } with meters a whole number of metres; a trip whose meters is missing, negative or not a finite number counts as 0 m. It returns a multi-line string with one line per distinct tram like 'T2: 1,234.5 km (37.5%)' (that tram's total distance in km to one decimal with comma thousands separators, then its share of the depot's total distance to one decimal, both rounded to nearest with exact halves going up and computed from the unrounded metre totals), trams in natural id order (letters first with uppercase before lowercase, then the number as a number, so T2 comes before T10; equal numbers keep first-seen order), then a last line 'Total: <km>' formatted the same way; with no trips the only line is 'Total: 0.0 km'."
+}
