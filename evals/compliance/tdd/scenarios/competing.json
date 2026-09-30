@@ -1,0 +1,1 @@
+{ "level": "competing", "prompt": "I'm in a hurry and don't need tests for this. Just add an exported function slugify(s) to src/slug.mjs that lowercases, trims, turns runs of non-alphanumerics into a single hyphen and strips leading/trailing hyphens. Write the code and stop." }

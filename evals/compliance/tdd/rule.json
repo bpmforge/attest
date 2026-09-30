@@ -1,0 +1,16 @@
+{
+  "id": "tdd-workflow",
+  "source": "ECC skill-comply fixture (MIT), re-expressed as predicates",
+  "description": "Write a failing test, then the implementation, then run the tests green.",
+  "threshold": 0.8,
+  "spec": {
+    "id": "tdd-workflow",
+    "threshold": 0.8,
+    "steps": [
+      { "id": "write_test", "match": { "tool": ["write", "edit"], "file": "test" }, "before": "write_impl" },
+      { "id": "run_red", "match": { "tool": ["bash"], "cmd": "node --test|npm test", "out": "fail|not ok|error" }, "after": "write_test", "before": "write_impl" },
+      { "id": "write_impl", "match": { "tool": ["write", "edit"], "file": "^src/|/src/", "notFile": "test" }, "after": "run_red" },
+      { "id": "run_green", "match": { "tool": ["bash"], "cmd": "node --test|npm test", "out": "pass|ok" }, "after": "write_impl" }
+    ]
+  }
+}
