@@ -1,0 +1,4 @@
+{"ts":1790775003102,"session":"cc1","tool":"write","file":"src/fib.py","cmd":null,"out":"ok","tool_use_id":"t2","group":"msg_a"}
+{"ts":1790775003155,"session":"cc1","tool":"write","file":"tests/test_fib.py","cmd":null,"out":"ok","tool_use_id":"t1","group":"msg_a"}
+{"ts":1790775003209,"session":"cc1","tool":"bash","file":null,"cmd":"pytest tests/","out":"1 passed","tool_use_id":"t3","group":"msg_b"}
+{"ts":1790775003261,"session":"cc2","tool":"bash","file":null,"cmd":"ls","out":"","tool_use_id":"t4","group":"msg_c"}
