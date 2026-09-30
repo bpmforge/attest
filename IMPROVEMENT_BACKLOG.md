@@ -856,3 +856,27 @@ push both remotes (sync law).
   - [ ] A `schedule:` trigger exists (e.g. weekly) running at minimum the fixture check + `npm test`
   - [ ] `grep -n "check-validator-fixtures\|schedule:" .github/workflows/ci.yml` hits both
 - **Verify:** `npm test && npm run agents:check` (workflow syntax: `node -e "require('js-yaml')"` equivalent or actionlint if available; otherwise CI itself is the proof on push)
+
+## Group K — ECC intake (affaan-m/ECC, MIT; reviewed 2026-09-29)
+
+Source: ~40 of ECC's 293 skills / 68 agents / hook scripts skimmed against attest; six read in
+full. ~200 skills are domain filler and multi-harness scaffolding — not taken. ECC's quality
+numbers are self-reported, so nothing here goes default-on without an eval.
+
+### K1. config-protection hook ✅ DONE 2026-09-29
+- Blocks edits to EXISTING lint/format/type/test config (agents loosen the check instead of fixing the source); new files allowed; bypass `EXPERTS_ALLOW_CONFIG_EDIT=1`. `scripts/lib/hook-guards.mjs` + `plugins/expert-hooks.ts`; Claude side `attest-claude/hooks/config-protection.sh` (per-target, hand-owned).
+
+### K2. gateguard fact-forcing gate — SHIPPED OPT-IN (`EXPERTS_GATEGUARD=1`), default-on OPEN
+- [ ] A/B in `evals/`: same tasks gated vs ungated, graded by reading outputs (ECC's +2.25 is n=2, self-run). Default-on only if it beats ungated without inflating turns/cost.
+
+### K3. loop-design-check → autopilot / goal / wave / conductor — OPEN
+- [ ] Add the 4-condition "should this be a loop" veto and 5-point goal framework (machine-decidable done-criterion, "must NOT do" boundaries, retry cap + escalation, layered goal, reconciliation over assertion) to the loop skills; a validator that a loop spec names all five.
+
+### K4. skill-comply → attest evals — OPEN
+- [ ] Measure whether a skill/rule is actually followed: generated scenarios at 3 prompt-strictness levels, `claude -p` stream-json traces, deterministic ordering check. Port ECC's Python to Node under `evals/`; needs a red fixture (non-compliant trace) per law L3.
+
+### K5. Rationalization-pattern warn-only Stop check — OPEN
+- [ ] Regex on the closing message ("pre-existing bug", "skip tests for now", "out of scope"), warn-only (ECC never blocks on it — regex false-positives).
+
+### K6. Mine, don't adopt — OPEN
+- pr-test-analyzer (behavioral PR coverage), spec-miner (invariants with test anchors → `/sdlc onboard`), AgentShield-style `.claude/` config scan (→ `/security`), click-path-audit (→ `/ui-verify`), inherit-legacy-style (→ `/pre-code`), rust/typescript/python reviewers.
