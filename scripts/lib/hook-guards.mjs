@@ -45,21 +45,30 @@ export function configProtectionCheck(filePath, exists, env = {}) {
   );
 }
 
+export const GATEGUARD_TTL_MS = 30 * 60 * 1000; // ECC parity: a session's gate memory expires after 30 min
+
 /**
- * state: a Set<string> of "<session>:<path>" already gated (caller owns it).
- * Returns the fact request (deny), or null (allow). Adds to state on deny so the
- * retry passes — that is the whole mechanism: the investigation is the point.
+ * state: a Map<"<session>:<path>", deniedAtMs> (caller owns it).
+ * Returns the fact request (deny), or null (allow). Marks the key on deny so the
+ * retry passes — same as ECC: the retry is NOT checked for facts, so the treatment
+ * is "forced pause + fact request"; the A/B separates the two (see GROUP_K_DESIGN.md).
+ * opts.log(rec): called on every deny so a harness can count fires (a run where the
+ * gate never fired must be discarded, else both arms are the same treatment).
+ * opts.now: injectable clock for tests.
  */
-export function gateguardCheck(state, sessionId, filePath, exists, env = {}) {
+export function gateguardCheck(state, sessionId, filePath, exists, env = {}, opts = {}) {
   if (env.EXPERTS_GATEGUARD !== "1" || !filePath) return null;
+  const now = opts.now ?? Date.now();
   const key = `${sessionId ?? "_"}:${filePath}`;
-  if (state.has(key)) return null;
-  state.add(key);
+  const seen = state.get(key);
+  if (seen !== undefined && now - seen < GATEGUARD_TTL_MS) return null;
+  state.set(key, now);
+  opts.log?.({ ts: now, event: "gate_denied", session: sessionId ?? "_", file: filePath, exists });
   return exists
     ? `GATEGUARD: before editing ${filePath}, state these facts (gather them with grep/read, then retry the same edit):\n` +
         `1. Every file that imports/requires it.\n2. The public functions/classes this change affects.\n` +
         `3. If it reads/writes data files: field names and structure (redacted values).\n4. The user's current instruction, quoted verbatim.`
     : `GATEGUARD: before creating ${filePath}, state these facts (then retry the same write):\n` +
         `1. The file(s)/line(s) that will call it.\n2. That no existing file already serves this purpose (show your search).\n` +
-        `3. The user's current instruction, quoted verbatim.`;
+        `3. If it reads/writes data files: field names and structure (redacted values).\n4. The user's current instruction, quoted verbatim.`;
 }
