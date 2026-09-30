@@ -28,15 +28,22 @@ export async function testHookGuards(
   check("K1 bypass env allows", configProtectionCheck("/p/tsconfig.json", true, { EXPERTS_ALLOW_CONFIG_EDIT: "1" }) === null);
 
   // K2 gateguard
-  const off = new Set<string>();
+  const off = new Map<string, number>();
   check("K2 off by default", gateguardCheck(off, "s", "/p/a.ts", true, {}) === null && off.size === 0);
-  const st = new Set<string>();
+  const st = new Map<string, number>();
   const env = { EXPERTS_GATEGUARD: "1" };
   check("K2 first edit denied with fact request", /importe?r|import/i.test(gateguardCheck(st, "s", "/p/a.ts", true, env) ?? ""));
   check("K2 retry allowed", gateguardCheck(st, "s", "/p/a.ts", true, env) === null);
   check("K2 next file gated separately", gateguardCheck(st, "s", "/p/b.ts", true, env) !== null);
   check("K2 new session re-gates", gateguardCheck(st, "s2", "/p/a.ts", true, env) !== null);
-  check("K2 create gate asks for callers", /call/i.test(gateguardCheck(new Set(), "s", "/p/n.ts", false, env) ?? ""));
+  // TTL + deny log (the A/B's fired-or-discard rule needs the log)
+  const ttl = new Map<string, number>();
+  const logs: any[] = [];
+  gateguardCheck(ttl, "s", "/p/t.ts", true, env, { now: 1000, log: (r: any) => logs.push(r) });
+  check("K2 deny is logged", logs.length === 1 && logs[0].event === "gate_denied" && logs[0].file === "/p/t.ts");
+  check("K2 retry inside TTL allowed, not logged", gateguardCheck(ttl, "s", "/p/t.ts", true, env, { now: 2000, log: (r: any) => logs.push(r) }) === null && logs.length === 1);
+  check("K2 gate re-arms after the TTL", gateguardCheck(ttl, "s", "/p/t.ts", true, env, { now: 1000 + 31 * 60 * 1000 }) !== null);
+  check("K2 create gate asks for callers", /call/i.test(gateguardCheck(new Map(), "s", "/p/n.ts", false, env) ?? ""));
 
   // wiring: call the REAL plugin hook the way opencode does (args in output.args).
   // A source-text grep here passed while every guard was a silent no-op.
@@ -65,6 +72,7 @@ export async function testHookGuards(
     check("wiring: plugin blocks .env write", /BLOCKED/.test((await run("write", { filePath: path.join(tmp, ".env") })) ?? ""));
     const src = path.join(tmp, "a.ts");
     fs.writeFileSync(src, "x");
+    check("wiring: multiedit of existing tsconfig blocked", /BLOCKED/.test((await run("multiedit", { filePath: cfg })) ?? ""));
     check("wiring: ordinary edit allowed (gateguard off)", (await run("edit", { filePath: src })) === null);
     check("wiring: gateguard on denies first edit, allows retry", /GATEGUARD/.test((await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) ?? "") && (await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) === null);
   } finally {
