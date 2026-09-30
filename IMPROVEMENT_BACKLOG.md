@@ -870,7 +870,8 @@ independent challenger. ~200 skills are domain filler — not taken. Design + ve
 ### K2. gateguard — SHIPPED OPT-IN (`EXPERTS_GATEGUARD=1`); default-on OPEN
 - Deny log (`EXPERTS_GATEGUARD_LOG`), 30-min TTL, per-session key. Challenge found the treatment is "forced pause + fact request", not proven fact-forcing.
 - ✅ Harness built + challenged twice (2026-09-29): 16 tasks, runner, analysis, stub-driven self-test (Pass 61, ~110 checks; mutants killed).
-- [ ] **Re-run `install.sh`** so the installed opencode plugin has gateguard/trace/args fix (preflight refuses otherwise), then `EVAL_MODEL=… node scripts/run-edit-tasks.mjs --yes` — **needs user approval (model spend).**
+- ✅ `install.sh` re-run 2026-09-30 (installed plugin now matches; preflight passes). ✅ Pilot 32 runs on the m4max model: pipeline validated (fire rate 100%, 0 infra/gamed), verdict INSUFFICIENT by design, strong ceiling effect on 3 of 4 tasks — see design doc.
+- [ ] Full run (320 runs ≈ 12 h local) — decide model/task difficulty first (ceiling), then `EVAL_MODEL=… node scripts/run-edit-tasks.mjs --yes`. Old line:  **Re-run `install.sh`** so the installed opencode plugin has gateguard/trace/args fix (preflight refuses otherwise), then `EVAL_MODEL=… node scripts/run-edit-tasks.mjs --yes` — **needs user approval (model spend).**
 
 ### K3. loop anti-tamper ✅ DONE 2026-09-29 (CHANGED from a validator)
 - Challenge: attest already has `validate-loop-readiness.sh` + the goal intake gate; a "loop spec" validator was keyword-stuffable. The real gap — no clause forbidding weakening tests/config/acceptance — is now in goal/autopilot/wave Boundaries (Pass 59).
