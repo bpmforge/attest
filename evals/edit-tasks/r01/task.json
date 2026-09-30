@@ -1,0 +1,6 @@
+{
+  "id": "r01",
+  "kind": "reuse-trap",
+  "hazard": "src/lib/text.mjs fold() already canonicalises names (accents, punctuation, case, whitespace); a fresh trim+lowercase match misses accent/punctuation cases",
+  "prompt": "Add an exported findHive(query) to the apiary hive registry that looks a hive up by name and returns the hive object, or null if there is none. Beekeepers type names sloppily, so it should cope with that."
+}

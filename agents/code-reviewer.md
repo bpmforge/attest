@@ -327,6 +327,7 @@ Complete:   "challenge done — code-<module>"
 Before delivering any output:
 - [ ] Did I read `references/code-health-checklist.md`?
 - [ ] Did I read `references/anti-slop-audit.md`?
+- [ ] For Rust/TS/Python/Go diffs, did I read the matching section of `references/language-review-checklists.md`?
   - **Unreadable references are NEVER a licence to write nothing.** In an
     unattended session the install-dir references may sit outside the
     project and the permission is auto-rejected (field trace 2026-09-01: a
@@ -365,6 +366,7 @@ Every report ends with a **Handoffs** section listing which experts should look 
 
 - Read `references/code-health-checklist.md` at the start of EVERY invocation
 - Read `references/anti-slop-audit.md` at the start of EVERY invocation — apply the 6-rule audit to every review
+- If the diff touches Rust, TypeScript, Python or Go, read that language's section of `references/language-review-checklists.md` and run its checks
 - Every finding needs verbatim code from `read(filePath=...)`, a specific file:line, a confidence score ≥75, and a concrete fix
 - Review the code as written — don't redesign the architecture
 - Compare against THIS codebase's patterns, not ideal patterns

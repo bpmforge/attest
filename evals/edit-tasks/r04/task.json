@@ -1,0 +1,6 @@
+{
+  "id": "r04",
+  "kind": "reuse-trap",
+  "hazard": "src/text/plain.mjs already has plainKey (lowercase, strip accents, unify curly apostrophes, collapse whitespace); a from-scratch toLowerCase().includes() misses 'comte' vs 'Comté' and \"d'ete\" vs 'd’Été'",
+  "prompt": "In the cheese cave repo, add a function searchWheels(query) in a new file src/search.mjs that returns the wheels (from the cave's wheel list) whose name contains what a customer typed, so a customer typing casually at the counter still finds the right cheese. Return the matching wheel objects in list order."
+}

@@ -1,0 +1,6 @@
+{
+  "id": "m04",
+  "kind": "multi-module",
+  "hazard": "Grace period is duplicated: GRACE_DAYS in fines.mjs, a hard-coded 3 in notices.mjs, and graceDays in data/policy.json read by summary.mjs. Changing one leaves the others inconsistent.",
+  "prompt": "In the library app, extend the grace period for overdue books from 3 days to 5 days."
+}
