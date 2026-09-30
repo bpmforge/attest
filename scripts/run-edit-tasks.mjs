@@ -19,7 +19,7 @@ import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, appendFileSync, statSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { ARMS, armEnv, countDeclaredTests, hiddenMarkersFor, hiddenVerdict, parseTap, promptFor, scanTamper, scoreRun, shuffled, stripExperts } from "./lib/edit-task-run.mjs";
+import { ARMS, armEnv, countDeclaredTests, hiddenMarkersFor, hiddenVerdict, installedPluginProblem, parseTap, promptFor, scanTamper, scoreRun, shuffled, stripExperts } from "./lib/edit-task-run.mjs";
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(`--${n}`); return i === -1 ? d : args[i + 1]; };
@@ -51,11 +51,9 @@ if (!customCmd && !process.env.EVAL_MODEL) { console.error("EVAL_MODEL is requir
 // Preflight (real runs): the plugin opencode LOADS is the installed one, not this checkout. A stale install means the gate
 // never fires and arm B silently becomes arm A — the exact mistake this experiment cannot afford.
 if (!customCmd && !flag("skip-preflight")) {
-  const cfg = process.env.OPENCODE_CONFIG_DIR ?? join(homedir(), ".config", "opencode");
-  const installed = join(cfg, "plugins", "expert-hooks.ts");
-  const repoCopy = readFileSync(join(HERE, "plugins", "expert-hooks.ts"), "utf8");
-  if (!existsSync(installed) || readFileSync(installed, "utf8") !== repoCopy || !existsSync(join(cfg, "scripts", "lib", "hook-guards.mjs")) || !existsSync(join(cfg, "scripts", "lib", "trace-order.mjs"))) {
-    console.error(`PREFLIGHT FAILED: the opencode plugin installed at ${installed} differs from plugins/expert-hooks.ts (or its scripts/lib deps are missing).\nRe-run install.sh, then retry. (--skip-preflight overrides; the analysis will report INVALID if the gate never fires.)`);
+  const problem = installedPluginProblem(HERE);
+  if (problem) {
+    console.error(`PREFLIGHT FAILED: ${problem}.\nRe-run install.sh, then retry. (--skip-preflight overrides; the analysis will report INVALID if the gate never fires.)`);
     process.exit(3);
   }
 }
