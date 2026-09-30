@@ -39,6 +39,37 @@ export async function testTraceOrder(
   // optional step never lowers the rate
   check("K4 optional step is excluded from the rate", good.steps.find((s: any) => s.id === "refactor").required === false && good.complianceRate === 1);
 
+  // ---- gaps found by mutation audit: `after`, predicates, threshold, sort, chain, validation, session
+  const av = gradeTrace(spec, fx("after-violation.json"));
+  check("K4 `after` is enforced: impl written before the RED run fails 'after run_red'",
+    av.steps.find((s: any) => s.id === "write_impl").detected === false && /after 'run_red'/.test(av.steps.find((s: any) => s.id === "write_impl").reason ?? ""));
+  const eq = gradeTrace({ id: "e", steps: [{ id: "a", match: { tool: ["x"] } }, { id: "b", match: { tool: ["y"] }, after: "a" }] }, [{ seq: 1, tool: "x" }, { seq: 1, tool: "y" }]);
+  check("K4 equal seq without a shared group is NOT 'after' (boundary is strict)", eq.steps[1].detected === false);
+  const pred = (m: any, ev: any) => gradeTrace({ id: "p", steps: [{ id: "s", match: m }] }, [ev]).steps[0].detected;
+  check("K4 predicate out: 'passed' output does not satisfy out:/fail/", pred({ tool: ["bash"], out: "fail" }, { seq: 1, tool: "bash", out: "1 passed" }) === false);
+  check("K4 predicate cmd: other command does not match", pred({ tool: ["bash"], cmd: "pytest" }, { seq: 1, tool: "bash", cmd: "ls" }) === false);
+  check("K4 predicate file: other file does not match", pred({ tool: ["write"], file: "test" }, { seq: 1, tool: "write", file: "src/a.py" }) === false);
+  check("K4 tool and regex matching are case-insensitive", pred({ tool: ["bash"], cmd: "pytest" }, { seq: 1, tool: "Bash", cmd: "PYTEST -q" }) === true);
+  const three = { id: "t", steps: [{ id: "a", match: { tool: ["x"] } }, { id: "b", match: { tool: ["y"] } }, { id: "c", match: { tool: ["never"] } }] };
+  check("K4 threshold decides recommendHook (2/3 vs 0.5 and 0.9)",
+    gradeTrace({ ...three, threshold: 0.5 }, [{ seq: 1, tool: "x" }, { seq: 2, tool: "y" }]).recommendHook === false &&
+    gradeTrace({ ...three, threshold: 0.9 }, [{ seq: 1, tool: "x" }, { seq: 2, tool: "y" }]).recommendHook === true);
+  const shuffled = [...fx("compliant.json")].reverse();
+  check("K4 unsorted input is ordered by seq before grading", gradeTrace(spec, shuffled).complianceRate === 1);
+  const chain = gradeTrace({ id: "c", steps: [
+    { id: "c", match: { tool: ["c"] }, after: "b" }, { id: "b", match: { tool: ["b"] }, after: "a" },
+    { id: "a", match: { tool: ["a"] }, after: "z" }, { id: "z", match: { tool: ["never"] } } ] },
+    [{ seq: 1, tool: "a" }, { seq: 2, tool: "b" }, { seq: 3, tool: "c" }]);
+  check("K4 demotion runs to a fixed point (a 3-deep chain all falls)", chain.steps.slice(0, 3).every((s: any) => s.detected === false));
+  const mixed = [{ seq: 1, session: "s1", tool: "x" }, { seq: 2, session: "s2", tool: "y" }];
+  const sp = { id: "s", steps: [{ id: "a", match: { tool: ["x"] } }, { id: "b", match: { tool: ["y"] }, after: "a" }] };
+  check("K4 session option grades one session (interleaved capture)", gradeTrace(sp, mixed).steps[1].detected === true && gradeTrace(sp, mixed, { session: "s2" }).steps[0].detected === false);
+  const throws = (spec: any) => { try { gradeTrace(spec, []); return false; } catch { return true; } };
+  check("K4 spec validation: unknown before id, bad regex, cycle, duplicate id, string tool all throw",
+    throws({ id: "v", steps: [{ id: "a", match: {}, before: "zz" }] }) && throws({ id: "v", steps: [{ id: "a", match: { cmd: "([" } }] }) &&
+    throws({ id: "v", steps: [{ id: "a", match: {}, after: "b" }, { id: "b", match: {}, after: "a" }] }) &&
+    throws({ id: "v", steps: [{ id: "a", match: {} }, { id: "a", match: {} }] }) && throws({ id: "v", steps: [{ id: "a", match: { tool: "bash" } }] }));
+
   // capture: drive the REAL tool.execute.after hook and read the log back.
   const { ExpertHooks } = await import(pathToFileURL(path.join(root, "plugins/expert-hooks.ts")).href);
   const hooks = await ExpertHooks({ $: (() => ({ quiet: () => ({ nothrow: async () => ({}) }) })) as any } as any);
@@ -54,6 +85,11 @@ export async function testTraceOrder(
     delete process.env.EXPERTS_TRACE_LOG;
     await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c3", args: { command: "ls" } }, { title: "", output: "", metadata: {} });
     check("K4 tracing is off unless EXPERTS_TRACE_LOG is set", fs.readFileSync(log, "utf8").trim().split("\n").length === 2);
+    process.env.EXPERTS_TRACE_LOG = path.join(tmp, "no", "such", "dir", "t.jsonl");
+    let threw = false;
+    try { await hooks["tool.execute.after"]({ tool: "bash", sessionID: "s", callID: "c4", args: { command: "ls" } }, { title: "", output: "", metadata: {} }); } catch { threw = true; }
+    check("K4 a tracing failure never breaks the tool call", threw === false);
+    process.env.EXPERTS_TRACE_LOG = log;
     // round-trip: captured rows are gradeable
     const r = gradeTrace({ id: "t", steps: [{ id: "red", match: { tool: ["bash"], cmd: "pytest", out: "fail" } }] }, rows);
     check("K4 captured trace grades against a predicate spec", r.complianceRate === 1);

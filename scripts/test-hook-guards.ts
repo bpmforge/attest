@@ -27,6 +27,13 @@ export async function testHookGuards(
   check("K1 allows ordinary source", configProtectionCheck("/p/src/a.ts", true, {}) === null);
   check("K1 bypass env allows", configProtectionCheck("/p/tsconfig.json", true, { EXPERTS_ALLOW_CONFIG_EDIT: "1" }) === null);
 
+  // K1 hardening (found by challenge): aliases, case, Windows paths, vendored trees
+  check("K1 vendored config (node_modules) is not blocked", configProtectionCheck("/p/node_modules/x/tsconfig.json", true, {}) === null);
+  check("K1 fixture-dir config is not blocked", configProtectionCheck("/p/test/fixtures/.eslintrc", true, {}) === null);
+  check("K1 uppercase basename is still protected (case-insensitive FS)", !!configProtectionCheck("/p/TSCONFIG.JSON", true, {}));
+  check("K1 Windows path is protected", !!configProtectionCheck("C:\\proj\\tsconfig.json", true, {}));
+  check("K1 a symlink alias resolving to tsconfig.json is blocked", !!configProtectionCheck("/p/link.json", true, {}, { realPath: "/p/tsconfig.json" }));
+
   // K2 gateguard
   const off = new Map<string, number>();
   check("K2 off by default", gateguardCheck(off, "s", "/p/a.ts", true, {}) === null && off.size === 0);
@@ -43,6 +50,10 @@ export async function testHookGuards(
   check("K2 deny is logged", logs.length === 1 && logs[0].event === "gate_denied" && logs[0].file === "/p/t.ts");
   check("K2 retry inside TTL allowed, not logged", gateguardCheck(ttl, "s", "/p/t.ts", true, env, { now: 2000, log: (r: any) => logs.push(r) }) === null && logs.length === 1);
   check("K2 gate re-arms after the TTL", gateguardCheck(ttl, "s", "/p/t.ts", true, env, { now: 1000 + 31 * 60 * 1000 }) !== null);
+  check("K2 a throwing log sink still yields the fact request", /GATEGUARD/.test(gateguardCheck(new Map(), "s", "/p/l.ts", true, env, { log: () => { throw new Error("ENOENT"); } }) ?? ""));
+  const rel = new Map<string, number>();
+  gateguardCheck(rel, "s", "rel/a.ts", true, env);
+  check("K2 relative and absolute forms of one path share a key", gateguardCheck(rel, "s", path.resolve("rel/a.ts"), true, env) === null);
   check("K2 create gate asks for callers", /call/i.test(gateguardCheck(new Map(), "s", "/p/n.ts", false, env) ?? ""));
 
   // wiring: call the REAL plugin hook the way opencode does (args in output.args).
@@ -50,11 +61,11 @@ export async function testHookGuards(
   const { ExpertHooks } = await import(pathToFileURL(path.join(root, "plugins/expert-hooks.ts")).href);
   const hooks = await ExpertHooks({ $: (() => ({ quiet: () => ({ nothrow: async () => ({}) }) })) as any } as any);
   const before = hooks["tool.execute.before"];
-  const run = async (tool: string, args: any, env: Record<string, string> = {}) => {
+  const run = async (tool: string, args: any, env: Record<string, string> = {}, sid = "sess") => {
     const saved = { ...process.env };
     Object.assign(process.env, env);
     try {
-      await before({ tool, sessionID: "sess", callID: "c" }, { args });
+      await before({ tool, sessionID: sid, callID: "c" }, { args });
       return null;
     } catch (e: any) {
       return String(e.message);
@@ -75,6 +86,17 @@ export async function testHookGuards(
     check("wiring: multiedit of existing tsconfig blocked", /BLOCKED/.test((await run("multiedit", { filePath: cfg })) ?? ""));
     check("wiring: ordinary edit allowed (gateguard off)", (await run("edit", { filePath: src })) === null);
     check("wiring: gateguard on denies first edit, allows retry", /GATEGUARD/.test((await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) ?? "") && (await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) === null);
+    // per-session keying and the deny log, through the REAL hook
+    const glog = path.join(tmp, "gate.jsonl");
+    const G = { EXPERTS_GATEGUARD: "1", EXPERTS_GATEGUARD_LOG: glog };
+    const other = path.join(tmp, "b.ts");
+    fs.writeFileSync(other, "y");
+    await run("edit", { filePath: other }, G, "sA");
+    check("wiring: gateguard re-gates a DIFFERENT session on the same file (sessionID is wired)", /GATEGUARD/.test((await run("edit", { filePath: other }, G, "sB")) ?? ""));
+    await run("write", { filePath: path.join(tmp, "brand-new.ts") }, G, "sA");
+    const rows = fs.readFileSync(glog, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    check("wiring: EXPERTS_GATEGUARD_LOG gets one row per deny", rows.length === 3 && rows.every((r) => r.event === "gate_denied"));
+    check("wiring: a create is distinguished from an edit (exists flag)", rows.at(-1).exists === false && rows[0].exists === true);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

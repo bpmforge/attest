@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
 import { configProtectionCheck, gateguardCheck } from "../scripts/lib/hook-guards.mjs";
 import { traceEvent } from "../scripts/lib/trace-order.mjs";
@@ -174,7 +174,13 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
 
         // K1/K2 (ECC): config-protection + opt-in fact-forcing gate.
         const exists = existsSync(filePath);
-        const cfg = configProtectionCheck(filePath, exists, process.env);
+        let realPath: string | undefined;
+        try {
+          realPath = exists ? realpathSync(filePath) : undefined;
+        } catch {
+          /* unresolvable: fall back to the given path */
+        }
+        const cfg = configProtectionCheck(filePath, exists, process.env, { realPath });
         if (cfg) throw new Error(cfg);
 
         for (const [pattern, reason] of BLOCKED_FILE_PATTERNS) {
