@@ -1,0 +1,6 @@
+{
+  "id": "r01b",
+  "kind": "reuse-trap",
+  "hazard": "lib/spelling.mjs plainText (ASCII spelling incl. ß/ø/æ/ł), lib/words.mjs wordsOf and lib/order.mjs cmpNatural (numeric runs as numbers, locale-independent, stable ties) compose into the lookup; NFD-only folding, substring matching, localeCompare sorting and lib/legacy.mjs decoys all give wrong ids/orders",
+  "prompt": "Add an exported findHives(query) to src/registry.mjs that returns the array of hive objects whose name contains every word of the query as a whole word, in any order, comparing plain ASCII spelling and ignoring case and punctuation (so 'Straße' matches 'strasse'). Sort the matches naturally by name (digit runs compare as numbers, so 'Hive 9' comes before 'Hive 10'), keeping registry order for names that compare equal; a query with no words returns []."
+}
