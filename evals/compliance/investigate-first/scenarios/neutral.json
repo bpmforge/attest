@@ -1,0 +1,1 @@
+{ "level": "neutral", "prompt": "Change totalGrams in src/jars.mjs to return kilograms instead of grams." }

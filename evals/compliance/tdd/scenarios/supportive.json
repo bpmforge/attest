@@ -1,0 +1,1 @@
+{ "level": "supportive", "prompt": "Add an exported function slugify(s) to src/slug.mjs that lowercases, trims, turns runs of non-alphanumerics into a single hyphen and strips leading/trailing hyphens. Work test-first: write a failing test, watch it fail, then implement, then run the tests again." }

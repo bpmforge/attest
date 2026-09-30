@@ -3,6 +3,9 @@
  * Arms: A ungated · B gate + fact request · C ungated + prompt line · D gate, neutral pause message.
  */
 import { createHash } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 export const ARMS = ["A", "B", "C", "D"];
 export const PROMPT_LINE_C =
@@ -99,4 +102,17 @@ export function hiddenVerdict(tap, expectedTests) {
 
 export function countDeclaredTests(text) {
   return (text.match(/^\s*(test|it)\s*\(/gm) ?? []).length;
+}
+
+/**
+ * Preflight for any runner that needs the opencode plugin (gate / trace): the plugin opencode LOADS is the installed copy,
+ * not this checkout. Returns a problem string, or null when the installed plugin and its scripts/lib deps match the repo.
+ */
+export function installedPluginProblem(repoRoot, cfgDir = process.env.OPENCODE_CONFIG_DIR ?? join(homedir(), ".config", "opencode")) {
+  const installed = join(cfgDir, "plugins", "expert-hooks.ts");
+  const repoCopy = readFileSync(join(repoRoot, "plugins", "expert-hooks.ts"), "utf8");
+  if (!existsSync(installed) || readFileSync(installed, "utf8") !== repoCopy || !existsSync(join(cfgDir, "scripts", "lib", "hook-guards.mjs")) || !existsSync(join(cfgDir, "scripts", "lib", "trace-order.mjs"))) {
+    return `the opencode plugin installed at ${installed} differs from plugins/expert-hooks.ts (or its scripts/lib deps are missing)`;
+  }
+  return null;
 }

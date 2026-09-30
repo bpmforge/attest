@@ -40,6 +40,7 @@ import { testLoopAntiTamper } from "./test-loop-antitamper.ts";
 import { testTraceOrder } from "./test-trace-order.ts";
 import { testEditTasks } from "./test-edit-tasks.ts";
 import { testLanguageChecklists } from "./test-language-checklists.ts";
+import { testCompliance } from "./test-compliance.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
@@ -767,6 +768,10 @@ await testEditTasks(root, ok, fail);
 // Group K6: language review checklists — every grep finds its planted defect.
 console.log("\n[Pass 62] Language checklists — greps find planted defects, reviewers point at the file");
 testLanguageChecklists(root, ok, fail);
+
+// Group K4: rule-compliance runner (predicate specs, three pressure levels, hook recommendation).
+console.log("\n[Pass 63] Rule compliance — rules, grading, per-level summary, stub-driven runner");
+await testCompliance(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this
