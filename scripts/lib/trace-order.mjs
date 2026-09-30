@@ -109,6 +109,23 @@ export function gradeTrace(spec, trace, opts = {}) {
   return { spec: spec.id, steps: results, complianceRate: rate, recommendHook: rate < (spec.threshold ?? 0.8) };
 }
 
+/** Keep the head AND the tail of long output: a test failure summary sits at the end, not the start. */
+export function headTail(str, n = 100) {
+  return str.length > 2 * n ? `${str.slice(0, n)} ... ${str.slice(-n)}` : str;
+}
+
+/**
+ * Parse a trace JSONL. opencode rows carry `seq`; the Claude Code hook (hooks/trace-tool-call.sh) records `ts` + `group`
+ * only, so seq is assigned by (ts, file order). Rows sharing a `group` were issued in parallel (see the tie rule above).
+ */
+export function loadTrace(text) {
+  const rows = text.trim().split("\n").filter(Boolean).map((l, i) => ({ ...JSON.parse(l), _i: i }));
+  if (!rows.every((r) => Number.isFinite(r.seq))) {
+    rows.sort((a, b) => (a.ts - b.ts) || (a._i - b._i)).forEach((r, k) => { r.seq = k + 1; });
+  }
+  return rows.map(({ _i, ...r }) => r);
+}
+
 /**
  * One trace row for an opencode tool.execute.after call. Deliberately small: tool, target and a
  * short output head (the "did the test fail?" signal) — never the file contents or full output.
@@ -118,6 +135,6 @@ export function traceEvent(seq, input, output, now = Date.now()) {
   return {
     seq, ts: now, session: input?.sessionID, tool: input?.tool,
     file: a.filePath ?? a.file_path, cmd: typeof a.command === "string" ? a.command.slice(0, 300) : undefined,
-    out: typeof output?.output === "string" ? output.output.slice(0, 200) : undefined,
+    out: typeof output?.output === "string" ? headTail(output.output) : undefined,
   };
 }
