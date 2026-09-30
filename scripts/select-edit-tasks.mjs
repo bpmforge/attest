@@ -26,7 +26,8 @@ export function selectTasks(rows, { runs = 3 } = {}) {
   const counts = { total: kept.length, "multi-module": count("multi-module"), isolated: count("isolated"), "reuse-trap": count("reuse-trap") };
   const need = { total: 12, "multi-module": 6, isolated: 4, "reuse-trap": 2 };
   const short = Object.entries(need).filter(([k, n]) => counts[k] < n).map(([k, n]) => `${k} ${counts[k]}/${n}`);
-  return { tasks: out, kept: kept.map((t) => t.task), counts, short, ok: short.length === 0 && !out.some((t) => t.verdict === "INCOMPLETE") };
+  const incomplete = out.filter((t) => t.verdict === "INCOMPLETE").map((t) => t.task);
+  return { tasks: out, kept: kept.map((t) => t.task), counts, short, incomplete, ok: short.length === 0 && incomplete.length === 0 };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -35,6 +36,11 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const r = selectTasks(readFileSync(f, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l)));
   for (const t of r.tasks) console.log(`${t.task.padEnd(5)} ${t.kind.padEnd(13)} ${t.pass}/${t.n}  ${t.verdict.padEnd(10)} ${t.reason}`);
   console.log(`\nkept (${r.kept.length}): ${r.kept.join(" ")}\ncounts: ${JSON.stringify(r.counts)}`);
-  console.log(r.ok ? "MINIMUMS MET" : `MINIMUMS NOT MET: ${r.short.join(", ")} — harden the ceiling tasks and re-calibrate them`);
+  const incomplete = r.tasks.filter((t) => t.verdict === "INCOMPLETE").map((t) => t.task);
+  if (r.ok) console.log("MINIMUMS MET");
+  else {
+    const why = [r.short.length ? `minimums not met: ${r.short.join(", ")}` : "", incomplete.length ? `incomplete calibration (need 3 valid arm-A runs): ${incomplete.join(", ")}` : ""].filter(Boolean).join("; ");
+    console.log(`NOT READY: ${why}${r.short.length ? " — harden the ceiling tasks and re-calibrate them" : " — finish the missing runs"}`);
+  }
   process.exit(r.ok ? 0 : 1);
 }
