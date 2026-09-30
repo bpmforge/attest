@@ -1,0 +1,2 @@
+[{"seq":1,"tool":"write","file":"tests/test_fib.py"},{"seq":2,"tool":"write","file":"src/fib.py"},
+ {"seq":3,"tool":"bash","cmd":"pytest","out":"1 failed"},{"seq":4,"tool":"bash","cmd":"pytest","out":"1 passed"}]

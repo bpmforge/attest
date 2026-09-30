@@ -114,6 +114,16 @@ grep -rn "except:" src/ --include="*.py" 2>/dev/null
 
 # Catch-return-empty (R-10 from anti-slop: fallback hiding failure)
 grep -rn -A 3 "catch" src/ --include="*.ts" --include="*.js" 2>/dev/null | grep "return \[\]\|return {}\|return \"\"\|return null"
+
+# Promise-form catch-return-empty (the try/catch grep above cannot see it). Use the project's source root
+# (src/, scripts/, lib/ ...), not only src/, and include .mjs/.cjs/.tsx.
+grep -rnE "\.catch\s*\(\s*\(?[a-zA-Z_]*\)?\s*=>\s*(\[\]|\{\}|null|undefined|''|\"\")" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" --include="*.cjs" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null
+# Graded on attest scripts (2026-09-29): 1 true positive in 4 hits. NOT findings: `.catch(() => {})` / `.catch(() => null)` on
+# shutdown/cleanup (close/quit/kill), on an optional field, or followed at once by an explicit null/ok check. A finding is a
+# discarded failure of work whose result the caller relies on (e.g. an `updateIssue(...).catch(() => {})`).
+
+# Rethrow that drops the cause (stack lost) — a CANDIDATE list: any `.message` rethrow matches, `{ cause: e }` included; read each.
+grep -rnE "throw new Error\((e|err|error)\.message" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null
 ```
 
 ### Phase 2 — Manual Analysis (Pass 3)
@@ -123,6 +133,12 @@ For each flagged pattern:
 - Is the catch block at a system boundary (HTTP handler, queue consumer) → acceptable if it logs and returns typed error
 - Is the catch block internal to a service → must re-throw or return typed error result
 - Serial awaits: are they truly sequential (each depends on prior) or could they be `Promise.all`?
+
+Additional checks (mined from ECC `silent-failure-hunter`, MIT — the four things the greps above cannot see):
+- **Lost cause:** a rethrow / wrapped error that omits the original (`new Error(e.message)` with no `{ cause: e }`, Python `raise X` inside `except` without `from e`) loses the stack the on-call needs.
+- **No timeout:** a network, DB or subprocess call with no timeout/abort can hang the caller forever (the failure is silence, not an error). Flag calls with no `AbortSignal.timeout` / client timeout / `subprocess` timeout.
+- **No rollback:** multi-step writes (DB, files, external APIs) where a mid-way failure leaves partial state and the catch neither reverts nor marks it.
+- **Log-and-forget:** a failure logged at debug/info (or logged then swallowed) at a point where the caller needs to know; severity must match impact.
 
 ### Phase 3 — Write Findings
 

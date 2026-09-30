@@ -1,7 +1,8 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
 import { configProtectionCheck, gateguardCheck } from "../scripts/lib/hook-guards.mjs";
+import { traceEvent } from "../scripts/lib/trace-order.mjs";
 import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
@@ -134,7 +135,7 @@ const SKIP_EXTENSIONS = new Set([
   ".dll",
 ]);
 
-const WRITE_TOOLS = new Set(["write", "edit"]);
+const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
 
 function extension(filePath: string): string {
   const idx = filePath.lastIndexOf(".");
@@ -146,12 +147,16 @@ function basename(filePath: string): string {
 }
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
-  const gated = new Set<string>();
+  const gated = new Map<string, number>();
+  let traceSeq = 0;
   return {
-    "tool.execute.before": async (input, _output) => {
+    "tool.execute.before": async (input, output) => {
+      // opencode passes the call arguments in `output.args` here (input.args exists
+      // only in tool.execute.after) — reading input.args made every guard below a no-op.
+      const args = (output as any)?.args ?? (input as any).args ?? {};
       // Bash: block dangerous commands
       if (input.tool === "bash" || input.tool === "run") {
-        const command: string = input.args?.command ?? "";
+        const command: string = args?.command ?? "";
         for (const [pattern, reason] of DANGEROUS_BASH) {
           if (pattern.test(command)) {
             throw new Error(
@@ -164,12 +169,18 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // Write/edit: block .env and credential files
       if (WRITE_TOOLS.has(input.tool)) {
         const filePath: string =
-          input.args?.filePath ?? input.args?.file_path ?? "";
+          args?.filePath ?? args?.file_path ?? "";
         if (!filePath) return;
 
         // K1/K2 (ECC): config-protection + opt-in fact-forcing gate.
         const exists = existsSync(filePath);
-        const cfg = configProtectionCheck(filePath, exists, process.env);
+        let realPath: string | undefined;
+        try {
+          realPath = exists ? realpathSync(filePath) : undefined;
+        } catch {
+          /* unresolvable: fall back to the given path */
+        }
+        const cfg = configProtectionCheck(filePath, exists, process.env, { realPath });
         if (cfg) throw new Error(cfg);
 
         for (const [pattern, reason] of BLOCKED_FILE_PATTERNS) {
@@ -180,12 +191,26 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
           }
         }
 
-        const gate = gateguardCheck(gated, (input as any).sessionID, filePath, exists, process.env);
+        const gate = gateguardCheck(gated, input.sessionID, filePath, exists, process.env, {
+          log: (rec: object) => {
+            const f = process.env.EXPERTS_GATEGUARD_LOG;
+            if (f) appendFileSync(f, JSON.stringify(rec) + "\n");
+          },
+        });
         if (gate) throw new Error(gate);
       }
     },
 
-    "tool.execute.after": async (input, _output) => {
+    "tool.execute.after": async (input, output) => {
+      // K4: opt-in per-tool-call trace (EXPERTS_TRACE_LOG=<file>) for rule-compliance grading.
+      const traceLog = process.env.EXPERTS_TRACE_LOG;
+      if (traceLog) {
+        try {
+          appendFileSync(traceLog, JSON.stringify(traceEvent(++traceSeq, input, output)) + "\n");
+        } catch {
+          /* tracing must never break the tool call */
+        }
+      }
       if (!WRITE_TOOLS.has(input.tool)) return;
 
       const filePath: string =

@@ -857,26 +857,36 @@ push both remotes (sync law).
   - [ ] `grep -n "check-validator-fixtures\|schedule:" .github/workflows/ci.yml` hits both
 - **Verify:** `npm test && npm run agents:check` (workflow syntax: `node -e "require('js-yaml')"` equivalent or actionlint if available; otherwise CI itself is the proof on push)
 
-## Group K — ECC intake (affaan-m/ECC, MIT; reviewed 2026-09-29)
+## Group K — ECC intake (affaan-m/ECC, MIT; reviewed 2026-09-29, challenged 3x)
 
-Source: ~40 of ECC's 293 skills / 68 agents / hook scripts skimmed against attest; six read in
-full. ~200 skills are domain filler and multi-harness scaffolding — not taken. ECC's quality
-numbers are self-reported, so nothing here goes default-on without an eval.
+Source: ~40 of ECC's 293 skills / 68 agents / hooks skimmed; then every mined item re-read in full by an
+independent challenger. ~200 skills are domain filler — not taken. Design + verdict table:
+`docs/work/GROUP_K_DESIGN.md` (rev 2). ECC's quality numbers are self-reported: nothing goes default-on without an eval.
 
 ### K1. config-protection hook ✅ DONE 2026-09-29
-- Blocks edits to EXISTING lint/format/type/test config (agents loosen the check instead of fixing the source); new files allowed; bypass `EXPERTS_ALLOW_CONFIG_EDIT=1`. `scripts/lib/hook-guards.mjs` + `plugins/expert-hooks.ts`; Claude side `attest-claude/hooks/config-protection.sh` (per-target, hand-owned).
+- Blocks edits (incl. `multiedit`) to EXISTING lint/type/test config; new files allowed; bypass `EXPERTS_ALLOW_CONFIG_EDIT=1`. `scripts/lib/hook-guards.mjs` + `plugins/expert-hooks.ts`; Claude `attest-claude/hooks/config-protection.sh`. Claude registration is manual (installer prints the entry).
+- **Found while closing it:** opencode passes `tool.execute.before` args in `output.args`; the plugin read `input.args`, so the dangerous-bash, secret-file, K1 and K2 guards had NEVER fired. Fixed; Pass 58 drives the real hook (RED on the old plugin).
 
-### K2. gateguard fact-forcing gate — SHIPPED OPT-IN (`EXPERTS_GATEGUARD=1`), default-on OPEN
-- [ ] A/B in `evals/`: same tasks gated vs ungated, graded by reading outputs (ECC's +2.25 is n=2, self-run). Default-on only if it beats ungated without inflating turns/cost.
+### K2. gateguard — SHIPPED OPT-IN (`EXPERTS_GATEGUARD=1`); default-on OPEN
+- Deny log (`EXPERTS_GATEGUARD_LOG`), 30-min TTL, per-session key. Challenge found the treatment is "forced pause + fact request", not proven fact-forcing.
+- [ ] Build `evals/edit-tasks/` + runner per the pre-registered design (4 arms, ≥16 tasks, ≥5 runs, ITT + fired-only, paired CI). **Runs need user approval (model spend).**
 
-### K3. loop-design-check → autopilot / goal / wave / conductor — OPEN
-- [ ] Add the 4-condition "should this be a loop" veto and 5-point goal framework (machine-decidable done-criterion, "must NOT do" boundaries, retry cap + escalation, layered goal, reconciliation over assertion) to the loop skills; a validator that a loop spec names all five.
+### K3. loop anti-tamper ✅ DONE 2026-09-29 (CHANGED from a validator)
+- Challenge: attest already has `validate-loop-readiness.sh` + the goal intake gate; a "loop spec" validator was keyword-stuffable. The real gap — no clause forbidding weakening tests/config/acceptance — is now in goal/autopilot/wave Boundaries (Pass 59).
 
-### K4. skill-comply → attest evals — OPEN
-- [ ] Measure whether a skill/rule is actually followed: generated scenarios at 3 prompt-strictness levels, `claude -p` stream-json traces, deterministic ordering check. Port ECC's Python to Node under `evals/`; needs a red fixture (non-compliant trace) per law L3.
+### K4. trace-order compliance — CORE DONE 2026-09-29; scenario generation OPEN
+- `scripts/lib/trace-order.mjs`: predicate step detection (no LLM), ECC's demotion pass, parallel-call tie rule; opt-in `EXPERTS_TRACE_LOG` capture from the real `tool.execute.after` hook (Pass 60, REDs proven for tie rule + demotion + capture).
+- [ ] Rule→spec authoring + a runner that replays scenarios (`claude -p`/opencode) — needs spend approval. [ ] Claude-side trace source (Claude Code hooks).
 
-### K5. Rationalization-pattern warn-only Stop check — OPEN
-- [ ] Regex on the closing message ("pre-existing bug", "skip tests for now", "out of scope"), warn-only (ECC never blocks on it — regex false-positives).
+### K5. rationalization warn-only check — CUT
+- Pass 51 already checks claims against run evidence (stronger than any text regex); ECC's 4 regexes have no measured precision; no named consumer. Revisit only with a consumer.
 
-### K6. Mine, don't adopt — OPEN
-- pr-test-analyzer (behavioral PR coverage), spec-miner (invariants with test anchors → `/sdlc onboard`), AgentShield-style `.claude/` config scan (→ `/security`), click-path-audit (→ `/ui-verify`), inherit-legacy-style (→ `/pre-code`), rust/typescript/python reviewers.
+### K6. Mined from full-file reads (expected outcome was mostly SKIP — it was)
+- ✅ silent-failure-hunter → error-handling-auditor (promise-form catch, lost cause, no timeout, no rollback; greps verified on planted code)
+- ✅ type-design-analyzer → type-safety-checker (illegal states, encapsulation)
+- ✅ security-scan → `agents/security/MCP_METHODOLOGY.md` MCP06 agent-config grep checklist (verified on planted config); AgentShield dependency NOT taken
+- ✅ spec-miner → onboard Invariants (enforced/test anchors, caller cross-check, freshness, cap)
+- ✅ pr-test-analyzer → `test-engineer --coverage --pr` (diff-scoped)
+- SKIP: comment-analyzer (R-13/14/15), inherit-legacy-style (pre-code + pattern-consistency + `delegation-gate --patterns`)
+- [ ] click-path-audit: static state-store side-effect map + 6 patterns (code-health/frontend lane) — not started
+- [ ] rust/typescript/python reviewers + build-resolvers: UNVERIFIED — read in full before any verdict
