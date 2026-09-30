@@ -4,10 +4,12 @@ import { readFileSync } from "node:fs";
 import { evaluate } from "./lib/edit-task-stats.mjs";
 
 const f = process.argv[2];
-if (!f) { console.error("usage: analyze-edit-tasks.mjs <results.jsonl>"); process.exit(2); }
+if (!f) { console.error("usage: analyze-edit-tasks.mjs <results.jsonl> [--post-calibration]"); process.exit(2); }
 const rows = readFileSync(f, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
 let r;
-try { r = evaluate(rows); } catch (e) { console.error(`INVALID INPUT: ${e.message}`); process.exit(2); }
+// --post-calibration: the pre-registered relaxed task minimums that apply AFTER the arm-A calibration selected the task set.
+const opts = process.argv.includes("--post-calibration") ? { minTasks: { total: 12, "multi-module": 6, isolated: 4, "reuse-trap": 2 } } : {};
+try { r = evaluate(rows, opts); } catch (e) { console.error(`INVALID INPUT: ${e.message}`); process.exit(2); }
 const p = (x) => (Number.isFinite(x) ? x.toFixed(3) : "n/a");
 const ci = (c) => `mean ${p(c.mean)}  95% CI [${p(c.lo)}, ${p(c.hi)}]  tasks=${c.tasks}  sign p=${p(c.sign.p)}`;
 console.log(`runs: ${r.runs}  gamed: ${r.gamedRuns}  infra-failed: ${r.infraRuns}  gate fire rate (B): ${p(r.fireRateB)}  trace rate: ${p(r.traceRate)}`);

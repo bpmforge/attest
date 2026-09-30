@@ -95,6 +95,27 @@ export async function testEditTasks(
   check("K2 countDeclaredTests counts test()/it() declarations", run.countDeclaredTests('test("a", ()=>{});\n  it("b", ()=>{});\n// test(no)\n') === 2);
   check("K2 hidden markers cover the task dir, hidden test, solution overlay and task.json", ["/t/x", "hidden/test.mjs", "/solution", "task.json"].every((m) => run.hiddenMarkersFor("/t/x").includes(m)));
 
+  // ---- task selection (pre-registered rule; arm A only) — real calibration data as the fixture
+  const { selectTasks } = await imp("scripts/select-edit-tasks.mjs");
+  const calib = fs.readFileSync(path.join(root, "docs/work/edit-task-calibration-2026-09-30.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l));
+  const sel = selectTasks(calib);
+  check("K2 selection on the real 2026-09-30 calibration keeps exactly the in-band + isolated tasks", sel.kept.join(",") === "i01,i02,i03,i04,m03,m05,m08,r02", sel.kept.join(","));
+  check("K2 selection reports the minimums as NOT met (3/6 multi-module) so hardening is required", sel.ok === false && sel.short.some((x: string) => x.startsWith("multi-module")), sel.short.join(","));
+  const row = (task: string, kind: string, arm: string, pass: boolean, extra: any = {}) => ({ task, kind, arm, run: Math.floor(Math.random() * 1e9), pass, ...extra });
+  const trio = (task: string, kind: string, p: number) => [0, 1, 2].map((i) => row(task, kind, "A", i < p));
+  const synth = selectTasks([...trio("a", "multi-module", 3), ...trio("b", "multi-module", 0), ...trio("c", "multi-module", 1), ...trio("d", "reuse-trap", 2), ...trio("e", "isolated", 3), ...trio("f", "isolated", 0)]);
+  const v = (id: string) => synth.tasks.find((t: any) => t.task === id).verdict;
+  check("K2 selection: 3/3 is dropped (ceiling), 0/3 is dropped (unsolvable), 1/3 and 2/3 are kept", v("a") === "DROP" && v("b") === "DROP" && v("c") === "KEEP" && v("d") === "KEEP");
+  check("K2 selection: isolated tasks are always kept, even at 0/3 and 3/3 (they are the tax control)", v("e") === "KEEP" && v("f") === "KEEP");
+  const withGated = selectTasks([...trio("a", "multi-module", 3), ...[0, 1, 2].map((i) => row("a", "multi-module", "B", false))]);
+  check("K2 selection ignores gated-arm rows entirely (no gated result can influence which tasks are kept)", withGated.tasks.find((t: any) => t.task === "a").verdict === "DROP" && withGated.tasks.find((t: any) => t.task === "a").n === 3);
+  check("K2 selection flags a task with fewer than 3 valid runs as INCOMPLETE, and the set is then not ok", selectTasks([row("a", "multi-module", "A", true), row("a", "multi-module", "A", false)]).ok === false && selectTasks([row("a", "multi-module", "A", true), row("a", "multi-module", "A", false)]).tasks[0].verdict === "INCOMPLETE");
+  check("K2 selection excludes infra-failed and gamed runs from the count", selectTasks([...trio("a", "multi-module", 2), row("a", "multi-module", "A", false, { infra: true })]).tasks[0].n === 3);
+  // post-calibration minimums: a 12-task set must no longer read INSUFFICIENT on task count
+  const post = build(rep(6, [1, 5]), rep(4, [4, 4]), rep(2, [3, 3]));
+  check("K2 default minimums call a 12-task set INSUFFICIENT; --post-calibration minimums accept it",
+    stats.evaluate(post).verdict === "INSUFFICIENT" && stats.evaluate(post, { minTasks: { total: 12, "multi-module": 6, isolated: 4, "reuse-trap": 2 } }).verdict !== "INSUFFICIENT");
+
   // ---- runner end-to-end with the stub agent on a synthetic task (free)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "edit-tasks-"));
   try {

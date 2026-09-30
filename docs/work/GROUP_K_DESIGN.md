@@ -92,3 +92,10 @@ The pilot showed a ceiling: 3 of 4 tasks pass ungated every time, so they cannot
 - **If fewer than 6 multi-module tasks survive:** harden the ceiling ones (more hidden importers / data-format traps), re-verify each task is RED as shipped and GREEN with its solution, and re-calibrate them — do not proceed with a thin set. Hardening is decided from the task, never from any gated result (none exists).
 - **Post-calibration minimums** for the analysis (`--post-calibration`): >= 6 multi-module, >= 4 isolated, >= 2 reuse-trap, >= 12 tasks total; still >= 5 valid runs per cell per arm. The flip rule itself is unchanged.
 - **Full run:** the surviving tasks x arms A,B,C,D x 5 runs. The calibration arm-A runs are NOT reused in the full run (fresh runs, so selection cannot inflate arm A).
+
+## K2 calibration result (2026-09-30) — minimums NOT met; hardening round 1
+48 runs, arm A only, same model, 0 infra failures, 0 gamed. Raw: `docs/work/edit-task-calibration-2026-09-30.jsonl`; rule applied by `scripts/select-edit-tasks.mjs` (tested; gated rows cannot influence it).
+- **Kept:** i01 i02 i03 i04 (isolated control) · m03 (2/3) m05 (1/3) m08 (2/3) · r02 (1/3).
+- **Dropped at 3/3 (ceiling):** m01 m02 m04 m06 m07 · r01 r03 r04. Nothing at 0/3.
+- **Counts:** multi-module 3/6, reuse-trap 1/2, total 8/12 → **rule requires hardening** the ceiling tasks and re-calibrating them. The full run does not start on 8 tasks.
+- **Hardening (decided from the tasks alone; no gated result exists):** each ceiling task is rebuilt as a NEW id (`<id>b`) with more, independent hazards (>= 2-3 hidden importers / duplicated constants / data-format traps); the original stays in the repo as a record of what the model solves. Same verification for every hardened task: hidden test RED as shipped, GREEN with its solution, a careless single-file edit FAILS, and the prompt still only states the user goal (the hint scan enforces it). Hardened tasks are then calibrated on arm A, 3 runs each, and the same selection rule applied.
