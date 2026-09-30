@@ -38,7 +38,7 @@ Existing lint/type/test config edits blocked (incl. `multiedit`); creation allow
 - **Runs:** ≥5 per task per arm. **Analysis:** paired per-task deltas, sign test / McNemar with a 95% CI; secondary: turns, tokens, wall time.
 - **Flip rule (all must hold):** B−A lower CI bound > 0 on multi-module; B not worse than A on isolated beyond the pre-set margin; median cost overhead ≤ 25%; B−D reported (if ≈0, prefer the cheaper design). Else stays opt-in, result recorded either way.
 - **Write-path holes:** tool names used per run are logged; runs where an ungated path (bash write, `apply_patch`) did the edit are flagged and reported separately.
-- **Escalate:** model choice and spend (LM Studio here is unresponsive; frontier runs cost money). Harness built; runs not started.
+- **Escalate:** model choice and spend (LM Studio here is unresponsive; frontier runs cost money). `evals/edit-tasks/` and its runner are NOT built yet (backlog K2); no run has been made.
 
 ## K3 (changed) — anti-tamper boundary in the loop skills
 - Done: `skills/goal`, `skills/autopilot`, `skills/wave` each carry, in their Boundaries section, an explicit clause: the loop must not delete/skip/weaken tests, loosen lint/type config, or edit its own acceptance check to reach "done"; a test asserts all three skills carry it (gap-fill test, RED when a clause is removed).
@@ -46,7 +46,7 @@ Existing lint/type/test config edits blocked (incl. `multiedit`); creation allow
 
 ## K4 (changed) — trace capture, then deterministic ordering
 1. **Trace capture:** `tool.execute.after` appends `{ts, seq, session, tool, args-summary}` JSONL when `EXPERTS_TRACE_LOG` is set (opt-in, counts nothing else). Test drives the real hook.
-2. **Ordering checker** `scripts/lib/trace-order.mjs`: spec steps are **predicates on tool + args** (no LLM); supports `after`/`before`; keeps ECC's demotion pass (a dependant may not pass on a failed prerequisite) and forward-reference rule; **tie rule:** events sharing one `seq` group (parallel calls in one assistant message) are unordered, so ordering constraints across a tie never fail. Fixtures: ECC's compliant/non-compliant TDD traces re-expressed for predicates (MIT attribution); RED when order is broken.
+2. **Ordering checker** `scripts/lib/trace-order.mjs`: spec steps are **predicates on tool + args** (no LLM); supports `after`/`before`; keeps ECC's demotion pass (a dependant may not pass on a failed prerequisite) and forward-reference rule; **tie rule:** events sharing one `group` (parallel calls in one assistant message) are unordered, so ordering constraints across a tie never fail. **Limitation:** opencode's `tool.execute.after` does not expose which calls were parallel, so the capture emits no `group`; ties exist only when the trace source supplies one (e.g. Claude stream-json). Until then, parallel calls in an opencode trace can spuriously fail an `after`/`before`. `gradeTrace(..., {session})` grades one session of an interleaved capture. Fixtures: ECC's compliant/non-compliant TDD traces re-expressed for predicates (MIT attribution); RED when order is broken.
 - NOT: `claude -p` runs or an LLM classifier without approval; porting the Python verbatim; claiming compliance rates from <3 scenarios per level.
 
 ## K5 — CUT.
@@ -59,7 +59,7 @@ Existing lint/type/test config edits blocked (incl. `multiedit`); creation allow
 | type-design-analyzer | MINE 2 checks | type-safety-checker: illegal-state representability, invariant encapsulation |
 | click-path-audit | MINE (new pattern set) | static state-store side-effect map + 6 patterns; code-health/frontend lane, not `/ui-verify` |
 | security-scan (AgentShield) | MINE checklist, SKIP dependency | `/security`: `.claude/settings.json` + hooks + CLAUDE.md + agent-tools checklist (grep-based). External package needs user approval |
-| pr-test-analyzer | SKIP agent; MINE one mode | `test-engineer --coverage` diff-scoped to a PR's changed symbols |
+| pr-test-analyzer | SKIP agent; MINE one mode | documented `--coverage --pr` mode in `agents/test-engineer.md` (prose, not a CLI parser) |
 | comment-analyzer | SKIP | R-13/14/15 cover it; add one sentence (over-promising comments) |
 | inherit-legacy-style | SKIP | covered by pre-code + pattern-consistency + `delegation-gate --patterns`; signal-threshold idea noted |
 | rust/typescript/python reviewers | **UNVERIFIED** | read full files before any verdict |
@@ -67,3 +67,8 @@ Existing lint/type/test config edits blocked (incl. `multiedit`); creation allow
 
 ## Challenge loop
 Each shipped wave's diff is challenged again (read-only reviewer, primary sources) until no HIGH remains; a HIGH blocks the wave. Cap: 2 fix cycles per wave, then escalate.
+
+## Second challenge pass (2026-09-29) — what it found and what changed
+- Mutation audit (~75 mutants): `after`-order, file/cmd/out predicates, threshold, sort, 3-deep demotion, plugin sessionID + log wiring were all untested → tests added; 8 spot-mutations now go red.
+- Bug hunt: config-protection false-positived on vendored/fixture trees and was bypassable by case/symlink/Windows path; `gateguard.sh` newline-in-path bypass; bad log path turned a deny into an fs error; trace spec typos silently relaxed constraints → all fixed and tested (shell repros re-run).
+- Content: MCP06 greps graded on real configs (line-grep blind to pretty-printed JSON → jq; added the permission-prompt bypass flag; dropped a 100%-noise agents grep); `.catch` grep measured at ~75% FP on attest scripts → scoped and documented.

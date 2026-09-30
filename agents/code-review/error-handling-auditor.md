@@ -115,11 +115,15 @@ grep -rn "except:" src/ --include="*.py" 2>/dev/null
 # Catch-return-empty (R-10 from anti-slop: fallback hiding failure)
 grep -rn -A 3 "catch" src/ --include="*.ts" --include="*.js" 2>/dev/null | grep "return \[\]\|return {}\|return \"\"\|return null"
 
-# Promise-form catch-return-empty (the try/catch grep above cannot see it)
-grep -rnE "\.catch\s*\(\s*\(?[a-zA-Z_]*\)?\s*=>\s*(\[\]|\{\}|null|undefined|''|\"\")" src/ --include="*.ts" --include="*.js" 2>/dev/null
+# Promise-form catch-return-empty (the try/catch grep above cannot see it). Use the project's source root
+# (src/, scripts/, lib/ ...), not only src/, and include .mjs/.cjs/.tsx.
+grep -rnE "\.catch\s*\(\s*\(?[a-zA-Z_]*\)?\s*=>\s*(\[\]|\{\}|null|undefined|''|\"\")" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" --include="*.cjs" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null
+# Graded on attest scripts (2026-09-29): 1 true positive in 4 hits. NOT findings: `.catch(() => {})` / `.catch(() => null)` on
+# shutdown/cleanup (close/quit/kill), on an optional field, or followed at once by an explicit null/ok check. A finding is a
+# discarded failure of work whose result the caller relies on (e.g. an `updateIssue(...).catch(() => {})`).
 
-# Rethrow that drops the cause (stack lost)
-grep -rnE "throw new Error\((e|err|error)\.message" src/ --include="*.ts" --include="*.js" 2>/dev/null
+# Rethrow that drops the cause (stack lost) — a CANDIDATE list: any `.message` rethrow matches, `{ cause: e }` included; read each.
+grep -rnE "throw new Error\((e|err|error)\.message" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null
 ```
 
 ### Phase 2 — Manual Analysis (Pass 3)

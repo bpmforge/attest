@@ -13,6 +13,8 @@
  *                        Opt-in (EXPERTS_GATEGUARD=1) until an eval shows it helps.
  */
 
+import { resolve as resolvePath } from "node:path";
+
 const PROTECTED_BASENAMES = new Set([
   ".eslintrc", ".eslintrc.js", ".eslintrc.cjs", ".eslintrc.json", ".eslintrc.yml", ".eslintrc.yaml",
   "eslint.config.js", "eslint.config.mjs", "eslint.config.cjs", "eslint.config.ts",
@@ -29,17 +31,29 @@ const PROTECTED_BASENAMES = new Set([
 
 export const CONFIG_EDIT_BYPASS_ENV = "EXPERTS_ALLOW_CONFIG_EDIT";
 
+// Vendored / generated / fixture trees hold configs nobody is "loosening" — blocking them only trains bypassing.
+const NON_PROJECT_DIR = /(^|[\\/])(node_modules|vendor|dist|build|\.git|fixtures?|__fixtures__)[\\/]/i;
+
+const baseOf = (p) => String(p ?? "").split(/[\\/]/).pop().toLowerCase();
+
 export function isProtectedConfig(filePath) {
-  const base = String(filePath ?? "").split("/").pop();
-  return PROTECTED_BASENAMES.has(base);
+  return PROTECTED_BASENAMES.has(baseOf(filePath));
 }
 
-/** Returns a block message, or null to allow. `exists` = file already on disk. */
-export function configProtectionCheck(filePath, exists, env = {}) {
+/**
+ * Returns a block message, or null to allow. `exists` = file already on disk.
+ * opts.realPath = the symlink-resolved path (caller supplies it): an alias
+ * (`link.json -> tsconfig.json`) must not dodge the guard. Matching is case-insensitive
+ * (macOS default filesystem is), and Windows separators count.
+ */
+export function configProtectionCheck(filePath, exists, env = {}, opts = {}) {
   if (env[CONFIG_EDIT_BYPASS_ENV] === "1") return null;
-  if (!exists || !isProtectedConfig(filePath)) return null;
+  if (!exists) return null;
+  if (NON_PROJECT_DIR.test(String(filePath ?? ""))) return null;
+  const hit = isProtectedConfig(filePath) ? filePath : opts.realPath && isProtectedConfig(opts.realPath) ? opts.realPath : null;
+  if (!hit) return null;
   return (
-    `BLOCKED: ${filePath} is lint/format/type/test config. Editing it to make a check pass hides the defect instead of fixing it.\n` +
+    `BLOCKED: ${filePath} is lint/format/type/test config${hit !== filePath ? ` (resolves to ${hit})` : ""}. Editing it to make a check pass hides the defect instead of fixing it.\n` +
     `Fix the source the check complains about. If the config change IS the task (ticket scope names this file), ` +
     `ask the user to re-run with ${CONFIG_EDIT_BYPASS_ENV}=1.`
   );
@@ -59,11 +73,16 @@ export const GATEGUARD_TTL_MS = 30 * 60 * 1000; // ECC parity: a session's gate 
 export function gateguardCheck(state, sessionId, filePath, exists, env = {}, opts = {}) {
   if (env.EXPERTS_GATEGUARD !== "1" || !filePath) return null;
   const now = opts.now ?? Date.now();
-  const key = `${sessionId ?? "_"}:${filePath}`;
+  const key = `${sessionId ?? "_"}:${resolvePath(filePath)}`;
   const seen = state.get(key);
   if (seen !== undefined && now - seen < GATEGUARD_TTL_MS) return null;
   state.set(key, now);
-  opts.log?.({ ts: now, event: "gate_denied", session: sessionId ?? "_", file: filePath, exists });
+  if (state.size > 5000) for (const [k, t] of state) if (now - t >= GATEGUARD_TTL_MS) state.delete(k);
+  try {
+    opts.log?.({ ts: now, event: "gate_denied", session: sessionId ?? "_", file: filePath, exists });
+  } catch {
+    /* a bad log path must not turn the fact request into an fs error (and skip the gate on retry) */
+  }
   return exists
     ? `GATEGUARD: before editing ${filePath}, state these facts (gather them with grep/read, then retry the same edit):\n` +
         `1. Every file that imports/requires it.\n2. The public functions/classes this change affects.\n` +

@@ -99,23 +99,31 @@ Checklist mined from ECC `security-scan` (MIT; ECC ships only this list plus an 
 — an external dependency this system does NOT take without the user's approval). Grep-based, read-only:
 
 ```bash
-# the host agent's settings/permissions file(s) (e.g. .claude/settings*.json) — over-broad permissions
-grep -nE '"(Bash|Write|Edit)\(\*\)"|"allow"\s*:\s*\[[^]]*\*' .claude/settings*.json 2>/dev/null
-# deny list absent entirely?
-grep -L '"deny"' .claude/settings*.json 2>/dev/null
-# hooks that interpolate model-controlled data into a shell, or hide failure
-grep -nE '\$\{?(file|path|command|prompt)\}?|2>/dev/null|\|\|\s*true' .claude/settings*.json .claude/hooks/* 2>/dev/null
-# MCP servers launched via unpinned npx -y (supply-chain)
-grep -nE 'npx\s+-y|uvx\s+[^=]*$' .claude/settings*.json .mcp.json 2>/dev/null
-# auto-run / auto-approve instructions planted in CLAUDE.md / AGENTS.md
+# (bash — `$S` relies on word splitting) Permissions are JSON: pretty-printed arrays defeat line greps, so parse them (jq).
+S=$(ls .claude/settings*.json ~/.claude/settings.json 2>/dev/null)
+# 1. allow-all, or allow entries that are arbitrary code execution (interpreter one-liners)
+jq -r '.permissions.allow[]? // empty' $S 2>/dev/null | grep -E '^(Bash|Write|Edit)(\(\*\))?$|^Bash\((python3?|node|sh|bash|perl|ruby) (-c|-e) ' 
+# 2. no deny list at all
+for f in $S; do jq -e '(.permissions.deny // []) | length > 0' "$f" >/dev/null 2>&1 || echo "no deny list: $f"; done
+# 3. prompts / sandbox switched off
+grep -nE '"(skipDangerousModePermissionPrompt|bypassPermissions|dangerouslySkipPermissions)"\s*:\s*true|"defaultMode"\s*:\s*"bypassPermissions"' $S 2>/dev/null
+# 4. hooks that interpolate model-controlled data into a shell, or hide a check's failure
+grep -nE '\$\{?(file|path|command|prompt)\}?|\|\|\s*true' $S .claude/hooks/* 2>/dev/null
+# 5. MCP servers launched via unpinned npx -y (supply chain)
+grep -nE 'npx\s+-y|uvx\s+[^=]*$' $S .mcp.json 2>/dev/null
+# 6. auto-run / auto-approve instructions planted in CLAUDE.md / AGENTS.md
 grep -niE 'always (run|execute)|without (asking|confirmation)|auto[- ]?approve|ignore (previous|all) instructions' CLAUDE.md AGENTS.md 2>/dev/null
-# agents with unrestricted tools
-grep -LE '^tools:' .claude/agents/*.md agents/*.md 2>/dev/null
+# 7. Claude Code agents with no tool allow-list (Claude-format only; other hosts express permissions differently)
+grep -LE '^tools:' .claude/agents/*.md 2>/dev/null
 ```
 
-Each hit is read before it is reported (a `2>/dev/null` in a hook is a finding only when it hides a security
-check's failure). Severity: `Bash(*)` allow with no deny list = HIGH; hook shell-interpolation of model data = HIGH;
-unpinned `npx -y` MCP = MEDIUM; agent with unrestricted tools = LOW unless it reads untrusted input.
+Each hit is read before it is reported. Graded on real configs (2026-09-29): #1 and #3 found the real risks (wildcard
+interpreter allows; a permission-prompt bypass flag); #2 is real but LOW when the allow list is tiny; `2>/dev/null` in a
+hook is deliberately NOT a grep — it is a finding only when it hides a security check's failure, so read hooks by eye.
+Severity: allow-all / interpreter-allow / prompt bypass = HIGH; hook shell-interpolation of model data = HIGH; unpinned
+`npx -y` MCP = MEDIUM; no deny list = MEDIUM if the allow list is broad, else LOW; agent with no tool list = LOW unless
+it reads untrusted input.
+
 
 ## Deep tooling (`--deep` / owned servers only — not an inline audit step)
 
