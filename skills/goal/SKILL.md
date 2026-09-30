@@ -64,6 +64,10 @@ recorded beside it does not count.
   product X", that's a bar — use `/gauntlet`.
 - Per-agent tool-call limits (`LOOP_PREVENTION.md`) still govern every
   iteration; this skill's budget is the cross-iteration bound on top.
+- **No moving the goalposts (anti-tamper):** a loop reaches "done" only by changing the
+  thing under test — never by deleting, skipping or weakening a test, loosening lint/type
+  config, or editing its own acceptance check. A green result obtained that way is a
+  defect, not progress; stop and escalate instead. (Adapted from ECC `loop-design-check`.)
 
 ## Outputs
 
