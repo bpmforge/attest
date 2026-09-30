@@ -251,6 +251,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
 **Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 30 rules (R-01 through R-30) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28), prose padding (R-29), library-shaped reimplementation (R-30).
+- For Rust/TypeScript/Python/Go, when a compiler/lint error tempts a shortcut (`unsafe`, `.unwrap()`, `#[allow]`, `as any`), read the matching section of `references/language-review-checklists.md` first — never silence the check to make it pass.
 
 Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-30 are in that file.
 

@@ -1,0 +1,1 @@
+{"id":"m05","kind":"multi-module","hazard":"listJars returns null for an unknown apiary and report.mjs branches on `if (!jars)` to say 'No such apiary'; returning [] (truthy) silently breaks that branch.","prompt":"In the honey-jar inventory app, change listJars(apiary) in src/inventory.mjs so that an apiary with no jars returns an empty array instead of null."}
