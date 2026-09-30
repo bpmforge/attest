@@ -869,7 +869,8 @@ independent challenger. ~200 skills are domain filler — not taken. Design + ve
 
 ### K2. gateguard — SHIPPED OPT-IN (`EXPERTS_GATEGUARD=1`); default-on OPEN
 - Deny log (`EXPERTS_GATEGUARD_LOG`), 30-min TTL, per-session key. Challenge found the treatment is "forced pause + fact request", not proven fact-forcing.
-- [ ] Build `evals/edit-tasks/` + runner per the pre-registered design (4 arms, ≥16 tasks, ≥5 runs, ITT + fired-only, paired CI). **Runs need user approval (model spend).**
+- ✅ Harness built + challenged twice (2026-09-29): 16 tasks, runner, analysis, stub-driven self-test (Pass 61, ~110 checks; mutants killed).
+- [ ] **Re-run `install.sh`** so the installed opencode plugin has gateguard/trace/args fix (preflight refuses otherwise), then `EVAL_MODEL=… node scripts/run-edit-tasks.mjs --yes` — **needs user approval (model spend).**
 
 ### K3. loop anti-tamper ✅ DONE 2026-09-29 (CHANGED from a validator)
 - Challenge: attest already has `validate-loop-readiness.sh` + the goal intake gate; a "loop spec" validator was keyword-stuffable. The real gap — no clause forbidding weakening tests/config/acceptance — is now in goal/autopilot/wave Boundaries (Pass 59).
@@ -888,5 +889,5 @@ independent challenger. ~200 skills are domain filler — not taken. Design + ve
 - ✅ spec-miner → onboard Invariants (enforced/test anchors, caller cross-check, freshness, cap)
 - ✅ pr-test-analyzer → `test-engineer --coverage --pr` (diff-scoped)
 - SKIP: comment-analyzer (R-13/14/15), inherit-legacy-style (pre-code + pattern-consistency + `delegation-gate --patterns`)
-- [ ] click-path-audit: static state-store side-effect map + 6 patterns (code-health/frontend lane) — not started
-- [ ] rust/typescript/python reviewers + build-resolvers: UNVERIFIED — read in full before any verdict
+- ✅ click-path-audit → `references/click-path-audit.md` (store side-effect map + 6 patterns), wired into ui-verifier + frontend-design
+- ✅ rust/typescript/python/go reviewers + rules: read in full; ECC's agents are thin → mined into `references/language-review-checklists.md` (32 checks with greps/lints; greps verified on planted code, graded on repopulse/vulnforge/kryptkeeper; lint names verified against ruff/clippy/typescript-eslint/golangci-lint); wired into code-reviewer, concurrency-checker, type-safety, error-handling, coding-agent. build-resolvers SKIP (rust borrow-checker table kept)

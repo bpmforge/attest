@@ -2,5 +2,5 @@
   "id": "r03",
   "kind": "reuse-trap",
   "hazard": "src/lib/units.mjs already has fmtLeg (half-up 1-decimal km, integer math) and src/lib/order.mjs has byNat (natural tram-id order); a from-scratch toFixed + default sort gives 2.1 km and T10 before T2",
-  "prompt": "In the tram depot repo, add a function depotReport(trips) in a new file src/report.mjs. trips is an array of { tram, meters }. It should return a multi-line string with one line per tram, like 'T2: 2.2 km', showing that tram's total distance in kilometres to one decimal place, with the trams sorted by tram id."
+  "prompt": "In the tram depot repo, add a function depotReport(trips) in a new file src/report.mjs. trips is an array of { tram, meters }. It should return a multi-line string with one line per tram, like 'T2: 2.2 km', showing that tram's total distance in kilometres to one decimal place, with the trams in natural tram-id order (T2 before T10)."
 }
