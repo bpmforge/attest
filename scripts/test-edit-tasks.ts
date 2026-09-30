@@ -116,6 +116,10 @@ export async function testEditTasks(
   const withGated = selectTasks([...trio("a", "multi-module", 3), ...[0, 1, 2].map((i) => row("a", "multi-module", "B", false))]);
   check("K2 selection ignores gated-arm rows entirely (no gated result can influence which tasks are kept)", withGated.tasks.find((t: any) => t.task === "a").verdict === "DROP" && withGated.tasks.find((t: any) => t.task === "a").n === 3);
   check("K2 selection flags a task with fewer than 3 valid runs as INCOMPLETE, and the set is then not ok", selectTasks([row("a", "multi-module", "A", true), row("a", "multi-module", "A", false)]).ok === false && selectTasks([row("a", "multi-module", "A", true), row("a", "multi-module", "A", false)]).tasks[0].verdict === "INCOMPLETE");
+  const minimal = (extra: any[]) => selectTasks([...["m1", "m2", "m3", "m4", "m5", "m6"].flatMap((id, i) => trio(id, "multi-module", 1 + (i % 2))), ...["i1", "i2", "i3", "i4"].flatMap((id) => trio(id, "isolated", 3)), ...["r1", "r2"].flatMap((id) => trio(id, "reuse-trap", 1)), ...extra]);
+  check("K2 selection: a set that meets every minimum is ok", minimal([]).ok === true && minimal([]).short.length === 0, JSON.stringify(minimal([]).short));
+  const inc = minimal([row("x1", "reuse-trap", "A", true)]);
+  check("K2 selection: an unrelated INCOMPLETE task blocks ok and is NAMED (not an empty 'minimums not met')", inc.ok === false && inc.short.length === 0 && inc.incomplete.join() === "x1");
   check("K2 selection excludes infra-failed and gamed runs from the count", selectTasks([...trio("a", "multi-module", 2), row("a", "multi-module", "A", false, { infra: true })]).tasks[0].n === 3);
   // post-calibration minimums: a 12-task set must no longer read INSUFFICIENT on task count
   const post = build(rep(6, [1, 5]), rep(4, [4, 4]), rep(2, [3, 3]));
