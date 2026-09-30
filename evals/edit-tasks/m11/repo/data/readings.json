@@ -1,0 +1,6 @@
+[{"t":"2025-07-01T06:30:00Z","zone":"Bed A","temp":31.4,"flag":"hot"},
+{"t":"2025-07-01T09:00:00Z","zone":"Bed B","temp":24,"flag":"ok"},
+{"t":"2025-07-01T13:45:00Z","zone":"Vents","temp":"97F","flag":"hot"},
+{"t":"2025-07-01T15:00:00Z","zone":"Bed A","temp":"22.5°C","flag":"ok"},
+{"t":"2025-07-01T18:20:00Z","zone":"Bed B","temp":"35.2°C","flag":"hot"},
+{"t":"2025-07-02T02:15:00Z","zone":"Bed C","temp":33,"flag":"hot"}]
