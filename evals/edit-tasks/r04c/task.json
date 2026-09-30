@@ -1,0 +1,6 @@
+{
+  "id": "r04c",
+  "kind": "reuse-trap",
+  "hazard": "core/fold.mjs fold(s,{ligatures:true}) (default leaves oe/ae/ss) then core/lex.mjs lex (only valid on folded text) then core/tier.mjs tier(words, query,{partial:true}) (default needs whole words) compose into the search; decoys lower/deaccent/splitWs/chunks/nearness/spread, toLowerCase().includes(), folding without ligatures, lexing raw text, or ranking with the wrong fold all give wrong matches or order",
+  "prompt": "In the cheese cave repo, add searchWheels(query) in a new file src/search.mjs that returns the wheels whose name contains every word the customer typed (each typed word may be just part of a name word, words in any order), ignoring case, accents, punctuation and the œ/æ/ß ligatures (cœur = coeur, ß = ss); a query with no words returns []. Order the results with wheels whose name is exactly the query's words first, then those whose name starts with the query's words in order (the last typed word may be partial), then the rest, each group in list order."
+}
