@@ -270,4 +270,32 @@ export async function testSyncModelLimits(
       fail("sync-model-limits — input config object is never mutated", "input cfg changed in place");
     }
   }
+
+  // -- 10. a hung server (accepts, never replies) must fail closed, not hang. -
+  {
+    const net = await import("net");
+    const { spawn } = await import("child_process");
+    const srv = net.createServer(() => {}); // accept and go silent
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", () => r()));
+    const port = (srv.address() as any).port;
+    const t0 = Date.now();
+    const out = await new Promise<{ status: number | null }>((resolve) => {
+      const cp = spawn(
+        "node",
+        [path.join(root, "scripts/sync-model-limits.mjs"), "--base", `http://127.0.0.1:${port}`, "--config", path.join(root, "models.json")],
+        { stdio: "ignore" },
+      );
+      const kill = setTimeout(() => { cp.kill("SIGKILL"); resolve({ status: null }); }, 25000);
+      cp.on("exit", (code: number | null) => { clearTimeout(kill); resolve({ status: code }); });
+    });
+    srv.close();
+    if (out.status === 1 && Date.now() - t0 < 20000) {
+      ok("sync-model-limits — hung LM Studio server fails closed (exit 1) instead of hanging");
+    } else {
+      fail(
+        "sync-model-limits — hung LM Studio server fails closed (exit 1) instead of hanging",
+        `status=${out.status} after ${Date.now() - t0}ms`,
+      );
+    }
+  }
 }
