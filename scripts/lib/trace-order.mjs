@@ -134,7 +134,8 @@ export function traceEvent(seq, input, output, now = Date.now()) {
   const a = input?.args ?? {};
   return {
     seq, ts: now, session: input?.sessionID, tool: input?.tool,
-    file: a.filePath ?? a.file_path, cmd: typeof a.command === "string" ? a.command.slice(0, 300) : undefined,
+    file: a.filePath ?? a.file_path, // head+tail: a path or flag that matters can sit at the END of a long command (answer-key peeks, test summaries).
+    cmd: typeof a.command === "string" ? headTail(a.command, 300) : undefined,
     out: typeof output?.output === "string" ? headTail(output.output) : undefined,
   };
 }

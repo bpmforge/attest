@@ -77,7 +77,8 @@ export function scoreRun({ arm, gateRows = [], traceRows = [], hiddenMarkers = [
 
 /** Markers that betray a peek at the answer key. Covers the task dir, hidden test, solution overlay and task.json. */
 export function hiddenMarkersFor(taskDir) {
-  return [taskDir, `${taskDir}/hidden`, "hidden/test.mjs", "/solution", "task.json", "evals/edit-tasks"];
+  // "Code/attest" / "attest/evals": a model that searches the machine for the task reaches the repo that holds every answer key.
+  return [taskDir, `${taskDir}/hidden`, "hidden/test.mjs", "/solution", "task.json", "evals/edit-tasks", "Code/attest", "attest/evals"];
 }
 
 /**
