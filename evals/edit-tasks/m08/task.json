@@ -1,0 +1,6 @@
+{
+  "id": "m08",
+  "kind": "multi-module",
+  "hazard": "mixBatch is imported by name in src/beds.mjs, used via namespace import in src/report.mjs, and re-exported from src/index.mjs; renaming only in compost.mjs breaks all three",
+  "prompt": "In the mushroom farm repo, rename the function mixBatch to blendBatch for clarity."
+}
