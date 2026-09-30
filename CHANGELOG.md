@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.12.0] — 2026-09-30
+
+**Group K: what a review of ECC (affaan-m/ECC, MIT) was worth** — three independent challenge passes cut most of the intake and found a
+bug that had been live for a long time. (The changelog lapsed after 3.5.4; this entry covers the Group K work only.)
+
+### Fixed
+- **Every opencode PreToolUse guard was a silent no-op.** `tool.execute.before` passes the call arguments in `output.args`; the plugin
+  read `input.args`, so the dangerous-bash blocker and the secret-file blocker never fired. Fixed, and tested by driving the real hook
+  signature (the test goes RED on the old plugin). Re-run `install.sh` — the installed plugin is a copy, not this checkout.
+- `sync-model-limits.mjs` had an unbounded `fetch`; a server that accepts and never replies hung `run-until-done` and four suite tests. 8 s timeout + regression test.
+
+### Added
+- **config-protection** hook (opencode plugin + `attest-claude/hooks/config-protection.sh`): blocks edits to an EXISTING lint/type/test config
+  (an agent that cannot pass a check will loosen the check). Case-insensitive, symlink-aware, Windows paths, vendored/fixture trees exempt, `EXPERTS_ALLOW_CONFIG_EDIT=1` bypass.
+- **gateguard** (opt-in, `EXPERTS_GATEGUARD=1`): deny the first edit of a file until the agent states facts; TTL, deny log, per-session key. **Not default-on** — ECC's "+2.25 quality" is two self-run tests. A pre-registered A/B (16+ hand-built tasks, hidden tests, 4 arms incl. a pure-pause control, paired-task statistics, `INVALID` when the gate never fired) decides that; see `docs/work/GROUP_K_DESIGN.md`.
+- **Rule-compliance measurement** (`scripts/lib/trace-order.mjs`, `run-compliance.mjs`, `evals/compliance/`): does the model follow a rule unprompted, and under pressure? Predicate specs over the tool-call trace (no LLM), parallel-call tie rule, demotion pass. Opt-in trace capture for opencode (`EXPERTS_TRACE_LOG`) and Claude Code (`hooks/trace-tool-call.sh`).
+- `references/language-review-checklists.md` (Rust/TypeScript/Python/Go, 32 checks with lints/greps, graded on real repos) wired into code-reviewer, concurrency-checker, type-safety-checker, error-handling-auditor, coding-agent.
+- `references/click-path-audit.md` (handlers that cancel each other), wired into ui-verifier and frontend-design.
+- Mined into existing agents: promise-form `.catch`/lost-cause/no-timeout/no-rollback (error-handling-auditor), illegal-state representability (type-safety-checker), MCP06 agent-config grep checklist (`/security`), onboard Invariants (spec-miner idea), `test-engineer --coverage --pr`.
+- Anti-tamper boundary in `goal`/`autopilot`/`wave`: a loop may not reach "done" by weakening tests, config, or its own acceptance check.
+- `attest-claude`: behavioural tests for the Group K hooks (previously checked by hand), run in CI.
+
+### Decided against (after full-file reads)
+K3 loop-spec validator (attest already has `validate-loop-readiness` + the goal intake gate), K5 rationalization scanner (Pass 51 checks claims against evidence), comment-analyzer, inherit-legacy-style, the AgentShield dependency, ECC's build-resolvers. ~200 of ECC's 293 skills are domain filler.
+
+1025 tests passing.
+
 ## [3.5.4] — 2026-08-17
 
 **Fixes a regression shipped in 3.5.3.** That version told `sdlc-lead` that "exactly two returns are terminal — the completion phrase or `BLOCKED`." That list was hand-authored and wrong: `BOUNDED_TASK_CONTRACT.md` Rule 8 *requires* a specialist to return a **`[PARTIAL]`-prefixed** completion phrase after 3 failures on one step. A lead following 3.5.3 literally would classify that correct escalation as a failed HANDOFF and re-dispatch it — the exact loop the 3-failure cap exists to prevent, failing the same way a fourth time.
