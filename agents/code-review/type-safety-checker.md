@@ -116,6 +116,8 @@ grep -rn "Optional\[" src/ --include="*.py" 2>/dev/null | head -20
 npx tsc --noEmit 2>&1 | head -30
 ```
 
+For Rust/TypeScript/Python/Go, also apply the type-related checks in `references/language-review-checklists.md` (T3 tsconfig flags, T6 explicit exported types, P6 `mypy --strict`).
+
 ### Phase 2 — Manual Analysis (Pass 4)
 
 For each `any` escape: is it justified (external library, genuine dynamic data) or lazy (developer didn't want to type the interface)?

@@ -38,6 +38,8 @@ import { testInstallVersion } from "./test-install-version.ts";
 import { testHookGuards } from "./test-hook-guards.ts";
 import { testLoopAntiTamper } from "./test-loop-antitamper.ts";
 import { testTraceOrder } from "./test-trace-order.ts";
+import { testEditTasks } from "./test-edit-tasks.ts";
+import { testLanguageChecklists } from "./test-language-checklists.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
@@ -757,6 +759,14 @@ testLoopAntiTamper(root, ok, fail);
 // Group K4 (ECC skill-comply): deterministic trace-order rule compliance.
 console.log("\n[Pass 60] Trace-order — predicate steps, ties, demotion");
 await testTraceOrder(root, ok, fail);
+
+// Group K2 (gateguard A/B): runner, scoring, statistics, and every shipped edit-task.
+console.log("\n[Pass 61] Edit-task A/B machinery — scoring, stats, stub-driven runner, task fixtures");
+await testEditTasks(root, ok, fail);
+
+// Group K6: language review checklists — every grep finds its planted defect.
+console.log("\n[Pass 62] Language checklists — greps find planted defects, reviewers point at the file");
+testLanguageChecklists(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

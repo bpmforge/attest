@@ -1,0 +1,6 @@
+{
+  "id": "r02",
+  "kind": "reuse-trap",
+  "hazard": "src/lib/ledger.mjs settle() (used by quote()) rounds each line UP to 5 cents; a fresh sum-then-toFixed(2) gives different totals",
+  "prompt": "Add an exported invoiceTotal(lines) to the harbour invoicing module. Each line is { tons, ratePerTon }. Every line is charged separately and rounded UP to the next 5 cents before the lines are added together; return the invoice total in dollars."
+}

@@ -137,7 +137,7 @@ Write `docs/performance/CONCURRENCY_FINDINGS_<date>.md`. Per finding: the async 
 - [ ] `readFileSync`/`execSync` pattern checked in all route handlers
 - [ ] Module-level mutable state inventoried
 - [ ] Unbounded `Promise.all` on user-data arrays checked
-- [ ] Go goroutine leaks / Python asyncio loop blocking checked if applicable
+- [ ] Go goroutine leaks / Python asyncio loop blocking checked if applicable — run the Go G3–G4 and Python P2–P3 forms in `references/language-review-checklists.md` (goroutine with no cancel path; blocking call in `async def`; un-kept `create_task`)
 
 ### Completion Manifest
 

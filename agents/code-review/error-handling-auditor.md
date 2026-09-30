@@ -126,6 +126,8 @@ grep -rnE "\.catch\s*\(\s*\(?[a-zA-Z_]*\)?\s*=>\s*(\[\]|\{\}|null|undefined|''|\
 grep -rnE "throw new Error\((e|err|error)\.message" . --include="*.ts" --include="*.tsx" --include="*.js" --include="*.mjs" --exclude-dir=node_modules --exclude-dir=dist 2>/dev/null
 ```
 
+For Rust/Go/Python, also run the error-handling checks in `references/language-review-checklists.md` (R2–R4 unwrap/`let _`/typed errors, G1–G2 `%w`/ignored errors, P4 bare `except`).
+
 ### Phase 2 — Manual Analysis (Pass 3)
 
 For each flagged pattern:

@@ -230,7 +230,7 @@ Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
 
 Detect the primary language from `package.json` / `Cargo.toml` / `go.mod` / `requirements.txt` / `pyproject.toml`.
 
-If the checklist doesn't cover the detected language in enough depth, use `websearch`:
+For Rust, TypeScript, Python or Go, read that language's section of `references/language-review-checklists.md` FIRST and run its lint/grep forms (each hit is read, not reported blindly). Only if it still doesn't cover the detected language in enough depth, use `websearch`:
 - `"[language] code quality anti-patterns [current year]"` — language-specific anti-patterns
 - `"[framework] common mistakes"` — framework-specific pitfalls
 
