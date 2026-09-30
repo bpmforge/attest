@@ -134,7 +134,7 @@ const SKIP_EXTENSIONS = new Set([
   ".dll",
 ]);
 
-const WRITE_TOOLS = new Set(["write", "edit"]);
+const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
 
 function extension(filePath: string): string {
   const idx = filePath.lastIndexOf(".");
@@ -146,7 +146,7 @@ function basename(filePath: string): string {
 }
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
-  const gated = new Set<string>();
+  const gated = new Map<string, number>();
   return {
     "tool.execute.before": async (input, output) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
@@ -183,7 +183,12 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
           }
         }
 
-        const gate = gateguardCheck(gated, (input as any).sessionID, filePath, exists, process.env);
+        const gate = gateguardCheck(gated, input.sessionID, filePath, exists, process.env, {
+          log: (rec: object) => {
+            const f = process.env.EXPERTS_GATEGUARD_LOG;
+            if (f) appendFileSync(f, JSON.stringify(rec) + "\n");
+          },
+        });
         if (gate) throw new Error(gate);
       }
     },
