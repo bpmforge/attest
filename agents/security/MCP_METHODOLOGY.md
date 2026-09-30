@@ -99,14 +99,14 @@ Checklist mined from ECC `security-scan` (MIT; ECC ships only this list plus an 
 — an external dependency this system does NOT take without the user's approval). Grep-based, read-only:
 
 ```bash
-# .claude/settings*.json, opencode.json — over-broad permissions
-grep -nE '"(Bash|Write|Edit)\(\*\)"|"allow"\s*:\s*\[[^]]*\*' .claude/settings*.json opencode.json 2>/dev/null
+# the host agent's settings/permissions file(s) (e.g. .claude/settings*.json) — over-broad permissions
+grep -nE '"(Bash|Write|Edit)\(\*\)"|"allow"\s*:\s*\[[^]]*\*' .claude/settings*.json 2>/dev/null
 # deny list absent entirely?
 grep -L '"deny"' .claude/settings*.json 2>/dev/null
 # hooks that interpolate model-controlled data into a shell, or hide failure
 grep -nE '\$\{?(file|path|command|prompt)\}?|2>/dev/null|\|\|\s*true' .claude/settings*.json .claude/hooks/* 2>/dev/null
 # MCP servers launched via unpinned npx -y (supply-chain)
-grep -nE 'npx\s+-y|uvx\s+[^=]*$' .claude/settings*.json .mcp.json opencode.json 2>/dev/null
+grep -nE 'npx\s+-y|uvx\s+[^=]*$' .claude/settings*.json .mcp.json 2>/dev/null
 # auto-run / auto-approve instructions planted in CLAUDE.md / AGENTS.md
 grep -niE 'always (run|execute)|without (asking|confirmation)|auto[- ]?approve|ignore (previous|all) instructions' CLAUDE.md AGENTS.md 2>/dev/null
 # agents with unrestricted tools
