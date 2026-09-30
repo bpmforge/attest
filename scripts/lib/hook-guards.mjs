@@ -83,6 +83,8 @@ export function gateguardCheck(state, sessionId, filePath, exists, env = {}, opt
   } catch {
     /* a bad log path must not turn the fact request into an fs error (and skip the gate on retry) */
   }
+  // A/B arm D (pure pause): same deny+retry mechanics, NO fact request — separates "made to read" from "forced pause".
+  if (env.EXPERTS_GATEGUARD_NEUTRAL === "1") return `GATEGUARD: pausing this ${exists ? "edit" : "write"} of ${filePath}. Retry the same call.`;
   return exists
     ? `GATEGUARD: before editing ${filePath}, state these facts (gather them with grep/read, then retry the same edit):\n` +
         `1. Every file that imports/requires it.\n2. The public functions/classes this change affects.\n` +

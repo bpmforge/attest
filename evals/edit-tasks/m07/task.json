@@ -1,0 +1,6 @@
+{
+  "id": "m07",
+  "kind": "multi-module",
+  "hazard": "data/rota.json uses non-obvious field names (who, tower, on) and DD/MM/YYYY dates in unsorted order; code guessing keeper/date or sorting strings breaks",
+  "prompt": "In the lighthouse repo, add a function boardLines() in a new file src/board.mjs that loads the keepers' rota and returns one line per shift in date order, formatted like 'Ada @ North, 2026-09-29'."
+}
