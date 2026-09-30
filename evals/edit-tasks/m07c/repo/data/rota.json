@@ -1,0 +1,10 @@
+[
+  { "fmt": "a", "who": "Bram", "tower": "South", "on": "02/10/2026" },
+  { "fmt": "b", "keeper": "Dov", "station": "N", "starts": "2026-09-30T01:30:00Z" },
+  { "fmt": "a", "who": "Ada", "tower": "North", "on": "29/09/2026" },
+  { "fmt": "c", "who": "Hal", "tower": "West", "epochDay": 20725 },
+  { "fmt": "b", "keeper": "Eli", "station": "S", "starts": "2026-10-03T02:00:00Z" },
+  { "fmt": "c", "who": "Cleo", "tower": "East", "epochDay": 20711 },
+  { "fmt": "b", "keeper": "Fay", "station": "E", "starts": "2026-09-15T12:00:00Z" },
+  { "fmt": "b", "keeper": "Gus", "station": "W", "starts": "2026-10-01T03:59:00Z" }
+]
