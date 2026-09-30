@@ -1,0 +1,6 @@
+{
+  "id": "m06b",
+  "kind": "multi-module",
+  "hazard": "sightings.csv mixes DD/MM/YYYY and ISO dates and has a quoted comma in a name; amateur.json uses different field names with mixed date formats; results must span both sources, ordered by day with ties in listing order (csv before amateur)",
+  "prompt": "In the comet-sightings app, add an exported function sightingsInMonth(year, month) to src/sightings.mjs (month is 1-12). It returns the comet names sighted in that month from every sighting the app records, earliest day first; sightings on the same day keep the order in which they are listed."
+}
