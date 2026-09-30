@@ -124,6 +124,10 @@ For each `!` non-null assertion: what guarantees the value is non-null at this p
 
 For each type assertion (`as SomeType`): is the assertion provably safe? Or did the developer add it to silence the compiler?
 
+Additional checks (mined from ECC `type-design-analyzer`, MIT — escape hatches are only half of type safety):
+- **Illegal states representable:** boolean-flag soup (`isLoading` + `isError` + `data` that can all be true together) or optional fields whose presence depends on another field. Prefer a discriminated union / sum type so the impossible state cannot be constructed.
+- **Invariants not encapsulated:** a type whose validity rule (non-empty, sorted, balance == sum) is enforced only by callers, with public mutable fields or no validating constructor/factory. Flag where a single constructor could enforce it.
+
 ### Phase 3 — Write Findings
 
 Write `docs/reviews/TYPE_SAFETY_FINDINGS_<date>.md`. Per finding: file:line, type escape pattern, why it's risky, safer alternative.
