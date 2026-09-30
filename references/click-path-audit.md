@@ -24,8 +24,7 @@ STORE emailStore
   selectThread(t|null)   → sets {selectedThread, messages, drafts}  RESETS {composeMode:false, composeData:null}
 DANGEROUS RESETS: selectThread resets composeMode (owned by setComposeMode); reset() resets everything
 ```
-Search aids: `grep -nE 'set\(\s*(\(?state\)?\s*=>\s*)?\(?\{'` (Zustand `set`), `createSlice|reducers:` (Redux Toolkit),
-`useReducer\(`. Read each action body; a reset is any field set back to its initial/empty value that the action's name
+Search aids (candidate finders — read every action body): `grep -rnE '\bset\(' --include=*.ts --include=*.tsx` (Zustand `set`; the callback may be `s =>` or `(state) =>` and the object may start on the next line, so do not anchor on `set({`), `createSlice|reducers:` (Redux Toolkit), `useReducer\(`. Read each action body; a reset is any field set back to its initial/empty value that the action's name
 does not promise.
 
 ## Step 2 — audit each touchpoint
@@ -36,7 +35,7 @@ look each up in the Step 1 map, and check the FINAL state against what the label
 |---|---------|-----------|
 | 1 | Sequential undo | call A sets X; a later call B (side effect) resets X. First call was pointless |
 | 2 | Async race | two un-awaited promises each `setState` the same field; the result depends on resolution order |
-| 3 | Stale closure | `setCount(count+1)` twice from one captured `count` increments once (`useCallback` deps); use the functional form |
+| 3 | Stale closure | (a) `setCount(count+1)` twice in one handler reads one captured `count` and increments once — use the functional form `setCount(c => c+1)`; (b) a `useCallback`/timer/async callback whose dependency list is missing a value keeps reading the old one — fix the deps, the functional form does not help |
 | 4 | Missing transition | the label promises "Save/Delete/Send" but the handler only validates/flags — no API call, or the endpoint is gone |
 | 5 | Conditional dead path | `if (flag) { doTheThing() }` where `flag` is always false at that point |
 | 6 | Effect interference | button sets `x = true`; a `useEffect` watching `x` resets it (or refetches and overwrites it) |

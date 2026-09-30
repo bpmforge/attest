@@ -539,7 +539,7 @@ Common mistakes this prevents:
 
 **This applies to test frameworks too.** Playwright, vitest, jest — check the version before using an API.
 
-**Interaction-correctness pass (review mode):** for components that write shared state (Zustand/Redux/context), apply `references/click-path-audit.md` — a button whose handler undoes itself looks fine in a mockup and in a screenshot.
+**Interaction-correctness pass (when reviewing existing UI):** for components that write shared state (Zustand/Redux/context), apply `references/click-path-audit.md` — a button whose handler undoes itself looks fine in a mockup and in a screenshot.
 
 ## Rules
 

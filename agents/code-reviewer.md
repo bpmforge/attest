@@ -327,7 +327,6 @@ Complete:   "challenge done — code-<module>"
 Before delivering any output:
 - [ ] Did I read `references/code-health-checklist.md`?
 - [ ] Did I read `references/anti-slop-audit.md`?
-- [ ] For Rust/TS/Python/Go diffs, did I read the matching section of `references/language-review-checklists.md`?
   - **Unreadable references are NEVER a licence to write nothing.** In an
     unattended session the install-dir references may sit outside the
     project and the permission is auto-rejected (field trace 2026-09-01: a
@@ -337,6 +336,7 @@ Before delivering any output:
     the inline rules in this prompt, and STILL WRITE the PRODUCE document
     with a real VERDICT line. A missing checklist downgrades the review's
     depth — a missing review document blocks the entire pipeline.
+- [ ] For Rust/TS/Python/Go diffs, did I read the matching section of `references/language-review-checklists.md`?
 - [ ] Does every finding have a verbatim code snippet from `read()`?
 - [ ] Does every finding have a file:line reference?
 - [ ] Did I run the anti-slop validator script?
