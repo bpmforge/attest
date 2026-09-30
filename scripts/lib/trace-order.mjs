@@ -6,10 +6,13 @@
  * ORDERING is deterministic. Here step detection is a PREDICATE on tool + args + output
  * (no LLM, no spend), so the whole grade is reproducible and fixture-testable.
  *
- * Trace event : { seq, group?, tool, file?, cmd?, out? }   seq = call order.
+ * Trace event : { seq, group?, session?, tool, file?, cmd?, out? }   seq = call order.
  *               Events sharing a `group` were issued in parallel: their relative
  *               order is undefined, so an after/before constraint between two events
  *               of one group NEVER fails (ECC's synthetic timestamps get this wrong).
+ *               LIMITATION: opencode's tool.execute.after does not say which calls were
+ *               parallel, so traceEvent() emits no `group`; ties exist only when the trace
+ *               source supplies one (e.g. Claude stream-json, per assistant message).
  * Spec        : { id, threshold?, steps:[{ id, required?, match, after?, before? }] }
  *               match = { tool?: string[], file?: regex, cmd?: regex, out?: regex,
  *                         notFile?: regex }   (all present fields must hold)
@@ -49,8 +52,28 @@ function temporalFailure(step, ev, resolved, candidatesOf, graded) {
   return null;
 }
 
-export function gradeTrace(spec, trace) {
-  const events = [...trace].sort((a, b) => a.seq - b.seq);
+/** Fail loudly on a malformed spec: a typo'd `before` id used to relax a constraint silently. */
+export function validateSpec(spec) {
+  const err = (m) => { throw new Error(`trace-order spec ${spec?.id ?? "?"}: ${m}`); };
+  if (!spec || !Array.isArray(spec.steps)) err("steps[] missing");
+  const ids = new Set();
+  for (const st of spec.steps) {
+    if (!st.id || ids.has(st.id)) err(`missing or duplicate step id '${st.id}'`);
+    ids.add(st.id);
+    const m = st.match ?? err(`step '${st.id}' has no match`);
+    if (m.tool !== undefined && !Array.isArray(m.tool)) err(`step '${st.id}' match.tool must be an array`);
+    for (const k of ["file", "notFile", "cmd", "out"]) if (m[k] !== undefined) { try { new RegExp(m[k]); } catch { err(`step '${st.id}' match.${k} is not a valid regex`); } }
+  }
+  for (const st of spec.steps) for (const k of ["after", "before"]) if (st[k] !== undefined && !ids.has(st[k])) err(`step '${st.id}' ${k} '${st[k]}' is not a step id`);
+  const seen = (id, path) => { if (path.includes(id)) err(`after-cycle through '${id}'`); const a = spec.steps.find((x) => x.id === id)?.after; if (a) seen(a, [...path, id]); };
+  for (const st of spec.steps) seen(st.id, []);
+}
+
+export function gradeTrace(spec, trace, opts = {}) {
+  validateSpec(spec);
+  if (!Array.isArray(trace)) throw new Error("trace-order: trace must be an array of events");
+  // A capture file can interleave sessions (seq is per plugin instance): grade one session at a time.
+  const events = (opts.session ? trace.filter((e) => e.session === opts.session) : [...trace]).sort((a, b) => a.seq - b.seq);
   const byStep = new Map(spec.steps.map((s) => [s.id, events.filter((e) => matches(e, s.match))]));
   const candidatesOf = (id) => byStep.get(id) ?? [];
   const resolved = new Map();
