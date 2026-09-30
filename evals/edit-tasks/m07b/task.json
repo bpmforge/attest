@@ -1,0 +1,6 @@
+{
+  "id": "m07b",
+  "kind": "multi-module",
+  "hazard": "rota.json holds two record shapes (who/tower/on DD/MM/YYYY vs keeper/station-code/starts UTC timestamp); station codes need a lookup; the UTC timestamp must be converted to the station's local day (fixed UTC-4), not sliced; unsorted",
+  "prompt": "In the lighthouse repo, add a function boardLines() in a new file src/board.mjs that loads the keepers' rota and returns one line per shift in date order (shifts on the same date ordered by keeper name), formatted like 'Ada @ North, 2026-09-29' where the date is the day the shift starts at the lighthouse."
+}
