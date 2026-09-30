@@ -148,10 +148,13 @@ function basename(filePath: string): string {
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Set<string>();
   return {
-    "tool.execute.before": async (input, _output) => {
+    "tool.execute.before": async (input, output) => {
+      // opencode passes the call arguments in `output.args` here (input.args exists
+      // only in tool.execute.after) — reading input.args made every guard below a no-op.
+      const args = (output as any)?.args ?? (input as any).args ?? {};
       // Bash: block dangerous commands
       if (input.tool === "bash" || input.tool === "run") {
-        const command: string = input.args?.command ?? "";
+        const command: string = args?.command ?? "";
         for (const [pattern, reason] of DANGEROUS_BASH) {
           if (pattern.test(command)) {
             throw new Error(
@@ -164,7 +167,7 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // Write/edit: block .env and credential files
       if (WRITE_TOOLS.has(input.tool)) {
         const filePath: string =
-          input.args?.filePath ?? input.args?.file_path ?? "";
+          args?.filePath ?? args?.file_path ?? "";
         if (!filePath) return;
 
         // K1/K2 (ECC): config-protection + opt-in fact-forcing gate.

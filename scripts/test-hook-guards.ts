@@ -38,10 +38,36 @@ export async function testHookGuards(
   check("K2 new session re-gates", gateguardCheck(st, "s2", "/p/a.ts", true, env) !== null);
   check("K2 create gate asks for callers", /call/i.test(gateguardCheck(new Set(), "s", "/p/n.ts", false, env) ?? ""));
 
-  // wiring
-  const plugin = fs.readFileSync(path.join(root, "plugins/expert-hooks.ts"), "utf8");
-  check(
-    "plugin imports and invokes both guards",
-    /configProtectionCheck\(/.test(plugin) && /gateguardCheck\(/.test(plugin) && /hook-guards\.mjs/.test(plugin),
-  );
+  // wiring: call the REAL plugin hook the way opencode does (args in output.args).
+  // A source-text grep here passed while every guard was a silent no-op.
+  const { ExpertHooks } = await import(pathToFileURL(path.join(root, "plugins/expert-hooks.ts")).href);
+  const hooks = await ExpertHooks({ $: (() => ({ quiet: () => ({ nothrow: async () => ({}) }) })) as any } as any);
+  const before = hooks["tool.execute.before"];
+  const run = async (tool: string, args: any, env: Record<string, string> = {}) => {
+    const saved = { ...process.env };
+    Object.assign(process.env, env);
+    try {
+      await before({ tool, sessionID: "sess", callID: "c" }, { args });
+      return null;
+    } catch (e: any) {
+      return String(e.message);
+    } finally {
+      for (const k of Object.keys(env)) delete process.env[k];
+      Object.assign(process.env, saved);
+    }
+  };
+  const tmp = fs.mkdtempSync(path.join(root, ".tmp-hg-"));
+  try {
+    const cfg = path.join(tmp, "tsconfig.json");
+    fs.writeFileSync(cfg, "{}");
+    check("wiring: plugin blocks edit of existing tsconfig", /BLOCKED/.test((await run("edit", { filePath: cfg })) ?? ""));
+    check("wiring: plugin blocks rm -rf / via output.args", /BLOCKED/.test((await run("bash", { command: "rm -rf /" })) ?? ""));
+    check("wiring: plugin blocks .env write", /BLOCKED/.test((await run("write", { filePath: path.join(tmp, ".env") })) ?? ""));
+    const src = path.join(tmp, "a.ts");
+    fs.writeFileSync(src, "x");
+    check("wiring: ordinary edit allowed (gateguard off)", (await run("edit", { filePath: src })) === null);
+    check("wiring: gateguard on denies first edit, allows retry", /GATEGUARD/.test((await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) ?? "") && (await run("edit", { filePath: src }, { EXPERTS_GATEGUARD: "1" })) === null);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
 }
