@@ -76,3 +76,11 @@ Each shipped wave's diff is challenged again (read-only reviewer, primary source
 - Mutation audit (~75 mutants): `after`-order, file/cmd/out predicates, threshold, sort, 3-deep demotion, plugin sessionID + log wiring were all untested → tests added; 8 spot-mutations now go red.
 - Bug hunt: config-protection false-positived on vendored/fixture trees and was bypassable by case/symlink/Windows path; `gateguard.sh` newline-in-path bypass; bad log path turned a deny into an fs error; trace spec typos silently relaxed constraints → all fixed and tested (shell repros re-run).
 - Content: MCP06 greps graded on real configs (line-grep blind to pretty-printed JSON → jq; added the permission-prompt bypass flag; dropped a 100%-noise agents grep); `.catch` grep measured at ~75% FP on attest scripts → scoped and documented.
+
+## K2 pilot (2026-09-30) — pipeline validated, no verdict possible
+Model `mtplx-m4max/qwen3.8-27b-uncensored-mtplx-q4-1` (local hardware, no API cost) through real opencode with the freshly installed plugin.
+4 tasks (m02, m04, m05 multi-module; i03 isolated) x 4 arms x 2 runs = 32 runs, ~2.2 min each. Raw rows: `docs/work/edit-task-results-pilot-2026-09-30.jsonl`.
+- **Pipeline:** gate fire rate on arm B 100%; 0 infra failures; 0 gamed runs; traces in 31/32 runs; the analysis correctly says INSUFFICIENT (4/16 tasks). A single gated probe run first confirmed the gate fires through opencode — the stale-installed-plugin failure the challenge predicted would otherwise have made arm B identical to arm A.
+- **Ceiling effect:** this model passes m02, m04 and i03 in the UNGATED arm 2/2, so those tasks cannot show lift. m05 (real hazard: `report.mjs` branches on `null`) fails 0/2 in A, B and D and 1/2 in C, even when the agent searched first (B: facts given 2/2) — a discriminating task, but n=2 per cell says nothing.
+- **Do not read the pass-rate table as evidence about gateguard.** Everything a pilot of this size can show is that the machinery measures what it claims to.
+- **For the full run (320 runs, ~12 h on this box):** consider a weaker model or harder tasks first to avoid the ceiling, otherwise the multi-module lift is unmeasurable by construction.
