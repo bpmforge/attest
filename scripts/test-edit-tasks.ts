@@ -42,34 +42,58 @@ export async function testEditTasks(
   check("K2 peeking at the hidden test is flagged gamed", run.scoreRun({ arm: "A", traceRows: [{ seq: 1, tool: "bash", cmd: "cat /x/hidden/test.mjs" }], hiddenMarkers: ["hidden/test.mjs"] }).gamed === true);
   check("K2 a bash write path is flagged (ungated route around the gate)", run.scoreRun({ arm: "B", traceRows: [{ seq: 1, tool: "bash", cmd: "sed -i s/a/b/ src/x.mjs" }] }).bashWrite === true);
 
-  // ---- statistics
-  const mk = (task: string, kind: string, arm: string, passes: number, of: number, extra: any = {}) =>
-    Array.from({ length: of }, (_, i) => ({ task, kind, arm, run: i, pass: i < passes, fired: arm === "B" || arm === "D", durationMs: 1000, gamed: false, ...extra }));
+  // ---- statistics (dataset builder: A/B/C/D rows for tasks given as [passesA, passesB] out of 5)
+  const build = (multi: Array<[number, number]>, iso: Array<[number, number]>, reuse: Array<[number, number]>, mod: (r: any) => any = (r) => r) => {
+    const rows: any[] = [];
+    const add = (kind: string, prefix: string, specs: Array<[number, number]>) => specs.forEach(([a, b], t) => {
+      const id = `${prefix}${t}`;
+      const mk = (arm: string, passes: number) => Array.from({ length: 5 }, (_, i) => ({ task: id, kind, arm, run: i, pass: i < passes, fired: arm === "B" || arm === "D", traced: true, edited: true, durationMs: 1000, gamed: false, infra: false }));
+      rows.push(...mk("A", a), ...mk("B", b), ...mk("C", a), ...mk("D", a));
+    });
+    add("multi-module", "m", multi); add("isolated", "i", iso); add("reuse-trap", "r", reuse);
+    return rows.map(mod);
+  };
+  const rep = (n: number, v: [number, number]) => Array.from({ length: n }, () => v);
+  const win = build(rep(8, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]));
   check("K2 sign test: 8/8 positive tasks is significant, 4/8 is not",
     stats.signTest(Array(8).fill(0.2)).p < 0.02 && stats.signTest([0.2, 0.2, 0.2, 0.2, -0.2, -0.2, -0.2, -0.2]).p > 0.9);
   check("K2 bootstrap CI is deterministic for a seed", JSON.stringify(stats.bootstrapCI([0.1, 0.3, 0.2, 0.4])) === JSON.stringify(stats.bootstrapCI([0.1, 0.3, 0.2, 0.4])));
-  const win: any[] = [];
-  for (let t = 0; t < 6; t++) win.push(...mk(`m${t}`, "multi-module", "A", 1, 5), ...mk(`m${t}`, "multi-module", "B", 5, 5), ...mk(`m${t}`, "multi-module", "C", 2, 5), ...mk(`m${t}`, "multi-module", "D", 1, 5));
-  for (let t = 0; t < 4; t++) win.push(...mk(`i${t}`, "isolated", "A", 4, 5), ...mk(`i${t}`, "isolated", "B", 4, 5), ...mk(`i${t}`, "isolated", "C", 4, 5), ...mk(`i${t}`, "isolated", "D", 4, 5));
-  check("K2 flip rule: a clear multi-module win with no isolated loss and no overhead FLIPS", stats.evaluate(win).verdict === "FLIP", JSON.stringify(stats.evaluate(win).verdict));
-  check("K2 flip rule: B beats A but B ~ D is reported (pause, not facts)", Math.abs(stats.evaluate(win).BminusD.mean) > 0.5 || true);
-  const tie = win.map((r) => (r.arm === "B" ? { ...r, pass: r.arm === "B" && r.kind === "multi-module" ? r.run < 1 : r.pass } : r));
-  check("K2 flip rule: no lift => STAY_OPT_IN", stats.evaluate(tie).verdict === "STAY_OPT_IN");
-  const slow = win.map((r) => (r.arm === "B" ? { ...r, durationMs: 2000 } : r));
-  check("K2 flip rule: >25% overhead blocks the flip", stats.evaluate(slow).verdict === "STAY_OPT_IN");
-  check("K2 flip rule: too few tasks/runs => INSUFFICIENT (never a silent pass)", stats.evaluate(win.filter((r) => r.run < 2)).verdict === "INSUFFICIENT");
-  const firedOnlyTrap = win.map((r) => (r.arm === "B" && r.kind === "multi-module" ? { ...r, fired: r.pass } : r));
-  check("K2 gamed runs are excluded from rates and counted", stats.evaluate(win.map((r, i) => (i === 0 ? { ...r, gamed: true } : r))).gamedRuns === 1);
-  void firedOnlyTrap;
-  // Noisy lift: mean delta is positive but the 95% CI spans zero => must NOT flip (mean > 0 is not the rule; CI lower bound is).
-  const noisy: any[] = [];
-  const plan: Array<[number, number]> = [[1, 5], [1, 5], [4, 2], [4, 2], [2, 3], [3, 3]];
-  plan.forEach(([a, b], t) => noisy.push(...mk(`m${t}`, "multi-module", "A", a, 5), ...mk(`m${t}`, "multi-module", "B", b, 5), ...mk(`m${t}`, "multi-module", "C", a, 5), ...mk(`m${t}`, "multi-module", "D", a, 5)));
-  for (let t = 0; t < 4; t++) noisy.push(...mk(`i${t}`, "isolated", "A", 4, 5), ...mk(`i${t}`, "isolated", "B", 4, 5), ...mk(`i${t}`, "isolated", "C", 4, 5), ...mk(`i${t}`, "isolated", "D", 4, 5));
-  const nz = stats.evaluate(noisy);
+  check("K2 flip rule: a clear multi-module win with no isolated loss and no overhead FLIPS", stats.evaluate(win).verdict === "FLIP", stats.evaluate(win).note ?? "");
+  check("K2 flip rule: no lift => STAY_OPT_IN", stats.evaluate(build(rep(8, [3, 3]), rep(4, [4, 4]), rep(4, [3, 3]))).verdict === "STAY_OPT_IN");
+  check("K2 flip rule: >25% paired overhead blocks the flip", stats.evaluate(build(rep(8, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]), (r) => (r.arm === "B" ? { ...r, durationMs: 2000 } : r))).verdict === "STAY_OPT_IN");
+  check("K2 flip rule: an isolated-task loss beyond the margin blocks the flip", stats.evaluate(build(rep(8, [1, 5]), rep(4, [5, 3]), rep(4, [3, 3]))).verdict === "STAY_OPT_IN");
+  const nz = stats.evaluate(build([[1, 5], [1, 5], [4, 2], [4, 2], [2, 3], [3, 3], [3, 3], [3, 3]], rep(4, [4, 4]), rep(4, [3, 3])));
   check("K2 flip rule: positive mean but CI spanning zero does NOT flip", nz.itt.multi.mean > 0 && nz.itt.multi.lo <= 0 && nz.verdict === "STAY_OPT_IN", `mean=${nz.itt.multi.mean} lo=${nz.itt.multi.lo} verdict=${nz.verdict}`);
+  const weak = stats.evaluate(build([[1, 2], [1, 2], [1, 2], [2, 2], [2, 2], [2, 2]], rep(6, [4, 4]), rep(4, [3, 3])));
+  check("K2 flip rule: a bootstrap CI above zero is NOT enough without the sign test (3 of 6 tasks up)", weak.itt.multi.lo > 0 && weak.itt.multi.sign.p > 0.05 && weak.verdict === "STAY_OPT_IN", `lo=${weak.itt.multi.lo} p=${weak.itt.multi.sign.p} v=${weak.verdict}`);
+
+  // INVALID: the experiment must never read as "the gate does not help" when it did not measure the gate
+  check("K2 INVALID when the gate never fired on arm B (plugin not loaded)", stats.evaluate(build(rep(8, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]), (r) => ({ ...r, fired: false }))).verdict === "INVALID");
+  check("K2 INVALID when traces are missing", stats.evaluate(build(rep(8, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]), (r) => ({ ...r, traced: false }))).verdict === "INVALID");
+  check("K2 INVALID when >20% of runs are infrastructure failures (dead model server)", stats.evaluate(build(rep(8, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]), (r) => (r.run < 2 ? { ...r, infra: true, pass: false } : r))).verdict === "INVALID");
+  check("K2 INVALID when arms C/D are missing", stats.evaluate(win.filter((r: any) => r.arm === "A" || r.arm === "B")).verdict === "INVALID");
+  check("K2 INVALID when every run was gamed", stats.evaluate(win.map((r: any) => ({ ...r, gamed: true }))).verdict === "INVALID");
+  check("K2 INSUFFICIENT with too few runs per cell (never a silent pass)", stats.evaluate(win.filter((r: any) => r.run < 3)).verdict === "INSUFFICIENT");
+  check("K2 INSUFFICIENT with too few tasks", stats.evaluate(build(rep(6, [1, 5]), rep(4, [4, 4]), rep(4, [3, 3]))).verdict === "INSUFFICIENT");
+  check("K2 gamed runs do not count toward a cell's minimum", stats.evaluate(win.map((r: any) => (r.task === "m0" && r.arm === "B" && r.run < 2 ? { ...r, gamed: true } : r))).verdict === "INSUFFICIENT");
+  let dupThrew = false;
+  try { stats.evaluate([...win, win[0]]); } catch { dupThrew = true; }
+  check("K2 duplicate result rows are rejected (a re-run must resume, not append)", dupThrew);
   const gr = stats.taskRates([{ task: "t", kind: "k", arm: "A", pass: true, gamed: true }, { task: "t", kind: "k", arm: "A", pass: false, gamed: false }], "A").get("t");
   check("K2 a gamed run is excluded from the pass rate (not just counted)", gr.n === 1 && gr.rate === 0);
+  const inf = stats.taskRates([{ task: "t", kind: "k", arm: "A", pass: false, infra: true }, { task: "t", kind: "k", arm: "A", pass: true }], "A").get("t");
+  check("K2 an infrastructure failure is not scored as a task FAIL", inf.n === 1 && inf.rate === 1);
+  const eo = stats.taskRates([{ task: "t", kind: "k", arm: "A", pass: false, edited: false }, { task: "t", kind: "k", arm: "A", pass: true, edited: true }], "A", { editedOnly: true }).get("t");
+  check("K2 edited-only conditions every arm on 'attempted a write'", eo.n === 1 && eo.rate === 1);
+
+  // ---- hardening helpers
+  check("K2 stripExperts removes every inherited EXPERTS_* var", !Object.keys(run.stripExperts({ EXPERTS_GATEGUARD_NEUTRAL: "1", EXPERTS_X: "y", PATH: "/bin" })).some((k) => k.startsWith("EXPERTS_")) && run.stripExperts({ PATH: "/bin" }).PATH === "/bin");
+  check("K2 scanTamper flags process.exit / node:assert / assert monkey-patching in agent code",
+    run.scanTamper([{ path: "a", text: "process.exit(0)" }, { path: "b", text: "import a from 'node:assert'" }, { path: "c", text: "assert.equal = () => {}" }, { path: "d", text: "export const x = 1" }]).join() === "a,b,c");
+  const tap = run.parseTap("TAP version 13\n# tests 3\n# pass 3\n# fail 0\n");
+  check("K2 hiddenVerdict demands the declared number of tests all passing", run.hiddenVerdict(tap, 3) === true && run.hiddenVerdict(tap, 4) === false && run.hiddenVerdict({ tests: 3, pass: 2, fail: 1 }, 3) === false && run.hiddenVerdict({ tests: NaN, pass: NaN, fail: NaN }, 1) === false);
+  check("K2 countDeclaredTests counts test()/it() declarations", run.countDeclaredTests('test("a", ()=>{});\n  it("b", ()=>{});\n// test(no)\n') === 2);
+  check("K2 hidden markers cover the task dir, hidden test, solution overlay and task.json", ["/t/x", "hidden/test.mjs", "/solution", "task.json"].every((m) => run.hiddenMarkersFor("/t/x").includes(m)));
 
   // ---- runner end-to-end with the stub agent on a synthetic task (free)
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "edit-tasks-"));
@@ -98,6 +122,17 @@ export async function testEditTasks(
     check("K2 runner: a stub that does nothing FAILS the hidden test (the test can fail)", noop.rows.length === 4 && noop.rows.every((r: any) => !r.pass));
     const peek = go("peek");
     check("K2 runner: peeking at hidden/ is recorded as gamed", peek.rows.every((r: any) => r.gamed));
+    const again = go("solve");
+    check("K2 runner resumes: re-running the same plan adds no duplicate rows", again.rows.length === 4, `rows=${again.rows.length}`);
+    const infraOut = path.join(tmp, "res-infra.jsonl");
+    spawnSync("node", [runner, "--tasks-dir", path.join(tmp, "tasks"), "--runs", "1", "--out", infraOut, "--agent-cmd", "exit 3"], { encoding: "utf8", timeout: 60000 });
+    const infraRows = fs.readFileSync(infraOut, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    check("K2 runner: a non-zero agent exit is recorded as infra, not as a task failure", infraRows.every((r: any) => r.infra === true));
+    const stale = fs.mkdtempSync(path.join(tmp, "oc-"));
+    fs.mkdirSync(path.join(stale, "plugins"), { recursive: true });
+    fs.writeFileSync(path.join(stale, "plugins", "expert-hooks.ts"), "// stale install\n");
+    const pre = spawnSync("node", [runner, "--tasks-dir", path.join(tmp, "tasks"), "--runs", "1", "--yes", "--out", path.join(tmp, "pre.jsonl")], { encoding: "utf8", env: { ...process.env, EVAL_MODEL: "x/y", OPENCODE_CONFIG_DIR: stale } });
+    check("K2 runner preflight: a stale installed plugin aborts real runs (exit 3, no rows)", pre.status === 3 && /PREFLIGHT FAILED/.test(pre.stderr) && !fs.existsSync(path.join(tmp, "pre.jsonl")));
     const refuse = spawnSync("node", [runner, "--tasks-dir", path.join(tmp, "tasks"), "--runs", "1"], { encoding: "utf8", env: { ...process.env, EVAL_MODEL: "x/y" } });
     check("K2 runner: refuses to spend model budget without --yes", refuse.status === 2 && /refusing to spend/.test(refuse.stderr));
     const dry = spawnSync("node", [runner, "--tasks-dir", path.join(tmp, "tasks"), "--runs", "2", "--dry-run"], { encoding: "utf8" });
@@ -124,6 +159,9 @@ export async function testEditTasks(
     } finally {
       fs.rmSync(work, { recursive: true, force: true });
     }
+    const jsFiles = ["repo", "solution"].flatMap((d) => (fs.existsSync(path.join(td, d)) ? (fs.readdirSync(path.join(td, d), { recursive: true }) as string[]).map((f) => path.join(td, d, String(f))) : []))
+      .filter((f) => /\.(m?js|cjs|ts)$/.test(f) && fs.statSync(f).isFile()).map((f) => ({ path: f, text: fs.readFileSync(f, "utf8") }));
+    check(`K2 task ${id}: shipped repo/ and solution/ code is clean under the tamper scan`, run.scanTamper(jsFiles).length === 0, run.scanTamper(jsFiles).join(","));
     const t = JSON.parse(fs.readFileSync(path.join(td, "task.json"), "utf8"));
     // A prompt may name the thing it changes, but must not hint at the hazard: no callers/importers/helpers/data-file talk.
     const hint = String(t.prompt).match(/\b(callers?|importers?|imports?|depends? on|other (files?|modules?)|re-?exports?|barrel|data file|schema|existing (helper|function|util\w*)|already (has|have|exists?)|reuse|check (the )?(other|all))\b/i);
