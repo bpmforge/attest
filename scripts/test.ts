@@ -37,6 +37,7 @@ import { testOnboardGate } from "./test-onboard-gate.ts";
 import { testInstallVersion } from "./test-install-version.ts";
 import { testHookGuards } from "./test-hook-guards.ts";
 import { testLoopAntiTamper } from "./test-loop-antitamper.ts";
+import { testTraceOrder } from "./test-trace-order.ts";
 import { testReflowLaneClaim } from "./test-reflow-lane-claim.ts";
 import { testWatchdogBudget } from "./test-watchdog-budget.ts";
 import { testSkillsParity } from "./test-skills-parity.ts";
@@ -752,6 +753,10 @@ await testHookGuards(root, ok, fail);
 // Group K3 (ECC loop-design-check): loop skills forbid moving the goalposts.
 console.log("\n[Pass 59] Loop anti-tamper — goal/autopilot/wave Boundaries");
 testLoopAntiTamper(root, ok, fail);
+
+// Group K4 (ECC skill-comply): deterministic trace-order rule compliance.
+console.log("\n[Pass 60] Trace-order — predicate steps, ties, demotion");
+await testTraceOrder(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

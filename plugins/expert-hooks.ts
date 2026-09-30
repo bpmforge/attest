@@ -2,6 +2,7 @@ import type { Plugin } from "@opencode-ai/plugin";
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
 import { configProtectionCheck, gateguardCheck } from "../scripts/lib/hook-guards.mjs";
+import { traceEvent } from "../scripts/lib/trace-order.mjs";
 import { dirname, join } from "node:path";
 
 // expert-hooks.ts — opencode plugin
@@ -147,6 +148,7 @@ function basename(filePath: string): string {
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Map<string, number>();
+  let traceSeq = 0;
   return {
     "tool.execute.before": async (input, output) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
@@ -193,7 +195,16 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       }
     },
 
-    "tool.execute.after": async (input, _output) => {
+    "tool.execute.after": async (input, output) => {
+      // K4: opt-in per-tool-call trace (EXPERTS_TRACE_LOG=<file>) for rule-compliance grading.
+      const traceLog = process.env.EXPERTS_TRACE_LOG;
+      if (traceLog) {
+        try {
+          appendFileSync(traceLog, JSON.stringify(traceEvent(++traceSeq, input, output)) + "\n");
+        } catch {
+          /* tracing must never break the tool call */
+        }
+      }
       if (!WRITE_TOOLS.has(input.tool)) return;
 
       const filePath: string =
