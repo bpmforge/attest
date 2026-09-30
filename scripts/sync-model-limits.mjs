@@ -48,7 +48,9 @@ if (!existsSync(CONFIG)) {
   process.exit(2);
 }
 
-const res = await fetch(`${BASE}/api/v0/models`).catch(() => null);
+// Bounded: a hung LM Studio server accepts the connection and never answers; an
+// unbounded fetch wedged every caller (run-until-done, its Pass 22 tests) forever.
+const res = await fetch(`${BASE}/api/v0/models`, { signal: AbortSignal.timeout(8000) }).catch(() => null);
 if (!res?.ok) {
   console.error(`GAP: LM Studio unreachable at ${BASE} -- refusing to write stale limits`);
   process.exit(1);
