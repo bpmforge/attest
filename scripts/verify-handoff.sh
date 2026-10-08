@@ -260,9 +260,11 @@ for cmd in "${CMDS[@]}"; do
   # and would silently inflate the baseline. Before this, a node --test project
   # scored 0, so its deletion check was inert and tests could vanish unnoticed
   # (found 2026-07-30 running a real HANDOFF against a node --test project).
+  # The glyph is an alternation, not a bracket expression: "ℹ" is three bytes,
+  # and under LANG=C a bracket matches one byte, so `[#ℹ]` never matched it.
   CMD_PASSED=$(
     { grep -Eo '[0-9]+ pass(ed|ing)' "$LOG" 2>/dev/null | grep -Eo '^[0-9]+' || true
-      grep -Eo '^[#ℹ][[:space:]]*pass[[:space:]]+[0-9]+' "$LOG" 2>/dev/null | grep -Eo '[0-9]+$' || true
+      grep -Eo '^(#|ℹ)[[:space:]]*pass[[:space:]]+[0-9]+' "$LOG" 2>/dev/null | grep -Eo '[0-9]+$' || true
     } | awk '{ s += $1 } END { print s + 0 }'
   )
   TOTAL_PASSED=$((TOTAL_PASSED + CMD_PASSED))
