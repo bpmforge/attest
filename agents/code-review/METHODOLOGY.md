@@ -428,7 +428,7 @@ Edit(filePath="docs/reviews/CODE_HEALTH_TRACKER.md",
 
 ## Phase 5: Write the Health Report
 
-Use the Health Dashboard template from the checklist. Score all 9 dimensions (include anti-slop + tech-stack compliance), then compute the overall score. Apply the verdict rubric.
+Use the Health Dashboard template from the checklist. Score all 9 dimensions (include dead/unutilized code + tech-stack compliance; report the anti-slop pass alongside, with its ≥8 threshold), then compute the overall score. Apply the verdict rubric.
 
 **After writing the report — mirror the Health Dashboard into the tracker:**
 ```
