@@ -7,10 +7,10 @@
 - `skills/` — thin trigger files (`<name>/SKILL.md`) that map a slash command to an agent
 - `commands/` — `/sdlc <subcommand>` definitions (init, onboard, feature, improve, gate, status)
 - `tools/` — TypeScript tools loaded by opencode (write/edit/bash with schema guards, semgrep, playwright, etc.)
-- `plugins/` — opencode plugins (currently `expert-hooks.ts` for safety + quality automation)
+- `plugins/` — opencode plugins (`expert-hooks.ts` for safety + quality automation, `resume-anchor.ts` for compaction recovery)
 - `references/` — checklists and templates agents read at runtime
 - `scripts/validators/` — bash validators wired into the gate orchestrator
-- `hooks/` — empty (loop prevention now lives in `tools/` and `plugins/expert-hooks.ts`)
+- There is no `hooks/` directory here: loop prevention lives in `tools/` and `plugins/expert-hooks.ts` (Claude Code hooks are hand-maintained in attest-claude's `hooks/`)
 
 ## Adding a New Expert Agent
 
@@ -69,7 +69,7 @@ When invoked, follow this workflow in order:
 
 ### Step 2: Create the Skill (Slash Command)
 
-Create `skills/my-expert.md`:
+Create `skills/my-command/SKILL.md` (each skill is a directory):
 
 ```markdown
 ---
