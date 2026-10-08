@@ -194,13 +194,13 @@ claude mcp add memory node ~/Code/bpm-memory-mcp/mcp/memory-server/dist/index.js
 
 **Fallback when unavailable:** Agents write to `docs/work/SESSION_NOTES.md`.
 
-**Embedding provider:** Requires LM Studio running with `text-embedding-nomic-embed-text-v1.5` on port 1234. If LM Studio isn't running, BM25-only search still works — just set `EMBEDDING_PROVIDER=none` in the server's env.
+**Embedding provider:** Read from `~/.claude-memory/config.json`, not from environment variables. With no config file the server uses Ollama at `http://localhost:11434` with `nomic-embed-text`; `install.sh` writes a config selecting LM Studio when it finds LM Studio serving an embedding model and no config exists. If the embedder isn't reachable, memories are stored without vectors and recall is keyword-only (BM25) automatically — there is no switch to set. See `SETUP.md` §3.
 
 ---
 
 ## code-search — Semantic code search + symbol index
 
-**What it does:** Two-layer search over your codebase: (1) semantic chunk search via embeddings + cosine similarity, (2) structural symbol index (functions, classes, interfaces, types, Markdown sections) extracted at index time. FTS5 BM25 fallback when no embedding provider.
+**What it does:** Two-layer search over your codebase: (1) semantic chunk search via embeddings + cosine similarity, (2) structural symbol index (functions, classes, interfaces, types, Markdown sections) extracted at index time. Building the index needs a reachable embedder (LM Studio by default; `code_index` refuses without one); once indexed, search degrades to keyword-only if the embedder goes away.
 
 **Source:** `~/Code/bpm-code-search-mcp/`
 
@@ -244,7 +244,7 @@ code_index_status()       ← verify: files, chunks, symbols, provider
 |---------|-----|
 | `claude mcp list` shows MCP as "Pending approval" | Run `claude` interactively once to approve |
 | playwright-mcp: "browser not found" | Run `npx playwright install chromium` |
-| memory: no results, vector search returns 0 | Start LM Studio with nomic-embed-text loaded on port 1234 |
+| memory: no results, vector search returns 0 | Start the embedder `~/.claude-memory/config.json` names — with no config file, Ollama with `nomic-embed-text` on port 11434 — then `memory_reembed(onlyMissing=true)` |
 | code-search: index empty after edit | Check hook is installed: `grep reindex ~/.claude/settings.json` |
 | context7: rate limited | context7 is free but rate-limited; wait and retry |
 
