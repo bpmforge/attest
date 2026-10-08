@@ -5,7 +5,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 ## [3.12.0] — 2026-09-30
 
 **Group K: what a review of ECC (affaan-m/ECC, MIT) was worth** — three independent challenge passes cut most of the intake and found a
-bug that had been live for a long time. (The changelog lapsed after 3.5.4; this entry covers the Group K work only.)
+bug that had been live for a long time. (The changelog lapsed after 3.5.4; this entry covers the Group K work only. Entries for 3.6.0–3.11.1 were reconstructed afterwards and are marked as such.)
 
 ### Fixed
 - **Every opencode PreToolUse guard was a silent no-op.** `tool.execute.before` passes the call arguments in `output.args`; the plugin
@@ -28,6 +28,130 @@ bug that had been live for a long time. (The changelog lapsed after 3.5.4; this 
 K3 loop-spec validator (attest already has `validate-loop-readiness` + the goal intake gate), K5 rationalization scanner (Pass 51 checks claims against evidence), comment-analyzer, inherit-legacy-style, the AgentShield dependency, ECC's build-resolvers. ~200 of ECC's 293 skills are domain filler.
 
 1025 tests passing.
+
+## [3.11.1] — 2026-09-23
+
+_Reconstructed 2026-10-08 from the v3.11.1 GitHub release notes, the tag and `docs/RELEASE_TRACKER.md`; the changelog was not kept at release time._
+
+Patch: installer correctness and green CI. No agent behaviour change.
+
+### Fixed
+- `install.sh` printed `attest v1.6.0` on every release from 1.6.0 through 3.11.0. The version now comes from `package.json`; new `./install.sh --version`; Pass 57 stops a hard-coded version from coming back.
+- `uninstall.sh` did not remove `exemplars/` or `plugins/` (the resume-anchor plugin kept loading after an uninstall). Both uninstall paths now remove the same set and delete the `experts-version` stamp. `rm -rf` targets are guarded against an empty variable.
+- CI: the `log-hop` tests need the sibling `bpm-agent-amplifier` checkout, which GitHub Actions does not have. They now skip with a visible reason when it is not built.
+
+731 tests passing.
+
+## [3.11.0] — 2026-09-23
+
+_Reconstructed 2026-10-08 from the v3.11.0 GitHub release notes, the tag and `docs/RELEASE_TRACKER.md`._
+
+Process-flow documentation (PR #8), and every gap writing it turned up fixed at the source (PR #9).
+
+### Changed
+- **Conductor exit codes (behaviour change):** a dirty working tree, a missing `plan.json` or a missing prerequisite now exit **7**, not 1. `supervise.sh` stops on exits 2–7 instead of relaunching up to 30 times. Exit 1 now means only a crash.
+
+### Fixed
+- Default `/sdlc onboard` could never pass its own `onboard-deep` gate (four causes: SERVICE rows re-derived against a ROUTE/TABLE inventory, sequence diagrams and the ERD not counted, Step 7 missing the HLA Overview). `--deep` is unchanged. Pass 56.
+- `/security --deep` could never pass: `validate-owasp.sh` rejected the `ATTACK_CHAINS_<date>.md` the coordinator writes.
+- Concurrent HANDOFFs to the same agent each get their own `HANDOFF_<agent>-<slug>.md` instead of overwriting each other.
+- Mode 3 and Mode 4 discovery interviews restored (lost when the mode files were split).
+- Gate A fact-checks `SRS.md`; the TECH_STACK check moved to Gate B; Gate B paths corrected.
+- One use-case path (`docs/testing/USE_CASES.md`, legacy root path still accepted); Phase 4 updates `TEST_DESIGN.md`; threat model at `docs/THREAT_MODEL.md`.
+- Unreleased follow-ups from 3.10.1: the gate wrapper no longer reads a missing gap count as 0; BRE alternation under `grep -E` fixed in two validators.
+
+### Added
+- `/security` now implements `--deep` and the focused `--owasp`, `--threat-model` and `--deps` modes the skill already advertised.
+- `docs/flows/` (verified process-flow diagrams) and the `docs/README.md` index; finished plans and dated reviews moved to `docs/archive/`.
+
+729 tests passing; 49/49 conductor; 28 validators with red/green fixtures.
+
+## [3.10.1] — 2026-09-20
+
+_Reconstructed 2026-10-08 from the v3.10.1 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+Patch: validator correctness. No agent behaviour change.
+
+### Fixed
+- `validate-no-ascii-art.sh` crashed (`TARGETS: unbound variable`) on a project with no `docs/*.md` instead of warning.
+- It flagged its own documented exception (the `════` HANDOFF delimiter); `═` removed from the per-character list, real banners and boxes still caught.
+- Inline code spans and `docs/work/` transcripts are no longer scanned. 45 → 39 hits, no true positives lost; the 39 remaining were converted to Mermaid, so attest is clean on its own rule for the first time.
+
+## [3.10.0] — 2026-09-08
+
+_Reconstructed 2026-10-08 from the v3.10.0 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+Conductor hardening (PR #7): the six defects reported in GH issue #6, plus twelve found auditing them.
+
+### Fixed
+- **A chatty model self-approved:** verdicts were read with unanchored regexes, and the prompts themselves contain `VERDICT: APPROVED` / `RUNTIME: PASS`. New `readVerdict()` takes the last line-anchored verdict and fails closed.
+- **Post-approval code landed unreviewed** via an unguarded amend in round 3.
+- Reviewer fixes could escape `write_scope` (the scope gate ran after `git commit --amend`).
+- The run lock died with `ENOTDIR` in a linked worktree (now `git rev-parse --git-common-dir`).
+- Blocking findings now cross the attempt boundary; `--max-processed` separates the activity ceiling from `--max-tickets`; bounded runtime repair (`--runtime-fix-iterations`, default 1) re-earns every gate; POSIX process-group timeout containment that fails closed.
+- The scope gate's containment bypass: `**/*`, `*/**`, `*/*` and `[a-z]*/**` each authorised the whole repo. Also: renames checked on one side only, `close()` verify with no timeout and a 1 MB buffer, provider-limit exhaustion crashing the run, `STOP` ignored during backoff, deletions invisible to reviewer selection.
+
+### Tests
+- `validate-scope.match.test.sh` was never run by any harness; six more orphaned suites found. Pass 53 now discovers every `*.test.mjs` under `scripts/`. Conductor coverage 19 → 93 tests.
+
+724 tests passing. Closes #6.
+
+## [3.9.0] — 2026-09-01
+
+_Reconstructed 2026-10-08 from the v3.9.0 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+Autopilot hardening; every fix came from the first live end-to-end `/autopilot` run.
+
+- Single-conductor lock in `.git/`.
+- The conductor owns the round-3 runtime verdict: an agent FAIL its own in-worktree verify cannot reproduce is overridden.
+- Reviewer agent defaults to `build` (the code-reviewer orchestrator died docless in bounded unattended rounds; `models.json` `agents.reviewer` restores it).
+- Evidence moved inside the project (`docs/work/.conductor-evidence`, self-gitignored).
+- `/autopilot` OPERATE section: the primary agent kicks off, tracks and reconciles the run; install-dir loop resolution follows symlinks.
+- `validate-dead-code.sh` tool detection matches the eval harness probe (npx-local first, then global PATH).
+
+725 tests passing.
+
+## [3.8.1] — 2026-09-01
+
+_Reconstructed 2026-10-08 from the merge commit and the diff; there is no GitHub release body for this tag._
+
+### Fixed
+- A blocked input is never a licence to produce nothing: when a reference is unreadable under the session's permissions (unattended sessions auto-reject reads outside the project), `code-reviewer` and `BOUNDED_TASK_CONTRACT.md` now say so in one line and still write the review document with a real `VERDICT` line. A conductor review round had died docless twice this way.
+
+## [3.8.0] — 2026-09-01
+
+_Reconstructed 2026-10-08 from the v3.8.0 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+JIRA board-driver conductor hardening (PR #3).
+
+### Fixed
+- `validate-scope.sh` now globs. The matcher was a quoted literal/prefix test, so every glob-authored `write_scope` matched nothing. The new `matches_scope` keeps literal behaviour first, refuses bare `*`/`**` and `..` traversal, and anchors the full string.
+
+### Added
+- PR-bound tickets stay open until merge; resume state survives supervised restarts; baseline/process failures are split from code exhaustion; `--no-merge` pushes the ticket branch, not `main`; checkpoint commit before review rounds.
+- `scripts/lib/jira-tickets.mjs` with parity and integration tests.
+
+725 tests passing.
+
+## [3.7.0] — 2026-08-31
+
+_Reconstructed 2026-10-08 from the v3.7.0 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+### Added
+- **`/autopilot`** (`skills/autopilot/SKILL.md`): opencode as the orchestrator, run to completion with healing. ASSESS what is left → DECIDE ordered next actions, each with an exit predicate → DRIVE the existing loops (conductor, `run-until-done`, `run-plan`; NEVER-AUTO still pauses) → HEAL (narrowed retry → split → tier escalation → durable park) → EXIT on the assembly-gate predicate or `AUTOPILOT_HALT.md`. Pass 56 pins it with a planted-red self-test.
+- Not yet ported to attest-claude (tracked beside `/wave` and `/goal`); attest-claude has no v3.7.0 tag.
+
+725 tests passing.
+
+## [3.6.0] — 2026-08-31
+
+_Reconstructed 2026-10-08 from the v3.6.0 GitHub release notes and `docs/RELEASE_TRACKER.md`._
+
+### Added
+- **Group P A-wave (A1–A15)**, merged earlier but unreleased: three-level review model, conductor-first Phase 4, path- and risk-triggered reviewers, citation gate, fixture-proving CI, the `rules/` primitive, `/wave`, `/goal`, consensus tiers, 5-state runtime verdicts, seams, requirement ledger.
+- **`agents/shared/PRODUCT_SHAPE_PROTOCOL.md`**: the canonical role table and two-stack rule, the feature map as a mandatory decomposition artifact (`docs/work/PRODUCT_MAP.md`), and feature-grouped landing (one merge per feature, never per ticket). Wired into `PARALLEL_WAVE_PROTOCOL`, `sdlc-init-phase-4` and `task-decomposer`. Pass 55.
+
+696 tests passing.
 
 ## [3.5.4] — 2026-08-17
 
@@ -95,6 +219,80 @@ The visual design loop — the Claude-Design property (code edits and rendered p
 - **Design chain wired (was orphaned)** — ux-researcher / design-system-lead / content-designer said "Phase 3.5 (Design Loop)" but nothing dispatched them: sdlc-lead's roster + agent table now carry `design-iterator`, Phase 3's UX HANDOFF must request ux-engineer's `--auto` chain when `flows.md`/`tokens.json` don't exist yet, and Phase 4 gains **Round 3b visual conformance** (design-iterator after RUNTIME PASS on UI modules with a token spec). Gate conditions unchanged — the chain artifacts are inputs to later phases, not new gate requirements.
 - **Screenshot gates ship to both targets** — `img-gate.mjs` / `annotate.mjs` + tests moved `skills/user-guide/scripts/` → `scripts/lib/` (the old location shipped to *neither* install target, leaving guide-scribe's Claude-side reference dangling). 27/27 tests green at the new path; GUIDE_CAPTURE / user-guide docs updated.
 - Routing: ux-engineer `--review` and frontend-design now hand render-verifiable visual findings to `design-iterator`; FEATURES/README rows added. 629 tests; 97 agents block-synced; parity + leak checks clean.
+
+## [2.13.0 – 3.3.1] — 2026-07-15 to 2026-08-05
+
+_Reconstructed 2026-10-08. The changelog was not kept for these releases. Each row is the tag's own subject line and date; the GitHub Releases page and `docs/RELEASE_TRACKER.md` carry the detail where it exists. v3.1.1–v3.1.23 were never tagged._
+
+| Version | Date | Summary |
+|---------|------|---------|
+| 3.3.1 | 2026-08-05 | a fresh WSL box could not bootstrap Node, and the README assumed git |
+| 3.3.0 | 2026-08-05 | stop shipping 'installed' when nothing got registered |
+| 3.2.1 | 2026-08-05 | a P1 use case between two P0 rows was promoted to P0 |
+| 3.2.0 | 2026-08-05 | the Wiggum loop and the challenger are systemic, not per-mode |
+| 3.1.35 | 2026-08-05 | the orchestrator was the one agent never told to keep going |
+| 3.1.34 | 2026-08-05 | the cleaner was untracking other people's deliberate choices |
+| 3.1.33 | 2026-08-05 | one command to clean a silted docs/work |
+| 3.1.32 | 2026-08-04 | nobody owned the orchestration scaffolding, so it piled up |
+| 3.1.31 | 2026-08-04 | the tracker gate failed on a tracker that was committed |
+| 3.1.30 | 2026-08-04 | Phase 2 had no iteration counter, so the repair loop had no floor |
+| 3.1.29 | 2026-08-04 | agents followed the manifest template exactly and the gate rejected it |
+| 3.1.28 | 2026-08-04 | the gate said 'missing' when it was reading the wrong column |
+| 3.1.27 | 2026-08-04 | ./install.sh --update, and the project's own name back |
+| 3.1.26 | 2026-08-04 | the README never mentioned releases, so a user could only ever install main |
+| 3.1.25 | 2026-08-04 | the suite was green on a commit that only existed on one machine |
+| 3.1.24 | 2026-07-31 | unattended Phase 4 execution, proven end to end |
+| 3.1.0 | 2026-07-30 | conductor runs the Phase 4 code/review/runtime lifecycle |
+| 3.0.10 | 2026-07-30 | node --test / TAP pass-count extraction |
+| 3.0.9 | 2026-07-30 | expert-hooks plugin loads again |
+| 3.0.8 | 2026-07-30 | gate-output contract: emitted states must be documented |
+| 3.0.7 | 2026-07-30 | retry counters charge repeats, not attempts |
+| 3.0.6 | 2026-07-30 | gate output levels documented where agents read them |
+| 3.0.5 | 2026-07-30 | RED verdict names its blocking items |
+| 3.0.4 | 2026-07-30 | bootstrap .gitignore covers expert-system runtime artifacts |
+| 3.0.3 | 2026-07-30 | git refs and removal claims are not missing artifacts |
+| 3.0.2 | 2026-07-30 | validator path sweep + stale-claim correction |
+| 3.0.1 | 2026-07-30 | run-handoff-gates.sh path fix |
+| 3.0.0 | 2026-07-30 | attest: mechanical verification for AI-delegated software development |
+| 2.48.0 | 2026-07-30 | lead-absorbed rework counts as a correction |
+| 2.47.0 | 2026-07-29 | retry budgets by failure class + cited evidence outranks the claim |
+| 2.46.0 | 2026-07-29 | local-only git: forge-optional bootstrap, impossible gate rows made N/A |
+| 2.45.0 | 2026-07-29 | fence-scope advisory + the lead owns the baseline probe |
+| 2.44.0 | 2026-07-29 | wrong-verdict channels: matched-nothing fences, failure attribution, unchecked baseline |
+| 2.43.0 | 2026-07-29 | unwinnable gates: file-tool upsert + done-gate escape hatches |
+| 2.42.0 | 2026-07-27 | J3/J4 declared invariants + review packets |
+| 2.41.0 | 2026-07-27 | I5/J2 delegation metrics by model and agent |
+| 2.40.0 | 2026-07-27 | I2/I3/I4 delegation gates |
+| 2.39.0 | 2026-07-27 | I1 untrusted verify receipts |
+| 2.38.0 | 2026-07-27 | J5/J6/J7: project-mode scripts, description drift, pre-code port |
+| 2.37.0 | 2026-07-27 | multi-ecosystem version currency (cargo/go/pypi/npm) |
+| 2.36.0 | 2026-07-27 | registry verification at library pick/research/code; library-adoption-protocol |
+| 2.35.0 | 2026-07-27 | --family registry skew check, AntV X6 v3 reference |
+| 2.34.1 | 2026-07-27 | api-surface: no CI failures on built-in-shadowing member names |
+| 2.34.0 | 2026-07-27 | library API grounding (/api-ground + api-surface.mjs), installer path fix |
+| 2.33.0 | 2026-07-27 | Apache-2.0 licensing + local-model evaluation and measurement-integrity fixes |
+| 2.32.0 | 2026-07-24 | summarizer no-tool-call guard (the `_noop` fix) + task-ledger loop (externalized working memory) (from `docs/RELEASE_TRACKER.md`) |
+| 2.31.0 | 2026-07-24 | done-gate + auto-baseline + version stamp + lead-side harness parity (from `docs/RELEASE_TRACKER.md`) |
+| 2.30.0 | 2026-07-24 | mechanical verify harness + terminal-state whitelist — enforce, don't instruct (from `docs/RELEASE_TRACKER.md`) |
+| 2.29.0 | 2026-07-24 | verify-evidence discipline — no invented infra commands, fresh BLOCKED evidence, disk-reconstructed reports (from `docs/RELEASE_TRACKER.md`) |
+| 2.28.0 | 2026-07-23 | remove broken grep-mcp tool; never ask to run verify commands |
+| 2.27.1 | 2026-07-23 | post-compaction turns resume immediately |
+| 2.27.0 | 2026-07-23 | coding-agent verify loop converges to GREEN |
+| 2.26.1 | 2026-07-23 | check-tools detects off-PATH installs; dev-server writes to the login shell's rc |
+| 2.26.0 | 2026-07-23 | universal HANDOFF intake, compaction fix from TUI trace, dev-server provisioner |
+| 2.25.0 | 2026-07-23 | long runs survive autocompaction |
+| 2.24.0 | 2026-07-23 | check-tools.sh works on a bare non-root Linux box |
+| 2.23.0 | 2026-07-23 | HANDOFF intake: pointer-delivered handoffs execute instead of being handed back |
+| 2.22.0 | 2026-07-18 | Opengrep-first SAST migration + Quarry integration |
+| 2.21.0 | 2026-07-15 | SDLC mode clarity (merge of `feat/sdlc-mode-clarity`) |
+| 2.20.0 | 2026-07-15 | game cluster expansion (merge of `feat/game-cluster-expansion`) |
+| 2.19.0 | 2026-07-15 | tool preflight hardening (merge of `feat/tool-preflight-hardening`) |
+| 2.18.0 | 2026-07-15 | container-ops runtime and cloud (merge of `feat/container-ops-runtime-cloud`) |
+| 2.17.0 | 2026-07-15 | QA/V&V waiver and agent gate (merge of `feat/qa-vnv-waiver-and-agent-gate`) |
+| 2.16.0 | 2026-07-15 | QA/V&V guardrail enforcement (merge of `feat/qa-vnv-guardrail-enforcement`) |
+| 2.15.0 | 2026-07-15 | runtime error watchdog |
+| 2.14.0 | 2026-07-15 | QA/V&V end-user testing specialist |
+| 2.13.0 | 2026-07-15 | ANN-dead-fastpath testing lessons |
 
 ## [2.12.0] — 2026-07-14
 
@@ -259,6 +457,21 @@ forcing a version bump per PR.
 - **T22.20** — Challenger gate slug/date correlation: `validate-challenger-gate.sh` now matches each source report (HIGH/CRITICAL finding) to its OWN challenge report via the declared `**Artifact:**` header field (basename match), instead of T27.3's pure existence check — an unrelated clean challenge report elsewhere no longer satisfies the gate for a fresh, never-challenged finding; `CHALLENGER_PROTOCOL.md`'s report template note updated to mark the Artifact field load-bearing; new Pass 13 (`scripts/test-challenger-gate-correlation.ts`).
 - **T27.2** — Truthful completion: `validate-completion-manifest.sh` v2 (Files-produced/Verify-result stat checks, Maker/Verifier identity), `validate-tickets.sh` un-orphaned into phase-4, `run-handoff-gates.sh` gains a Tracker gate, gate scores are now advisory (`GATE_SCORING_PROTOCOL.md`).
 - **T21.2** — M21 user-guide capture tooling: `skills/user-guide/scripts/img-gate.mjs` (Gate A quality check — size floor, per-channel-stddev blank-detect, dominant-color-vs-per-app-baseline, two-shot `pixelmatch` stability, each with a specific failure reason) and `annotate.mjs` (one rounded highlight box + numbered badge composited onto a copy via `sharp`; original never mutated). New deps `sharp`, `pixelmatch`. 23 `node --test` cases incl. blank/skeleton/known-good synthetic fixtures generated in-test. No agent-prompt changes.
+
+## [2.0.0] — 2026-07-12
+
+_Reconstructed 2026-10-08 from the v2.0.0 annotated tag; the changelog skipped this release._
+
+Field-lessons fold, M28 conductor, exact skills parity.
+
+- Tier-aware, class-dependent loop budgets (FIX_VERIFY / MICRO_LOOP): stall=2 then escalate; converging progress loops extend (6 metered / 12 local); REGRESSED is zero-tolerance.
+- Symlink- and traversal-safe manifest verification (`file-escapes-root`) with a red test.
+- `scopeCoverageWarnings` advisory plan-lint in `tickets.mjs`.
+- TypeScript-calibrated code-health / dead-code heuristics (comment, string and fixture exclusion; 20 false positives → 0).
+- M28 conductor reference implementation (`scripts/conductor/`).
+- Skills parity with attest-claude made exact (5 skills ported).
+
+283 tests passing.
 
 ## [1.32.0] — 2026-07-06
 
