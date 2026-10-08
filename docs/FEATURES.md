@@ -700,6 +700,28 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `parallel-worktree-agent-playbook.md` | orchestrating session | Gotchas for briefing multiple agents on separate tickets concurrently: worktree isolation, git-stash cross-worktree collision, `--base origin/main`, `build-target-claude.mjs --out`, awk/bash portability traps, fixture/CHANGELOG/merge-gate conventions |
 | `jira-adapter.md` | orchestrating session, sdlc-lead | Mirror the ticket lifecycle to Jira Data Center: setup, verbs, SDLC hygiene mapping (grab-issues-not-epics, epic-closes-when-children-done, maker≠verifier, blocking links, lane→component), and graceful fallback to `plan.json`-only. Wraps `scripts/jira/jira.mjs`; see `docs/DESIGN_JIRA_ADAPTER.md` |
 | `figma-adapter.md` | design-system-lead, frontend-design | Bring a real Figma design into the design pipeline: `pull` a file → normalized `figma-snapshot.json`, `derive-tokens` → `docs/design/tokens.json` (which stays authoritative), one-way Figma→code, graceful fallback to prose-authored tokens. Wraps `scripts/figma/figma.mjs`; see `docs/DESIGN_FIGMA_ADAPTER.md` |
+| `adr-template.md` | `CHALLENGER_PROTOCOL`, `validate-adrs.sh` | Blank Architecture Decision Record for a hard-to-reverse choice; copy to `docs/adrs/ADR-NNN-<slug>.md` |
+| `anti-slop-audit.md` | `code-reviewer` | Six LLM-code anti-patterns to hunt on every review: try/catch outside system boundaries, abstractions with one implementation, single-use helpers, "what" comments, scope creep, framework wrappers |
+| `antv-x6-v3.md` | `/api-ground` | AntV X6 v3 API facts that training data and npm get wrong, verified against an installed tree |
+| `click-path-audit.md` | `ui-verifier`, `frontend-design` | Static preflight for handlers that each work but cancel each other out in one click path |
+| `cloud-cost-checklist.md` | `cost-engineer` | Per-category cloud cost checks, how to measure on each major cloud, typical savings |
+| `data-classification-checklist.md` | `data-steward` | Classification levels and the obligations attached to each class of field |
+| `design-system-tradeoffs.md` | `frontend-design` | Choosing between three design-system architectures by team size, time budget and customization needs |
+| `language-review-checklists.md` | `code-reviewer`, `coding-agent`, `type-safety-checker`, `error-handling-auditor`, `concurrency-checker` | Rust, TypeScript, Python and Go checks, each with a machine-checkable form; read only the diff's languages |
+| `library-adoption-protocol.md` | `coding-agent`, `/pre-code`, `/api-ground` | Four questions to answer, from four authorities, before adopting or upgrading a third-party library |
+| `library-api-grounding.md` | `/api-ground` | Why generated code calls methods that do not exist, and how to detect each cause mechanically |
+| `llm-routing-principles.md` | read on demand (no agent cites it) | Failure modes and principles for routing workloads to local or hosted models |
+| `load-test-checklist.md` | `reliability-engineer` | Load-test types, tool selection, NFR-to-threshold recipe, resilience patterns, chaos starters |
+| `local-agentic-models.md` | `MODEL_ADAPTER`, `LOCAL_LLM_PRIMER` (shared protocols) | Local models that hold up for tool calling, and the runtime settings that make or break them |
+| `mermaid-safe-syntax.md` | `sdlc-lead`, `BOOK_PROTOCOL` | Rules that prevent the Mermaid parse errors LLM generation introduces; checked by `validate-mermaid.sh` |
+| `observability-checklist.md` | `analytics-architect` | Metric methodologies, metric design, taxonomy, dashboard patterns, alert rules |
+| `phase-completion-checklist.md` | read on demand (no agent cites it) | What "done" means per SDLC phase: the validator gate plus the human-judgment checks |
+| `real-browser-bridge.md` | `design-iterator`, `/design-iterate`, `BROWSER_TESTING` | How to audit logged-in, real-world UIs that an isolated dev-server browser cannot reach |
+| `sre-cloud-patterns.md` | read on demand (no agent cites it) | Per-cloud service equivalents (AWS, GCP, Azure) for the operational concerns `sre-engineer` designs |
+| `tracker-data-model-template.md` | `sdlc-init-phases-3-4` | Blank Tracker Data Model to fill in before generating a backlog into an external tracker |
+| `validator-performance.md` | read on demand (no agent cites it) | Runtime cost and rerun safety of each validator in `scripts/validators/` |
+| `visual-design-loop.md` | `design-iterator`, `/design-iterate`, `sdlc-init-phase-4` | The render, screenshot, critique, fix, re-verify loop behind `/design-iterate` |
+| `wcag-audit-checklist.md` | `a11y-compliance`, `/a11y` | WCAG 2.2 manual audit, run after the automated axe-core/pa11y/Lighthouse pass |
 
 ---
 
