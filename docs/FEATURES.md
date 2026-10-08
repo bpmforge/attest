@@ -126,7 +126,7 @@ OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 5-phase
 
 Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
 
-Reviews across **9 dimensions**: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, anti-slop, and tech-stack compliance (deps match TECH_STACK.md; no tech outside the design) (threshold ≥ 8). The anti-slop dimension checks for AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md.
+Reviews across **9 dimensions**, the set the `/review-code` skill and the `code-reviewer` agent score: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, dead/unutilized code, and tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). The `anti-slop-auditor` runs alongside them on every review and checks for the AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md (threshold ≥ 8); its findings feed the synthesizer, but it is not one of the nine scored dimensions.
 
 ### `ux-engineer` — UX design & accessibility (`mode: primary`)
 
@@ -298,9 +298,9 @@ Methodology docs: `OWASP_METHODOLOGY.md`, `OWASP_LLM_METHODOLOGY.md`, `CLOUD_MET
 
 ### Code-review micro-agents
 
-Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in parallel — each covers one review dimension.
+Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in parallel. Tech-stack compliance has no micro-agent: the coordinator runs `validate-tech-stack.sh` itself. The anti-slop auditor is an extra pass, not a scored dimension.
 
-| Agent | Dimension |
+| Agent | Covers |
 |-------|-----------|
 | `complexity-analyzer` | Cyclomatic complexity, nesting depth, cognitive load |
 | `duplication-detector` | Copy-paste patterns, near-duplicate logic, DRY violations |
@@ -686,7 +686,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | Reference | Used by | Purpose |
 |---|---|---|
 | `git-workflow-checklist.md` | `git-expert` | Conventional commits, SemVer, Keep-a-Changelog, recovery scenarios, report templates |
-| `code-health-checklist.md` | `code-reviewer` | The 7 core review dimensions, silent-failure hunter, consolidation catalog, language thresholds |
+| `code-health-checklist.md` | `code-reviewer` | The 9 review dimensions, silent-failure hunter, consolidation catalog, language thresholds |
 | `owasp-checklist.md` | `security-auditor` | OWASP Top 10 + verification steps |
 | `semgrep-guide.md` | `security-auditor` | Semgrep setup, rule packs, two-tier scans |
 | `semgrep-community-rules.md` | `security-auditor` | Community rule inventory |
