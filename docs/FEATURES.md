@@ -584,7 +584,7 @@ Seventy-nine bash validators + gate runners in `scripts/validators/`. Each retur
 | `validate-module-boundaries.sh` | Cross-module imports comply with dependency rules in MODULE_DESIGN.md |
 | `validate-module-design.sh` | MODULE_DESIGN.md: domain-aligned naming pattern present, no technical-layer names, circular dependency check passes |
 | `validate-no-ascii-art.sh` | No Unicode box-drawing characters or ASCII banners in documentation files |
-| `validate-owasp.sh` | All 10 OWASP categories present, confidence ≥ 7, attack-chains section present |
+| `validate-owasp.sh` | All 10 OWASP categories present, confidence ≥ 7, `ATTACK_CHAINS_<date>.md` (or legacy `attack-chains.md`) present |
 | `validate-phase-gate.sh` | Orchestrator — chains the right validators for a given SDLC phase |
 | `validate-release-readiness.sh` | 10-condition release gate: FIX_BACKLOG closed, 4 review verdicts (security/code/ux/perf), coverage threshold, container CVE scan, RUNTIME PASS |
 | `validate-requirements-matrix.sh` | REQUIREMENTS_MATRIX.md: P0 use-case rows have Test ID and Status; cross-references USE_CASES.md |
