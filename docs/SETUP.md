@@ -34,7 +34,7 @@ cd ~/Code/attest
 **What it installs:**
 - Agents, skills, shared protocols, hooks, and scripts → `~/.config/opencode/`
 - `bpm-code-search-mcp` → `~/Code/bpm-code-search-mcp/` + registers as `code-search` MCP
-- `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP
+- `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP — **optional, off by default**: pass `--memory`, or answer yes at its prompt (default no; the prompts appear only when `./install.sh` runs with no flags, so `--yes` skips it). It then checks for an embedder (§3, Option C)
 - `playwright-mcp` → registered via `npx -y @playwright/mcp@latest`
 - `playwright-search` → `~/.local/share/playwright-search/` + registers with Claude Code
 
