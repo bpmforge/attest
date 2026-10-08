@@ -369,8 +369,10 @@ for arg in "$@"; do
       echo "  ./install.sh --no-playwright-search  Skip the playwright-search MCP install"
       echo "  ./install.sh --no-playwright-mcp   Skip the playwright-mcp install"
       echo "  ./install.sh --memory              Also install bpm-memory-mcp MCP (cross-session memory)"
-      echo "                                     Vector search needs an embedder (ollama or LM Studio) — the"
-      echo "                                     installer detects/offers setup; BM25 keyword fallback if absent"
+      echo "                                     Vector search needs an embedder: ollama (the default) or"
+      echo "                                     LM Studio (selected via ~/.claude-memory/config.json, which the"
+      echo "                                     installer writes if it finds LM Studio and no config exists);"
+      echo "                                     BM25 keyword fallback if absent"
       echo "  ./install.sh --no-game             Skip the game-dev expert cluster (agents/game/*, 9 agents + game skill)"
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
       echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
@@ -1218,40 +1220,107 @@ if [ "$INSTALL_MEMORY" = true ]; then
 
     # --- Embedding-provider setup (semantic recall needs an embedder) --------
     # Without one, memory silently degrades to keyword-only BM25 — recall works
-    # but misses paraphrased matches. The server self-heals (retries the
-    # provider periodically), so setting it up later also works.
+    # but misses paraphrased matches. The server re-probes its configured
+    # provider (at most every 30s), so starting it later also works.
+    #
+    # The server does NOT auto-detect providers: it reads
+    # ~/.claude-memory/config.json (mcp/memory-server/src/embeddings/config.ts,
+    # loadConfig) and, when that file is absent, uses Ollama at
+    # localhost:11434 with nomic-embed-text. So LM Studio is only used if the
+    # config selects it; we write that config when LM Studio is the embedder we
+    # find, and never touch a config.json that already exists.
     echo ""
     echo "  Memory embedder check (semantic vector recall):"
     EMBEDDER_OK=false
+    MEM_CFG_DIR="$HOME/.claude-memory"
+    MEM_CFG_FILE="$MEM_CFG_DIR/config.json"
+    OLLAMA_UP=false; OLLAMA_MODEL=false; LMS_UP=false; LMS_EMBED=""
     if curl -sf --max-time 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
-      if curl -sf --max-time 2 http://localhost:11434/api/tags | grep -q "nomic-embed-text"; then
-        echo "    ✓ ollama detected with nomic-embed-text — vector recall active"
-        EMBEDDER_OK=true
-      else
-        echo "    ollama detected but nomic-embed-text model missing"
-        if [ -t 0 ]; then
-          printf "    Pull it now (~270MB)? [Y/n]: "; read -r yn </dev/tty
-          case "${yn:-Y}" in [Yy]*)
-            ollama pull nomic-embed-text && EMBEDDER_OK=true || echo "    ⚠️  pull failed — run: ollama pull nomic-embed-text" ;;
-          esac
-        else
-          echo "    → run: ollama pull nomic-embed-text"
-        fi
-      fi
-    elif curl -sf --max-time 2 http://localhost:1234/v1/models >/dev/null 2>&1; then
-      if curl -sf --max-time 2 http://localhost:1234/v1/models | grep -qi "embed"; then
-        echo "    ✓ LM Studio detected with an embedding model — vector recall active"
-        EMBEDDER_OK=true
-      else
-        echo "    LM Studio detected but no embedding model loaded"
-        echo "    → in LM Studio, load: text-embedding-nomic-embed-text-v1.5"
-      fi
+      OLLAMA_UP=true
+      curl -sf --max-time 2 http://localhost:11434/api/tags | grep -q "nomic-embed-text" && OLLAMA_MODEL=true
     fi
-    if [ "$EMBEDDER_OK" = false ]; then
+    if curl -sf --max-time 2 http://localhost:1234/v1/models >/dev/null 2>&1; then
+      LMS_UP=true
+      # Same filter the server's LM Studio provider applies (id contains
+      # "embed"); prefer a nomic model, else the first embedding model listed.
+      LMS_EMBED="$(curl -sf --max-time 2 http://localhost:1234/v1/models | node -e '
+        let d = ""; process.stdin.on("data", c => d += c).on("end", () => {
+          try {
+            const ids = (JSON.parse(d).data || []).map(m => m.id).filter(id => /embed/i.test(id));
+            process.stdout.write(ids.find(id => /nomic/i.test(id)) || ids[0] || "");
+          } catch { /* unparseable model list: treat as no embedding model */ }
+        });' 2>/dev/null || true)"
+    fi
+
+    if [ -f "$MEM_CFG_FILE" ]; then
+      MEM_PROVIDER="$(node -e 'try { const c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).embedding || {}; process.stdout.write(`${c.provider || "?"} ${c.model || "?"} ${c.endpoint || ""}`); } catch { process.stdout.write("unreadable JSON (the server ignores it and uses its Ollama default)"); }' "$MEM_CFG_FILE" 2>/dev/null || echo unreadable)"
+      echo "    $MEM_CFG_FILE exists (left unchanged): $MEM_PROVIDER"
+      # Probe the endpoint the config names (it may be a remote host), on the
+      # path each provider's health() uses.
+      read -r MEM_P _ MEM_EP <<<"$MEM_PROVIDER"
+      case "$MEM_P" in
+        ollama)   curl -sf --max-time 2 "${MEM_EP:-http://localhost:11434}/api/tags" >/dev/null 2>&1 && EMBEDDER_OK=true ;;
+        lmstudio) curl -sf --max-time 2 "${MEM_EP:-http://localhost:1234}/v1/models" >/dev/null 2>&1 && EMBEDDER_OK=true ;;
+      esac
+      [ "$EMBEDDER_OK" = true ] && echo "    ✓ its provider is responding — vector recall active" \
+        || echo "    ⚠️  its provider is not responding — memory runs keyword-only (BM25) until ${MEM_EP:-it} is up"
+    elif [ "$OLLAMA_MODEL" = true ]; then
+      echo "    ✓ ollama detected with nomic-embed-text (the server's default) — vector recall active"
+      EMBEDDER_OK=true
+    elif [ -n "$LMS_EMBED" ]; then
+      echo "    LM Studio detected with embedding model $LMS_EMBED"
+      # Ask the model for one vector so `dimensions` is the real width, not a
+      # guess; 768 (nomic) only if the probe fails. 'wx' = create-only, so a
+      # config written between our check and here is never overwritten.
+      if node -e '
+        const [file, model] = process.argv.slice(1);
+        const fs = require("fs");
+        (async () => {
+          let dimensions = 768;
+          try {
+            const r = await fetch("http://localhost:1234/v1/embeddings", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ model, input: "dimension probe" }),
+              signal: AbortSignal.timeout(15000),
+            });
+            const v = (await r.json()).data?.[0]?.embedding;
+            if (Array.isArray(v) && v.length) dimensions = v.length;
+          } catch { /* keep the nomic default */ }
+          const cfg = { embedding: { provider: "lmstudio", endpoint: "http://localhost:1234", model, dimensions },
+                        version: 1, lastUpdated: new Date().toISOString() };
+          fs.mkdirSync(require("path").dirname(file), { recursive: true });
+          fs.writeFileSync(file, JSON.stringify(cfg, null, 2) + "\n", { flag: "wx" });
+        })().catch(e => { console.error(e.message); process.exit(1); });' "$MEM_CFG_FILE" "$LMS_EMBED"; then
+        echo "    ✓ wrote $MEM_CFG_FILE selecting LM Studio — vector recall active"
+        EMBEDDER_OK=true
+      else
+        echo "    ⚠️  could not write $MEM_CFG_FILE — create it by hand (see below)"
+      fi
+    elif [ "$OLLAMA_UP" = true ]; then
+      echo "    ollama detected but nomic-embed-text model missing"
+      if [ -t 0 ]; then
+        printf "    Pull it now (~270MB)? [Y/n]: "; read -r yn </dev/tty
+        case "${yn:-Y}" in [Yy]*)
+          ollama pull nomic-embed-text && EMBEDDER_OK=true || echo "    ⚠️  pull failed — run: ollama pull nomic-embed-text" ;;
+        esac
+      else
+        echo "    → run: ollama pull nomic-embed-text"
+      fi
+    elif [ "$LMS_UP" = true ]; then
+      echo "    LM Studio detected but no embedding model loaded"
+      echo "    → in LM Studio, load text-embedding-nomic-embed-text-v1.5, then re-run"
+      echo "      ./install.sh --memory to write $MEM_CFG_FILE for it"
+    fi
+    if [ "$EMBEDDER_OK" = false ] && [ ! -f "$MEM_CFG_FILE" ]; then
       echo "    No embedder active — memory works now in keyword-only (BM25) mode."
-      echo "    To enable semantic recall later (server picks it up automatically):"
-      echo "      option A: install ollama (https://ollama.com) then: ollama pull nomic-embed-text"
-      echo "      option B: run LM Studio with text-embedding-nomic-embed-text-v1.5 on port 1234"
+      echo "    To enable semantic recall later:"
+      echo "      option A (the server's default, no config needed): install ollama"
+      echo "        (https://ollama.com), then: ollama pull nomic-embed-text"
+      echo "      option B: LM Studio is used only when $MEM_CFG_FILE selects it."
+      echo "        Load text-embedding-nomic-embed-text-v1.5 on port 1234 and re-run"
+      echo "        ./install.sh --memory (it writes the file), or create it yourself:"
+      echo '        {"embedding":{"provider":"lmstudio","endpoint":"http://localhost:1234",'
+      echo '         "model":"text-embedding-nomic-embed-text-v1.5","dimensions":768},"version":1}'
     fi
   fi
 fi
