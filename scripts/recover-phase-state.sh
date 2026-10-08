@@ -14,6 +14,15 @@
 
 set -euo pipefail
 
+# Minute-resolution mtime. GNU first: GNU `stat -f` is --file-system, which
+# prints a filesystem report to stdout before failing on the format, so a
+# BSD-first chain leaked that report into the listing on Linux. BSD stat
+# rejects -c with no stdout, so the fallback stays clean on macOS.
+phase_mtime() {
+  stat -c '%y' "$1" 2>/dev/null | cut -c1-16 ||
+    stat -f '%Sm' -t '%Y-%m-%d %H:%M' "$1" 2>/dev/null
+}
+
 if [[ "${1:-}" == "--list" ]]; then
   found=0
   for d in docs/work/*/*/; do
@@ -22,7 +31,8 @@ if [[ "${1:-}" == "--list" ]]; then
     [[ "$phases" -gt 0 ]] || continue
     found=1
     printf '%s — %s phase file(s), last modified %s\n' \
-      "$d" "$phases" "$(find "$d" -maxdepth 1 -name 'phase*.md' -exec stat -f '%Sm' -t '%Y-%m-%d %H:%M' {} + 2>/dev/null | sort | tail -1)"
+      "$d" "$phases" "$(find "$d" -maxdepth 1 -name 'phase*.md' -print0 2>/dev/null |
+        while IFS= read -r -d '' f; do phase_mtime "$f"; done | sort | tail -1)"
   done
   [[ "$found" -eq 1 ]] || echo "No recoverable phase state under docs/work/"
   exit 0
