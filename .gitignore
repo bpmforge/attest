@@ -69,6 +69,7 @@ docs/db/
 
 # Runtime logs
 *.log
+!evals/edit-tasks/*/repo/data/*.log
 logs/
 .opencode-loops/
 
