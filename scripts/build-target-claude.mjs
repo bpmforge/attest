@@ -73,6 +73,11 @@ const PROSE = [
    '(or wherever references are installed for your setup)'],
   ["personal store at `~/.config/opencode/.semgrep/custom-rules/` (global) or `.opencode/.semgrep/custom-rules/` (project install)",
    "personal store at `~/.claude/.semgrep/custom-rules/`"],
+  // The game-asset-pipeline scripts need `sharp`, which attest's package.json
+  // provides and attest-claude (no package.json) cannot, so they are not
+  // generated into this target; point the agent at an attest checkout.
+  ['run every raw sprite through\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs',
+   'run every raw sprite through (from an attest checkout: the three scripts\n   ship only in attest, see the `game-asset-pipeline` skill)\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs'],
   // generic runtime mentions that read wrong on Claude
   ['Open a new OpenCode conversation and paste this EXACT prompt',
    'Delegate this EXACT prompt (Task tool preferred; fallback: paste in a new conversation)'],
