@@ -154,7 +154,7 @@ Diagrams for every mode: [flows/](flows/README.md).
 5. Synthesize findings with confidence levels
 6. Produce structured report with citations
 
-**Research backbone:** Built-in `webfetch` / `websearch` are disabled in `examples/opencode.json`. The hard fallback chain is `playwright-search_web_research` → `playwright-search_web_fetch` → `pullmd_read_url(render="force")` → STOP and surface `RESEARCH BLOCKED`. Full surface at `agents/shared/RESEARCH_TOOLS.md`.
+**Research backbone:** Built-in `webfetch` / `websearch` are disabled in `examples/opencode.json`. The fallback chain is `web_search_pullmd` → `web_research_pullmd` → `web_research` → `web_fetch` (all served by the `playwright-search` MCP) → STOP and surface `RESEARCH BLOCKED`. Full surface at `agents/shared/RESEARCH_TOOLS.md`.
 
 **Produces:** Research report with executive summary, findings, recommendations, sources
 

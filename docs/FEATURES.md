@@ -4,19 +4,23 @@ This document describes what every agent, skill, reference document, and tool in
 
 ## Table of contents
 
-- [Agents (65)](#agents)
-  - [Primary agents (22)](#primary-agents)
+- [Agents (84)](#agents)
+  - [Primary agents (39)](#primary-agents)
   - [Security micro-agents (9)](#security-micro-agents)
   - [Code-review micro-agents (8)](#code-review-micro-agents)
   - [Performance micro-agents (6)](#performance-micro-agents)
   - [SDLC onboard specialists (4)](#sdlc-onboard-specialists)
-  - [Game-dev cluster (5)](#game-dev-cluster)
-  - [SDLC mode agents](#sdlc-mode-agents)
+  - [Game-dev cluster (9)](#game-dev-cluster)
+  - [SDLC mode agents (9)](#sdlc-mode-agents)
 - [Skills (48)](#skills)
-- [Shared protocols (27)](#shared-protocols)
+- [Shared protocols (38)](#shared-protocols)
 - [Memory & code-search MCPs](#memory--code-search-mcps)
-- [Custom tools (18)](#custom-tools)
-- [Commands (4)](#commands)
+- [Validators (79)](#validators)
+- [Orchestration & quality scripts](#orchestration--quality-scripts)
+- [Reference documents](#reference-documents)
+- [Custom tools (17)](#custom-tools)
+- [Commands (6)](#commands)
+- [Plugins (2)](#plugins)
 - [Hooks](#hooks)
 
 ---
@@ -122,7 +126,7 @@ OWASP Top 10, threat modeling, Semgrep scans, dependency audits. Runs as 5-phase
 
 Four user modes (`--review`, `--debt`, `--consolidate`, `--patterns`), executed as 4-phase orchestrator internally: understand → tooling → review passes → report.
 
-Reviews across **9 dimensions**: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, anti-slop, and tech-stack compliance (deps match TECH_STACK.md; no tech outside the design) (threshold ≥ 8). The anti-slop dimension checks for AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md.
+Reviews across **9 dimensions**, the set the `/review-code` skill and the `code-reviewer` agent score: complexity, duplication, error handling, type invariants, patterns, naming, comment accuracy, dead/unutilized code, and tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). The `anti-slop-auditor` runs alongside them on every review and checks for the AI-generated bloat patterns cataloged in ANTI_SLOP_RULES.md (threshold ≥ 8); its findings feed the synthesizer, but it is not one of the nine scored dimensions.
 
 ### `ux-engineer` — UX design & accessibility (`mode: primary`)
 
@@ -248,6 +252,30 @@ Design-side expert for building LLM features: prompt architecture, eval harnesse
 
 Thin coordinator for shipping a release: version bump, changelog (via `changelog-writer`), tag, deploy-gate checklist, both-remotes push, and a doc-count audit that prevents version-metadata drift.
 
+### More primary agents
+
+Seventeen more primary agents, one line each (the agent file is the full spec; [AGENT_REFERENCE.md](AGENT_REFERENCE.md) has a paragraph per primary agent):
+
+| Agent | Purpose |
+|-------|---------|
+| `a11y-compliance` | Accessibility and compliance audit: WCAG 2.2 AA/AAA, ATAG, EN 301 549 / European Accessibility Act, Section 508; remediation with file:line |
+| `analytics-architect` | Telemetry and instrumentation design: signal selection (RED/USE/golden signals), event taxonomy, observability spec, dashboards |
+| `app-cartographer` | End-user guide pipeline, step 1: page-graph state inventory and per-state interactive-element inventory of a running app |
+| `changelog-writer` | Reads a git log range and writes Keep-a-Changelog entries |
+| `content-designer` | Writes the UI text (labels, empty states, errors, confirmations, onboarding copy) as a reviewable spec before implementation |
+| `cost-engineer` | Cloud and LLM spend analysis, right-sizing, commitments, cost observability |
+| `data-steward` | Data governance: PII classification, GDPR/CCPA/PIPEDA obligations, retention, encryption mapping, data-subject rights |
+| `design-iterator` | Visual design loop: render, screenshot, critique against `docs/design/tokens.json`, fix, re-verify (`/design-iterate`) |
+| `design-system-lead` | Pre-code token spec (`docs/design/tokens.json`) and component inventory (`docs/design/components.md`) |
+| `documentation-gap-finder` | Lists undocumented exports and endpoints, stale doc references, and doc coverage |
+| `gauntlet-lead` | Gauntlet loop: sets a real reference bar, dispatches builders and blind fresh-per-round critics until every unit beats it (`/gauntlet`) |
+| `guide-scribe` | End-user guide pipeline, step 2: replayable step specs, gated annotated screenshots, error triage |
+| `manual-writer` | End-user guide pipeline, step 3: assembles the Diátaxis-shaped user manual |
+| `migration-planner` | Compares two schema states and produces ordered migration steps with a rollback per step |
+| `qa-vnv-engineer` | QA and V&V: automated, evidence-producing validation of the real rendered app |
+| `reliability-engineer` | Load testing and resilience: k6/Locust/vegeta strategy, chaos scenarios, circuit breakers, retries, graceful degradation |
+| `ux-researcher` | Turns personas and user stories into user-flow diagrams and a screen inventory before any wireframe or token work |
+
 ### Security micro-agents
 
 Live in `agents/security/`. Dispatched by `security-auditor` (coordinator) via HANDOFF — each runs in its own context window and writes findings to `docs/work/security/<slug>.md`.
@@ -270,9 +298,9 @@ Methodology docs: `OWASP_METHODOLOGY.md`, `OWASP_LLM_METHODOLOGY.md`, `CLOUD_MET
 
 ### Code-review micro-agents
 
-Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in parallel — each covers one review dimension.
+Live in `agents/code-review/`. Dispatched by `code-reviewer` (coordinator) in parallel. Tech-stack compliance has no micro-agent: the coordinator runs `validate-tech-stack.sh` itself. The anti-slop auditor is an extra pass, not a scored dimension.
 
-| Agent | Dimension |
+| Agent | Covers |
 |-------|-----------|
 | `complexity-analyzer` | Cyclomatic complexity, nesting depth, cognitive load |
 | `duplication-detector` | Copy-paste patterns, near-duplicate logic, DRY violations |
@@ -328,6 +356,10 @@ Live in `agents/game/`. Activated by the `/sdlc init "<name>" "<desc>" --game` f
 | `game-balance-designer` | Progression curves, economy sinks/sources; **simulates 1000 player-sessions** as a rerunnable script before shipping numbers |
 | `playtest-evaluator` | Blind-first playtest of the vertical slice; 6 fun heuristics with evidence, time-to-first-success vs the slice acceptance test |
 | `game-asset-pipeline` | Sprite batch micro-loop: gen → lattice/pixel-snapper cleanup + transparency de-fringe (deterministic `skills/game-asset-pipeline/` scripts) → sprite-sheet pack → portable TexturePacker-hash atlas manifest for engine import |
+| `game-producer` | Lifecycle gates on builds (prototype kill-criteria, vertical slice, alpha feature-lock, beta content-lock, cert, gold), milestones, scope control |
+| `level-designer` | Player flow, encounter design, blockout/greybox discipline, pacing beat charts |
+| `narrative-designer` | Story delivered through systems: branching structure, quest logic, barks, environmental storytelling, dialogue data formats |
+| `game-audio-designer` | Sonic direction, SFX/music/VO planning, middleware choice (FMOD/Wwise vs engine-native), mix rules, memory/voice budgets |
 
 ---
 
@@ -345,6 +377,7 @@ Thin orchestrators that drive each SDLC phase. Read by `sdlc-lead` on demand.
 | `sdlc-feature-mode` | Mode 3: add a feature to an existing project |
 | `sdlc-improve-mode` | Mode 4: audit-driven improvement |
 | `sdlc-onboard-mode` | Mode 2: understand an existing codebase — thin dispatcher to onboard specialists |
+| `sdlc-init-phases-3-4` | Superseded by `sdlc-init-phase-3` and `sdlc-init-phase-4`; kept only so older doc references resolve |
 
 ---
 
@@ -410,7 +443,7 @@ Canonical reference files in `agents/shared/`. Single source of truth — update
 | `FIX_VERIFY_LOOP.md` | Canonical review → FIX_BACKLOG → remediate → re-verify pipeline with 3-iteration cap and escalation block |
 | `RALPH_WIGGUM_LOOP.md` | Canonical inventory-driven deep-verification loop used by `/sdlc onboard --deep` and `/security --deep` |
 | `LOOP_PREVENTION.md` | Tool-selection cheat-sheet + three loop classes (failure / schema-validation / success) + BLOCKED-template |
-| `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`playwright-search` → `pullmd` → STOP) |
+| `RESEARCH_TOOLS.md` | Mandatory research-tool surface and fallback chain (`web_search_pullmd` → `web_research_pullmd` → `web_research` → `web_fetch` → STOP, all in `playwright-search`) |
 | `CODE_SEARCH.md` | The `code-search` MCP surface (symbol/reference index): `code_symbols`/`code_references`/`code_outline`/`code_search` + `code_index`, when to prefer it over grep, and the mandatory `code_index()`-then-grep-fallback freshness contract. Inlined as the `## Code search` block into code-heavy agents |
 | `ANTI_SLOP_RULES.md` | 31-rule AI slop catalog (R-01..R-31) — over-engineering, defensive bloat, hallucinated patterns, slopsquatting, credential leakage |
 | `CHALLENGER_PROTOCOL.md` | Full Challenger adversarial review protocol — challenge categories, severity grades, rebuttal cycle, output format |
@@ -450,7 +483,7 @@ Four MCP servers extend agent capability beyond the session context window. For 
 
 ### `bpm-memory-mcp` — Cross-session project memory
 
-Persistent memory store backed by SQLite + vector embeddings (LM Studio nomic-embed-text). Provides hybrid search (vector 35% + BM25 35% + link traversal 30%).
+Persistent memory store backed by SQLite + vector embeddings. The embedder comes from `~/.claude-memory/config.json`; with no file it is Ollama with `nomic-embed-text`, and with no reachable embedder recall is keyword-only. Provides hybrid search (vector 35% + BM25 35% + link traversal 30%).
 
 Registered via `install.sh` step 8 (`claude mcp add memory node <path>`). For OpenCode, entry in `opencode.json` under `"mcp"`.
 
@@ -471,7 +504,7 @@ Types: `decision`, `fact`, `pattern`, `error`, `preference`. Scope: `project` (d
 
 ### `bpm-code-search-mcp` — Semantic + symbol code search
 
-MCP server providing semantic search over code chunks (embedding-based) and a structural symbol index. Built on SQLite + FTS5 + cosine similarity. Provider-sticky: the embedding provider used at index time is locked in; queries from a different provider fall back to FTS5 BM25.
+MCP server providing semantic search over code chunks (embedding-based) and a structural symbol index. Built on SQLite + FTS5 + cosine similarity. Embedder-sticky: the provider, model and vector dimension used at index time are recorded; if any of them changes, `code_search` and `code_index` refuse until `code_index(force=true)` rebuilds the index. Building an index needs a reachable embedder; once built, search degrades to keyword-only if the embedder goes away.
 
 Source: `~/Code/bpm-code-search-mcp/`. Registered in `opencode.json` and `~/.claude/settings.json` (PostToolUse hook auto-reindexes edited files).
 
@@ -551,7 +584,7 @@ Seventy-nine bash validators + gate runners in `scripts/validators/`. Each retur
 | `validate-module-boundaries.sh` | Cross-module imports comply with dependency rules in MODULE_DESIGN.md |
 | `validate-module-design.sh` | MODULE_DESIGN.md: domain-aligned naming pattern present, no technical-layer names, circular dependency check passes |
 | `validate-no-ascii-art.sh` | No Unicode box-drawing characters or ASCII banners in documentation files |
-| `validate-owasp.sh` | All 10 OWASP categories present, confidence ≥ 7, attack-chains section present |
+| `validate-owasp.sh` | All 10 OWASP categories present, confidence ≥ 7, `ATTACK_CHAINS_<date>.md` (or legacy `attack-chains.md`) present |
 | `validate-phase-gate.sh` | Orchestrator — chains the right validators for a given SDLC phase |
 | `validate-release-readiness.sh` | 10-condition release gate: FIX_BACKLOG closed, 4 review verdicts (security/code/ux/perf), coverage threshold, container CVE scan, RUNTIME PASS |
 | `validate-requirements-matrix.sh` | REQUIREMENTS_MATRIX.md: P0 use-case rows have Test ID and Status; cross-references USE_CASES.md |
@@ -653,7 +686,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | Reference | Used by | Purpose |
 |---|---|---|
 | `git-workflow-checklist.md` | `git-expert` | Conventional commits, SemVer, Keep-a-Changelog, recovery scenarios, report templates |
-| `code-health-checklist.md` | `code-reviewer` | 8 dimensions, silent-failure hunter, consolidation catalog, language thresholds |
+| `code-health-checklist.md` | `code-reviewer` | The 9 review dimensions, silent-failure hunter, consolidation catalog, language thresholds |
 | `owasp-checklist.md` | `security-auditor` | OWASP Top 10 + verification steps |
 | `semgrep-guide.md` | `security-auditor` | Semgrep setup, rule packs, two-tier scans |
 | `semgrep-community-rules.md` | `security-auditor` | Community rule inventory |
@@ -667,6 +700,28 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `parallel-worktree-agent-playbook.md` | orchestrating session | Gotchas for briefing multiple agents on separate tickets concurrently: worktree isolation, git-stash cross-worktree collision, `--base origin/main`, `build-target-claude.mjs --out`, awk/bash portability traps, fixture/CHANGELOG/merge-gate conventions |
 | `jira-adapter.md` | orchestrating session, sdlc-lead | Mirror the ticket lifecycle to Jira Data Center: setup, verbs, SDLC hygiene mapping (grab-issues-not-epics, epic-closes-when-children-done, maker≠verifier, blocking links, lane→component), and graceful fallback to `plan.json`-only. Wraps `scripts/jira/jira.mjs`; see `docs/DESIGN_JIRA_ADAPTER.md` |
 | `figma-adapter.md` | design-system-lead, frontend-design | Bring a real Figma design into the design pipeline: `pull` a file → normalized `figma-snapshot.json`, `derive-tokens` → `docs/design/tokens.json` (which stays authoritative), one-way Figma→code, graceful fallback to prose-authored tokens. Wraps `scripts/figma/figma.mjs`; see `docs/DESIGN_FIGMA_ADAPTER.md` |
+| `adr-template.md` | `CHALLENGER_PROTOCOL`, `validate-adrs.sh` | Blank Architecture Decision Record for a hard-to-reverse choice; copy to `docs/adrs/ADR-NNN-<slug>.md` |
+| `anti-slop-audit.md` | `code-reviewer` | Six LLM-code anti-patterns to hunt on every review: try/catch outside system boundaries, abstractions with one implementation, single-use helpers, "what" comments, scope creep, framework wrappers |
+| `antv-x6-v3.md` | `/api-ground` | AntV X6 v3 API facts that training data and npm get wrong, verified against an installed tree |
+| `click-path-audit.md` | `ui-verifier`, `frontend-design` | Static preflight for handlers that each work but cancel each other out in one click path |
+| `cloud-cost-checklist.md` | `cost-engineer` | Per-category cloud cost checks, how to measure on each major cloud, typical savings |
+| `data-classification-checklist.md` | `data-steward` | Classification levels and the obligations attached to each class of field |
+| `design-system-tradeoffs.md` | `frontend-design` | Choosing between three design-system architectures by team size, time budget and customization needs |
+| `language-review-checklists.md` | `code-reviewer`, `coding-agent`, `type-safety-checker`, `error-handling-auditor`, `concurrency-checker` | Rust, TypeScript, Python and Go checks, each with a machine-checkable form; read only the diff's languages |
+| `library-adoption-protocol.md` | `coding-agent`, `/pre-code`, `/api-ground` | Four questions to answer, from four authorities, before adopting or upgrading a third-party library |
+| `library-api-grounding.md` | `/api-ground` | Why generated code calls methods that do not exist, and how to detect each cause mechanically |
+| `llm-routing-principles.md` | read on demand (no agent cites it) | Failure modes and principles for routing workloads to local or hosted models |
+| `load-test-checklist.md` | `reliability-engineer` | Load-test types, tool selection, NFR-to-threshold recipe, resilience patterns, chaos starters |
+| `local-agentic-models.md` | `MODEL_ADAPTER`, `LOCAL_LLM_PRIMER` (shared protocols) | Local models that hold up for tool calling, and the runtime settings that make or break them |
+| `mermaid-safe-syntax.md` | `sdlc-lead`, `BOOK_PROTOCOL` | Rules that prevent the Mermaid parse errors LLM generation introduces; checked by `validate-mermaid.sh` |
+| `observability-checklist.md` | `analytics-architect` | Metric methodologies, metric design, taxonomy, dashboard patterns, alert rules |
+| `phase-completion-checklist.md` | read on demand (no agent cites it) | What "done" means per SDLC phase: the validator gate plus the human-judgment checks |
+| `real-browser-bridge.md` | `design-iterator`, `/design-iterate`, `BROWSER_TESTING` | How to audit logged-in, real-world UIs that an isolated dev-server browser cannot reach |
+| `sre-cloud-patterns.md` | read on demand (no agent cites it) | Per-cloud service equivalents (AWS, GCP, Azure) for the operational concerns `sre-engineer` designs |
+| `tracker-data-model-template.md` | `sdlc-init-phases-3-4` | Blank Tracker Data Model to fill in before generating a backlog into an external tracker |
+| `validator-performance.md` | read on demand (no agent cites it) | Runtime cost and rerun safety of each validator in `scripts/validators/` |
+| `visual-design-loop.md` | `design-iterator`, `/design-iterate`, `sdlc-init-phase-4` | The render, screenshot, critique, fix, re-verify loop behind `/design-iterate` |
+| `wcag-audit-checklist.md` | `a11y-compliance`, `/a11y` | WCAG 2.2 manual audit, run after the automated axe-core/pa11y/Lighthouse pass |
 
 ---
 
@@ -677,7 +732,6 @@ Custom TypeScript tools in `tools/`. OpenCode loads these at startup.
 | Tool | Purpose |
 |---|---|
 | `bash.ts` | Bounded bash execution with timeout + output capture |
-| `grep-mcp.ts` | ripgrep wrapper with structured results |
 | `write.ts` / `append.ts` / `update.ts` | File write primitives |
 | `file-info.ts` | Stat + size + mime detection |
 | `task.ts` | Spawn sub-agent tasks |
@@ -712,12 +766,17 @@ Slash command definitions in `commands/` — subcommands of `/sdlc`:
 
 ## Plugins
 
-`plugins/expert-hooks.ts` — single opencode plugin auto-loaded from `~/.config/opencode/plugins/`. Hooks into the two main lifecycle events:
+Two opencode plugins, auto-loaded from `~/.config/opencode/plugins/`.
+
+`plugins/expert-hooks.ts` — safety and quality automation:
 
 | Event | What runs |
 |-------|-----------|
-| `tool.execute.before` | **Block dangerous bash** (`rm -rf /`, `git push --force`, `DROP TABLE`, `curl\|bash`, etc.). **Block writes to credential files** (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Throws to abort the call. |
-| `tool.execute.after` (write/edit only) | **format → lint → type-check → secret-scan**, all in parallel: prettier / black+isort / gofmt / rustfmt; eslint / ruff; `tsc --noEmit`; regex scan for hardcoded API keys, AWS creds, PEM keys, DB connection strings. Findings surface via `console.warn` — informational, never block. Missing formatters silently skipped. |
+| `tool.execute.before` | **Block dangerous bash** (`rm -rf /`, `git push --force`, `git reset --hard`, `DROP TABLE`, `DELETE FROM` without `WHERE`, `curl\|bash`, etc.). **Block edits to an existing lint/type/test config** (config-protection; `EXPERTS_ALLOW_CONFIG_EDIT=1` bypasses). **Block writes to credential files** (`.env*`, `*.key`, `*.pem`, `id_rsa`, `credentials.json`). Opt-in fact-forcing gate on the first edit of a file (`EXPERTS_GATEGUARD=1`). Throws to abort the call. |
+| `tool.execute.after` | Opt-in per-tool-call trace (`EXPERTS_TRACE_LOG=<file>`). For write/edit: **format → lint → type-check → secret-scan**, all in parallel: prettier / black+isort / gofmt / rustfmt; eslint / ruff; `tsc --noEmit`; regex scan for hardcoded API keys, AWS creds, PEM keys, DB connection strings. Findings surface via `console.warn` — informational, never block. Missing formatters silently skipped. |
+| `event` (`message.updated`) | Token/cost telemetry to `docs/work/telemetry.jsonl` (counts only, never content) and a once-per-session model receipt to `docs/work/session-receipts.jsonl`. `EXPERTS_TELEMETRY=0` disables both. |
+
+`plugins/resume-anchor.ts` — keeps long sessions oriented across autocompaction: recomputes a small "where am I" anchor from files on disk and re-injects it on every request (`experimental.chat.system.transform`), and tells the summarizer what to keep (`experimental.session.compacting`).
 
 Ports the high-value subset of the attest-claude hook catalog. **Not** ported (different abstractions): `commit-validator.sh` (use a project-level git pre-commit hook), `test-on-stop.sh` (no clean opencode session-idle semantic), `session-start.sh` (opencode lacks a UserPromptSubmit equivalent).
 
