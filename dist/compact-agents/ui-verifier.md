@@ -143,6 +143,8 @@ From the nav links, identify the main routes. Note any routes that look broken (
 
 For each flow / use case:
 
+**Static preflight for flows that mutate shared state:** before live-clicking such a flow, run the store side-effect map and handler trace in `references/click-path-audit.md` to find handlers that cancel themselves (sequential undo, effect interference, stale closure); then reproduce each suspect in the browser.
+
 ### 3a. Navigate to starting point
 ```
 browser_navigate("[start-url]")

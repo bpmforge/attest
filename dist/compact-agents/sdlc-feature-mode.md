@@ -548,7 +548,7 @@ Before emitting, evaluate the auto-trigger rules against the impact analysis:
 ───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
-YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design). File:line + severity + fix per finding.
+YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, dead/unutilized code, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design), plus the anti-slop pass. File:line + severity + fix per finding.
 PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
 Print exactly: "review done — [verdict and top finding]"
 

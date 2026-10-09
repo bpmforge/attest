@@ -531,6 +531,14 @@ This file contains: `playwright.config.ts`, `auth.setup.ts`, `BasePage.ts`, `fix
 4. Generate a coverage report with specific recommendations
 5. Don't chase 100% — aim for meaningful coverage of behavior
 
+### Diff-scoped mode (`--coverage --pr`)
+Whole-repo coverage says nothing about whether THIS change is tested (mined from ECC `pr-test-analyzer`, MIT).
+1. `git diff <base>...HEAD --name-only`, then list the changed/added functions (not files).
+2. For each, find the tests that actually exercise it (grep the symbol in test files; a test that only imports the module does not count).
+3. Rate each untested changed function: critical (auth/money/data-loss/error path), important, nice-to-have.
+4. Flag weak tests on changed code: no-throw-only assertions, snapshots of unverified output, `sleep`-based waits.
+Report as a table: `changed function | tests exercising it | gap | rating`. Apply denominator discipline: the unit is the changed function, not the file.
+
 Apply `agents/shared/includes/denominator-discipline.md` to any coverage claim you write: name the load-bearing unit (assertion-level coverage of an acceptance criterion, not a bare `UC-001` string match anywhere in a test file), derive the denominator from the SRS/USE_CASES.md — not from the test suite's own list of what it happens to cover — and re-derive it a second way (grep the source for every route/handler/component and diff against what has a test) before reporting a percentage.
 
 ## What to Document

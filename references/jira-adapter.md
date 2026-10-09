@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-14
 **Code:** `scripts/jira/jira.mjs` (+ `jira.sh` wrapper), `scripts/lib/lifecycle-outbox.mjs`
-**Design:** [`docs/DESIGN_JIRA_ADAPTER.md`](../docs/DESIGN_JIRA_ADAPTER.md)
+**Design:** [`docs/DESIGN_JIRA_ADAPTER.md`](https://github.com/bpmforge/attest/blob/main/docs/DESIGN_JIRA_ADAPTER.md)
 
 The adapter projects this system's internal ticket lifecycle onto a real Jira
 Data Center instance. **`plan.json` stays the source of truth** (the

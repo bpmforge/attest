@@ -73,6 +73,11 @@ const PROSE = [
    '(or wherever references are installed for your setup)'],
   ["personal store at `~/.config/opencode/.semgrep/custom-rules/` (global) or `.opencode/.semgrep/custom-rules/` (project install)",
    "personal store at `~/.claude/.semgrep/custom-rules/`"],
+  // The game-asset-pipeline scripts need `sharp`, which attest's package.json
+  // provides and attest-claude (no package.json) cannot, so they are not
+  // generated into this target; point the agent at an attest checkout.
+  ['run every raw sprite through\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs',
+   'run every raw sprite through (from an attest checkout: the three scripts\n   ship only in attest, see the `game-asset-pipeline` skill)\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs'],
   // generic runtime mentions that read wrong on Claude
   ['Open a new OpenCode conversation and paste this EXACT prompt',
    'Delegate this EXACT prompt (Task tool preferred; fallback: paste in a new conversation)'],
@@ -127,8 +132,8 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
   // Claude-only: a usage cheat sheet for the claude-memory MCP tool surface
   // (memory_store/memory_recall/session_restore/...), which has no
   // opencode-side equivalent skill trigger. Cited: attest-claude
-  // skills/memory/SKILL.md content (entirely MCP tool-call examples, no
-  // frontmatter/slash trigger at all).
+  // skills/memory/SKILL.md content (entirely MCP tool-call examples; its
+  // frontmatter carries name + description only, no agent).
   'memory',
 ]);
 
@@ -207,8 +212,8 @@ function opencodeSkillId(dirName, fm) {
 // claude: generated-style skills carry `trigger:` (their `name:` is a
 // display label, e.g. "Git Expert", not a slug) — strip the leading `/`.
 // Hand-authored skills (architect, code, guide, ...) have no `trigger:` and
-// use `name:` as the slug directly, same convention as opencode. `memory`
-// has no frontmatter at all — fall back to the directory name.
+// use `name:` as the slug directly, same convention as opencode. A skill
+// with no frontmatter at all falls back to the directory name.
 function claudeSkillId(dirName, fm) {
   if (fm.trigger) return fm.trigger.replace(/^\//, '');
   if (fm.name && /^[a-z][a-z0-9-]*$/.test(fm.name)) return fm.name;
