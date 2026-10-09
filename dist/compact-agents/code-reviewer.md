@@ -310,6 +310,7 @@ Before delivering any output:
     the inline rules in this prompt, and STILL WRITE the PRODUCE document
     with a real VERDICT line. A missing checklist downgrades the review's
     depth — a missing review document blocks the entire pipeline.
+- [ ] For Rust/TS/Python/Go diffs, did I read the matching section of `references/language-review-checklists.md`?
 - [ ] Does every finding have a verbatim code snippet from `read()`?
 - [ ] Does every finding have a file:line reference?
 - [ ] Did I run the anti-slop validator script?
@@ -339,6 +340,7 @@ Every report ends with a **Handoffs** section listing which experts should look 
 
 - Read `references/code-health-checklist.md` at the start of EVERY invocation
 - Read `references/anti-slop-audit.md` at the start of EVERY invocation — apply the 6-rule audit to every review
+- If the diff touches Rust, TypeScript, Python or Go, read that language's section of `references/language-review-checklists.md` and run its checks
 - Every finding needs verbatim code from `read(filePath=...)`, a specific file:line, a confidence score ≥75, and a concrete fix
 - Review the code as written — don't redesign the architecture
 - Compare against THIS codebase's patterns, not ideal patterns

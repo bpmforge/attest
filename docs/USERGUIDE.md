@@ -250,7 +250,7 @@ Reach for `--deep` before contract bids, diligence reviews, security-sensitive t
 ```
 /sdlc init my-game "A roguelike about ..." --game
 ```
-Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator, game-asset-pipeline).
+Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator, game-asset-pipeline, game-producer, level-designer, narrative-designer, game-audio-designer).
 
 ### Cut a release
 ```
@@ -449,14 +449,14 @@ Reports use the skeleton-first format — actionable intel first, verbatim code 
 Modes: `--review` (default), `--debt`, `--consolidate`, `--patterns`
 
 ```
-/review-code                    # full 7-dimension health pass
+/review-code                    # full 9-dimension health pass
 /review-code --debt             # leverage-sorted tech-debt register
 /review-code --consolidate      # DRY + error-handling consolidation proposals
 /review-code --patterns         # cross-codebase pattern drift audit
 /review-code src/auth/          # target a specific directory
 ```
 
-The 7 dimensions: Complexity, Duplication/DRY, Error Handling (silent-failure hunter), Type Safety, Pattern Consistency, Naming, Comment Accuracy. Verdict rubric: APPROVED / APPROVED WITH SUGGESTIONS / NEEDS REVISION / REJECT.
+The 9 dimensions: Complexity, Duplication/DRY, Error Handling (silent-failure hunter), Type Safety, Pattern Consistency, Naming, Comment Accuracy, Dead/Unutilized Code, Tech-Stack Compliance (the anti-slop auditor runs alongside them). Verdict rubric: APPROVED / APPROVED WITH SUGGESTIONS / NEEDS REVISION / REJECT.
 
 Reference: `references/code-health-checklist.md`. Output: `docs/reviews/`.
 

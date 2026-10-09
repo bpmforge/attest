@@ -96,7 +96,7 @@ One-page summary per agent. For full docs, read the agent file directly.
 ## Quality Assurance
 
 ### code-reviewer
-**What:** 8-dimension code health audit (correctness, performance, security, maintainability, tests, docs, style, architecture).  
+**What:** 9-dimension code health audit (complexity, duplication, error handling, type safety, pattern consistency, naming, comment accuracy, dead/unutilized code, tech-stack compliance), plus the anti-slop pass.  
 **When to use:** Before merging, after major refactors, periodic debt reviews.  
 **Modes:** review · debt · consolidate · patterns  
 **Output:** Scored findings (1-10 per dimension) + prioritized fix list.

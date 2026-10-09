@@ -10,7 +10,7 @@ Reference used by the `code-reviewer` agent in every invocation. Read this file 
 
 | Mode | Purpose | Output |
 |---|---|---|
-| `--review` | Full code-health pass — all 7 dimensions | `docs/reviews/CODE_REVIEW_<date>.md` |
+| `--review` | Full code-health pass — all 9 dimensions | `docs/reviews/CODE_REVIEW_<date>.md` |
 | `--debt` | Tech-debt catalog only, build a backlog | `docs/reviews/TECH_DEBT_<date>.md` |
 | `--consolidate` | Duplication + error-handling consolidation pass | `docs/reviews/CONSOLIDATION_<date>.md` |
 | `--patterns` | Cross-codebase pattern consistency audit | `docs/reviews/PATTERNS_<date>.md` |
@@ -19,7 +19,7 @@ Default (no flag): `--review`.
 
 ---
 
-## The 7 Dimensions
+## The 9 Dimensions
 
 Every `--review` scores these independently on a 1-10 scale in the Health Dashboard:
 
@@ -30,6 +30,10 @@ Every `--review` scores these independently on a 1-10 scale in the Health Dashbo
 5. **Pattern Consistency** — naming, module boundaries, DI, imports, idioms
 6. **Naming Quality** — intent-revealing names, boolean-as-question, no abbreviations
 7. **Comment Accuracy** — comments match code behavior, no stale docs, no noise comments
+8. **Dead / Unutilized Code** — stubs, never-called functions, unused exports, orphan files, disconnected pipelines (`code-review/dead-code-detector`)
+9. **Tech-Stack Compliance** — every direct dependency is in `docs/TECH_STACK.md`; no new runtime tech outside the design (`validate-tech-stack.sh`, run by the coordinator)
+
+The `code-review/anti-slop-auditor` runs alongside these passes on every `--review` (rules in `agents/shared/ANTI_SLOP_RULES.md`); its findings feed the synthesizer but it is not a separately scored dimension.
 
 Overall score = average, but any single dimension ≤4 downgrades the verdict to NEEDS REVISION regardless of average.
 
@@ -229,6 +233,25 @@ done | sort -rn | head -30
 
 ---
 
+## Pass 8: Dead / Unutilized Code
+
+Run by the `code-review/dead-code-detector` specialist (method in its agent file).
+
+- Stub (`throw new Error("not implemented")`, `pass`, `todo!()`) on a live path, called by reachable code → **CRITICAL**
+- Disconnected pipeline (route to a placeholder handler, emitter with no listeners, queue nothing publishes to); stub exported in a public API; orphan file >200 lines → **HIGH**
+- Verified never-called function or export; unreachable branch hiding real logic → **MEDIUM**
+- Dead constants/types, stale feature-flag remnants, commented-out blocks >20 lines → **LOW**
+
+Tools: knip / ts-prune (TS), vulture (Python), staticcheck (Go), plus grep-based reference counting for any language. Verify every tool hit by hand before it becomes a finding: dynamic dispatch, reflection, DI containers, route tables and framework conventions all produce false positives. Full severity table: the agent's "Severity calibration".
+
+---
+
+## Pass 9: Tech-Stack Compliance
+
+Run by the coordinator, not a specialist: `validate-tech-stack.sh` checks that every direct dependency in the manifest appears in `docs/TECH_STACK.md`. Each dependency missing from the design is a finding, and so is new runtime tech introduced in code or config (a DB client, queue, cloud SDK, second HTTP framework, build tool) that the design docs do not name. Full method: `agents/code-review/METHODOLOGY.md` Pass 8.
+
+---
+
 ## Confidence Scoring per Finding
 
 Every finding gets a 0-100 confidence score. **Suppress findings below 75.**
@@ -291,7 +314,9 @@ Every `--review` report starts with this:
 | Pattern Consistency   | 8 | ✅ Good      | Minor naming drift in utils/ |
 | Naming Quality        | 8 | ✅ Good      | 2 misleading variable names |
 | Comment Accuracy      | 6 | ⚠️ Needs work | 4 stale JSDoc entries |
-| **Overall**           | **6.3** | ⚠️ Needs work | See top 3 below |
+| Dead / Unutilized Code | 7 | ✅ Good     | 3 unused exports in utils/ |
+| Tech-Stack Compliance | 9 | ✅ Good      | 1 dev dep missing from TECH_STACK.md |
+| **Overall**           | **6.7** | ⚠️ Needs work | See top 3 below |
 
 **Verdict:** NEEDS REVISION (Error Handling dimension ≤4)
 
@@ -480,4 +505,4 @@ Every code-reviewer report ends with a "Handoffs" section listing which other ex
 - **Component / accessibility concerns in UI files** → `ux-engineer`
 - **Flaky deploy, missing health checks, noisy alerts** → `sre-engineer`
 
-The code-reviewer does NOT fix these — it flags and hands off. Its own fixes stay inside the 7 dimensions above.
+The code-reviewer does NOT fix these — it flags and hands off. Its own fixes stay inside the 9 dimensions above.
