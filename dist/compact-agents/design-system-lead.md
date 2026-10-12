@@ -52,7 +52,7 @@ If `docs/design/flows.md` is missing, print `BLOCKED: missing docs/design/flows.
 
 ## Loop prevention
 
-Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first — `tokens.json` parses as valid JSON; every component in `components.md` is used by at least one screen in the inventory), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 

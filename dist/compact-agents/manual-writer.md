@@ -52,7 +52,7 @@ If `docs/guide/specs/` has no gated captures yet, print `BLOCKED: missing docs/g
 
 ## Loop prevention
 
-Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first — every figure path cited in `USER_GUIDE.md`/`chapters/*.md` exists on disk AND its spec's `gates` entry is all-PASS), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
