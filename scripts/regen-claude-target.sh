@@ -33,7 +33,9 @@ if [[ -n "$(git -C "$SIBLING" status --porcelain | grep -vE '^\?\?' || true)" ]]
   git -C "$SIBLING" status --short >&2
   exit 2
 fi
-git -C "$SIBLING" pull --rebase --quiet origin main || true
+# Remotes are named per machine (origin, or gitea + github) — never hard-code one.
+pull_remote="$(git -C "$SIBLING" remote | grep -m1 -E '^(origin|github|gitea)$' || true)"
+[[ -n "$pull_remote" ]] && git -C "$SIBLING" pull --rebase --quiet "$pull_remote" main || true
 
 echo "→ regenerating claude target into $SIBLING (from $(git rev-parse --short HEAD))"
 npm run build:claude >/dev/null
@@ -49,12 +51,15 @@ fi
 echo "→ $changed generated file(s) changed; committing the fresh output"
 git -C "$SIBLING" add -A
 git -C "$SIBLING" commit -q -m "build: regen claude target from attest $(git rev-parse --short HEAD)"
-git -C "$SIBLING" push --quiet origin main
-git -C "$SIBLING" push --quiet github main
+pushed=0
+for r in $(git -C "$SIBLING" remote); do
+  if git -C "$SIBLING" push --quiet "$r" main; then pushed=$((pushed + 1)); else echo "⚠ push to remote '$r' failed — push it manually once its credentials work" >&2; fi
+done
+[[ "$pushed" -gt 0 ]] || { echo "✗ regen committed but could not be pushed to any remote" >&2; exit 1; }
 
 # Final gate: the sync check must now pass against the just-committed sibling.
 if npm run build:claude:check >/dev/null 2>&1; then
-  echo "✓ claude target regenerated, pushed both remotes, sync gate clean"
+  echo "✓ claude target regenerated, pushed, sync gate clean"
 else
   echo "✗ build:claude:check still drifts after regen — investigate before releasing" >&2
   exit 1

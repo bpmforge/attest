@@ -86,6 +86,8 @@ const PROSE = [
   ['OpenCode session', 'session'],
 ];
 const PATHS = [
+  // Claude installs references flat into ~/.claude/agents/ — must precede the generic rule.
+  ['~/.config/opencode/references/', '~/.claude/agents/'],
   ['~/.config/opencode/', '~/.claude/'],
   ['$HOME/.config/opencode', '$HOME/.claude'],
   ['.opencode/', '.claude/'],
