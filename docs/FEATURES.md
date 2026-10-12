@@ -190,6 +190,20 @@ Bridges UX specification and production UI. Turns design tokens and component sp
 
 Distinct from `ux-engineer`: UX handles usability, workflows, and accessibility; this agent handles visual polish and implementation. Called by `sdlc-lead` in Phase 3 (after UX spec is approved) and Mode 4 (`/sdlc improve "frontend"`).
 
+### `interaction-engineer` — Interaction engineer (`mode: primary`)
+
+Owns how an interface behaves under the user's hands — drag-and-drop, sortable/Kanban, resizable panels, dashboard/page editors, node canvases, command palettes, undo/redo, layout persistence. Three modes:
+
+- **`--spec`** — interaction inventory + state schema + gates → `docs/design/INTERACTIONS.md`
+- **`--implement`** — sources components (`references/component-sourcing.md`), exact-pins and grounds library APIs, builds one interaction at a time with round-trip and Playwright gesture tests
+- **`--audit`** — mouse / keyboard / touch / reduced-motion / failure paths → `docs/reviews/INTERACTION_AUDIT_<slug>_<date>.md`
+
+Gates in `references/interaction-patterns.md` (WCAG 2.1.1, 2.5.7, 2.5.8, 2.3.3, 4.1.3). Distinct from `frontend-design` (looks, motion aesthetic) and `ux-engineer` (flows).
+
+### `agent-ui-engineer` — Agent & generative UI engineer (`mode: primary`)
+
+Builds surfaces where people work with an AI agent: action classification + approval UI, streaming/cancel/retry states, trace and diff views, persistent editable artifacts, and runtime-generated UI from a typed catalog with validation and sandboxing. Modes `--design` (`docs/design/AGENT_UI.md` + ADR), `--implement`, `--audit`. Gates in `references/agent-ui-patterns.md`. Distinct from `llm-integration-engineer` (model side) and `owasp-llm-checker` (security audit).
+
 ### `ui-verifier` — Live browser verification specialist (`mode: primary`)
 
 Navigates a running application with `playwright-mcp`, captures screenshots, reads accessibility snapshots, and verifies that real UI behavior matches use cases or UX specs. Works with any LLM — no vision required (uses accessibility tree as primary signal).
@@ -386,6 +400,8 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-verify` | `sdlc-lead` | Ralph Wiggum D3 — run all onboard validators, report gaps |
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
+| `/interaction` | `interaction-engineer` | Drag/sort/resize, layout editors, node canvases, command palette, undo — `--spec` / `--implement` / `--audit` against `references/interaction-patterns.md` |
+| `/agent-ui` | `agent-ui-engineer` | Agent-facing UI — approvals, tool-call/trace views, streaming states, generative UI from a typed catalog — `--design` / `--implement` / `--audit` |
 | `/design-iterate` | `design-iterator` | Claude-Design-style visual loop — render → screenshot → critique against tokens.json → fix → re-verify (`--sync` token extraction, `--real` logged-in browser audit) |
 | `/gauntlet` | `gauntlet-lead` | Gauntlet loop — builders + blind fresh-per-round critics iterate until the work matches or beats a named real exemplar (`--bar`, `--budget`) |
 | `/wave` | orchestrator (inline) | Level-2 wave integration gate — reviewer set composed from the aggregate diff, concurrent isolated reviewers, finding SETS (summaries, never transcripts) synthesized into one consensus-weighted wave-gate report with findings attributed to the introducing ticket |
@@ -393,7 +409,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/autopilot` | orchestrator (inline) | Unattended run-to-completion outer loop — ASSESS (board + gates + requirement ledger + branches + red suites, story-denominated) / DECIDE (ordered next actions, each with an exit predicate) / DRIVE (conductor / run-until-done / run-plan, one bounded unit at a time) / HEAL (narrow → split → escalate tier → park with evidence; byte-identical gap set = no-progress HALT) / EXIT (assembly-gate predicate or documented halt; iteration cap mandatory) **Field-proven 2026-09-01**: a two-ticket product driven end-to-end (OpenAI terra codes, luna reviews, runtime verified, merged, board drained) — the PRIMARY agent kicks off, tracks, and reconciles it per the skill's OPERATE section; handoffs only where the ladder names one. |
 | `/vault` | `vault` | Query / ingest / lint the agent-brain-vault — answer a project question from compiled, cited pages instead of re-reading raw sources (T5.6) |
 
-**48 skills total** (includes `/guide` — the concierge front door).
+**50 skills total** (includes `/guide` — the concierge front door).
 
 ---
 
@@ -666,6 +682,10 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `context7-mcp.md` | all agents | Live library docs via Context7 MCP |
 | `parallel-worktree-agent-playbook.md` | orchestrating session | Gotchas for briefing multiple agents on separate tickets concurrently: worktree isolation, git-stash cross-worktree collision, `--base origin/main`, `build-target-claude.mjs --out`, awk/bash portability traps, fixture/CHANGELOG/merge-gate conventions |
 | `jira-adapter.md` | orchestrating session, sdlc-lead | Mirror the ticket lifecycle to Jira Data Center: setup, verbs, SDLC hygiene mapping (grab-issues-not-epics, epic-closes-when-children-done, maker≠verifier, blocking links, lane→component), and graceful fallback to `plan.json`-only. Wraps `scripts/jira/jira.mjs`; see `docs/DESIGN_JIRA_ADAPTER.md` |
+| `ui-ecosystem-map.md` | interaction-engineer, agent-ui-engineer, frontend-design | Dated (2026-10-12) map of interaction, motion, agent-UI, and component-discovery libraries — version, license, archived/deprecated/shutdown status — plus lookup recipes (`npm view`, `gh api`, Context7) to re-verify any row before adoption |
+| `interaction-patterns.md` | interaction-engineer, ux-engineer, a11y-compliance | Layer-choice table (dnd-kit / Puck / React Flow / tldraw / cmdk) and per-pattern gates: drag & drop, layout JSON persistence, undo, panels, command palette, motion, async states, canvases; P0–P3 audit rubric |
+| `agent-ui-patterns.md` | agent-ui-engineer, llm-integration-engineer, owasp-llm-checker | Architecture choice, generative-UI catalog contract, sandboxing, HITL approvals, streaming/cancel, observability-as-UX, trust boundaries; P0–P3 rubric |
+| `component-sourcing.md` | frontend-design, interaction-engineer, agent-ui-engineer, design-system-lead | Source-before-build search order (project → shadcn registries/MCP → 21st → galleries), reject-on-fail scorecard, vendoring provenance (`COMPONENT_SOURCES.md`), publishing a project registry |
 | `figma-adapter.md` | design-system-lead, frontend-design | Bring a real Figma design into the design pipeline: `pull` a file → normalized `figma-snapshot.json`, `derive-tokens` → `docs/design/tokens.json` (which stays authoritative), one-way Figma→code, graceful fallback to prose-authored tokens. Wraps `scripts/figma/figma.mjs`; see `docs/DESIGN_FIGMA_ADAPTER.md` |
 
 ---
