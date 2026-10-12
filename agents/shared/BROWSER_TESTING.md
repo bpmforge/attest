@@ -21,6 +21,33 @@ This MCP works with any LLM — no vision required (uses accessibility tree snap
 | Extract markdown from a JS-heavy page | `playwright-search_web_fetch` |
 | Run Playwright test files (`.spec.ts`) | `bash(command="npx playwright test ...")` |
 
+## Which browser tool do I actually have? (check before planning)
+
+Look at your tool list, then pick the first row that exists. Never assume `browser_*` is present.
+
+| You see… | Runtime | Use it for |
+|---|---|---|
+| `browser_navigate`, `browser_snapshot`, `browser_take_screenshot`, … (or `mcp__playwright__browser_*`) | playwright-mcp — any client | Default: headless or headed automation, a11y snapshots |
+| `mcp__Claude_Browser__*` (`navigate`, `read_page`, `computer`, `resize_window`, …) | Claude desktop app's built-in browser pane | Interactive checks the user can watch |
+| `mcp__claude-in-chrome__*` | Claude in Chrome extension | The user's real Chrome session (read-only audits, per `references/real-browser-bridge.md`) |
+| None of the above, but you can run shell commands | **Node Playwright** | Scripted, measurable audits: CDP (CPU throttling, touch events), WebGL hooks, media emulation |
+
+**Node Playwright from an ESM script.** `NODE_PATH` does not apply to `import`, so `import { chromium } from 'playwright'` fails unless Playwright is in the script's own `node_modules`. Use:
+
+```js
+import { createRequire } from 'node:module';
+// any package.json whose node_modules contains playwright (e.g. the attest checkout)
+const require = createRequire('/path/to/package.json');
+const { chromium } = require('playwright');
+const browser = await chromium.launch();             // headless Chromium renders WebGL with SwiftShader
+const ctx = await browser.newContext({ viewport: { width: 375, height: 812 }, hasTouch: true });
+const page = await ctx.newPage();
+const cdp = await ctx.newCDPSession(page);            // CPU throttling, Input.dispatchTouchEvent, …
+await page.emulateMedia({ reducedMotion: 'reduce' }); // reduced-motion checks
+```
+
+Put the script in the output/evidence folder, not the project root. If Playwright isn't installed anywhere, installing it (`npx playwright install chromium` downloads a browser) needs the user's go-ahead. macOS has no `timeout` command; use Playwright's own `timeout` options.
+
 ---
 
 ## Core workflow

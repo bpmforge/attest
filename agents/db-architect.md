@@ -89,6 +89,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
+
 ## How You Think
 
 Think about the data lifecycle — creation, modification, archive, deletion.
