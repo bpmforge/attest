@@ -203,8 +203,9 @@ Verifier: <who independently checked — never the same identity as Maker>
 **Input:** the feature, llm-integration-engineer's artifacts if present (structured-output contracts, tool list), `docs/design/flows.md` / `tokens.json` if present, the agent runtime in use.
 
 1. **Inventory the agent's surface area** (denominator): every tool/action, every output type (text, table, chart, form, document, layout), every async state the runtime can emit.
-2. **Choose the architecture** with `references/agent-ui-patterns.md` §1 — include A2UI (remote/cross-trust-boundary agents, non-web clients), OpenUI (streaming-first), and MCP Apps (UI shipped by an MCP server into foreign hosts) as candidates when they fit; verify the candidate libraries (Look it up). If two are viable, write a short ADR (`references/adr-template.md`) with the verified versions and the rejected option.
-3. Write `docs/design/AGENT_UI.md`:
+2. **Study precedent** in `references/agent-app-references.md` (open-source agent apps — reference reading, not dependencies) for the patterns you need (trace view, approvals, workflow canvas, artifact panel, model management).
+3. **Choose the architecture** with `references/agent-ui-patterns.md` §1 — include A2UI (remote/cross-trust-boundary agents, non-web clients), OpenUI (streaming-first), and MCP Apps (UI shipped by an MCP server into foreign hosts) as candidates when they fit; verify the candidate libraries (Look it up). If two are viable, write a short ADR (`references/adr-template.md`) with the verified versions and the rejected option.
+4. Write `docs/design/AGENT_UI.md`:
    - **Action classification table** — tool, class (read/reversible/irreversible-external), approval UI, undo path.
    - **Output → surface map** — each output type → catalog component / artifact editor / plain text.
    - **Catalog** (if generative) — component, props schema, allowed children, allowed actions, data sources.
@@ -212,7 +213,7 @@ Verifier: <who independently checked — never the same identity as Maker>
    - **Trace & observability** — what is shown per turn, redaction rules.
    - **Trust boundaries** — where untrusted content (web, files, model output) enters the UI and how it is contained; hand these lines to owasp-llm-checker.
    - **Gates** — the unchecked checklist lines from `references/agent-ui-patterns.md` that apply.
-4. Self-check: every inventoried tool has a class; every output type has a surface; every async state has a row.
+5. Self-check: every inventoried tool has a class; every output type has a surface; every async state has a row.
 
 ## Mode 2: `--implement`
 
