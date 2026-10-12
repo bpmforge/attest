@@ -38,13 +38,14 @@ const SRC = (() => {
   return existsSync(s) ? s : ROOT;
 })();
 
-const readJson = (p) => {
+const readJsonText = (text) => {
   try {
-    return JSON.parse(readFileSync(p, "utf8"));
+    return JSON.parse(text);
   } catch {
     return null;
   }
 };
+const readJson = (p) => (existsSync(p) ? readJsonText(readFileSync(p, "utf8")) : null);
 
 // ── inputs ───────────────────────────────────────────────────────────────
 const pkg = readJson(join(ROOT, "package.json"));
@@ -185,17 +186,14 @@ for (const [p, pm, c, cms, why] of PAIRS) {
   }
 }
 if (existsSync(join(ROOT, "node_modules"))) {
+  let out = "{}";
   try {
-    const out = execFileSync("npm", ["ls", "--json", "--depth=0"], { cwd: ROOT, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "ignore"] });
-    for (const prob of JSON.parse(out).problems || []) if (/peer|invalid/i.test(prob)) add("SC-06", "ERROR", `npm reports: ${prob}`);
+    out = execFileSync("npm", ["ls", "--json", "--depth=0"], { cwd: ROOT, encoding: "utf8", timeout: 60000, stdio: ["ignore", "pipe", "ignore"] });
   } catch (e) {
-    // npm ls exits non-zero WHEN there are problems; the JSON is still on stdout.
-    try {
-      for (const prob of JSON.parse(e.stdout || "{}").problems || []) if (/peer|invalid/i.test(prob)) add("SC-06", "ERROR", `npm reports: ${prob}`);
-    } catch {
-      /* npm unavailable */
-    }
+    out = e.stdout || "{}"; // npm ls exits non-zero WHEN there are problems; the JSON is still on stdout.
   }
+  const problems = readJsonText(out)?.problems || [];
+  for (const prob of problems) if (/peer|invalid/i.test(prob)) add("SC-06", "ERROR", `npm reports: ${prob}`);
 }
 
 // ── SC-07 imports of kits/libraries that are not declared ────────────────

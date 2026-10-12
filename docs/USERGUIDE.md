@@ -564,9 +564,10 @@ Modes: `--design`, `--migrate`, `--tune`, `--review`
 Output: `docs/db/`.
 
 ### `/ux`
-Modes: `--design`, `--review`, `--audit`
+Modes: `--design`, `--research`, `--review`, `--audit`, `--flows`
 
 ```
+/ux --research "triage view for failing agent runs"  # cited references from real products → docs/design/REFERENCES.md
 /ux --design "onboarding flow for new users"
 /ux --review src/components/SettingsPanel.tsx
 /ux --audit                     # WCAG 2.2 AA accessibility audit

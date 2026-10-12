@@ -12,6 +12,7 @@ Load and follow the instructions in the `ux-engineer` agent.
 - `/ux --design` — Greenfield: produce DESIGN_PRINCIPLES.md + STYLE_GUIDE.md + UX_SPEC.md (used by sdlc-lead Phase 3 for UI-bearing projects)
 - `/ux --review` — Live design review of PR diff or existing UI — 7-phase methodology with Blocker/High/Medium/Nit triage
 - `/ux --audit` — WCAG 2.2 Level AA accessibility audit
+- `/ux --research "<screen or job>"` — Design research: 5–8 cited references from shipped products and runnable open-source apps, captured + annotated against the job, patterns extracted, 2–3 directions checked against the project stack → `docs/design/REFERENCES.md`
 - `/ux --flows` — User workflow diagrams only (no code)
 
 **Live Environment First:** prefers running interface over static source. Uses Playwright script if available, falls back to static analysis with explicit downgrade notice.
