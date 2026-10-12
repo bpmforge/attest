@@ -10,6 +10,12 @@ All notable changes to this project are documented here. Format follows [Keep a 
 - **agent-ui-engineer** (`/agent-ui`) — design / implement / audit agent-facing UI: approval (HITL) screens, tool-call and trace views, streaming/cancel/retry states, and generative UI as catalog → JSON spec → validate → render, with sandboxing for anything executable.
 - References: `ui-ecosystem-map.md` (library versions, licenses, and archived/deprecated/shutdown status checked 2026-10-12 with `npm view` + `gh api`, plus the commands to re-check them), `interaction-patterns.md`, `agent-ui-patterns.md`, `component-sourcing.md`.
 - Wired into ux-engineer (tweak dispatch + conditional chain step 5), frontend-design, llm-integration-engineer, and the `/guide` routing table.
+- **Design-tooling wave** (sources verified 2026-10-12):
+  - `references/ai-design-tells.md` — 59 deterministic AI-design-tell rules (derived from pbakaus/impeccable, Apache-2.0); run by design-iterator's token-lint pass and referenced from frontend-design's AI Slop checklist.
+  - `references/design-md-interop.md` — design-system-lead can import a project `DESIGN.md` into `tokens.json` (author only what's missing) and optionally export `docs/design/DESIGN.md`.
+  - agent-ui-patterns §1 / ui-ecosystem-map §3: A2UI, OpenUI, and MCP Apps added as generative-UI architectures; agent-ui-engineer lists them as candidates.
+  - ux-engineer `--design` compares ≥ 2 layout options per major screen; `--review` can export `docs/design/FEEDBACK_<date>.json` (`references/design-feedback-schema.md`), which design-iterator consumes as input findings.
+  - `references/agent-app-references.md` — open-source agent apps to study (LobeHub, Open WebUI, LibreChat, Dify, Langflow, Mastra, OpenHands, …), with license flags.
 
 ## [3.12.0] — 2026-09-30
 
