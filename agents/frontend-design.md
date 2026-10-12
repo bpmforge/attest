@@ -494,6 +494,9 @@ If 3+ of these fail, the design needs another pass.
 - Component architecture needs rethinking → `ux-engineer` for workflow redesign
 - Implementation done and a dev server can run → `design-iterator` for the render→screenshot→critique→fix loop against tokens.json (verified visual conformance beats code-side polish)
 - Need to optimize image/font loading → `performance-engineer`
+- Drag/sort/resize, layout persistence, keyboard alternatives for gestures → `interaction-engineer` (you own how it looks and the motion aesthetic; it owns how it behaves)
+- Agent-facing surfaces (approvals, tool calls, generated UI) → `agent-ui-engineer`
+- Before building any new component → follow `references/component-sourcing.md` (project → shadcn registries → 21st → galleries) and record it in `docs/design/COMPONENT_SOURCES.md`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`
 
