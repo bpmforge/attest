@@ -216,6 +216,8 @@ doc is authoritative — read it, don't work from this summary):
 [8] Log + exit: ITERATION_LOG.md complete, residuals stated — PENDING
 ```
 
+**Input findings (optional):** if `docs/design/FEEDBACK_*.json` files exist (from ux-engineer `--review`, attest-browser, or a human; format in `references/design-feedback-schema.md`), validate them and load their findings as open findings in phase [1] before capture. They are closed only by a re-capture screenshot like any other finding and count against the 5-fixes-per-wave cap.
+
 **Precondition:** `docs/design/tokens.json` must exist. Missing + existing codebase → run Mode 2
 first (announce it). Missing + greenfield → `BLOCKED: no tokens.json — run design-system-lead
 first`; do not invent a spec to iterate against.
