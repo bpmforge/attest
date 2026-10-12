@@ -262,7 +262,7 @@ for cmd in "${CMDS[@]}"; do
   # (found 2026-07-30 running a real HANDOFF against a node --test project).
   CMD_PASSED=$(
     { grep -Eo '[0-9]+ pass(ed|ing)' "$LOG" 2>/dev/null | grep -Eo '^[0-9]+' || true
-      grep -Eo '^[#ℹ][[:space:]]*pass[[:space:]]+[0-9]+' "$LOG" 2>/dev/null | grep -Eo '[0-9]+$' || true
+      grep -Eo '^(#|ℹ)[[:space:]]*pass[[:space:]]+[0-9]+' "$LOG" 2>/dev/null | grep -Eo '[0-9]+$' || true
     } | awk '{ s += $1 } END { print s + 0 }'
   )
   TOTAL_PASSED=$((TOTAL_PASSED + CMD_PASSED))
