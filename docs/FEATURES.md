@@ -693,6 +693,10 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `graphics-patterns.md` | graphics-engineer, frontend-design, performance-engineer, a11y-compliance | Stack-choice table (R3F/three, PixiJS, OGL, GSAP, Theatre status), purpose gate, per-tier budgets, assets, fallbacks/context loss/disposal, canvas a11y; P0–P3 rubric |
 | `component-sourcing.md` | frontend-design, interaction-engineer, agent-ui-engineer, design-system-lead | Source-before-build search order (project → shadcn registries/MCP → 21st → galleries), reject-on-fail scorecard, vendoring provenance (`COMPONENT_SOURCES.md`), publishing a project registry |
 | `figma-adapter.md` | design-system-lead, frontend-design | Bring a real Figma design into the design pipeline: `pull` a file → normalized `figma-snapshot.json`, `derive-tokens` → `docs/design/tokens.json` (which stays authoritative), one-way Figma→code, graceful fallback to prose-authored tokens. Wraps `scripts/figma/figma.mjs`; see `docs/DESIGN_FIGMA_ADAPTER.md` |
+| `ai-design-tells.md` | design-iterator, frontend-design, ux-engineer, a11y-compliance | Dated (2026-10-12) table of 59 deterministic AI-design-tell rules (visual slop, copy slop, legibility/layout integrity, token drift) with a no-vision check per rule and severity mapping; catalogue derived from pbakaus/impeccable (Apache-2.0) |
+| `design-md-interop.md` | design-system-lead | DESIGN.md (google-labs-code/design.md, spec `alpha`) ↔ `tokens.json` key mapping, precedence (Figma > DESIGN.md > prose), and optional `docs/design/DESIGN.md` export rules |
+| `design-feedback-schema.md` | ux-engineer, design-iterator, frontend-design | Versioned JSON format for element-level design findings (`docs/design/FEEDBACK_<date>.json`: screen, selector, screenshot, violated token/tell/gate, P0–P3, suggested change); the format attest-browser is specified to emit |
+| `agent-app-references.md` | agent-ui-engineer, ux-engineer | Dated (2026-10-12) catalogue of open-source agent apps to study for agent-UI patterns, with archived/last-push/license (non-OSI flagged) — reference reading, not dependencies |
 
 ---
 
