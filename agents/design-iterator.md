@@ -107,8 +107,8 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, 
 ## Vision check (before Mode 1 or Mode 3)
 
 The critique leg of this loop is vision-first — the sanctioned exception to the repo's
-snapshot-first doctrine. If your model cannot see images: run only the deterministic token-lint and
-accessibility-snapshot checks, head every output with
+snapshot-first doctrine. If your model cannot see images: run only the deterministic token-lint, the
+`references/ai-design-tells.md` rules, and accessibility-snapshot checks, head every output with
 `**Method: token-lint only — visual critique not performed (no vision)**`, and lower confidence.
 Never describe a screenshot you cannot see — that is confabulation, not critique.
 
@@ -209,7 +209,7 @@ doc is authoritative — read it, don't work from this summary):
 [1] Ground: read tokens.json + principles + checklist; build project-specific rubric — PENDING
 [2] Render: start/locate dev server, navigate, stabilize — PENDING
 [3] Capture: 375/768/1440 screenshots + snapshot + console per target screen — PENDING
-[4] Token-lint: computed-style diff against tokens.json — PENDING
+[4] Token-lint: computed-style diff against tokens.json + the deterministic rules in references/ai-design-tells.md — PENDING
 [5] Critique: vision pass against rubric; grounded findings — PENDING
 [6] Fix: smallest change per P0/P1; existing framework only — PENDING
 [7] Re-verify: re-capture same viewports/states; close or carry findings — PENDING
