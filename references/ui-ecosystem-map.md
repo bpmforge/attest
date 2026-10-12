@@ -34,8 +34,8 @@ This is a map, not an endorsement list. The rule from `references/library-adopti
 
 | Need | Library | npm / repo (2026-10-12) | License | Notes |
 |---|---|---|---|---|
-| Agent ↔ app shared state, HITL, rendered tool calls | CopilotKit — `@copilotkit/react-core` | 1.79.0 | MIT | Releases near-daily — pin exactly, ground the API every upgrade. |
-| Agent ↔ frontend event protocol | AG-UI — `@ag-ui/core` | 1.0.2 | MIT | Protocol layer; lets the frontend stay independent of the agent runtime (LangGraph/Mastra/etc.). |
+| Agent ↔ app shared state, HITL, rendered tool calls | CopilotKit — `@copilotkit/react-core` | 1.79.0 | MIT | Releases near-daily — pin exactly, ground the API every upgrade. Transitive deps (verified `npm view … dependencies`): `lit`, `katex`, `react-markdown`, `@scarf/scarf` (install telemetry); `@copilotkit/runtime` pins `@ag-ui/langgraph` 0.0.44. |
+| Agent ↔ frontend event protocol | AG-UI — `@ag-ui/core`, `@ag-ui/client` | 1.0.2 | MIT | Protocol layer; lets the frontend stay independent of the agent runtime. Usable directly (no CopilotKit) for small surfaces. Backend adapters are **0.0.x** (`@ag-ui/langgraph` 0.0.45) — exact-pin. |
 | Composable chat/thread primitives | assistant-ui — `@assistant-ui/react` | 0.15.28 | MIT | **`assistant-ui/assistant-ui-react-ui` is legacy** — its README says "not actively maintained"; use the main repo's registry components. |
 | LLM-assembled UI from an approved catalog | json-render — `@json-render/core`, `/react`, `/shadcn` | 0.21.0 | Apache-2.0 | Catalog → JSON spec → validate → render. The safe default for runtime-generated UI. |
 | Declarative agent→client UI protocol across trust boundaries | A2UI — a2ui-project/a2ui; `@a2ui/react` / `@a2ui/lit` / `@a2ui/web_core` | 0.13.0 (`@a2ui/angular` 0.12.0) | Apache-2.0 | Protocol v0.9.1 is the stable family, v1.0 is a release candidate, v0.8 legacy (README 2026-10-12). Renderer package versions ≠ protocol version — record both. Pre-1.0: pin exactly. |

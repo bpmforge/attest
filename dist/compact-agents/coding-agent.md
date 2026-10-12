@@ -60,11 +60,11 @@ Read `agents/shared/SCOPE_BOUNDARY.md` for the full rule and the exact block to 
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## Code search (available, optional)
 

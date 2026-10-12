@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+**Smoke-test fixes.** The three new experts and `/ux --research` were run on live targets (read-only): interaction-engineer found a real P0 in dnd-kit's own multiple-lists demo (hover-only delete buttons unreachable by keyboard) plus a silent, un-undoable delete; graphics-engineer found a three.js example that goes blank with an uncaught error when WebGL is unavailable; agent-ui-engineer produced a stack-checked design that rejected CopilotKit on verified transitive dependencies; `/ux --research` produced 8 cited references and 3 directions in ~16 calls. Their ~45 instruction issues are fixed at the root:
+
+### Changed
+- **No more hard tool-call caps.** The stamped loop-prevention block and 40+ agents told models to stop after 15 (or 20/30) tool calls, contradicting `LOOP_PREVENTION.md`'s own "quality-based stopping" rule; in the smoke tests, agents skipped mandatory reads to stay under the cap. Agents now stop on quality: success criterion met or confidence ≥ 8, three calls with nothing new, or a repeat URL/file. Failure-loop (3 strikes) and schema-loop (2 strikes) stops are unchanged, as is challenger's 4-calls-per-claim verification budget (it defines the UNVERIFIABLE verdict, not a loop cap).
+
+### Fixed
+- **Reference paths resolve on both installs.** Every agent now carries one line (stamped block) saying `references/<x>.md` = `~/.config/opencode/references/<x>.md`; the Claude build maps that to `~/.claude/agents/<x>.md`, where references are installed. Previously relative paths resolved against the user's project.
+- `agents/shared/BROWSER_TESTING.md`: "which browser tool do I have" table (playwright-mcp, Claude built-in browser, claude-in-chrome, Node Playwright) and a working ESM Node-Playwright recipe (`createRequire`; `NODE_PATH` does not apply to `import`).
+- `scripts/regen-claude-target.sh` pushed to a hard-coded `origin` remote that attest-claude doesn't have; it now pulls from the first known remote and pushes to every configured remote, warning per failure.
+- interaction-patterns / graphics-patterns: numbered gate ids; new gates (accessible names, keyboard reach for in-card controls, drop destination in announcements, narrow boards); reconciled severity tables; measurement recipes (renderer string first, SwiftShader voids tier verdicts, WebGL-hook fallback for `renderer.info`, context-loss handle before `loseContext`, CDP touch, live-region capture); re-verify any P0/P1 from a single run.
+- agent-ui: CopilotKit transitive `lit`/`katex`/`react-markdown`/`@scarf/scarf` and pinned `@ag-ui/langgraph` 0.0.44 documented; "AG-UI client directly" added as the light option.
+- design-research-protocol: light/full tiers with budgets, Kind column, login walls → stand-ins, privacy-preserving consent, one-script capture skeleton; library-adoption-protocol: design-only (no install) fallback; component-sourcing: license ambiguity → open question.
+- Agents: per-mode gate scope (direct invocation, design-only, third-party audit; N/A rows listed but excluded from the denominator); `/ux --research` subtask list and output.
+
 ## [3.13.0] — 2026-10-12
 
 **UI / UX design experts.** Three new specialists (interaction, agent UI, graphics), a deterministic stack-coherence gate, design research, and a design-tooling wave — all library facts verified against npm/GitHub on 2026-10-12.
