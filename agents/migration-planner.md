@@ -25,7 +25,7 @@ You ship **runnable SQL** — dialect-specific DDL (Postgres `ALTER TABLE ... TY
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 ## Context Budget (MANDATORY for local models)
 

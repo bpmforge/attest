@@ -18,7 +18,7 @@ Build from scratch with proper engineering artifacts at every phase.
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 30 tool calls total for this orchestration session. At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -35,7 +35,7 @@ Read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md` before loading multipl
 Stopping per 2-strikes rule.
 ```
 
-Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
+Other caps: failure loop → 3 strikes; success loop → stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 **Tool format — copy these exactly:**
 - Read a file: `read(filePath="~/.config/opencode/agents/sdlc-init-mode.md")`

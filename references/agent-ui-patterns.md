@@ -9,7 +9,8 @@ The goal is not a prettier chatbot. It is an interface where the user can **see 
 
 | Situation | Pattern | Typical stack |
 |---|---|---|
-| Agent must read/change app state (forms, filters, records) | **Shared state + rendered actions** | CopilotKit over AG-UI |
+| Agent must read/change app state (forms, filters, records) across many surfaces | **Shared state + rendered actions** | CopilotKit over AG-UI — heavy: `@copilotkit/react-core` 1.79.0 pulls `lit` (a second UI runtime — record the exception per stack-coherence SC-01), `katex`, `react-markdown`, and `@scarf/scarf` install telemetry; its runtime pins `@ag-ui/langgraph` 0.0.44 (registry has 0.0.45) |
+| One or two agent surfaces (a run panel, an approval card) on an existing app; you want minimal deps | **AG-UI client directly** — your own hook over `@ag-ui/client` + the backend adapter, rendered with the project's existing components | `@ag-ui/client`/`@ag-ui/core` 1.0.2; backend adapters are 0.0.x (e.g. `@ag-ui/langgraph` 0.0.45) — pin exactly |
 | Conversation is the product; you want full visual control | **Composable thread primitives** | assistant-ui (main repo registry components) |
 | Agent should *compose a screen* (dashboard, report, form) | **Catalog → JSON spec → validate → render** | json-render (+ `@json-render/shadcn`) |
 | Agent is remote / another org's / crosses a trust boundary, or clients are non-web (mobile, Angular, Lit) | **Declarative UI intent rendered by the client's own catalog** | A2UI (protocol v0.9.1 stable; renderers `@a2ui/react`, `@a2ui/lit`, `@a2ui/angular`) |

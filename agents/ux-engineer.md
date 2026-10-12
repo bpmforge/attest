@@ -72,13 +72,13 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines hard caps and stop conditions for three loop classes that have caused real failures:
+Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not on a call count: stop a work-unit when its success criterion is met (or confidence ≥ 8), when 3 consecutive calls add nothing new, or when you would re-fetch a URL/file you already have. Checkpoint findings to disk as you go.
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -99,6 +99,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 - `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
 
 ## Live Environment First
 
@@ -422,7 +424,17 @@ Follow the 7-phase methodology in `references/design-review-checklist.md`.
 
 ## Mode 5: `--research` (Design Research)
 
-Runs `references/design-research-protocol.md` standalone: name the job, collect 5–8 cited references (≥1 shipped product or runnable open-source app), capture screenshots to `docs/design/references/`, annotate against the job, extract patterns, synthesize 2–3 directions each checked against the project stack. Output: `docs/design/REFERENCES.md`. Patterns, never brand assets. Used on its own ("show me how good products do X") and as the first step of `--design` for major screens.
+### Subtask List
+```
+[1] Name the job (one line) and pick the tier (light 3–4 refs / full 5–8) — PENDING
+[2] Find references across Kinds (live product, OSS app, product docs, DS docs) — PENDING
+[3] Capture all in ONE script run → docs/design/references/ — PENDING
+[4] Annotate against the job; extract 3–6 patterns — PENDING
+[5] 2–3 directions, each stack-checked (or N/A — greenfield) — PENDING
+[6] Write docs/design/REFERENCES.md from the protocol template; score it (≥7: every claim cited, ≥1 live product/OSS app, directions name their patterns) — PENDING
+```
+
+Runs `references/design-research-protocol.md` standalone: name the job, collect cited references per its tier (≥1 live product or runnable open-source app), capture screenshots to `docs/design/references/`, annotate against the job, extract patterns, synthesize 2–3 directions each checked against the project stack. Output: `docs/design/REFERENCES.md`. Patterns, never brand assets. Used on its own ("show me how good products do X") and as the first step of `--design` for major screens.
 
 ---
 
@@ -504,6 +516,7 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 - `--design` → `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md`
 - `--review` → `docs/UX_REVIEW.md` (+ screenshots)
 - `--audit` → `docs/ACCESSIBILITY_AUDIT.md`
+- `--research` → `docs/design/REFERENCES.md` + `docs/design/references/` (captures + capture script)
 - NEVER output findings as chat text only. Write the file with `write(filePath=...)`, then summarize.
 
 **Diagrams:** ALL diagrams use Mermaid syntax. Never ASCII art.

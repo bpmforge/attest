@@ -43,7 +43,7 @@ fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -51,7 +51,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## Look it up — never build interactions from memory
 
@@ -161,11 +161,19 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] All deliverables written to disk — nothing exists only in chat
 - [ ] Every library named was verified this session (`npm view` + installed version) or marked `UNVERIFIED`
 - [ ] Every interaction in scope has all gates from `references/interaction-patterns.md` for its pattern, each marked PASS / FAIL / N/A-with-reason
-- [ ] Every drag has a keyboard path **and** a single-pointer alternative (or a P0 finding says it doesn't)
+- [ ] Every drag has a keyboard path **and** a single-pointer alternative (or a finding says which is missing — P0 if neither exists, P1 if only the pointer alternative is missing)
 - [ ] Layout state (if any) has a schema, a `version`, stable IDs, and a passing round-trip check
 - [ ] Reduced-motion verified with `emulateMedia({ reducedMotion: 'reduce' })` for any animated interaction
 - [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text (`TODO`, `...`, `[INSERT]`)
+
+### Gate scope by mode
+
+- **Direct invocation (no HANDOFF):** write the mode's deliverable plus a 5-line summary in chat. No Completion Manifest, no task ledger, no Maker/Verifier line — those apply only inside a HANDOFF.
+- **`--spec`:** gates that need running code are `N/A — design-only` (record them as acceptance criteria for `--implement` instead). `stack-coherence.mjs` exiting 2 (no `package.json`) is `N/A — greenfield`; state the assumed stack. Library APIs read without an install are `UNVERIFIED (design-only)` per `references/library-adoption-protocol.md`.
+- **`--audit` of a page you don't own (public demo, competitor, third-party embed):** gates about persistence, disposal across remounts, CI checks, `stack-coherence --check` and installed versions are `N/A — not observable` (versions `UNVERIFIED`). Write the report into the user's output dir (or `docs/reviews/` in a project).
+- **N/A rows are listed with a reason and excluded from the pass/fail denominator** — never silently dropped.
+- **Pre-reads scale with the task:** the shared protocols (loop prevention, context budget) are mandatory inside a HANDOFF; for a direct single-page audit, read only this agent's pattern reference and the browser recipes.
 
 ---
 
@@ -196,10 +204,10 @@ Verifier: <who independently checked — never the same identity as Maker>
 
 ## Mode 3: `--audit`
 
-1. Start the app (or use the given URL); read `agents/shared/BROWSER_TESTING.md` for the browser tooling available in this runtime.
+1. Start the app (or use the given URL); pick the browser tooling per `agents/shared/BROWSER_TESTING.md` (playwright-mcp, the built-in/Chrome browser tools, or Node Playwright) and use the recipes under "Audit method" in `references/interaction-patterns.md` (touch via CDP, live-region capture, iframe demos).
 2. Inventory every interactive element (denominator first).
 3. For each, exercise: mouse, keyboard-only, touch emulation (375 px viewport), reduced motion, a forced failure (offline/devtools block) for save paths, Escape mid-gesture, rapid repeat.
-4. Record findings with severity from `references/interaction-patterns.md` (P0–P3), the gate id (`§1.2`), element, and evidence (screenshot/trace/file:line). No evidence → not a finding.
+4. Record findings with severity from `references/interaction-patterns.md` (P0–P3), the gate id (`§1.2`), element, and evidence (screenshot/trace/file:line). No evidence → not a finding. **Re-verify every P0/P1 that rests on a single run** (fresh load, slower input) before writing it; retract openly if it doesn't reproduce.
 5. Write `docs/reviews/INTERACTION_AUDIT_<slug>_<date>.md`: summary counts by severity, inventory table with per-gate PASS/FAIL, findings, and "not tested + why".
 
 ## Recommend Other Experts When
