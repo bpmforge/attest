@@ -618,6 +618,28 @@ Modes: `--implement`, `--polish`, `--system`
 
 Used by `sdlc-lead` in Phase 3 after the UX spec is approved, and in `/sdlc improve "frontend"`. Distinct from `/ux`: UX handles workflows and accessibility; frontend handles visual implementation and polish.
 
+### `/interaction`
+Modes: `--spec`, `--implement`, `--audit`
+
+```
+/interaction --spec "kanban board"            # interaction contract → docs/design/INTERACTIONS.md
+/interaction --implement "kanban board"       # source components, build, Playwright-verify each gesture
+/interaction --audit http://localhost:3000    # keyboard/touch/reduced-motion/failure audit → docs/reviews/
+```
+
+For anything users drag, sort, resize, or rearrange. Every drag gets a keyboard path and a single-pointer alternative; layouts persist as versioned JSON. Re-verifies library versions/status before using them (`references/ui-ecosystem-map.md`).
+
+### `/agent-ui`
+Modes: `--design`, `--implement`, `--audit`
+
+```
+/agent-ui --design "deploy approval flow"     # action classes, surfaces, catalog, states → docs/design/AGENT_UI.md
+/agent-ui --implement "deploy approval flow"  # approvals → streaming states → trace → generative renderer
+/agent-ui --audit http://localhost:3000/chat  # approve/reject/timeout, cancel, malicious output → docs/reviews/
+```
+
+For products where an AI agent acts. The UI — not the prompt — decides what needs approval; generated UI is a validated JSON spec, never in-origin HTML.
+
 ### `/explore`
 
 ```
