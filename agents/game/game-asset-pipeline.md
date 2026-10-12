@@ -97,7 +97,7 @@ batch, the same shape the Phase 3.5 Design Loop uses per screen/flow unit.
 
 ## Loop prevention
 
-Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion
 phrase: state your ONE checkable success criterion — `sprite-sheet-pack.mjs`

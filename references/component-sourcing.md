@@ -21,7 +21,7 @@ Search with the *job*, not the look: "sortable card with drag handle and keyboar
 
 | Check | Pass condition | How |
 |---|---|---|
-| License | Compatible with the project; recorded | repo LICENSE / `npm view <pkg> license`; NOASSERTION = ask the user |
+| License | Compatible with the project; recorded | repo LICENSE / `npm view <pkg> license`; NOASSERTION or npm/GitHub disagree = ask the user. In a design-only or unattended run, don't block: list it under **Open questions for the user** in the design doc and keep the component provisional |
 | Maintenance | Upstream pushed within ~12 months, not archived/deprecated | `gh api repos/<o>/<r>`, `npm view <pkg> deprecated` |
 | Accessibility | Keyboard operable, focus visible, correct roles; drag/animation pass `references/interaction-patterns.md` | Read the source + run axe on a rendered instance |
 | Design-system fit | Uses the project's tokens/primitives or can be re-skinned to them without a rewrite | Read the source for hard-coded colors/fonts/durations |

@@ -76,7 +76,7 @@ If the GDD has no intent statement for the system, print `BLOCKED: missing desig
 
 ## Loop Prevention
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Same tool failure 3× → stop; otherwise stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 ## Method (every balance task)
 
