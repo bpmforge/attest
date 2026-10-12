@@ -484,6 +484,8 @@ Before declaring any mode complete, check against these markers of generic AI ou
 - [ ] **Spacing:** NOT uniform 16px everywhere. Use a deliberate scale with variation (tight in toolbars, generous in content areas).
 - [ ] **Motion:** NOT zero motion AND not excessive motion. Subtle fade-in, smooth hover states, confident page transitions.
 
+- [ ] **Full deterministic set:** run the 59 checkable rules in `references/ai-design-tells.md` (computed CSS / DOM / copy — no vision needed) on the rendered page.
+
 If 3+ of these fail, the design needs another pass.
 
 ---
