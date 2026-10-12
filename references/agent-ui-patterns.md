@@ -12,10 +12,15 @@ The goal is not a prettier chatbot. It is an interface where the user can **see 
 | Agent must read/change app state (forms, filters, records) | **Shared state + rendered actions** | CopilotKit over AG-UI |
 | Conversation is the product; you want full visual control | **Composable thread primitives** | assistant-ui (main repo registry components) |
 | Agent should *compose a screen* (dashboard, report, form) | **Catalog → JSON spec → validate → render** | json-render (+ `@json-render/shadcn`) |
+| Agent is remote / another org's / crosses a trust boundary, or clients are non-web (mobile, Angular, Lit) | **Declarative UI intent rendered by the client's own catalog** | A2UI (protocol v0.9.1 stable; renderers `@a2ui/react`, `@a2ui/lit`, `@a2ui/angular`) |
+| UI must appear progressively while tokens stream, token budget matters | **Compact streaming UI language; system prompt generated from your component library** | OpenUI (`@openuidev/react-lang` + `@openuidev/lang-core`; Vue/Svelte/Angular runtimes) |
 | Agent output is a durable thing the user keeps editing | **Persistent artifact beside the conversation** | your editor + versioned JSON; Open Canvas as a (archived) reference |
+| You ship an MCP server and its tool results need UI inside foreign MCP hosts (Claude, ChatGPT, …) | **MCP Apps: `ui://` HTML resource rendered by the host in a double iframe on a distinct sandbox origin** | `@modelcontextprotocol/ext-apps` (spec 2026-01-26) — see note below |
 | Agent must run arbitrary generated HTML/JS | **Sandboxed iframe** — last resort | OpenIntelligentUI as reference |
 
 Prefer the row highest in the table that satisfies the need: structured specs over generated code, generated code only inside a sandbox.
+
+**A2UI and OpenUI are still catalog-bound specs** — the client renders only components it registered, so §2's gates apply unchanged. **MCP Apps is HTML** that the server author writes (or generates): the spec (2026-01-26, "Sandbox proxy") requires web hosts to load it through a sandbox proxy on a *different origin* from the host, with `allow-scripts allow-same-origin` scoped to that sandbox origin, a restrictive default CSP (`default-src 'none'`, `connect-src 'none'` unless declared in `ui.csp`), and lets the host block or require user approval for `tools/call` messages from the view. That is consistent with §3 (never `allow-same-origin` on the app's own origin). If you are the host, apply §3 + §4 to every view; if you are the server, keep the UI declarative where you can and declare the minimum CSP domains.
 
 ## 2. Generative UI — the catalog contract
 
