@@ -200,6 +200,10 @@ Owns how an interface behaves under the user's hands — drag-and-drop, sortable
 
 Gates in `references/interaction-patterns.md` (WCAG 2.1.1, 2.5.7, 2.5.8, 2.3.3, 4.1.3). Distinct from `frontend-design` (looks, motion aesthetic) and `ux-engineer` (flows).
 
+### `graphics-engineer` — Interactive graphics engineer (`mode: primary`)
+
+Owns what renders inside the `<canvas>`: 3D (three.js / R3F + drei), WebGL/WebGPU shaders, PixiJS/OGL 2D, scroll/timeline scenes. Modes `--design` (`docs/design/GRAPHICS.md` + ADR), `--implement` (static fallback first, demand rendering, disposal, tier switching), `--audit` (throttled frame times, memory over time, WebGL-off/context-loss/reduced-motion). Gates in `references/graphics-patterns.md`. Distinct from `frontend-design` (page + DOM motion), `interaction-engineer` (node editors), `gameplay-engineer` (games).
+
 ### `agent-ui-engineer` — Agent & generative UI engineer (`mode: primary`)
 
 Builds surfaces where people work with an AI agent: action classification + approval UI, streaming/cancel/retry states, trace and diff views, persistent editable artifacts, and runtime-generated UI from a typed catalog with validation and sandboxing. Modes `--design` (`docs/design/AGENT_UI.md` + ADR), `--implement`, `--audit`. Gates in `references/agent-ui-patterns.md`. Distinct from `llm-integration-engineer` (model side) and `owasp-llm-checker` (security audit).
@@ -401,6 +405,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/onboard-gap-fill` | `sdlc-lead` | Ralph Wiggum D4 — emit focused HANDOFFs for uncovered rows only |
 | `/ui-verify` | `ui-verifier` | Live browser verification — screenshot flows, check accessibility snapshots, verify use cases |
 | `/interaction` | `interaction-engineer` | Drag/sort/resize, layout editors, node canvases, command palette, undo — `--spec` / `--implement` / `--audit` against `references/interaction-patterns.md` |
+| `/graphics` | `graphics-engineer` | 3D / WebGL / WebGPU / shaders / canvas scenes — `--design` / `--implement` / `--audit` against `references/graphics-patterns.md` |
 | `/agent-ui` | `agent-ui-engineer` | Agent-facing UI — approvals, tool-call/trace views, streaming states, generative UI from a typed catalog — `--design` / `--implement` / `--audit` |
 | `/design-iterate` | `design-iterator` | Claude-Design-style visual loop — render → screenshot → critique against tokens.json → fix → re-verify (`--sync` token extraction, `--real` logged-in browser audit) |
 | `/gauntlet` | `gauntlet-lead` | Gauntlet loop — builders + blind fresh-per-round critics iterate until the work matches or beats a named real exemplar (`--bar`, `--budget`) |
@@ -409,7 +414,7 @@ Skills are thin triggers that live in `skills/<name>/SKILL.md`. Each skill maps 
 | `/autopilot` | orchestrator (inline) | Unattended run-to-completion outer loop — ASSESS (board + gates + requirement ledger + branches + red suites, story-denominated) / DECIDE (ordered next actions, each with an exit predicate) / DRIVE (conductor / run-until-done / run-plan, one bounded unit at a time) / HEAL (narrow → split → escalate tier → park with evidence; byte-identical gap set = no-progress HALT) / EXIT (assembly-gate predicate or documented halt; iteration cap mandatory) **Field-proven 2026-09-01**: a two-ticket product driven end-to-end (OpenAI terra codes, luna reviews, runtime verified, merged, board drained) — the PRIMARY agent kicks off, tracks, and reconciles it per the skill's OPERATE section; handoffs only where the ladder names one. |
 | `/vault` | `vault` | Query / ingest / lint the agent-brain-vault — answer a project question from compiled, cited pages instead of re-reading raw sources (T5.6) |
 
-**50 skills total** (includes `/guide` — the concierge front door).
+**51 skills total** (includes `/guide` — the concierge front door).
 
 ---
 
@@ -685,6 +690,7 @@ Canonical checklists and templates agents read at runtime. Each is plain markdow
 | `ui-ecosystem-map.md` | interaction-engineer, agent-ui-engineer, frontend-design | Dated (2026-10-12) map of interaction, motion, agent-UI, and component-discovery libraries — version, license, archived/deprecated/shutdown status — plus lookup recipes (`npm view`, `gh api`, Context7) to re-verify any row before adoption |
 | `interaction-patterns.md` | interaction-engineer, ux-engineer, a11y-compliance | Layer-choice table (dnd-kit / Puck / React Flow / tldraw / cmdk) and per-pattern gates: drag & drop, layout JSON persistence, undo, panels, command palette, motion, async states, canvases; P0–P3 audit rubric |
 | `agent-ui-patterns.md` | agent-ui-engineer, llm-integration-engineer, owasp-llm-checker | Architecture choice, generative-UI catalog contract, sandboxing, HITL approvals, streaming/cancel, observability-as-UX, trust boundaries; P0–P3 rubric |
+| `graphics-patterns.md` | graphics-engineer, frontend-design, performance-engineer, a11y-compliance | Stack-choice table (R3F/three, PixiJS, OGL, GSAP, Theatre status), purpose gate, per-tier budgets, assets, fallbacks/context loss/disposal, canvas a11y; P0–P3 rubric |
 | `component-sourcing.md` | frontend-design, interaction-engineer, agent-ui-engineer, design-system-lead | Source-before-build search order (project → shadcn registries/MCP → 21st → galleries), reject-on-fail scorecard, vendoring provenance (`COMPONENT_SOURCES.md`), publishing a project registry |
 | `figma-adapter.md` | design-system-lead, frontend-design | Bring a real Figma design into the design pipeline: `pull` a file → normalized `figma-snapshot.json`, `derive-tokens` → `docs/design/tokens.json` (which stays authoritative), one-way Figma→code, graceful fallback to prose-authored tokens. Wraps `scripts/figma/figma.mjs`; see `docs/DESIGN_FIGMA_ADAPTER.md` |
 

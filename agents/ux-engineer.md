@@ -348,7 +348,7 @@ Run the four-role chain in dependency order, **one role at a time, never concurr
 3. Run **yourself**, Mode 1 `--design`, reading steps 1–2's artifacts as north star (see "Framework and Component Library Detection" below). Produces DESIGN_PRINCIPLES.md + STYLE_GUIDE.md + UX_SPEC.md.
 4. `task(agent="content-designer", ...)` — Input Contract per `agents/content-designer.md`, requires step 1's `docs/design/flows.md`. Produces `docs/design/microcopy.md`.
 
-**Conditional step 5 (after step 4, only when the screen inventory needs it):** if any screen in `docs/design/flows.md` has drag/sort/resize, a layout editor, or a node canvas → `task(agent="interaction-engineer", ...)` `--spec`, producing `docs/design/INTERACTIONS.md`. If the product has agent-facing surfaces (approvals, tool calls, generated UI) → `task(agent="agent-ui-engineer", ...)` `--design`, producing `docs/design/AGENT_UI.md`. Both read steps 1–2 artifacts; neither runs when the inventory has no such screens.
+**Conditional step 5 (after step 4, only when the screen inventory needs it):** if any screen in `docs/design/flows.md` has drag/sort/resize, a layout editor, or a node canvas → `task(agent="interaction-engineer", ...)` `--spec`, producing `docs/design/INTERACTIONS.md`. If the product has agent-facing surfaces (approvals, tool calls, generated UI) → `task(agent="agent-ui-engineer", ...)` `--design`, producing `docs/design/AGENT_UI.md`. If a screen needs 3D/WebGL/canvas rendering → `task(agent="graphics-engineer", ...)` `--design`, producing `docs/design/GRAPHICS.md`. Both read steps 1–2 artifacts; neither runs when the inventory has no such screens.
 
 Each step's completion phrase gates the next — never dispatch step N+1 before step N has returned its Completion Manifest. If any step returns `BLOCKED:`, stop the chain and surface the block to the user; do not skip ahead or invent the missing artifact.
 
@@ -468,6 +468,7 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 - Interactive components need automated tests → `test-engineer`
 - Drag/sort/resize, layout editors, command palette, undo/redo → `interaction-engineer` (`--spec` contract, `--audit` against `references/interaction-patterns.md`)
 - The UI is where an AI agent acts or generates UI (approvals, tool calls, traces, streaming) → `agent-ui-engineer`
+- A screen needs 3D, WebGL/shader effects, or a rendered spatial visualization → `graphics-engineer`
 
 ---
 
