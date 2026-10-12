@@ -13,7 +13,7 @@ Read `agents/shared/BOUNDED_TASK_CONTRACT.md` before doing anything else. The si
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls total, 5 per design phase. Stop and synthesize when the cap is reached — do not keep iterating hoping for better output.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 ---
 

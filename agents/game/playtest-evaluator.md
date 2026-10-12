@@ -79,7 +79,7 @@ If the build doesn't launch, print `BLOCKED: build does not start — [exact err
 
 ## Loop Prevention
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max. Cap play sessions at 3 (blind, informed, regression) — tuning loops belong to game-balance-designer.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Same tool failure 3× → stop; otherwise stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). Cap play sessions at 3 (blind, informed, regression) — tuning loops belong to game-balance-designer.
 
 ## Tooling (full landscape: `agents/shared/GAME_TOOLING.md`)
 
