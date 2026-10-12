@@ -6,6 +6,9 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 **Smoke-test fixes.** The three new experts and `/ux --research` were run on live targets (read-only): interaction-engineer found a real P0 in dnd-kit's own multiple-lists demo (hover-only delete buttons unreachable by keyboard) plus a silent, un-undoable delete; graphics-engineer found a three.js example that goes blank with an uncaught error when WebGL is unavailable; agent-ui-engineer produced a stack-checked design that rejected CopilotKit on verified transitive dependencies; `/ux --research` produced 8 cited references and 3 directions in ~16 calls. Their ~45 instruction issues are fixed at the root:
 
+### Changed
+- **No more hard tool-call caps.** The stamped loop-prevention block and 40+ agents told models to stop after 15 (or 20/30) tool calls, contradicting `LOOP_PREVENTION.md`'s own "quality-based stopping" rule; in the smoke tests, agents skipped mandatory reads to stay under the cap. Agents now stop on quality: success criterion met or confidence ≥ 8, three calls with nothing new, or a repeat URL/file. Failure-loop (3 strikes) and schema-loop (2 strikes) stops are unchanged, as is challenger's 4-calls-per-claim verification budget (it defines the UNVERIFIABLE verdict, not a loop cap).
+
 ### Fixed
 - **Reference paths resolve on both installs.** Every agent now carries one line (stamped block) saying `references/<x>.md` = `~/.config/opencode/references/<x>.md`; the Claude build maps that to `~/.claude/agents/<x>.md`, where references are installed. Previously relative paths resolved against the user's project.
 - `agents/shared/BROWSER_TESTING.md`: "which browser tool do I have" table (playwright-mcp, Claude built-in browser, claude-in-chrome, Node Playwright) and a working ESM Node-Playwright recipe (`createRequire`; `NODE_PATH` does not apply to `import`).

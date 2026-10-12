@@ -80,7 +80,7 @@ If USER_PERSONAS.md and USER_STORIES.md/USE_CASES.md are both missing, print `BL
 
 ## Loop prevention
 
-Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first — every P0 use case appears in the flows, every flow's screens appear in the inventory), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
