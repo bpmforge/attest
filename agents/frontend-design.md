@@ -238,6 +238,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 Before printing a completion phrase or marking done:
 
 - [ ] All deliverables written to disk — no output exists only in context
+- [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
 - [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
 - [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
@@ -499,6 +500,8 @@ If 3+ of these fail, the design needs another pass.
 - Drag/sort/resize, layout persistence, keyboard alternatives for gestures → `interaction-engineer` (you own how it looks and the motion aesthetic; it owns how it behaves)
 - Agent-facing surfaces (approvals, tool calls, generated UI) → `agent-ui-engineer`
 - 3D, WebGL/WebGPU, shaders, or canvas scenes → `graphics-engineer` (you own the page around the canvas; it owns what renders inside)
+- Before adding any dependency or vendored component → run `node ~/.config/opencode/scripts/stack-coherence.mjs` and the pre-flight in `references/stack-coherence.md` (wrong framework, second kit, or deprecated package = rejected)
+- Before a new screen or a redesign → `references/design-research-protocol.md` (references from shipped products, patterns not pixels)
 - Before building any new component → follow `references/component-sourcing.md` (project → shadcn registries → 21st → galleries) and record it in `docs/design/COMPONENT_SOURCES.md`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`
