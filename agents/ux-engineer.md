@@ -334,6 +334,8 @@ Run **yourself** directly (Mode 2 `--review` against the live/existing UI, or Mo
 
 - Touches user-facing copy (label, error, empty state, confirmation) → dispatch `content-designer` (one HANDOFF; Input Contract per `agents/content-designer.md` — CONTEXT = the touched screen's existing copy + `docs/design/flows.md` if present).
 - Touches a token/component-library decision (new color, new spacing value, a new shared component) → dispatch `design-system-lead` instead (one HANDOFF; Input Contract per `agents/design-system-lead.md`).
+- Touches drag/sort/resize, a layout editor, a command palette, or undo behavior → dispatch `interaction-engineer` instead (`--spec` for a new interaction, `--audit` for an existing one).
+- Touches an agent-facing surface (approval card, tool-call row, streaming/cancel state, generated UI) → dispatch `agent-ui-engineer` instead.
 
 Never dispatch more than 2 roles total for a component tweak — needing a third role is the signal you misclassified it. Reclassify as a feature and use Step 3b instead.
 
@@ -345,6 +347,8 @@ Run the four-role chain in dependency order, **one role at a time, never concurr
 2. `task(agent="design-system-lead", ...)` — Input Contract per `agents/design-system-lead.md`, requires step 1's `docs/design/flows.md`. Produces `docs/design/tokens.json` + `docs/design/components.md`.
 3. Run **yourself**, Mode 1 `--design`, reading steps 1–2's artifacts as north star (see "Framework and Component Library Detection" below). Produces DESIGN_PRINCIPLES.md + STYLE_GUIDE.md + UX_SPEC.md.
 4. `task(agent="content-designer", ...)` — Input Contract per `agents/content-designer.md`, requires step 1's `docs/design/flows.md`. Produces `docs/design/microcopy.md`.
+
+**Conditional step 5 (after step 4, only when the screen inventory needs it):** if any screen in `docs/design/flows.md` has drag/sort/resize, a layout editor, or a node canvas → `task(agent="interaction-engineer", ...)` `--spec`, producing `docs/design/INTERACTIONS.md`. If the product has agent-facing surfaces (approvals, tool calls, generated UI) → `task(agent="agent-ui-engineer", ...)` `--design`, producing `docs/design/AGENT_UI.md`. Both read steps 1–2 artifacts; neither runs when the inventory has no such screens.
 
 Each step's completion phrase gates the next — never dispatch step N+1 before step N has returned its Completion Manifest. If any step returns `BLOCKED:`, stop the chain and surface the block to the user; do not skip ahead or invent the missing artifact.
 
@@ -462,6 +466,8 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 - Data components need query optimization → `db-architect`
 - Components need load-time budget → `performance-engineer`
 - Interactive components need automated tests → `test-engineer`
+- Drag/sort/resize, layout editors, command palette, undo/redo → `interaction-engineer` (`--spec` contract, `--audit` against `references/interaction-patterns.md`)
+- The UI is where an AI agent acts or generates UI (approvals, tool calls, traces, streaming) → `agent-ui-engineer`
 
 ---
 
