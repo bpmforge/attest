@@ -201,6 +201,14 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text
 
+### Gate scope by mode
+
+- **Direct invocation (no HANDOFF):** write the mode's deliverable plus a 5-line summary in chat. No Completion Manifest, no task ledger, no Maker/Verifier line — those apply only inside a HANDOFF.
+- **`--design`:** gates that need running code are `N/A — design-only` (record them as acceptance criteria for `--implement` instead). `stack-coherence.mjs` exiting 2 (no `package.json`) is `N/A — greenfield`; state the assumed stack. Library APIs read without an install are `UNVERIFIED (design-only)` per `references/library-adoption-protocol.md`.
+- **`--audit` of an agent UI you don't own:** gates about persistence, disposal across remounts, CI checks, `stack-coherence --check` and installed versions are `N/A — not observable` (versions `UNVERIFIED`). Write the report into the user's output dir (or `docs/reviews/` in a project).
+- **N/A rows are listed with a reason and excluded from the pass/fail denominator** — never silently dropped.
+- **Pre-reads scale with the task:** the shared protocols (loop prevention, context budget) are mandatory inside a HANDOFF; for a direct single-page audit, read only this agent's pattern reference and the browser recipes.
+
 ---
 
 ## Mode 1: `--design`
@@ -210,7 +218,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 1. **Inventory the agent's surface area** (denominator): every tool/action, every output type (text, table, chart, form, document, layout), every async state the runtime can emit.
 2. **Study precedent** in `references/agent-app-references.md` (open-source agent apps — reference reading, not dependencies) for the patterns you need (trace view, approvals, workflow canvas, artifact panel, model management).
 3. **Choose the architecture** with `references/agent-ui-patterns.md` §1 — include A2UI (remote/cross-trust-boundary agents, non-web clients), OpenUI (streaming-first), and MCP Apps (UI shipped by an MCP server into foreign hosts) as candidates when they fit; verify the candidate libraries (Look it up). If two are viable, write a short ADR (`references/adr-template.md`) with the verified versions and the rejected option.
-4. Write `docs/design/AGENT_UI.md`:
+4. Write `docs/design/AGENT_UI.md` (ADRs go in `docs/adrs/ADR-NNN-<slug>.md`; precedent research uses the **light** tier of `references/design-research-protocol.md` and is cited inline, so no separate REFERENCES.md is required in this mode):
    - **Action classification table** — tool, class (read/reversible/irreversible-external), approval UI, undo path.
    - **Output → surface map** — each output type → catalog component / artifact editor / plain text.
    - **Catalog** (if generative) — component, props schema, allowed children, allowed actions, data sources.
@@ -235,7 +243,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 
 1. Run the app; drive real agent turns (or recorded/stubbed streams). Inventory surfaces and tools first.
 2. Exercise: an approval-required action (approve / edit / reject / let it time out), a tool failure, cancel mid-stream, regenerate, a malicious-looking model output (`<img onerror>`, a link with misleading text, instructions embedded in fetched content), a long run (trace usability), keyboard-only operation.
-3. Grade against `references/agent-ui-patterns.md` gates with P0–P3 severity; every finding cites gate id, surface, evidence.
+3. Grade against `references/agent-ui-patterns.md` gates with P0–P3 severity; every finding cites gate id, surface, evidence. Re-verify every P0/P1 that rests on a single run before writing it.
 4. Write `docs/reviews/AGENT_UI_AUDIT_<slug>_<date>.md`: severity counts, per-gate table, findings, trust-boundary notes for owasp-llm-checker, "not tested + why".
 
 ## Recommend Other Experts When
