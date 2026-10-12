@@ -2,7 +2,9 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.13.0] — 2026-10-12
+
+**UI / UX design experts.** Three new specialists (interaction, agent UI, graphics), a deterministic stack-coherence gate, design research, and a design-tooling wave — all library facts verified against npm/GitHub on 2026-10-12.
 
 ### Added
 - **Stack coherence gate** (`scripts/stack-coherence.mjs`, `references/stack-coherence.md`, Pass 64 with 17 red/green fixtures): rejects wrong-framework components, a second component kit, duplicate-purpose libraries, deprecated/renamed packages, Tailwind v3/v4 syntax mixes, out-of-step R3F/drei/React majors and npm peer problems. Run in the pre-completion gate of every UI-building agent and by coding-agent when touching frontend deps. Verified on real projects: clean on threatforge/frontend and MTPLX/dashboard; caught a genuine Radix + Base UI mix in kryptkeeper/ui.
