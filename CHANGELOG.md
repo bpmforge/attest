@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.13.1] — 2026-10-12
 
 **Smoke-test fixes.** The three new experts and `/ux --research` were run on live targets (read-only): interaction-engineer found a real P0 in dnd-kit's own multiple-lists demo (hover-only delete buttons unreachable by keyboard) plus a silent, un-undoable delete; graphics-engineer found a three.js example that goes blank with an uncaught error when WebGL is unavailable; agent-ui-engineer produced a stack-checked design that rejected CopilotKit on verified transitive dependencies; `/ux --research` produced 8 cited references and 3 directions in ~16 calls. Their ~45 instruction issues are fixed at the root:
 
