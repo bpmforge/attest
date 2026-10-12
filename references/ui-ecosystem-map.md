@@ -14,7 +14,7 @@ This is a map, not an endorsement list. The rule from `references/library-adopti
 | Resizable split panels | `react-resizable-panels` (what shadcn `resizable` wraps) | 4.14.4 | MIT | Prefer the shadcn wrapper if the project uses shadcn. |
 | Command palette | `cmdk` (what shadcn `command` wraps) | 1.1.1 | MIT | Quiet release cadence; stable, not abandoned. |
 | Node/edge workflow editor | React Flow — `@xyflow/react` | 12.12.0 | MIT | Old package name `reactflow` is the v11 line — do not install it for new work. |
-| Infinite canvas / whiteboard | tldraw | 5.5.2 | **Custom (see LICENSE.md)** | **Not MIT.** Production use needs a license key — flag to the user before adopting. Excalidraw is the MIT alternative. |
+| Infinite canvas / whiteboard | tldraw | 5.5.2 | **tldraw license (LICENSE.md)** | **Not MIT.** LICENSE.md (read 2026-10-12) forbids use "in Production Environments" without a License Key (trial keys exist; commercial licenses via tldraw.dev). Flag to the user before adopting. Excalidraw is the MIT alternative. |
 | End-user page/dashboard editor | Puck — **`@puckeditor/core`** | 0.23.0 | MIT | **`@measured/puck` is deprecated** ("Puck has moved"). Any tutorial importing `@measured/puck` is stale. |
 | Custom editor framework (you build the editor UI) | Craft.js — `@craftjs/core` | 0.2.12 | MIT | **Last publish 2025-02, repo last push 2025-02-14.** Treat as low-maintenance; prefer Puck unless you need Craft's node-tree control. |
 
