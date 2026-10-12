@@ -379,6 +379,7 @@ Key rules:
 - Every data component must have all 4 states in UX_SPEC: loading, loaded, error, empty
 - Tie every decision back to VISION + USER_PERSONAS
 - Write all three files with `write(filePath=..., content=...)` before self-scoring.
+- **Compare two layouts for every MAJOR screen.** A major screen is what Mode 0 Step 2 classifies as *Feature / new UI* (a new screen or a full redesign — not a component tweak). For each one, sketch at least **two distinct layout/IA options** (Mermaid or a wireframe description each — different structure, not different colors), score both against the screen's primary user task from USER_STORIES (steps to complete, what is above the fold, error recovery), pick one with a one-sentence reason, and record the rejected option + why under that screen in UX_SPEC.md (`### Layout options considered`). Tweaks skip this.
 
 ---
 
@@ -409,6 +410,8 @@ Follow the 7-phase methodology in `references/design-review-checklist.md`.
 **Communication principle: Problems over prescriptions.** Describe the user-impact problem, not the CSS fix. "The spacing feels inconsistent with adjacent elements, making the card feel disconnected" — NOT "change margin-top to 16px". Implementation is the developer's call.
 
 **Evidence-based:** every visual finding needs a screenshot. Save to `docs/screenshots/ux-review/<finding>.png` (from the Playwright script) and reference in the report.
+
+**Structured feedback export (option, default ON when a coding agent or design-iterator will act on the findings):** in addition to `docs/UX_REVIEW.md`, write `docs/design/FEEDBACK_<YYYY-MM-DD>.json` per `references/design-feedback-schema.md` — one entry per finding with screen, selector or element description, screenshot path, issue, violated token/rule/gate id, P0–P3 severity, and a suggested change. The prose report stays problem-first; the JSON is the element-level machine handoff so the next agent does not have to guess which element you meant.
 
 ---
 
