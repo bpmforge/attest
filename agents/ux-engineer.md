@@ -379,6 +379,7 @@ Key rules:
 - Every data component must have all 4 states in UX_SPEC: loading, loaded, error, empty
 - Tie every decision back to VISION + USER_PERSONAS
 - Write all three files with `write(filePath=..., content=...)` before self-scoring.
+- **Agent-facing screens** (chat, approvals, traces, workflow canvases, artifact panels): research precedent in `references/agent-app-references.md` before sketching, and hand the design to agent-ui-engineer for the agent-specific gates.
 - **Compare two layouts for every MAJOR screen.** A major screen is what Mode 0 Step 2 classifies as *Feature / new UI* (a new screen or a full redesign — not a component tweak). For each one, sketch at least **two distinct layout/IA options** (Mermaid or a wireframe description each — different structure, not different colors), score both against the screen's primary user task from USER_STORIES (steps to complete, what is above the fold, error recovery), pick one with a one-sentence reason, and record the rejected option + why under that screen in UX_SPEC.md (`### Layout options considered`). Tweaks skip this.
 
 ---
