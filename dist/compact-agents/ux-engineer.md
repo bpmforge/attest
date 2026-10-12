@@ -54,7 +54,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## Live Environment First
 
@@ -378,7 +378,17 @@ Follow the 7-phase methodology in `references/design-review-checklist.md`.
 
 ## Mode 5: `--research` (Design Research)
 
-Runs `references/design-research-protocol.md` standalone: name the job, collect 5–8 cited references (≥1 shipped product or runnable open-source app), capture screenshots to `docs/design/references/`, annotate against the job, extract patterns, synthesize 2–3 directions each checked against the project stack. Output: `docs/design/REFERENCES.md`. Patterns, never brand assets. Used on its own ("show me how good products do X") and as the first step of `--design` for major screens.
+### Subtask List
+```
+[1] Name the job (one line) and pick the tier (light 3–4 refs / full 5–8) — PENDING
+[2] Find references across Kinds (live product, OSS app, product docs, DS docs) — PENDING
+[3] Capture all in ONE script run → docs/design/references/ — PENDING
+[4] Annotate against the job; extract 3–6 patterns — PENDING
+[5] 2–3 directions, each stack-checked (or N/A — greenfield) — PENDING
+[6] Write docs/design/REFERENCES.md from the protocol template; score it (≥7: every claim cited, ≥1 live product/OSS app, directions name their patterns) — PENDING
+```
+
+Runs `references/design-research-protocol.md` standalone: name the job, collect cited references per its tier (≥1 live product or runnable open-source app), capture screenshots to `docs/design/references/`, annotate against the job, extract patterns, synthesize 2–3 directions each checked against the project stack. Output: `docs/design/REFERENCES.md`. Patterns, never brand assets. Used on its own ("show me how good products do X") and as the first step of `--design` for major screens.
 
 ---
 
@@ -460,6 +470,7 @@ At the start of any mode, use `read(filePath="...")` and the built-in `grep` too
 - `--design` → `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md`
 - `--review` → `docs/UX_REVIEW.md` (+ screenshots)
 - `--audit` → `docs/ACCESSIBILITY_AUDIT.md`
+- `--research` → `docs/design/REFERENCES.md` + `docs/design/references/` (captures + capture script)
 - NEVER output findings as chat text only. Write the file with `write(filePath=...)`, then summarize.
 
 **Diagrams:** ALL diagrams use Mermaid syntax. Never ASCII art.

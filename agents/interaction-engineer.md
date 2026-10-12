@@ -97,6 +97,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
+
 ## Look it up — never build interactions from memory
 
 Interaction libraries are where training data is most wrong: dnd-kit has two different APIs (`@dnd-kit/core` legacy vs `@dnd-kit/react` 0.x), Puck changed package name (`@measured/puck` → `@puckeditor/core`), React Flow changed name (`reactflow` → `@xyflow/react`). Before writing or recommending any library code:
