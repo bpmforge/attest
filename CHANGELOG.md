@@ -6,6 +6,7 @@ All notable changes to this project are documented here. Format follows [Keep a 
 
 ### Added
 - **interaction-engineer** (`/interaction`) — spec / implement / audit drag-and-drop, sortable cards, Kanban, resizable panels, layout editors (dnd-kit, Puck), node canvases (React Flow), command palettes, undo/redo, and layout persistence as versioned JSON. Every gesture gets a keyboard path and a single-pointer alternative (WCAG 2.1.1 / 2.5.7).
+- **graphics-engineer** (`/graphics`) — design / implement / audit 3D (three.js / R3F), WebGL/WebGPU shaders, PixiJS/OGL canvas, scroll/timeline scenes; per-tier frame budgets, static fallback first, disposal, canvas a11y. Reference: `graphics-patterns.md`.
 - **agent-ui-engineer** (`/agent-ui`) — design / implement / audit agent-facing UI: approval (HITL) screens, tool-call and trace views, streaming/cancel/retry states, and generative UI as catalog → JSON spec → validate → render, with sandboxing for anything executable.
 - References: `ui-ecosystem-map.md` (library versions, licenses, and archived/deprecated/shutdown status checked 2026-10-12 with `npm view` + `gh api`, plus the commands to re-check them), `interaction-patterns.md`, `agent-ui-patterns.md`, `component-sourcing.md`.
 - Wired into ux-engineer (tweak dispatch + conditional chain step 5), frontend-design, llm-integration-engineer, and the `/guide` routing table.

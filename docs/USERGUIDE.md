@@ -629,6 +629,17 @@ Modes: `--spec`, `--implement`, `--audit`
 
 For anything users drag, sort, resize, or rearrange. Every drag gets a keyboard path and a single-pointer alternative; layouts persist as versioned JSON. Re-verifies library versions/status before using them (`references/ui-ecosystem-map.md`).
 
+### `/graphics`
+Modes: `--design`, `--implement`, `--audit`
+
+```
+/graphics --design "product 3D configurator"   # purpose, tiers + budgets, assets, fallbacks → docs/design/GRAPHICS.md
+/graphics --implement "product 3D configurator" # static fallback first, then the scene, with perf + fallback tests
+/graphics --audit http://localhost:3000         # throttled frame times, memory, WebGL-off, reduced motion → docs/reviews/
+```
+
+For anything rendered in a canvas. Graphics have to earn their place: budgets are measured on the weakest device and the DOM fallback ships first.
+
 ### `/agent-ui`
 Modes: `--design`, `--implement`, `--audit`
 

@@ -241,6 +241,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 - Flows across the whole product (where chat fits at all) → `ux-engineer`
 - WCAG conformance report → `a11y-compliance`
 - Streaming performance / long-thread rendering → `performance-engineer`
+- Agent output needs a 3D or WebGL visualization → `graphics-engineer`
 
 ## Rules
 
