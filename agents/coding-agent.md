@@ -242,6 +242,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 | **Type safety** | No `any`, no `!` non-null assertions, no type assertions unless you can state the invariant in a comment. Trust your types — don't null-check values whose type guarantees non-null. |
 | **Pattern match** | Before writing a new function, grep for how existing functions in the same module handle the same concern. Copy the pattern, not the code. |
 | **Supply chain** | Never `npm install` or `pip install` a package you haven't verified exists on the registry. Run `npm view <pkg>` or `pip show <pkg>` first — slopsquatting attacks (R-21) target AI-generated code specifically. |
+| **UI stack coherence** | Touching a frontend's dependencies or pasting a component? Run `node ~/.config/opencode/scripts/stack-coherence.mjs --check` before and after — wrong-framework code, a second component kit, duplicate-purpose libraries, deprecated packages and Tailwind v3/v4 syntax mixes are rejected (`references/stack-coherence.md`). |
 | **Vendoring** | Never write vendored/copy-paste library code from memory. Pull it from the library's real CLI/registry/repo and record the source + version in a `VENDORED.md` at the vendor site. If you generated it from memory anyway, say so explicitly and flag the divergence — don't claim "we use library X" unqualified (R-30). |
 
 **Prevention cost = zero. Review cost = full code-reviewer pass.** Write clean once.

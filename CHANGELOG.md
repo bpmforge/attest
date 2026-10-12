@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Stack coherence gate** (`scripts/stack-coherence.mjs`, `references/stack-coherence.md`, Pass 64 with 17 red/green fixtures): rejects wrong-framework components, a second component kit, duplicate-purpose libraries, deprecated/renamed packages, Tailwind v3/v4 syntax mixes, out-of-step R3F/drei/React majors and npm peer problems. Run in the pre-completion gate of every UI-building agent and by coding-agent when touching frontend deps. Verified on real projects: clean on threatforge/frontend and MTPLX/dashboard; caught a genuine Radix + Base UI mix in kryptkeeper/ui.
+- **Design research** (`/ux --research`, `references/design-research-protocol.md`): cited references from shipped products and runnable OSS apps, patterns not pixels, stack-checked directions; required before the two-layout comparison on major screens.
+- **interaction-engineer** (`/interaction`) — spec / implement / audit drag-and-drop, sortable cards, Kanban, resizable panels, layout editors (dnd-kit, Puck), node canvases (React Flow), command palettes, undo/redo, and layout persistence as versioned JSON. Every gesture gets a keyboard path and a single-pointer alternative (WCAG 2.1.1 / 2.5.7).
+- **graphics-engineer** (`/graphics`) — design / implement / audit 3D (three.js / R3F), WebGL/WebGPU shaders, PixiJS/OGL canvas, scroll/timeline scenes; per-tier frame budgets, static fallback first, disposal, canvas a11y. Reference: `graphics-patterns.md`.
+- **agent-ui-engineer** (`/agent-ui`) — design / implement / audit agent-facing UI: approval (HITL) screens, tool-call and trace views, streaming/cancel/retry states, and generative UI as catalog → JSON spec → validate → render, with sandboxing for anything executable.
+- References: `ui-ecosystem-map.md` (library versions, licenses, and archived/deprecated/shutdown status checked 2026-10-12 with `npm view` + `gh api`, plus the commands to re-check them), `interaction-patterns.md`, `agent-ui-patterns.md`, `component-sourcing.md`.
+- Wired into ux-engineer (tweak dispatch + conditional chain step 5), frontend-design, llm-integration-engineer, and the `/guide` routing table.
+- **Design-tooling wave** (sources verified 2026-10-12):
+  - `references/ai-design-tells.md` — 59 deterministic AI-design-tell rules (derived from pbakaus/impeccable, Apache-2.0); run by design-iterator's token-lint pass and referenced from frontend-design's AI Slop checklist.
+  - `references/design-md-interop.md` — design-system-lead can import a project `DESIGN.md` into `tokens.json` (author only what's missing) and optionally export `docs/design/DESIGN.md`.
+  - agent-ui-patterns §1 / ui-ecosystem-map §3: A2UI, OpenUI, and MCP Apps added as generative-UI architectures; agent-ui-engineer lists them as candidates.
+  - ux-engineer `--design` compares ≥ 2 layout options per major screen; `--review` can export `docs/design/FEEDBACK_<date>.json` (`references/design-feedback-schema.md`), which design-iterator consumes as input findings.
+  - `references/agent-app-references.md` — open-source agent apps to study (LobeHub, Open WebUI, LibreChat, Dify, Langflow, Mastra, OpenHands, …), with license flags.
+
 ## [3.12.0] — 2026-09-30
 
 **Group K: what a review of ECC (affaan-m/ECC, MIT) was worth** — three independent challenge passes cut most of the intake and found a

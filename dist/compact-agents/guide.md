@@ -44,6 +44,9 @@ Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never re
 | Plan a schema migration (ordered steps + rollback per step) | migration-planner | via `/sdlc feature` or a direct HANDOFF — compares two schema states, emits a reversibility-tested migration plan |
 | Design a UI / UX / check accessibility | ux-engineer | `/ux` |
 | Make existing UI look intentional (visual polish) | frontend-design | `/frontend` |
+| Drag-and-drop / sortable cards / Kanban / resizable panels / dashboard layout editor / command palette / undo — spec, build, or audit | interaction-engineer | `/interaction` |
+| 3D / WebGL / WebGPU / shaders / high-performance canvas scenes, spatial visualizations — design, build, or audit | graphics-engineer | `/graphics` |
+| Agent-facing UI — approvals, tool-call/trace views, streaming states, generative UI from a component catalog (CopilotKit / AG-UI / assistant-ui / json-render) | agent-ui-engineer | `/agent-ui` |
 | Write or review tests | test-engineer | `/test-expert` |
 | Test the app as a real first-time user would | end-user-simulator | `/end-user-simulator` |
 | Design an API / endpoints / contracts | api-designer | `/api-design` |
