@@ -83,3 +83,6 @@ logs/
 .tmp-*/
 .tmp-realworld/
 docs/work/realworld-runs/
+
+# Eval-task fixture data (radio.log is task input, not a log file)
+!evals/edit-tasks/**/*.log

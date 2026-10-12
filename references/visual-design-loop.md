@@ -74,6 +74,7 @@ not screen names.
    per screen. Save screenshots to `docs/screenshots/design-iterate/iter-<N>/<screen>-<viewport>.png`.
 4. **Token-lint (deterministic).** Sample computed styles of the screen's key elements and diff
    against `tokens.json` (snippet below). Off-scale values are findings even if they look fine.
+   Then run the deterministic AI-tell rules in `references/ai-design-tells.md` on the same page.
 5. **Critique (vision).** Judge each screenshot against the rubric: hierarchy, spacing rhythm,
    alignment, contrast and legibility, token conformance, interaction-state completeness, and the
    AI-slop signals from `references/design-review-checklist.md`. Emit findings in the format below.
