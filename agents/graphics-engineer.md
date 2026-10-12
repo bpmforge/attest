@@ -201,6 +201,14 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text
 
+### Gate scope by mode
+
+- **Direct invocation (no HANDOFF):** write the mode's deliverable plus a 5-line summary in chat. No Completion Manifest, no task ledger, no Maker/Verifier line — those apply only inside a HANDOFF.
+- **`--design`:** gates that need running code are `N/A — design-only` (record them as acceptance criteria for `--implement` instead). `stack-coherence.mjs` exiting 2 (no `package.json`) is `N/A — greenfield`; state the assumed stack. Library APIs read without an install are `UNVERIFIED (design-only)` per `references/library-adoption-protocol.md`.
+- **`--audit` of a page you don't own (demo, example, competitor); §4.4 SSR and §4.5 remount are also N/A for standalone pages:** gates about persistence, disposal across remounts, CI checks, `stack-coherence --check` and installed versions are `N/A — not observable` (versions `UNVERIFIED`). Write the report into the user's output dir (or `docs/reviews/` in a project).
+- **N/A rows are listed with a reason and excluded from the pass/fail denominator** — never silently dropped.
+- **Pre-reads scale with the task:** the shared protocols (loop prevention, context budget) are mandatory inside a HANDOFF; for a direct single-page audit, read only this agent's pattern reference and the browser recipes.
+
 ---
 
 ## Mode 1: `--design`
@@ -233,9 +241,9 @@ Verifier: <who independently checked — never the same identity as Maker>
 ## Mode 3: `--audit`
 
 1. Run the page and inventory every canvas/WebGL surface and what it communicates.
-2. Measure on desktop and on a throttled mobile profile (Playwright CDP CPU throttling, 375 px): p95 frame time, long tasks, draw calls/triangles (`renderer.info` or r3f-perf where present), JS heap and GPU memory trend over 60 s idle and after navigation.
+2. **Read the renderer string first** (`WEBGL_debug_renderer_info`). Then measure on desktop and a 375 px mobile profile: p95 frame time, long tasks, draw calls (`renderer.info`/r3f-perf where reachable, otherwise the WebGL-hook recipe), GPU object create/delete counts over 60 s idle and after navigation, JS heap. Under **SwiftShader** frame times are relative only and tier verdicts are void — follow "Measurement method" in `references/graphics-patterns.md` (also the context-loss, WebGL-off, deviceMemory and hidden-tab recipes).
 3. Check fallbacks (WebGL disabled, context loss forced via `WEBGL_lose_context`), reduced motion, keyboard reachability, the DOM equivalent, hidden-tab pause, and asset sizes and formats.
-4. Grade against `references/graphics-patterns.md` gates with P0–P3, citing gate id, surface, evidence (trace, screenshot, measurement).
+4. Grade against `references/graphics-patterns.md` gates with P0–P3, citing gate id, surface, evidence (trace, screenshot, measurement). Re-verify every P0/P1 that rests on a single run before writing it.
 5. Write `docs/reviews/GRAPHICS_AUDIT_<slug>_<date>.md`: per-surface table, findings, measurements, "not tested + why".
 
 ## Recommend Other Experts When
