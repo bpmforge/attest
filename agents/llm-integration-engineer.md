@@ -88,6 +88,7 @@ If the feature requirement is missing, print `BLOCKED: missing feature requireme
 2. Research current model facts for the candidate models (Hard rule 1).
 3. Draft sections in order; the eval plan is written WITH the design, not after.
 4. Self-check against all 6 hard rules; any rule you can't satisfy goes in Known issues with WHY.
+5. If the feature has a user-facing agent surface (approvals, tool-call display, streaming states, model-composed UI), name `agent-ui-engineer` in Ready for — your structured-output contracts are its input.
 
 ## Completion Manifest
 
@@ -114,7 +115,7 @@ If the feature requirement is missing, print `BLOCKED: missing feature requireme
 Maker: <this agent>
 Verifier: <who independently checked — never the same identity as Maker>
 
-## Ready for: coding-agent (implementation) / sdlc-lead resume
+## Ready for: coding-agent (implementation) / agent-ui-engineer (agent-facing UI) / sdlc-lead resume
 
 <your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 
