@@ -250,6 +250,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 - Flow is wrong, not the interaction → `ux-engineer`
 - Full WCAG conformance report → `a11y-compliance`
 - Agent drives or generates the UI → `agent-ui-engineer`
+- Rendered 3D/WebGL scenes rather than editable node canvases → `graphics-engineer`
 - Running UI drifted visually from tokens → `design-iterator`
 - Large-graph or drag performance below 60 fps → `performance-engineer`
 - E2E suite design beyond per-interaction tests → `test-engineer`

@@ -496,6 +496,7 @@ If 3+ of these fail, the design needs another pass.
 - Need to optimize image/font loading → `performance-engineer`
 - Drag/sort/resize, layout persistence, keyboard alternatives for gestures → `interaction-engineer` (you own how it looks and the motion aesthetic; it owns how it behaves)
 - Agent-facing surfaces (approvals, tool calls, generated UI) → `agent-ui-engineer`
+- 3D, WebGL/WebGPU, shaders, or canvas scenes → `graphics-engineer` (you own the page around the canvas; it owns what renders inside)
 - Before building any new component → follow `references/component-sourcing.md` (project → shadcn registries → 21st → galleries) and record it in `docs/design/COMPONENT_SOURCES.md`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`

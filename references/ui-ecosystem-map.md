@@ -24,7 +24,9 @@ This is a map, not an endorsement list. The rule from `references/library-adopti
 |---|---|---|---|---|
 | React state/layout animation | `motion` (formerly framer-motion) | 14.1.0 | MIT | Import path is `motion/react`. Motion *tokens* (durations/easings) are owned by design-system-lead's `tokens.json`; never hard-code durations. |
 | Timeline / scroll orchestration | `gsap` | 3.15.0 | **GSAP Standard "no charge" license** | Not OSI open source. Check the license terms fit the product before adopting. |
-| 3D / spatial UI | `@react-three/fiber` (+ `@react-three/drei`) | 9.8.1 | MIT | Only when objects genuinely need a third dimension. |
+| 3D / spatial UI | `@react-three/fiber` 9.8.1 + `@react-three/drei` 10.7.9 on `three` 0.186.1 | — | MIT | Only when objects genuinely need a third dimension. three.js is 0.x (breaking changes per release). Full stack table + gates: `references/graphics-patterns.md`; owner: graphics-engineer. |
+| Fast 2D canvas | `pixi.js` 8.22.0 / `ogl` 1.0.11 | — | MIT / Unlicense | OGL last release 2025-01 (quiet). |
+| Visual timeline editor | `@theatre/core` 0.7.2 | — | Apache-2.0 | **Last release 2024-05; treat as unmaintained.** |
 | Shader effects over DOM | Canvas UI (DavidHDev/canvas-ui) | n/a (copy-in) | **NOASSERTION on GitHub** | Experimental; license unclear — do not vendor until the license is confirmed in the repo. |
 | Decorative animated components | Magic UI, React Bits, Aceternity, Motion Primitives | copy-in galleries | varies per component | Galleries, not dependencies. Every copied component goes through `references/component-sourcing.md` (provenance + a11y + reduced-motion). |
 
