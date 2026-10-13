@@ -273,6 +273,17 @@ populate_phase_artifacts() {
         if [[ -f "$ROOT/$alt" ]]; then chosen="$alt"; break; fi
       done
       resolved+=("$chosen")
+    elif [[ "$entry" == "docs/api/openapi.yaml" ]] \
+         && [[ "$(api_contract_mode "$ROOT")" == "json-schema" ]]; then
+      # JSON-Schema contract mode (no HTTP API: MCP server, native
+      # messaging, CLI -- see api_contract_mode in _lib.sh). The schema
+      # files stand in for openapi.yaml: each must exist (it does, by
+      # construction) and each feeds the receipt hash, so a schema edit
+      # invalidates the phase-3 receipt the way an openapi.yaml edit would.
+      local sf
+      while IFS= read -r sf; do
+        [[ -n "$sf" ]] && resolved+=("${sf#"$ROOT/"}")
+      done < <(find "$ROOT/docs/api/schemas" -type f -name '*.json' 2>/dev/null | sort)
     else
       resolved+=("$entry")
     fi
