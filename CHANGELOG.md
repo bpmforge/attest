@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.13.3] — 2026-10-12
 
 ### Added
 - **JSON-Schema contract mode** for systems without an HTTP API (MCP servers, native messaging, CLIs). With no `docs/api/openapi.yaml`, ≥ 1 `docs/api/schemas/*.json`, and a "no HTTP API" / "JSON Schema contracts" line in `docs/DESIGN_CONTEXT.md` or `docs/API_DESIGN.md`, `validate-api-coverage.sh` checks that every backticked name in an API_DESIGN.md Tool/Endpoint/Operation/Command/Method/RPC table column has a schema file (`.`-separated basename segment, case-insensitive, `-`/`_` ignored) and that every schema parses; the phase-3 gate takes the schema files in place of openapi.yaml. `api-designer` and the phase-3 orchestrators describe the mode.
