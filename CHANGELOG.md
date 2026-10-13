@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **JSON-Schema contract mode** for systems without an HTTP API (MCP servers, native messaging, CLIs). With no `docs/api/openapi.yaml`, ≥ 1 `docs/api/schemas/*.json`, and a "no HTTP API" / "JSON Schema contracts" line in `docs/DESIGN_CONTEXT.md` or `docs/API_DESIGN.md`, `validate-api-coverage.sh` checks that every backticked name in an API_DESIGN.md Tool/Endpoint/Operation/Command/Method/RPC table column has a schema file (`.`-separated basename segment, case-insensitive, `-`/`_` ignored) and that every schema parses; the phase-3 gate takes the schema files in place of openapi.yaml. `api-designer` and the phase-3 orchestrators describe the mode.
+
+### Fixed
+- `validate-sequence-coverage.sh` reported every P0 use case missing on an ARCHITECTURE.md larger than one pipe buffer (~64 KB): `producer | grep -q` under `set -o pipefail` returned 141 (SIGPIPE) and read as "not found". Evidence is now collected in one awk pass and looked up per UC with `grep -qxF`; UC ids match exactly (UC-1 is no longer satisfied by UC-14). Red/green fixtures include an 80 KB, 14-diagram ARCHITECTURE.md.
+- Same SIGPIPE class fixed in `validate-inventory.sh` (false `inventory-missing-*` gaps on large inventories), `validate-no-reinvent.sh`, `validate-tests-mapping.sh`, `validate-phase-gate.sh` (RUNTIME report probe), `validate-e2e-setup.sh`, `validate-iac.sh`.
+- `build-target-claude.mjs` now carries each source file's mode into the generated copy and `--check` reports mode drift, so regenerating attest-claude no longer flips `scripts/*.mjs` between 644 and 755. Seven canonical scripts with shebangs that were 644 are now 755, matching attest-claude.
+
 ## [3.13.2] — 2026-10-12
 
 ### Added
