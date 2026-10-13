@@ -48,7 +48,9 @@ else
   DIFF_RANGE="HEAD"
   OLD_REF="HEAD"
 fi
-in_changed_set() { printf '%s\n' "$CHANGED_SET" | grep -qxF "$1"; }
+# here-string, not `printf | grep -q`: a large diff (>64 KB of paths) would
+# SIGPIPE printf under pipefail and every lookup would read as "not changed".
+in_changed_set() { grep -qxF "$1" <<< "$CHANGED_SET"; }
 
 # -- Check 1: modified generated files (HARD FAIL) --------------------------
 GEN_LIST="$ROOT/GENERATED_FILES.txt"
