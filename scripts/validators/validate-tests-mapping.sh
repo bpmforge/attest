@@ -111,15 +111,17 @@ while IFS= read -r uc; do
   [[ -z "$uc" ]] && continue
   found=0
   for d in "${TEST_DIRS[@]}"; do
-    if find "$d" -type f \
+    # -print -quit / here-string, not `producer | grep -q`: under pipefail a
+    # producer past one pipe buffer takes SIGPIPE (141) and the match is lost.
+    if [[ -n "$(find "$d" -type f \
         \( -name "*${uc}*" -o -name "*$(printf '%s' "$uc" | tr A-Z a-z)*" \) \
-        2>/dev/null | head -1 | grep -q .; then
+        -print -quit 2>/dev/null)" ]]; then
       found=1
       break
     fi
     uc_lines=$(grep -rnE "\b${uc}\b" "$d" 2>/dev/null || true)
-    if [[ -n "$uc_lines" ]] && printf '%s\n' "$uc_lines" \
-        | grep -qE '(describe|it|test|context)\(|def[[:space:]]+test_'; then
+    if [[ -n "$uc_lines" ]] \
+        && grep -qE '(describe|it|test|context)\(|def[[:space:]]+test_' <<< "$uc_lines"; then
       found=1
       break
     fi

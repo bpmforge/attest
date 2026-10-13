@@ -273,6 +273,17 @@ populate_phase_artifacts() {
         if [[ -f "$ROOT/$alt" ]]; then chosen="$alt"; break; fi
       done
       resolved+=("$chosen")
+    elif [[ "$entry" == "docs/api/openapi.yaml" ]] \
+         && [[ "$(api_contract_mode "$ROOT")" == "json-schema" ]]; then
+      # JSON-Schema contract mode (no HTTP API: MCP server, native
+      # messaging, CLI -- see api_contract_mode in _lib.sh). The schema
+      # files stand in for openapi.yaml: each must exist (it does, by
+      # construction) and each feeds the receipt hash, so a schema edit
+      # invalidates the phase-3 receipt the way an openapi.yaml edit would.
+      local sf
+      while IFS= read -r sf; do
+        [[ -n "$sf" ]] && resolved+=("${sf#"$ROOT/"}")
+      done < <(find "$ROOT/docs/api/schemas" -type f -name '*.json' 2>/dev/null | sort)
     else
       resolved+=("$entry")
     fi
@@ -469,7 +480,7 @@ if [[ "$PHASE" == "phase-5" ]]; then
   fi
 
   # RUNTIME gate
-  if ! find "$ROOT/docs/reviews" -type f -name 'RUNTIME_*.md' 2>/dev/null | head -1 | grep -q .; then
+  if [[ -z "$(find "$ROOT/docs/reviews" -type f -name 'RUNTIME_*.md' -print -quit 2>/dev/null)" ]]; then
     gap "no-runtime" "no RUNTIME_*.md report found -- runtime gate cannot pass"
   else
     while IFS= read -r r; do
