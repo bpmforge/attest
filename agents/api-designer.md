@@ -339,12 +339,17 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] Security section: rate limits, CORS policy, input validation, auth scheme (if SECURITY_CONTROLS.md exists)
 - [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` anywhere
 
-**openapi.yaml — required:**
+**openapi.yaml — required (HTTP APIs):**
 - [ ] `openapi: "3.0.3"` header
 - [ ] Every endpoint from API_DESIGN.md has a `paths` entry
 - [ ] `components/schemas` for every request/response object
 - [ ] `components/securitySchemes` matching auth strategy
 - [ ] Run: `swagger-cli validate docs/api/openapi.yaml` — must exit 0
+
+**No HTTP API (MCP server, native messaging, CLI, IPC) — JSON-Schema contract mode instead of openapi.yaml:**
+- [ ] Declare it: a line in `docs/DESIGN_CONTEXT.md` or `docs/API_DESIGN.md` saying "no HTTP API" / "JSON Schema contracts"
+- [ ] API_DESIGN.md lists every tool/message/command in a table with a `Tool` (or Endpoint/Operation/Command/Method/RPC) column, one backticked name per cell
+- [ ] One `docs/api/schemas/*.json` per name, the name as a `.`-separated basename segment (e.g. `tool.get_feedback.input.json`); every file parses as JSON
 
 **Run the coverage validator:**
 ```bash
