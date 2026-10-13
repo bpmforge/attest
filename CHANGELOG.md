@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.13.2] — 2026-10-12
+
+### Added
+- `references/design-feedback-schema.md` **v1.1** (additive, `schemaVersion` stays `"1"`): optional `status` (`open` / `acknowledged` / `resolved` / `dismissed`), `dismissReason`, `statusChangedAt`, and the `gate:manual-review` rule id for human annotations with no rule. Consumers ignore unknown fields and act only on open/acknowledged findings. Driven by attest-browser's feedback lifecycle.
+
 ## [3.13.1] — 2026-10-12
 
 **Smoke-test fixes.** The three new experts and `/ux --research` were run on live targets (read-only): interaction-engineer found a real P0 in dnd-kit's own multiple-lists demo (hover-only delete buttons unreachable by keyboard) plus a silent, un-undoable delete; graphics-engineer found a three.js example that goes blank with an uncaught error when WebGL is unavailable; agent-ui-engineer produced a stack-checked design that rejected CopilotKit on verified transitive dependencies; `/ux --research` produced 8 cited references and 3 directions in ~16 calls. Their ~45 instruction issues are fixed at the root:
