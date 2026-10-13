@@ -469,7 +469,7 @@ if [[ "$PHASE" == "phase-5" ]]; then
   fi
 
   # RUNTIME gate
-  if ! find "$ROOT/docs/reviews" -type f -name 'RUNTIME_*.md' 2>/dev/null | head -1 | grep -q .; then
+  if [[ -z "$(find "$ROOT/docs/reviews" -type f -name 'RUNTIME_*.md' -print -quit 2>/dev/null)" ]]; then
     gap "no-runtime" "no RUNTIME_*.md report found -- runtime gate cannot pass"
   else
     while IFS= read -r r; do

@@ -54,7 +54,7 @@ if [[ -z "$E2E_FRAMEWORK" ]]; then
     "$ROOT/vite.config.ts"; do
     if [[ -f "$candidate" ]]; then
       # Only count as E2E if e2e directory or e2e test files exist
-      if find "$ROOT" -maxdepth 3 -type f -name '*.spec.*' -path '*/e2e/*' 2>/dev/null | head -1 | grep -q .; then
+      if [[ -n "$(find "$ROOT" -maxdepth 3 -type f -name '*.spec.*' -path '*/e2e/*' -print -quit 2>/dev/null)" ]]; then
         E2E_FRAMEWORK="vitest"
         E2E_CONFIG="$candidate"
         break
