@@ -127,9 +127,9 @@ while IFS=$'\t' read -r id cat desc artifact; do
           grep -qE "\b${uc_stem}\b" "$ARCH" 2>/dev/null && found=1
         fi
         if [[ "$found" -eq 0 && -d "$ROOT/docs/sequences" ]]; then
-          find "$ROOT/docs/sequences" -type f -name "*${id}*" 2>/dev/null | head -1 | grep -q . && found=1
+          [[ -n "$(find "$ROOT/docs/sequences" -type f -name "*${id}*" -print -quit 2>/dev/null)" ]] && found=1
           if [[ "$found" -eq 0 && -n "$uc_stem" ]]; then
-            find "$ROOT/docs/sequences" -type f -name "*${uc_stem}*" 2>/dev/null | head -1 | grep -q . && found=1
+            [[ -n "$(find "$ROOT/docs/sequences" -type f -name "*${uc_stem}*" -print -quit 2>/dev/null)" ]] && found=1
           fi
         fi
         [[ "$found" -eq 0 ]] && gap "uncovered-flow" "$id ($cat: $desc) -- no sequence diagram mentioning it"
@@ -184,7 +184,9 @@ else
     ROUTE_ROWS=$(awk -F'\t' '$2=="ROUTE"{print $3"\t"$4}' "$ROWS")
     while IFS= read -r route; do
       [[ -z "$route" ]] && continue
-      if ! printf '%s\n' "$ROUTE_ROWS" | grep -qF "$route"; then
+      # here-string, not `printf | grep -q`: under pipefail a >64 KB row set
+      # SIGPIPEs printf (exit 141) and every route reads as missing.
+      if ! grep -qF "$route" <<< "$ROUTE_ROWS"; then
         gap "inventory-missing-route" "route '$route' discovered in source but not present in any ROUTE row of INVENTORY.md"
       fi
     done < "$DERIVED_ROUTES"
@@ -214,7 +216,7 @@ else
     TABLE_ROWS=$(awk -F'\t' '$2=="TABLE"{print tolower($3) "\t" tolower($4)}' "$ROWS")
     while IFS= read -r table; do
       [[ -z "$table" ]] && continue
-      if ! printf '%s\n' "$TABLE_ROWS" | grep -qF "$table"; then
+      if ! grep -qF "$table" <<< "$TABLE_ROWS"; then
         gap "inventory-missing-table" "table '$table' discovered in source but not present in any TABLE row of INVENTORY.md"
       fi
     done < "$DERIVED_TABLES"
@@ -259,7 +261,7 @@ else
       while IFS= read -r svc; do
         [[ -z "$svc" ]] && continue
         svc_lc=$(printf '%s' "$svc" | tr '[:upper:]' '[:lower:]')
-        if ! printf '%s\n' "$SERVICE_ROWS" | grep -qF "$svc_lc"; then
+        if ! grep -qF "$svc_lc" <<< "$SERVICE_ROWS"; then
           gap "inventory-missing-service" "service/module '$svc' discovered in source ($SRC_ROOT) but not present in any SERVICE row of INVENTORY.md"
         fi
       done < "$DERIVED_SERVICES"
