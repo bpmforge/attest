@@ -18,7 +18,7 @@
 //   CHANGELOG, CLAUDE.md. Everything this script generates is stamped as
 //   generated in the build manifest it writes.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, chmodSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
@@ -263,14 +263,21 @@ function* walk(dir, ext) {
 // above) can be imported for testing without triggering a real build/check.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const outputs = new Map(); // relpath -> content
+  // relpath -> source permission bits. A generated file keeps its source's
+  // mode: writeFileSync only applies a mode on CREATE (default 0644 after
+  // umask), so a regenerated/recreated target lost the executable bit and
+  // scripts/*.mjs flipped between 644 and 755 across regens.
+  const modes = new Map();
   for (const [dir, ext] of COPY_GLOBS) {
     for (const abs of walk(join(ROOT, dir), ext)) {
       const rel = relative(ROOT, abs);
       outputs.set(rel, transform(readFileSync(abs, 'utf8')));
+      modes.set(rel, statSync(abs).mode & 0o777);
     }
   }
   for (const rel of COPY_FILES) {
     outputs.set(rel, transform(readFileSync(join(ROOT, rel), 'utf8')));
+    modes.set(rel, statSync(join(ROOT, rel)).mode & 0o777);
   }
   // apply overrides last (already target-flavored)
   for (const abs of walk(OVERRIDES_DIR, '.md')) {
@@ -291,10 +298,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const [rel, content] of outputs) {
     const dest = join(OUT, rel);
     const current = existsSync(dest) ? readFileSync(dest, 'utf8') : null;
+    const srcMode = modes.get(rel);
     if (current !== content) drift.push(rel + (current === null ? ' (missing)' : ''));
+    else if (srcMode !== undefined && (statSync(dest).mode & 0o111) !== (srcMode & 0o111)) {
+      drift.push(`${rel} (mode ${(statSync(dest).mode & 0o777).toString(8)}, source ${srcMode.toString(8)})`);
+    }
     if (MODE === 'write') {
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, content);
+      if (srcMode !== undefined) chmodSync(dest, srcMode);
     }
   }
 
