@@ -173,6 +173,37 @@ find_files() {
   find "$root" -type f -name "$pattern" 2>/dev/null || true
 }
 
+# -- API contract mode -------------------------------------------------------
+# api_contract_mode <root>  -- prints which machine-readable API contract the
+# project is held to. Shared by validate-api-coverage.sh and the phase-3 file
+# check in validate-phase-gate.sh so the two can never disagree.
+#   openapi      docs/api/openapi.yaml exists, OR the JSON-Schema conditions
+#                below are not all met (openapi.yaml is then required).
+#   json-schema  no openapi.yaml AND docs/API_DESIGN.md exists AND
+#                docs/api/schemas/ holds >= 1 *.json AND docs/DESIGN_CONTEXT.md
+#                or docs/API_DESIGN.md declares the adaptation with a line
+#                matching "no HTTP API" or "JSON Schema contract(s)"
+#                (case-insensitive). For systems without an HTTP API: MCP
+#                servers, native messaging hosts, CLIs, IPC protocols.
+api_contract_mode() {
+  local root="$1" f decl=0
+  if [[ -s "$root/docs/api/openapi.yaml" ]]; then
+    printf 'openapi'; return 0
+  fi
+  if [[ -s "$root/docs/API_DESIGN.md" && -d "$root/docs/api/schemas" ]] \
+     && [[ -n "$(find "$root/docs/api/schemas" -type f -name '*.json' -print -quit 2>/dev/null)" ]]; then
+    for f in "$root/docs/DESIGN_CONTEXT.md" "$root/docs/API_DESIGN.md"; do
+      if [[ -f "$f" ]] && grep -qiE 'no HTTP API|JSON[- ]Schema contracts?' "$f"; then
+        decl=1; break
+      fi
+    done
+    if [[ "$decl" -eq 1 ]]; then
+      printf 'json-schema'; return 0
+    fi
+  fi
+  printf 'openapi'
+}
+
 # -- gate receipts (T27.1) ---------------------------------------------------
 # A receipt records what actually ran (validator names, exit codes, gap
 # counts, an input-tree hash), not just that "something" ran — it raises the

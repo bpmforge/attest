@@ -1,6 +1,5 @@
 [
   "validate-api-consistency.sh",
-  "validate-api-coverage.sh",
   "validate-architecture.sh",
   "validate-build.sh",
   "validate-c3-coverage.sh",
@@ -26,7 +25,6 @@
   "validate-observability.sh",
   "validate-release-readiness.sh",
   "validate-resilience-patterns.sh",
-  "validate-sequence-coverage.sh",
   "validate-smoke.sh",
   "validate-spec-traceability.sh",
   "validate-tech-stack.sh",
