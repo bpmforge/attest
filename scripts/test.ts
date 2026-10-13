@@ -57,6 +57,8 @@ import { testHandoffIntake } from "./test-handoff-intake.ts";
 import { testCheckTools } from "./test-check-tools.ts";
 import { testApiSurface } from "./test-api-surface.ts";
 import { testStackCoherence } from "./test-stack-coherence.ts";
+import { testApiContractMode } from "./test-api-contract-mode.ts";
+import { testBuildTargetModes } from "./test-build-target-modes.ts";
 import { testVerifyReceipt } from "./test-verify-receipt.ts";
 import {
   testDelegationGate,
@@ -777,6 +779,15 @@ await testCompliance(root, ok, fail);
 // UI stack coherence gate: one framework, one kit, one library per purpose.
 console.log("\n[Pass 64] Stack coherence — planted mish-mash fixtures RED, coherent shadcn app GREEN");
 testStackCoherence(root, ok, fail);
+
+// validate-api-coverage contract modes: openapi red/green, undeclared-schemas
+// fallback, openapi precedence (JSON-Schema red/green live in the fixture harness).
+console.log("\n[Pass 65] API contract mode — openapi vs JSON-Schema selection, red/green");
+testApiContractMode(root, ok, fail);
+
+// build-target-claude.mjs preserves source file modes (no 644/755 flip on regen).
+console.log("\n[Pass 66] Build target modes — generated files keep the source's executable bit");
+testBuildTargetModes(root, ok, fail);
 
 // The conductor's own E2E suite. Standalone until v3.1.2 — which is why
 // v3.1.0 and v3.1.1 both shipped with all four of its tests RED while this

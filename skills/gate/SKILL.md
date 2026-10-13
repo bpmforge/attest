@@ -48,7 +48,7 @@ Check or manage phase gate requirements for the current SDLC project.
 | 0 (Ideation) | VISION.md, COMPETITIVE_ANALYSIS.md | file-existence only |
 | 1 (Planning) | SCOPE.md, RISKS.md, CONSTRAINTS.md, USER_PERSONAS.md | file-existence only |
 | 2 (Requirements) | SRS.md, USER_STORIES.md, docs/testing/USE_CASES.md, docs/testing/TEST_PLAN.md | file-existence only |
-| 3 (Design) | ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, docs/api/openapi.yaml, THREAT_MODEL.md | architecture + api-coverage + erd-coverage + sequence-coverage |
+| 3 (Design) | ARCHITECTURE.md, TECH_STACK.md, DATABASE.md, API_DESIGN.md, docs/api/openapi.yaml (or docs/api/schemas/*.json in JSON-Schema contract mode for non-HTTP systems), THREAT_MODEL.md | architecture + api-coverage + erd-coverage + sequence-coverage |
 | 4 (Implementation) | Source + tests + reviews + RUNTIME_*.md PASS | inline per-module runtime check |
 | 5 (Release) | FIX_BACKLOG closed, all reviews APPROVED, RUNTIME PASS | phase-5 release gate |
 | onboard-deep | INVENTORY, ARCHITECTURE, API, ERD, sequences | inventory + architecture + erd-coverage + sequence-coverage |
