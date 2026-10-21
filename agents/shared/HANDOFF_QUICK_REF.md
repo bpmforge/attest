@@ -51,38 +51,35 @@ END HANDOFF #N
 ════════════════════════════════════════════════════════════
 ```
 
-## Pointer for the user — printed by the emitter, never typed
+## The reply — the emitter prints it, you copy it verbatim
 
-The specialist must receive a prompt that **starts with the `SDLC-TASK for` trigger** — otherwise a
-smaller model falls through to its default/orchestrator mode and hands the task straight back. After
+The specialist must receive a prompt that **starts with the `SDLC-TASK for` trigger**. After
 writing the file, run:
 
 ```bash
 bash ~/.config/opencode/scripts/handoff-emit.sh <agent-name> [<slug>]
 ```
 
-It lints the file (trigger line, paired `════`, PRODUCE, completion phrase, "Then stop", no `USER:`
-inside, no template prose, balanced fences, ≤220 lines) and prints this pointer as a tool result —
-which the TUI shows verbatim, where a typed version collapses into one paragraph:
+It lints the file and prints a `REPLY TO THE USER WITH EXACTLY THE FOLLOWING` block. **The TUI
+collapses tool output, so the user only sees your reply** — your reply is that block, verbatim:
 
 ```
-── NEXT HANDOFF ──────────────────────────────
-Open agent:  /<skill>          (<agent-name>)
-Paste this one line into it:
-
-    SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
-
-It produces: <report path>   ← come back with this
-──────────────────────────────────────────────
+Open /<skill> (<agent-name>) and paste:
+```text
+SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
+```
+It produces <report>. Reply here with "<agent-name> done" when it finishes.
 ```
 
-`HANDOFF-LINT:` gaps → fix the file, re-run (max twice). Then your reply is ONE line:
-`Handoff ready — open /<skill> and paste the line above.` and the turn ends.
+Five lines, paste line inside a fence (the TUI renders fences verbatim; prose pointers collapse).
+No gate verdict, no "advancing to…" narrative in this reply — those go in DELEGATION_LOG.md /
+STATE.md. A long reply hits the model's output cap and the TUI shows it regenerated over and over.
+`HANDOFF-LINT:` gaps → fix the file, re-run (max twice). Then the turn ends.
 
 ## What the screen must show per HANDOFF (and what it must not)
 
 Exactly: the tool calls that wrote `sdlc-state.md`, `context-for-<agent>.md`, `HANDOFF_<agent>.md`,
-`TASKS_<agent>-<slug>.md`; one emitter pointer; one closing line. **The HANDOFF body appears
+`TASKS_<agent>-<slug>.md`; the emitter call; the five-line reply. **The HANDOFF body appears
 nowhere in your prose** — not before the write, not after, not "for reference". The three files
 hold DIFFERENT things and must not restate each other:
 

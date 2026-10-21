@@ -179,7 +179,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 
 **Delegation: the HANDOFF block is the contract; autonomy decides who executes it.** Pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
 
-- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, then run `bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]` — it lints the file and prints the pointer as a tool result (never type the pointer or paste the HANDOFF body into the chat: typed pointers collapse under markdown rendering, and echoing the body is the re-emit loop). Your final message is one line: `Handoff ready — open /<skill> and paste the line above.`** Then STOP and wait for them to return with the report. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess, and **never run the check yourself** — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
+- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, then run `bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]` — it lints the file and prints a `REPLY TO THE USER WITH EXACTLY THE FOLLOWING` block; **the TUI collapses tool output, so your reply IS that five-line block, verbatim** (paste line inside a ```text fence; no gate recap, no narrative — those go in DELEGATION_LOG.md / STATE.md). Never type a pointer of your own or paste the HANDOFF body into the chat.** Then STOP and wait for them to return with the report. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess, and **never run the check yourself** — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
 - **`autonomy=auto` (unattended/headless — e.g. the conductor):** dispatch programmatically — Task tool (`has_task_tool=true`, native-tools specialist) → `task.ts` subprocess (`opencode run`, MCP-needing or no task tool) → inline. Never emit a paste-and-wait in auto; log auto-taken gates to `docs/work/APPROVALS.md`.
 
 Read `has_task_tool` / `mcp_in_subagents` / `autonomy` from `docs/work/.model-context`. The capability probes only matter in `auto`; in `interactive` the human is the executor.
@@ -367,12 +367,14 @@ Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT se
 ```bash
 bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]
 ```
-The emitter lints `docs/work/HANDOFF_<agent>[-<slug>].md` and prints the `── NEXT HANDOFF ──` pointer
-as a tool result. Your reply after it is one line: `Handoff ready — open /<skill> and paste the line
-above.` Then the turn ends.
+The emitter lints `docs/work/HANDOFF_<agent>[-<slug>].md` and prints the exact reply to send. **The
+TUI collapses tool output — the user sees only your reply**, so copy the block between the
+`----8<----` markers verbatim as your whole message (five lines, paste line in a fence) and the turn
+ends. Run it as its own bash call, not at the end of a `git commit && …` chain: a failing earlier
+command hides the lint result and you end up guessing.
 
 **What the screen shows per HANDOFF — and the three-times failure.** The user should see: the
-write tool calls (state, packet, HANDOFF file, ledger), ONE pointer, ONE closing line. The HANDOFF
+write tool calls (state, packet, HANDOFF file, ledger), the emitter call, and the five-line reply. The HANDOFF
 body never appears in your prose — not announced before the write, not echoed after, not
 summarised "for reference". The packet, the HANDOFF file and the ledger hold DIFFERENT content:
 the packet holds the detail (files + line ranges + why, patterns, the `verify` fence); the HANDOFF
@@ -380,8 +382,11 @@ holds the contract (ROLE, CONTEXT pointers, WRITE-SCOPE, a 2–4-sentence task, 
 phrase, ≤60 lines); the ledger holds `- [ ] <step>` checkboxes only. When the same task text is
 written into all three and then echoed in the reply, the user reads it three or four times — that
 is the field complaint, and it is also 3–4× the tokens on every resume. Each fact once, in its file.
-A second write of the same `HANDOFF_<agent>.md` in one turn, or a second pointer, means you are
-looping: stop and end the turn.
+A second write of the same `HANDOFF_<agent>.md` in one turn, or a second paste line, means you are
+looping: stop and end the turn. **Keep every reply that ends a turn short** (the handoff reply is five
+lines; a gate verdict is a few lines pointing at the log): a reply that exceeds the model's output cap
+is cut off and regenerated from the top, and the TUI shows the same text over and over — field
+capture 2026-10-21, eight copies of one ~600-token message. Length is the loop.
 
 ### HANDOFF Manifest for parallel waves
 

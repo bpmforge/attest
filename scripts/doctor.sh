@@ -69,6 +69,15 @@ if [ -f "$CFG" ]; then
   ok "opencode.json present"
   if command -v jq >/dev/null 2>&1; then
     jq -e '.mcp.context7' "$CFG" >/dev/null 2>&1 && ok "context7 MCP configured" || warn "context7 MCP not configured (library docs lookup degraded)"
+    # Output caps below ~4k tokens truncate any substantial reply; opencode
+    # re-asks and the model regenerates from the top, so the TUI shows the same
+    # message repeated (field capture 2026-10-21, eight copies). Name the model.
+    low_out=$(jq -r '.provider // {} | to_entries[] | .key as $p | (.value.models // {}) | to_entries[] | select((.value.limit.output // 0) > 0 and (.value.limit.output // 0) < 4096) | "\($p)/\(.key)=\(.value.limit.output)"' "$CFG" 2>/dev/null | tr '\n' ' ')
+    if [ -n "$low_out" ]; then
+      warn "limit.output < 4096 for: $low_out — replies will be cut off and regenerated (repeated-message symptom in the TUI); raise limit.output or the server's max_tokens"
+    else
+      ok "no model has limit.output < 4096"
+    fi
     if jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
       ok "external_directory permission configured (protocol reads work in opencode run)"
     else

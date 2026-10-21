@@ -110,16 +110,27 @@ fi
 ledger_note=""
 [[ -f "$ROOT/$LEDGER" ]] || ledger_note="   (ledger $LEDGER not written yet -- write it: one '- [ ] <step>' per HANDOFF step)"
 
+# The TUI COLLAPSES tool output (field capture 2026-10-21: the lead ran this
+# script, replied "paste the line above", and the user had to ask "what to
+# paste?"). So this output is a TEMPLATE for the lead's reply, not the thing
+# the user sees. The reply is five short lines with the paste line inside a
+# fenced block -- fences are the one construct the TUI renders verbatim, and a
+# reply this size cannot hit a model's output cap (the other field symptom:
+# a ~600-token "gate verdict + next step + pointer" reply was cut at the cap
+# and regenerated from the top, eight times in a row).
+FENCE='```'
 cat <<EOF
-── NEXT HANDOFF ──────────────────────────────────────────────
-Open agent:    ${SKILL}            (${AGENT})
-Paste this one line into it:
-
-    SDLC-TASK for ${AGENT}: read ${FILE} and execute it.
-
-It produces:   ${REPORT}     <- come back when done
-Lead:          waits here; reads the report; does NOT run the check itself.
-──────────────────────────────────────────────────────────────${ledger_note:+
+HANDOFF-LINT: clean -- $FILE${ledger_note:+
 $ledger_note}
+
+REPLY TO THE USER WITH EXACTLY THE FOLLOWING (copy it verbatim; add nothing before or after --
+gate verdicts and progress notes belong in DELEGATION_LOG.md / STATE.md, not in this reply):
+----8<----
+Open ${SKILL} (${AGENT}) and paste:
+${FENCE}text
+SDLC-TASK for ${AGENT}: read ${FILE} and execute it.
+${FENCE}
+It produces ${REPORT}. Reply here with "${AGENT} done" when it finishes.
+----8<----
 EOF
 exit 0
