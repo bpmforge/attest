@@ -62,6 +62,24 @@ reduced to pointers. `scripts/detect-model-context.sh` writes your tier and the
 
 ---
 
+## Is the server reusing the prompt prefix? (check this first)
+
+A local run re-sends the whole prompt every turn. If the server recomputes it
+each time, a 40k-token prefix × 50 turns is the entire cost of the session.
+Telemetry cannot tell you (LM Studio's `usage` does not report cached tokens),
+so measure it:
+
+```bash
+node ~/.config/opencode/scripts/probe-prefix-cache.mjs            # LM Studio default URL
+node ~/.config/opencode/scripts/probe-prefix-cache.mjs --base http://127.0.0.1:11434 --model qwen3  # Ollama
+```
+
+It times a cold prefix, the same prefix again, and a different prefix; a warm
+call under half the cold time means reuse is on. If the verdict is OFF, enable
+prompt/KV caching in the server (LM Studio: Developer → server settings;
+llama.cpp: `--cache-prompt`; Ollama: keep one model resident and a stable
+`num_ctx`) before tuning anything else.
+
 ## When things go wrong
 
 ### Model ignores SDLC-TASK and runs Phase 1 instead

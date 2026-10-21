@@ -7,7 +7,7 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
 J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
 Updated: 2026-10-21 — added **Group L** (token & overhead optimization) from the telemetry audit in
-`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L7 shipped on `improve/token-optimization`, L8–L14 open.
+`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L10 and L12–L15 shipped on `improve/token-optimization` (v3.13.0); L11 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
 (held privately, not in this repo): 118 delegations, 24% correction rate,
 0 escapes to `main`, all caught by a human lead re-verifying by hand under schedule pressure.
@@ -937,23 +937,23 @@ ticket. Full tables, sizing and done-criteria live in the plan; this group track
 - Causes found in the prompts: (1) the `── NEXT HANDOFF ──` pointer was TYPED into a markdown-rendered reply — lines collapse into one paragraph, the indented paste line only survives behind a blank line, box rules become headings; (2) "emit the HANDOFF block" wording from the paste era made models echo the body in prose on top of writing it, while the context packet and the ledger restated the same task text — three to four copies per handoff; (3) ~60 lines of orchestrator-facing prose ("[Code tasks only] … YOU RUN THE --baseline PASS YOURSELF …") sat INSIDE the fenced Template 1 block, so small models copied it into every `HANDOFF_*.md`.
 - Fix: `scripts/handoff-emit.sh <agent> [<slug>]` lints the written file (intake trigger, paired `════`, PRODUCE, phrase, "Then stop", no `USER:` inside, no template prose/placeholders, balanced fences, ≤220 lines) and prints the pointer as a tool result; `HANDOFF_TEMPLATES.md` step 2/3, `HANDOFF_QUICK_REF.md`, `sdlc-lead.md` and the 5 SDLC mode files now say write-file → emitter → one-line reply → turn ends, with the per-file content split (packet = detail, HANDOFF = contract, ledger = checkboxes) and a loop tripwire; the orchestrator prose moved out of the template block. Tests: `scripts/handoff-emit.test.mjs` (5), intake/handoff-done/discipline passes green.
 
-### L9. Attended fan-outs through `run-plan.mjs` — OPEN
-- Mode 3 step 6 and Phase 5 Round 1/3 stop asking the user to open N sessions by hand
-- Files: `agents/sdlc-feature-mode.md`, `agents/sdlc-init-phase-5.md`, `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md`
+### L9. Attended fan-outs through one command ✅ DONE 2026-10-21
+- Mode 3 step 6 and Phase 5 Round 1 default to `integration-review.mjs --names feature:<slug> | final` (scanners once, reviewers concurrent as `opencode run` sessions, attended document names preserved); manual HANDOFFs are the fallback and go through `handoff-emit.sh`
+- Open: Phase 5 Round 3 audits (tech-debt, coverage, container, doc-gaps) still dispatch as HANDOFFs
 
-### L10. Measure the 33k floor — OPEN
-- One no-op `opencode run --agent build`; attribute first-message `tokens_in` to global instructions, the 20 custom tool schemas, AGENTS.md; record in the plan
+### L10. Measure the 33k floor ✅ DONE (from telemetry) 2026-10-21
+- The `build` agent's smallest first message is **13,431 tokens** — that is the floor (opencode system prompt + tool schemas + a short task); its median 33k includes the HANDOFF prompt and first reads. coding-agent's 38.7k median = 13.4k floor + ~25k of agent file + shared protocols. So the agent text, not the harness, is the lever — which is L11. The conductor now logs each role's agent prompt size at startup (`agents.prompt-size`).
 
-### L11. Core/full agent split — OPEN (L)
-- `agent.md` ≤8KB for bounded-task sessions + `agent.full.md` for interactive; `build-agents.mjs` emits both; conductor sessions default to compact
-- **Done when:** median first-message baseline < 12k tokens
+### L11. Core/full agent split — OPEN (L) — the one item deliberately NOT in 3.13
+- `agent.md` ≤8KB for bounded-task sessions + `agent.full.md` for interactive; `build-agents.mjs` emits both
+- Not mechanical: each of the 63 agents' Bounded Task section references different methodology sections, so the cut has to be read per agent. Shipped instead in 3.13: rule cards (C2/C3), the startup prompt-size receipt, and `--compact` as the documented mitigation. **Done when:** median first-message baseline < 12k tokens
 
-### L12. Conductor default `--max-turns 80` + resume-from-ledger reuses the worktree — OPEN
-- Needs one field run of L7 first
+### L12. Turn budget on by default + same-worktree continuation ✅ DONE 2026-10-21
+- `--max-turns 120` (median coder session is 48 turns; only the 150–600-turn tail is touched); a session that hits it is continued in the SAME worktree from its TASKS ledger, `--turn-continuations 2`; `session.turn-budget` receipt
 
-### L13. Local prefix cache — OPEN
-- `cache_read` = 0 on 2,700 local messages; verify LM Studio / llama.cpp `cache_prompt`; `sync-model-limits.mjs` warns when off
+### L13. Local prefix cache probe ✅ DONE 2026-10-21
+- `scripts/probe-prefix-cache.mjs`: cold / warm / other-prefix timing + `cached_tokens` if reported → VERDICT with the server-specific fix; documented in LOCAL_LLM_GUIDE.md ("check this first")
 
-### L14. Mechanical tool-result compression — OPEN
-- `tool.execute.after` truncates read/grep/bash output above N KB with a re-read hint (CONTEXT_BUDGET rule 3 as a mechanism)
+### L14. Mechanical tool-result compression ✅ DONE 2026-10-21
+- `plugins/expert-hooks.ts` `tool.execute.after`: read/grep/glob/list/bash results over `EXPERTS_TOOL_OUTPUT_MAX` chars (default 24000 ≈ 6k tokens) keep head (65%) + tail (25%) with an omission marker and a tool-specific re-query hint; `0` disables; write/edit untouched
 

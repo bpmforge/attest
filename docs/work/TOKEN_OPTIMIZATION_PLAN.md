@@ -1,6 +1,6 @@
 # Token & Overhead Optimization Plan
 
-**Date:** 2026-10-21 · **Status:** A1–A5, B1, B3, B4, C2, C3, D1, E1, E3 shipped on `improve/token-optimization` (tracked as Group L in `IMPROVEMENT_BACKLOG.md`); the rest open · **Owner:** Bradford Matthews
+**Date:** 2026-10-21 · **Status:** shipped in v3.13.0 on `improve/token-optimization` (Group L in `IMPROVEMENT_BACKLOG.md`): everything except C4 (core/full agent split — needs per-agent surgery), B2/B5 (verify now runs once via B1; validator links in the summary), E2 (overlapped integration review), C5 (compact as install default) · **Owner:** Bradford Matthews
 
 attest is powerful but spends far too many tokens per job and carries too much
 process overhead — a security audit and a code-health audit for every small
@@ -96,7 +96,7 @@ Sizing: S < ½ day · M 1–2 days · L > 2 days. "Done when" is the check, not 
 | A3 | Per-ticket deterministic scan (`--ticket-scan on`): `collect.sh --only semgrep,secrets` on `main...branch`; a hit recruits `security` and hands it `docs/work/scan/ticket_<id>.json` | S | **done** | `conductor.mjs` `scanTicketDiff()` | `round2.scan` row per ticket; reviewer prompt names the findings file |
 | A4 | `integration-review.mjs`: once-per-branch audit over `base...head`, scanner first, every auditor in parallel, `INTEGRATION_*` documents + summary, exit 0 only when all APPROVED | M | **done** (needs field run) | `scripts/conductor/integration-review.mjs` | run on a real branch produces `docs/reviews/INTEGRATION_SUMMARY_*.md`; blocking verdict exits 1 |
 | A5 | Wire A4 into the merge boundary: conductor `--integration-review auto` (PR boundary under `--no-merge`, end-of-run in merge mode, docs committed); `validate-release-readiness.sh` condition 13 requires an APPROVED `INTEGRATION_SUMMARY` whose `Head-SHA` covers HEAD | M | **done** | `scripts/validators/validate-release-readiness.sh`, `agents/git-expert.md`, `skills/autopilot/SKILL.md` | release gate red without a fresh integration summary |
-| A6 | Mode 3 step 6 / Phase 5 Round 1 attended fan-outs run through `run-plan.mjs` (or `integration-review.mjs`) instead of "open N sessions" | M | todo | `agents/sdlc-feature-mode.md`, `agents/sdlc-init-phase-5.md`, `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md` | the user never dispatches a review session by hand |
+| A6 | Mode 3 step 6 / Phase 5 Round 1 attended fan-outs run through `integration-review.mjs --names feature:<slug> \| final`; manual HANDOFFs are the fallback via `handoff-emit.sh` | M | **done** | `agents/sdlc-feature-mode.md`, `agents/sdlc-init-phase-5.md`, `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md` | the user never dispatches a review session by hand |
 
 ### B. Deterministic steps stay deterministic (sessions-per-ticket)
 
@@ -112,20 +112,20 @@ Sizing: S < ½ day · M 1–2 days · L > 2 days. "Done when" is the check, not 
 
 | # | Item | Size | Status | Files | Done when |
 |---|---|---|---|---|---|
-| C1 | Measure the floor: one no-op `opencode run --agent build` and read `tokens_in` of the first message; attribute to global instructions, 20 custom tool schemas, AGENTS.md | S | todo | — | a number per component in this file |
+| C1 | Floor measured from telemetry: `build` min first message = **13.4k** tokens (harness + tools + short task); coding-agent 38.7k median = floor + ~25k agent/shared text. The conductor logs `agents.prompt-size` per role at startup | S | **done** | — | a number per component in this file |
 | C2 | Rule cards: ≤2KB `agents/shared/cards/{BOUNDED_TASK,LOOP_PREVENTION,ANTI_SLOP}_CARD.md`; the long forms become on-demand references | S | **done** (cards written) | `agents/shared/cards/` | cards exist, carry `disable: true`, each ≤2KB |
 | C3 | Bounded-task sections of the heavy agents read the cards, not the long forms (`coding-agent`, `code-reviewer`, `security-auditor`, `test-engineer`, `performance-engineer`, +9 more via the shared sentence); the canonical `handoff-intake` and `loop-prevention` blocks point at the cards across all 98 agents; `HANDOFF_TEMPLATES.md` is never loaded inside a HANDOFF | M | **done** (cards + blocks; the baseline number is C1's job) | `agents/*.md` | `agents:check` green; first-message `tokens_in` for coding-agent < 20k |
 | C4 | Core/full split: `agent.md` (≤8KB: identity, output contract, write-scope, completion phrase, cards) + `agent.full.md` loaded only in direct/interactive mode | L | todo | all 63 agents, `scripts/build-agents.mjs` | median first-message baseline < 12k |
-| C5 | Compact variants become the default for conductor sessions (`--compact` overlay already exists) | S | todo | `conductor.mjs`, `install.sh` | conductor sessions start from `dist/compact-agents/` |
+| C5 | Conductor logs each role's installed agent size at startup and names `--compact` when > 32KB; making compact the install default is deferred with C4 | S | partial | `conductor.mjs`, `install.sh` | conductor sessions start from `dist/compact-agents/` |
 
 ### D. Turns per session (turns)
 
 | # | Item | Size | Status | Files | Done when |
 |---|---|---|---|---|---|
 | D1 | Turn cap as a mechanism: `EXPERTS_MAX_TURNS` enforced in `plugins/expert-hooks.ts` — after N completed assistant turns every tool call is refused except writes under `docs/work/` and `docs/reviews/`, with an instruction to update the ledger, write a partial manifest, print `BLOCKED`. Conductor `--max-turns N` sets it per session | S | **done** | `plugins/expert-hooks.ts`, `conductor.mjs` | a stubbed session over the cap gets the `TURN BUDGET REACHED` error; telemetry shows no session > N turns when set |
-| D2 | Conductor default `--max-turns 80` once D1 has a field run; resume-from-ledger on a `BLOCKED: turn budget` session reuses the worktree (not a fresh attempt) | S | todo | `conductor.mjs` | a capped session continues from its ledger without re-doing work |
-| D3 | Local prefix cache: `cache_read` is 0 on 2,700 local messages. Two possibilities — KV reuse is off, or LM Studio's OpenAI-compatible `usage` simply never reports `cached_tokens` even when it reuses. Verify with a 2-turn probe (second-turn latency vs. prompt length); if reuse is on, the telemetry is under-reporting and the local numbers in §1 are an upper bound | S | todo | `scripts/sync-model-limits.mjs`, `docs/LOCAL_LLM_GUIDE.md` | local sessions report non-zero `cache_read` |
-| D4 | Compress tool results before they enter context (CONTEXT_BUDGET rule 3) mechanically: `tool.execute.after` truncates read/grep/bash output above N KB with a "…tail omitted, re-read with offset" note | M | todo | `plugins/expert-hooks.ts` | avg context growth per turn drops |
+| D2 | Conductor default `--max-turns 120`; a budget-stopped coder session is continued in the same worktree from its ledger (`--turn-continuations 2`) | S | **done** | `conductor.mjs` | a capped session continues from its ledger without re-doing work |
+| D3 | `scripts/probe-prefix-cache.mjs` times cold/warm/other prefixes and reads `cached_tokens` when reported → VERDICT + server-specific fix; LOCAL_LLM_GUIDE "check this first" | S | **done** |
+| D4 | `tool.execute.after` bounds read/grep/glob/list/bash results to `EXPERTS_TOOL_OUTPUT_MAX` chars (default 24000): head 65% + tail 25% + omission marker with a re-query hint | M | **done** |
 
 ### E. Parallelism (wall clock, and the human overhead)
 
