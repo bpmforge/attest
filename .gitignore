@@ -82,3 +82,6 @@ logs/
 .tmp-*/
 .tmp-realworld/
 docs/work/realworld-runs/
+
+# scanner output (scripts/scan/collect.sh) — regenerated, never committed
+docs/work/scan/
