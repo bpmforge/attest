@@ -109,7 +109,7 @@ REVIEW ROUNDS (three-level model — P-A1/P-A2):
   Level 1 per module: deterministic gates only (scope + manifest + verify + validators; no expert).
   Level 2 per WAVE: ONE expert pass over the aggregate diff — code-reviewer always;
   security/perf/ux when the wave diff carries their surface; per-module experts only for
-  high-risk modules. Sessions concurrent, emitted in ONE message. Verdicts advisory (P-A8).
+  high-risk modules. Sessions concurrent, pointers printed by `handoff-emit.sh` in ONE message. Verdicts advisory (P-A8).
   Level 3: merge train in dependency order after the wave pass is green.
 
 Which execution mode per wave? [S = sequential / P = parallel]

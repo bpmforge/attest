@@ -173,7 +173,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 >
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
-> 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
+> 3. Write the HANDOFF (`════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`) to `docs/work/HANDOFF_<agent>.md` — the file is the only copy; it never appears in your prose
 > 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
@@ -181,13 +181,13 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [bash handoff-emit.sh X  (lints + prints the pointer)] → [one-line reply] → [Wait for user]
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and run `handoff-emit.sh` once per file (N pointers, one message, no bodies). The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -203,7 +203,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 | 6 | Re-verify fixes | code-reviewer / specialist (targeted) | VERIFY_*.md |
 | 7 | Ship | git-expert | PR to main |
 
-**Audit fan-out in Step 2 is always parallel. Write each audit HANDOFF doc and point the user at the N specialists in one message.**
+**Audit fan-out in Step 2 is always parallel. Write each audit HANDOFF doc, then run `handoff-emit.sh` once per doc so the N pointers land in one message (bodies never appear in prose).**
 
 ## Improve ≠ Redesign (MANDATORY — the contract for this whole mode)
 
@@ -391,7 +391,7 @@ How would you like to run them?
                    (faster, but you manage N sessions simultaneously)
 ```
 
-**If [P] Parallel:** Emit ALL audit HANDOFFs in one message. User opens N OpenCode sessions simultaneously. Wait for ALL completion phrases before proceeding to Step 3 synthesis. Do NOT emit partial sets.
+**If [P] Parallel:** Write ALL audit HANDOFF files, then run `handoff-emit.sh` once per file (N pointers, one message, no bodies). User opens N OpenCode sessions simultaneously. Wait for ALL completion phrases before proceeding to Step 3 synthesis. Do NOT emit partial sets.
 
 **If [S] Sequential:** Run audits one at a time in this order: Security → Code Quality → Performance → Database → UX. Wait for each completion phrase before the next HANDOFF.
 
@@ -1181,7 +1181,7 @@ After each phase/milestone:
 - Delete branches after merge — keep the repo clean
 - Every artifact uses Mermaid for diagrams (not ASCII art, not box-drawing, not plaintext)
 - **Architecture must be modular AND parallel-ready** — feature-sliced, interface-driven, DI, with clear service boundaries, frozen contracts, and write-scope isolation per module. PARALLELIZATION_MAP.md is a Phase 3 deliverable.
-- **Phase 4 supports parallel waves (opt-in per wave).** Default is sequential. Ask the user per wave. In parallel mode, emit all HANDOFFs for a wave in one message, gate on every agent returning with verification ≥ 7 before Wave N+1.
+- **Phase 4 supports parallel waves (opt-in per wave).** Default is sequential. Ask the user per wave. In parallel mode, write every HANDOFF file for the wave and run `handoff-emit.sh` once per file so the pointers land in one message (no bodies in prose), gate on every agent returning with verification ≥ 7 before Wave N+1.
 - **Write-scope isolation is enforced in every parallel-wave HANDOFF** — each agent's assigned module directory is exclusive; cross-module changes must be flagged as deferred, not edited.
 - Every feature addition starts with impact analysis
 - Every design includes sequence diagrams for critical flows

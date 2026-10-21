@@ -179,7 +179,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 
 **Delegation: the HANDOFF block is the contract; autonomy decides who executes it.** Pick the executor per `agents/shared/EXECUTOR_SELECTION.md`:
 
-- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and print a short pointer telling the user which agent to open (`/skill`), that it should read `docs/work/HANDOFF_<agent>.md` and follow it, and which report to submit back.** Then STOP and wait for them to return with the report. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess, and **never run the check yourself** — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
+- **`autonomy=interactive` (the default — a human is at the session, incl. the opencode TUI):** for any specialist with a `/skill`, **ALWAYS write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, then run `bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]` — it lints the file and prints the pointer as a tool result (never type the pointer or paste the HANDOFF body into the chat: typed pointers collapse under markdown rendering, and echoing the body is the re-emit loop). Your final message is one line: `Handoff ready — open /<skill> and paste the line above.`** Then STOP and wait for them to return with the report. Do **NOT** run the specialist for them via a Task-tool subagent or an `opencode run` subprocess, and **never run the check yourself** — the user drives every handoff and each specialist runs as a first-class conversation they open. (Skill-less specialists — no slash to open — are the only exception: run them inline.)
 - **`autonomy=auto` (unattended/headless — e.g. the conductor):** dispatch programmatically — Task tool (`has_task_tool=true`, native-tools specialist) → `task.ts` subprocess (`opencode run`, MCP-needing or no task tool) → inline. Never emit a paste-and-wait in auto; log auto-taken gates to `docs/work/APPROVALS.md`.
 
 Read `has_task_tool` / `mcp_in_subagents` / `autonomy` from `docs/work/.model-context`. The capability probes only matter in `auto`; in `interactive` the human is the executor.
@@ -245,7 +245,7 @@ reconstruct state from chat scrollback — rehydrate from disk:
    the 1–3 artifacts the Next step needs).
 4. Re-prime the six session rules (`agents/shared/SESSION_PRIMER.md`).
 5. Announce: "Resuming <mode> at <phase/step>. Next: <X>." Then continue from Next.
-6. If `In flight` names an outstanding HANDOFF, wait for its completion phrase — do not re-emit it.
+6. If `In flight` names an outstanding HANDOFF, wait for its completion phrase — do not re-write the file, do not re-run the emitter, do not restate the pointer. The user already has it.
 7. **Size-gate the branch, not the ticket.** Before advancing a phase or accepting a wave, run:
 
    ```bash
@@ -363,9 +363,29 @@ Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT se
 
 **HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
 
+**3. Write the HANDOFF file, then run the emitter — and print NOTHING else.**
+```bash
+bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]
+```
+The emitter lints `docs/work/HANDOFF_<agent>[-<slug>].md` and prints the `── NEXT HANDOFF ──` pointer
+as a tool result. Your reply after it is one line: `Handoff ready — open /<skill> and paste the line
+above.` Then the turn ends.
+
+**What the screen shows per HANDOFF — and the three-times failure.** The user should see: the
+write tool calls (state, packet, HANDOFF file, ledger), ONE pointer, ONE closing line. The HANDOFF
+body never appears in your prose — not announced before the write, not echoed after, not
+summarised "for reference". The packet, the HANDOFF file and the ledger hold DIFFERENT content:
+the packet holds the detail (files + line ranges + why, patterns, the `verify` fence); the HANDOFF
+holds the contract (ROLE, CONTEXT pointers, WRITE-SCOPE, a 2–4-sentence task, PRODUCE, completion
+phrase, ≤60 lines); the ledger holds `- [ ] <step>` checkboxes only. When the same task text is
+written into all three and then echoed in the reply, the user reads it three or four times — that
+is the field complaint, and it is also 3–4× the tokens on every resume. Each fact once, in its file.
+A second write of the same `HANDOFF_<agent>.md` in one turn, or a second pointer, means you are
+looping: stop and end the turn.
+
 ### HANDOFF Manifest for parallel waves
 
-When emitting 2+ HANDOFFs in the same step (parallel agents), write a manifest BEFORE emitting the first HANDOFF block:
+When dispatching 2+ HANDOFFs in the same step (parallel agents), write a manifest BEFORE writing the first HANDOFF file (the manifest is a status table — it never repeats a HANDOFF body), then write each HANDOFF file and run the emitter once per file, in order:
 
 ```
 write(filePath="docs/work/HANDOFF_MANIFEST.md", content="

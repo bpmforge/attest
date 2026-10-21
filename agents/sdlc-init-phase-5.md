@@ -10,7 +10,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = write the HANDOFF for X to `docs/work/HANDOFF_X.md` (`════` delimiter format), save state to `docs/work/sdlc-state.md`, run `bash ~/.config/opencode/scripts/handoff-emit.sh X` (it prints the pointer — never type it, never echo the body), wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
@@ -203,7 +203,7 @@ task(agent="git-expert", prompt="Commit docs/reviews/FIX_BACKLOG_*_<date>.md and
 
 **Iterate up to 3 times per `agents/shared/FIX_VERIFY_LOOP.md` Steps 3-5:**
 1. Remediation HANDOFF (coding-agent receives FIX_BACKLOG_RELEASE)
-2. Targeted re-verification HANDOFFs — emit ALL triggered specialist re-verifications in ONE message (parallel-safe — each verifies only its own rows)
+2. Targeted re-verification HANDOFFs — write ALL triggered specialist re-verification files, then `handoff-emit.sh` each so the pointers land in ONE message (parallel-safe — each verifies only its own rows)
 3. All PASS → exit loop. Any FAIL → next iteration.
 4. After 3 failed iterations → emit escalation block, STOP, wait for decision [A/B/C/D]
 
@@ -226,7 +226,7 @@ task(agent="git-expert", prompt="Commit docs/reviews/FIX_BACKLOG_*_<date>.md and
 
 Start these alongside Round 2's remediation/re-verify work — they read code without modifying it.
 
-Emit all three in ONE message:
+Write all three HANDOFF files, then `handoff-emit.sh` each — three pointers in ONE message, no bodies:
 
 ```
 ---

@@ -48,7 +48,21 @@ interactive case: no board, no conductor, or a human deliberately driving each s
 
 1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.
    **Two or more HANDOFFs to the same agent in flight at once** (parallel waves, fan-outs) each get their own file: `docs/work/HANDOFF_<agent>-<slug>.md`, with `<slug>` the module or task (the same slug as the specialist's `TASKS_<agent>-<slug>.md` ledger). A second write to a shared `HANDOFF_<agent>.md` overwrites the first before its session reads it. The intake rule matches any `HANDOFF_*.md`, so specialists need no change.
-2. **Print a short pointer to the user** — which agent to open, the exact line to paste, and which report they'll submit back:
+2. **Print the pointer by running the emitter — never type it yourself:**
+   ```bash
+   bash ~/.config/opencode/scripts/handoff-emit.sh <agent-name> [<slug>]
+   ```
+   The script lints the file you just wrote (intake prefix present, `════` delimiters paired, PRODUCE
+   + completion phrase + "Then stop" present, no `USER:` lines inside the delimiters, no template
+   prose or `<placeholders>` copied in, code fences balanced, ≤220 lines) and then prints the
+   `── NEXT HANDOFF ──` pointer **as a tool result**, which the TUI renders verbatim. A pointer typed
+   into your reply is rendered as markdown: its lines collapse into one paragraph, the indented paste
+   line only survives when a blank line happens to precede it, and the box rules become headings —
+   that is the "handoff printed wrong" failure. If the script reports `HANDOFF-LINT:` gaps, **fix the
+   file and re-run it** (at most twice; then `BLOCKED:` with the gap list). Do not paste the HANDOFF
+   body into the chat, before or after — the file is the contract and the pointer is the only thing
+   the user needs to see.
+   The pointer it prints is:
    ```
    ── NEXT HANDOFF ──────────────────────────────
    Open agent:   /<skill>            (<agent-name>)
@@ -57,7 +71,7 @@ interactive case: no board, no conductor, or a human deliberately driving each s
        SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
 
    It produces:  <docs/reviews/REPORT_*.md>     ← come back when done
-   I will read that report and continue. I do NOT run this check myself.
+   Lead:         waits here; reads the report; does NOT run the check itself.
    ──────────────────────────────────────────────
    ```
    **The paste line must start with `SDLC-TASK for`.** That prefix is the trigger every specialist
@@ -66,7 +80,16 @@ interactive case: no board, no conductor, or a human deliberately driving each s
    orchestrator mode and hand the task straight back — asking which mode/slug to run, or re-printing
    the handoff and telling the user to open the very skill they are already in. Verified failure on
    `gpt-5-mini` (2026-07); the receiving-side backstop is the **HANDOFF intake** block in every agent.
-3. **STOP and wait.** When the user returns with the completion phrase / report path, read the REPORT and continue. Never open the specialist for them, and never do the check yourself.
+3. **STOP and wait — your turn ENDS on the pointer.** Your final message after the emitter ran is ONE
+   line: `Handoff ready — open /<skill> and paste the line above.` Nothing else: no second copy of
+   the pointer, no summary of the HANDOFF, no re-read of the file, no next HANDOFF in the same turn
+   unless the wave calls for parallel dispatch (then run the emitter once per file, in order). The
+   persistence rule is satisfied — the file write and the emitter run ARE the action; waiting for the
+   human is the protocol, not a stall. When the user returns with the completion phrase / report
+   path, read the REPORT and continue. Never open the specialist for them, and never do the check
+   yourself.
+   **Loop tripwire:** if you notice you are about to write `HANDOFF_<agent>.md` a second time in the
+   same turn, or the emitter has already printed a pointer this turn, stop and end the turn.
 
 ## Contents of the handoff document
 
@@ -139,7 +162,49 @@ VERIFY before completing: Confirm your output explicitly covers:
 - <required topic 3>
 If any are missing, add them before printing the completion phrase.
 
-[Code tasks only] Runnable verify commands (tests/lint/typecheck) go in the
+[Code tasks only] VERIFY COMMANDS: run, in this order, and paste the harness output into your report:
+  bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file> --baseline   (BEFORE first edit)
+  bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file>              (loop until ALL GREEN)
+  bash ~/.config/opencode/scripts/handoff-done.sh <packet-file>                (gates the done-claim)
+The commands themselves live in the context packet's ```verify fence. Print the completion
+phrase only on DONE-CHECK: GREEN.
+
+Include a Completion Manifest at <manifest-path> with required sections:
+- Files produced (path, content summary, line count) -- every path is
+  checked to exist on disk (validate-completion-manifest.sh v2, T27.2);
+  backtick-quote each path so the checker can find it
+- Decisions made (decision + why)
+- Known issues / deferred (issue + which agent should address it)
+- Memory written (MEMORY_PRIMER M4) -- you `memory_store` your durable
+  decisions/errors/verified-facts and record them here (or "None -- nothing
+  durable"); you do NOT recall (the lead gave you a memory slice in this packet)
+- Verify result (what you checked, outcome) -- must cite a concrete,
+  backtick-quoted artifact path (a test log, VERIFY_*.md, a receipt) that
+  exists on disk; a bare claim like "tests pass" with nothing to check it
+  against fails the gate
+
+Also include, outside any heading (plain lines anywhere in the manifest):
+- `Maker: <name>` -- who produced this artifact
+- `Verifier: <name>` -- who independently checked it (MODEL_ADAPTER.md
+  maker/verifier split); must differ from Maker or the gate fails --
+  self-verification defeats the point of a verify step
+- `Tracker updated: <file>` -- where this step was recorded
+
+When all files are written, print exactly:
+"<agent> done -- <one sentence describing what was produced>"
+Then stop. Do not ask for follow-up. Do not run additional phases.
+════════════════════════════════════════════════════════════
+END HANDOFF #N
+════════════════════════════════════════════════════════════
+```
+
+### Orchestrator notes for code-task HANDOFFs (NOT part of the block — do not copy into the file)
+
+These paragraphs used to sit inside the fenced template above, and small models copied them
+verbatim into every `HANDOFF_*.md` (90-line handoffs, lint gap "template leakage" in
+`handoff-emit.sh`). They are for you, the orchestrator:
+
+Runnable verify commands (tests/lint/typecheck) go in the
 context packet inside a fenced block whose opening line is "```verify" -- one
 command per line, verbatim. Then require:
   bash ~/.config/opencode/scripts/verify-handoff.sh <packet-file> --baseline   (BEFORE first edit)
@@ -172,35 +237,6 @@ transcribe; the harness makes that impossible). Before reporting, require:
 which gates the done-claim mechanically (verify GREEN + fresh, committed,
 pushed, PRODUCE files exist, report appended) -- the completion phrase is
 printed only on DONE-CHECK: GREEN.
-
-Include a Completion Manifest at <manifest-path> with required sections:
-- Files produced (path, content summary, line count) -- every path is
-  checked to exist on disk (validate-completion-manifest.sh v2, T27.2);
-  backtick-quote each path so the checker can find it
-- Decisions made (decision + why)
-- Known issues / deferred (issue + which agent should address it)
-- Memory written (MEMORY_PRIMER M4) -- you `memory_store` your durable
-  decisions/errors/verified-facts and record them here (or "None -- nothing
-  durable"); you do NOT recall (the lead gave you a memory slice in this packet)
-- Verify result (what you checked, outcome) -- must cite a concrete,
-  backtick-quoted artifact path (a test log, VERIFY_*.md, a receipt) that
-  exists on disk; a bare claim like "tests pass" with nothing to check it
-  against fails the gate
-
-Also include, outside any heading (plain lines anywhere in the manifest):
-- `Maker: <name>` -- who produced this artifact
-- `Verifier: <name>` -- who independently checked it (MODEL_ADAPTER.md
-  maker/verifier split); must differ from Maker or the gate fails --
-  self-verification defeats the point of a verify step
-- `Tracker updated: <file>` -- where this step was recorded
-
-When all files are written, print exactly:
-"<agent> done -- <one sentence describing what was produced>"
-Then stop. Do not ask for follow-up. Do not run additional phases.
-════════════════════════════════════════════════════════════
-END HANDOFF #N
-════════════════════════════════════════════════════════════
-```
 
 ## Template 2: Remediation HANDOFF (after a review)
 

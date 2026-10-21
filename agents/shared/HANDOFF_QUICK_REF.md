@@ -51,11 +51,19 @@ END HANDOFF #N
 ════════════════════════════════════════════════════════════
 ```
 
-## Pointer to print for the user (goes ABOVE the delimiters, never inside)
+## Pointer for the user — printed by the emitter, never typed
 
 The specialist must receive a prompt that **starts with the `SDLC-TASK for` trigger** — otherwise a
-smaller model falls through to its default/orchestrator mode and hands the task straight back. Give
-the user one line to paste:
+smaller model falls through to its default/orchestrator mode and hands the task straight back. After
+writing the file, run:
+
+```bash
+bash ~/.config/opencode/scripts/handoff-emit.sh <agent-name> [<slug>]
+```
+
+It lints the file (trigger line, paired `════`, PRODUCE, completion phrase, "Then stop", no `USER:`
+inside, no template prose, balanced fences, ≤220 lines) and prints this pointer as a tool result —
+which the TUI shows verbatim, where a typed version collapses into one paragraph:
 
 ```
 ── NEXT HANDOFF ──────────────────────────────
@@ -67,6 +75,25 @@ Paste this one line into it:
 It produces: <report path>   ← come back with this
 ──────────────────────────────────────────────
 ```
+
+`HANDOFF-LINT:` gaps → fix the file, re-run (max twice). Then your reply is ONE line:
+`Handoff ready — open /<skill> and paste the line above.` and the turn ends.
+
+## What the screen must show per HANDOFF (and what it must not)
+
+Exactly: the tool calls that wrote `sdlc-state.md`, `context-for-<agent>.md`, `HANDOFF_<agent>.md`,
+`TASKS_<agent>-<slug>.md`; one emitter pointer; one closing line. **The HANDOFF body appears
+nowhere in your prose** — not before the write, not after, not "for reference". The three files
+hold DIFFERENT things and must not restate each other:
+
+| File | Holds | Must NOT hold |
+|---|---|---|
+| `context-for-<agent>.md` | the detail: files + line ranges + why, patterns, the `verify` fence | the task statement again, the PRODUCE list |
+| `HANDOFF_<agent>.md` | the contract: ROLE, CONTEXT pointers, WRITE-SCOPE, 2–4-sentence task, PRODUCE, phrase | the packet's detail, template explanations |
+| `TASKS_<agent>-<slug>.md` | `- [ ] <step>` checkboxes, one line each | prose, the task description, the PRODUCE list |
+
+A HANDOFF that reads three times on screen is the body echoed in prose plus the packet and ledger
+restating it. Write each once, in its own file, and let the emitter be the only print.
 
 ## Before every HANDOFF — three mandatory steps
 1. Save state: `write(filePath="docs/work/sdlc-state.md", content="Mode/Phase/Awaiting/Next")`

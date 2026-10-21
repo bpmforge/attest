@@ -301,6 +301,20 @@ const RUNTIME_DIAGNOSIS = String(opt('runtime-diagnosis', 'on')) !== 'off';
 //   turns. CONTEXT_BUDGET.md asks the model to self-police; this is the
 //   mechanism behind the rule.
 const MAX_TURNS = intOpt('max-turns', 0);
+// --integration-review auto|on|off (default auto): the ONCE-PER-BRANCH audit
+//   (scripts/conductor/integration-review.mjs — scanners + every auditor in
+//   parallel over the whole diff). `auto` = on. Under --no-merge it runs in
+//   the ticket worktree before the branch is pushed for PR, and its documents
+//   land on the branch; under merge mode it runs once at the END of the run
+//   over everything landed (main-at-start..main) and the summary is committed
+//   to main. validate-release-readiness.sh condition 12 refuses a release
+//   whose latest INTEGRATION_SUMMARY is not APPROVED or not fresh.
+const INTEGRATION_REVIEW = String(opt('integration-review', 'auto'));
+if (!['auto', 'on', 'off'].includes(INTEGRATION_REVIEW)) {
+  console.error(`--integration-review must be auto|on|off (got "${INTEGRATION_REVIEW}")`);
+  process.exit(2);
+}
+const INTEGRATION_SCRIPT = resolve(SELF_DIR, 'integration-review.mjs');
 // --ticket-scan on|off (default on): run scripts/scan/collect.sh (semgrep +
 //   secrets, range-scoped, no model) on the ticket diff before Round 2. A hit
 //   recruits the security reviewer and hands it the findings file.
@@ -2075,8 +2089,54 @@ function pushRemotes(ticket, branch, forceRef = null) {
   }
 }
 
+/**
+ * Run the integration-tier audit (TOKEN_OPTIMIZATION_PLAN A4/A5, backlog L8)
+ * in `cwd` over base...head. Returns {ran, approved, summary, exit}. Never
+ * throws: a review that cannot run is logged and reported as not-approved,
+ * which the release gate reads as "no fresh integration summary".
+ */
+function runIntegrationReview(cwd, base, head, label) {
+  if (INTEGRATION_REVIEW === 'off' || DRY) return { ran: false, approved: false };
+  if (!existsSync(INTEGRATION_SCRIPT)) {
+    log('integration.skipped', { msg: `${INTEGRATION_SCRIPT} not found` });
+    return { ran: false, approved: false };
+  }
+  const args = [INTEGRATION_SCRIPT, '--root', cwd, '--base', base, '--head', head, '--models', MODELS_JSON_PATH,
+    '--session-minutes', String(SESSION_MIN), '--parallel', reviewsRunInParallel() ? 'on' : 'off'];
+  log('integration.start', { label, msg: `${base}...${head} in ${cwd}` });
+  const r = spawnSync(process.execPath, args, {
+    cwd, encoding: 'utf8', timeout: (SESSION_MIN * 60_000) + 20 * 60_000, maxBuffer: 64 * 1024 * 1024,
+    env: { ...sessionEnv(), OPENCODE_BIN },
+  });
+  const rows = String(r.stdout || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const end = rows.find((x) => x.kind === 'integration.end');
+  const approved = r.status === 0 && Boolean(end?.approved);
+  log('integration.verdict', {
+    label, exit: r.status,
+    msg: r.status === 3 ? 'nothing to review (empty diff)' : approved ? 'APPROVED' : `BLOCKED (${(end?.blocking || []).join(', ') || 'see summary'})` +
+      (r.status !== 0 && r.status !== 1 ? ` — integration-review exited ${r.status}: ${tailLines(r.stderr, 4)}` : ''),
+  });
+  return { ran: true, approved, summary: end?.summary || null, exit: r.status, empty: r.status === 3 };
+}
+
 function land(plan, m, branch, wt) {
   if (!DO_MERGE) {
+    // PR boundary: the once-per-branch audit runs HERE, in the worktree, and
+    // its documents ride the branch so the PR carries its own evidence.
+    const integ = runIntegrationReview(wt, 'main', branch, m.id);
+    if (integ.ran && !integ.empty) {
+      try {
+        // docs/work is commonly gitignored in targets; `git add` of an ignored
+        // path exits non-zero, so add each location on its own and commit what
+        // was actually staged.
+        for (const d of ['docs/reviews', 'docs/work']) { try { gitIn(wt, 'add', '-A', '--', d); } catch { /* ignored path */ } }
+        if (gitIn(wt, 'diff', '--cached', '--name-only')) {
+          gitIn(wt, 'commit', '-q', '-m', `chore(${m.id}): integration review (${integ.approved ? 'APPROVED' : 'BLOCKED'})`);
+        }
+      } catch (e) { log('integration.commit-failed', { ticket: m.id, msg: String(e.message).slice(0, 200) }); }
+      comment(plan, m.id, REVIEWER_ACTOR,
+        `CONDUCTOR integration review ${integ.approved ? 'APPROVED' : 'BLOCKED'} for ${branch}${integ.summary ? ` — ${integ.summary}` : ''}`.slice(0, 900));
+    }
     pushRemotes(m.id, branch);
     comment(
       plan,
@@ -2246,6 +2306,7 @@ async function main() {
     console.error(`main synchronization refused: ${mainSync.reason}`);
     process.exit(5);
   }
+  const mainAtStart = git('rev-parse', 'main');
   const refreshedConfig = loadTargetConfig();
   const topologyChanged =
     refreshedConfig.worktreeDir !== CONFIG.worktreeDir ||
@@ -2472,6 +2533,23 @@ async function main() {
 
   if (landed >= MAX_TICKETS) stopReason = `--max-tickets ${MAX_TICKETS} reached`;
   else if (processed >= MAX_PROCESSED) stopReason = `--max-processed ${MAX_PROCESSED} reached`;
+
+  // Merge mode: the once-per-batch integration audit over everything this run
+  // landed on main. Its summary is committed to main so the release gate can
+  // read it; a BLOCKED verdict does not un-land anything (the tickets each
+  // passed their own gates) — it blocks the RELEASE, which is the point.
+  if (DO_MERGE && landed > 0 && mainAtStart) {
+    const integ = runIntegrationReview(ROOT, mainAtStart, 'main', `run:${landedThisRun.size} tickets`);
+    if (integ.ran && !integ.empty) {
+      try {
+        for (const d of ['docs/reviews', 'docs/work']) { try { git('add', '-A', '--', d); } catch { /* ignored path */ } }
+        if (git('diff', '--cached', '--name-only')) {
+          git('commit', '-q', '-m', `chore(conductor): integration review of ${landedThisRun.size} landed ticket(s) (${integ.approved ? 'APPROVED' : 'BLOCKED'})`);
+          pushRemotes('integration', 'main');
+        }
+      } catch (e) { log('integration.commit-failed', { msg: String(e.message).slice(0, 200) }); }
+    }
+  }
 
   const finalPlan = loadFreshPlan();
   const counts = tallyStatuses(finalPlan);

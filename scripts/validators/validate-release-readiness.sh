@@ -14,6 +14,7 @@
 #   8. CONTAINER_AUDIT has no CRITICAL CVE
 #   9. TECH_DEBT report exists (tech debt catalogued before release)
 #  10. All RUNTIME_*.md files have PASS verdict
+#  13. Latest INTEGRATION_SUMMARY_*.md is APPROVED and fresh (Head-SHA covers HEAD) — backlog L8
 #
 
 # shellcheck disable=SC1091
@@ -260,6 +261,39 @@ else
     gap "bootstrap-dryrun-no-manual-sql-claim" "BOOTSTRAP_DRYRUN does not explicitly state 'no manual SQL' was required to reach usable state — this is the specific claim Phase 5 requires"
   else
     pass "BOOTSTRAP_DRYRUN explicitly confirms no manual SQL required"
+  fi
+fi
+
+# -- 13. Integration-tier review is APPROVED and FRESH (backlog L8) ------------
+# The per-ticket gates deliberately stopped running the broad security /
+# code-health / perf audits (TOKEN_OPTIMIZATION_PLAN). They run ONCE per
+# branch via scripts/conductor/integration-review.mjs, which writes
+# INTEGRATION_SUMMARY_<range>_<date>.md ending "INTEGRATION: APPROVED|BLOCKED"
+# with a Head-SHA line. A release needs the latest summary to be APPROVED and
+# to cover HEAD: any non-document change committed after its Head-SHA means
+# the audited tree is not the tree being released.
+integ_summary=$(latest_matching "INTEGRATION_SUMMARY_*.md")
+if [[ -z "$integ_summary" ]]; then
+  gap "missing-integration-review" "docs/reviews/INTEGRATION_SUMMARY_*.md not found — run: node scripts/conductor/integration-review.mjs --root . --base main --head HEAD (the once-per-branch security/code-health/perf audit) before release"
+else
+  integ_verdict=$(grep -E '^INTEGRATION:' "$integ_summary" | tail -1)
+  if [[ "$integ_verdict" =~ INTEGRATION:[[:space:]]*APPROVED ]]; then
+    pass "INTEGRATION_SUMMARY APPROVED: ${integ_summary#"$ROOT/"}"
+  else
+    gap "integration-review-blocked" "latest INTEGRATION_SUMMARY is not APPROVED (${integ_verdict:-no verdict line}) — resolve the blocking INTEGRATION_*.md findings and re-run integration-review.mjs: ${integ_summary#"$ROOT/"}"
+  fi
+  integ_head=$(grep -E '^Head-SHA:' "$integ_summary" | head -1 | awk '{print $2}')
+  if [[ -z "$integ_head" ]]; then
+    warn "INTEGRATION_SUMMARY carries no Head-SHA line — freshness cannot be checked"
+  elif ! git -C "$ROOT" cat-file -e "${integ_head}^{commit}" 2>/dev/null; then
+    gap "integration-review-unknown-head" "INTEGRATION_SUMMARY Head-SHA ${integ_head:0:12} is not a commit in this repository"
+  else
+    stale_changes=$(git -C "$ROOT" diff --name-only "${integ_head}..HEAD" 2>/dev/null | grep -vE '^(docs/|CHANGELOG\.md$|package\.json$|package-lock\.json$)' || true)
+    if [[ -n "$stale_changes" ]]; then
+      gap "integration-review-stale" "non-document files changed since the integration review at ${integ_head:0:12} — re-run integration-review.mjs: $(printf '%s' "$stale_changes" | head -5 | tr '\n' ' ')"
+    else
+      pass "INTEGRATION_SUMMARY is fresh (no non-document changes since ${integ_head:0:12})"
+    fi
   fi
 fi
 
