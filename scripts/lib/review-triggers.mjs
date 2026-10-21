@@ -69,12 +69,42 @@ export const REVIEW_TRIGGERS = [
 ];
 
 /**
+ * Review TIERS (TOKEN_OPTIMIZATION_PLAN.md, item A).
+ *
+ * Measured 2026-10-21 over docs/work/telemetry.jsonl: 99.5% of all tokens
+ * are INPUT, a reviewer session on a frontier model costs 0.5–1.4M tokens,
+ * and the pathRe triggers below ("biased toward firing") recruit a security
+ * expert off any file whose name contains `session` or `token`, a perf expert
+ * off `store/`, and a ux expert off any `.css`. Paid per ticket, and again on
+ * every fix iteration, that is where "security and code health for every
+ * little update" comes from.
+ *
+ *   ticket  — the per-ticket gate. code-reviewer always; a specialist only
+ *             when the ticket DECLARES it or a HIGH-signal pattern lands on an
+ *             ADDED line (child_process, eval(, jwt.sign, req.body, raw SQL…).
+ *             Path-name matches alone no longer recruit here — they are
+ *             covered deterministically (semgrep --diff, secrets scan) and by
+ *             the integration tier.
+ *   full    — the pre-tier behaviour (path OR high-signal OR declared). Kept
+ *             for operators who want the old per-ticket breadth.
+ *   integration — the once-per-branch audit before a PR to main: every
+ *             reviewer with a trigger rule runs over the WHOLE branch diff,
+ *             regardless of what tripped; ux only when UI paths were touched.
+ *
+ * The safety argument for `ticket` is that nothing which recruited security
+ * on a semantic signal has been removed — only the file-NAME heuristic has
+ * moved to the branch boundary, where the whole tree is what is being judged.
+ *
  * @param {object} m       module ticket (uses m.reviews when present)
  * @param {string} diff    the ticket's diff against main
  * @param {object} known   map of reviewer-name -> agent, to drop unknown names
- * @returns {{reviewers: string[], reasons: string[]}}
+ * @param {{tier?: 'ticket'|'full'|'integration'}} [opts]
+ * @returns {{reviewers: string[], reasons: string[], dropped: string[], tier: string}}
  */
-export function triggeredReviewers(m, diff, known = {}) {
+export const REVIEW_TIERS = ['ticket', 'full', 'integration'];
+
+export function triggeredReviewers(m, diff, known = {}, opts = {}) {
+  const tier = REVIEW_TIERS.includes(opts.tier) ? opts.tier : 'full';
   const reviewers = ['code-reviewer'];
   const declared = Array.isArray(m?.reviews) ? m.reviews : [];
   const reasons = [];
@@ -100,11 +130,23 @@ export function triggeredReviewers(m, diff, known = {}) {
     const byPath = t.pathRe ? touched.some((f) => t.pathRe.test(f)) : false;
     const byHigh = t.highRe ? t.highRe.test(diff || '') : false;
     const byBoard = declared.includes(t.name);
-    if (!byPath && !byHigh && !byBoard) continue;
+    let fire;
+    let why;
+    if (tier === 'integration') {
+      // Branch boundary: the broad audits run once over everything. ux is the
+      // exception — a branch with no UI files has nothing for it to review.
+      fire = t.name === 'ux' ? byPath || byHigh || byBoard : true;
+      why = byBoard ? 'declared on the ticket' : byPath ? 'touched risk path' : byHigh ? t.why : 'integration tier';
+    } else if (tier === 'ticket') {
+      fire = byHigh || byBoard;
+      why = byBoard ? 'declared on the ticket' : t.why;
+    } else {
+      fire = byPath || byHigh || byBoard;
+      why = byPath ? 'touched risk path' : byHigh ? t.why : 'declared on the ticket';
+    }
+    if (!fire) continue;
     reviewers.push(t.name);
-    reasons.push(
-      `${t.name}(${byPath ? `touched risk path` : byHigh ? t.why : 'declared on the ticket'})`,
-    );
+    reasons.push(`${t.name}(${why})`);
   }
   // Declared reviewers with no trigger rule of their own (e.g. 'test') still run.
   const dropped = [];
@@ -122,5 +164,5 @@ export function triggeredReviewers(m, diff, known = {}) {
     reviewers.push(d);
     reasons.push(`${d}(declared on the ticket)`);
   }
-  return { reviewers, reasons, dropped };
+  return { reviewers, reasons, dropped, tier };
 }

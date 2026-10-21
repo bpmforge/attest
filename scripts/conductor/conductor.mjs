@@ -66,6 +66,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
 import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
@@ -251,6 +252,86 @@ const FIX_ITERATIONS = intOpt('fix-iterations', 3); // protocol: up to 3
 // allowed instead, each of which must re-earn every gate from scratch: any
 // code change invalidates all prior approval. 0 restores the old behaviour.
 const RUNTIME_FIX_ITERATIONS = intOpt('runtime-fix-iterations', 1);
+// ---------- Token-optimization controls (docs/work/TOKEN_OPTIMIZATION_PLAN.md) ----------
+// Measured 2026-10-21 over 3,141 logged messages: 99.5% of tokens were INPUT,
+// every session started at ~35–41k tokens before any work, and one ticket's
+// coding session ran 602 turns (46M tokens, no prefix cache on the local
+// model). Each flag below attacks one factor of
+// baseline × turns × sessions-per-ticket.
+//
+// --review-tier ticket|full|integration (default ticket). Which reviewers a
+//   ticket's diff recruits — see triggeredReviewers() in review-triggers.mjs.
+//   `ticket` keeps code-reviewer + declared + high-signal-pattern specialists
+//   and moves path-name recruitment to the integration tier
+//   (scripts/conductor/integration-review.mjs, run once per branch).
+const REVIEW_TIER = String(opt('review-tier', 'ticket'));
+if (!['ticket', 'full', 'integration'].includes(REVIEW_TIER)) {
+  console.error(`--review-tier must be ticket|full|integration (got "${REVIEW_TIER}")`);
+  process.exit(2);
+}
+// --parallel-reviews auto|on|off (default auto). Round 2 reviewers are
+//   read-only on source and write distinct documents, so they can run
+//   concurrently. `auto` parallelises unless the reviewer model is served
+//   locally (lmstudio/ollama/llama.cpp — one GPU, no gain) or --dry-run.
+const PARALLEL_REVIEWS = String(opt('parallel-reviews', 'auto'));
+if (!['auto', 'on', 'off'].includes(PARALLEL_REVIEWS)) {
+  console.error(`--parallel-reviews must be auto|on|off (got "${PARALLEL_REVIEWS}")`);
+  process.exit(2);
+}
+// --runtime-mode script|agent (default script). Round 3 used to be a full
+//   coder-agent session (~40k-token baseline) whose prompt said, literally,
+//   "run the verify command, paste the output and exit code, do not use
+//   judgement" — and whose verdict the conductor then re-derived by running
+//   verify itself, and close() ran a third time. `script` runs the ticket's
+//   verify + the project's build/lint validators from OUTSIDE the session,
+//   writes RUNTIME_<id>.md from the exit codes, and spends a model session
+//   ONLY on a FAIL, with a ~2k-token prompt asking for the "Why it failed"
+//   diagnosis. `agent` keeps the previous model-written round.
+const RUNTIME_MODE = String(opt('runtime-mode', 'script'));
+if (!['script', 'agent'].includes(RUNTIME_MODE)) {
+  console.error(`--runtime-mode must be script|agent (got "${RUNTIME_MODE}")`);
+  process.exit(2);
+}
+// --runtime-diagnosis on|off (default on): under --runtime-mode script, whether
+//   a FAIL gets the small diagnosis session.
+const RUNTIME_DIAGNOSIS = String(opt('runtime-diagnosis', 'on')) !== 'off';
+// --max-turns N (default 0 = unbounded). Passed to every session as
+//   EXPERTS_MAX_TURNS; plugins/expert-hooks.ts refuses further tool calls
+//   (except writes under docs/work/ and docs/reviews/, so the ledger and
+//   manifest can still be written) once a session has completed N assistant
+//   turns. CONTEXT_BUDGET.md asks the model to self-police; this is the
+//   mechanism behind the rule.
+//   Default 120: telemetry puts the coding-agent median at 48 turns, so the cap
+//   touches only the runaway tail (602, 516, 153 observed). A capped session
+//   ends with its ledger on disk; the conductor then CONTINUES it in the same
+//   worktree (below) instead of discarding the work.
+const MAX_TURNS = intOpt('max-turns', 120);
+// --turn-continuations N (default 2): how many times a coder session that hit
+//   the turn budget is resumed in the SAME worktree from its TASKS ledger before
+//   the attempt is treated as failed. Each continuation starts with a fresh,
+//   small context — that is the whole point: the 602-turn session would have
+//   been 5 sessions of ~120 turns, each re-sending a small prefix instead of a
+//   growing one.
+const TURN_CONTINUATIONS = intOpt('turn-continuations', 2);
+const TURN_BUDGET_RE = /TURN BUDGET REACHED|BLOCKED:\s*turn budget/i;
+// --integration-review auto|on|off (default auto): the ONCE-PER-BRANCH audit
+//   (scripts/conductor/integration-review.mjs — scanners + every auditor in
+//   parallel over the whole diff). `auto` = on. Under --no-merge it runs in
+//   the ticket worktree before the branch is pushed for PR, and its documents
+//   land on the branch; under merge mode it runs once at the END of the run
+//   over everything landed (main-at-start..main) and the summary is committed
+//   to main. validate-release-readiness.sh condition 12 refuses a release
+//   whose latest INTEGRATION_SUMMARY is not APPROVED or not fresh.
+const INTEGRATION_REVIEW = String(opt('integration-review', 'auto'));
+if (!['auto', 'on', 'off'].includes(INTEGRATION_REVIEW)) {
+  console.error(`--integration-review must be auto|on|off (got "${INTEGRATION_REVIEW}")`);
+  process.exit(2);
+}
+const INTEGRATION_SCRIPT = resolve(SELF_DIR, 'integration-review.mjs');
+// --ticket-scan on|off (default on): run scripts/scan/collect.sh (semgrep +
+//   secrets, range-scoped, no model) on the ticket diff before Round 2. A hit
+//   recruits the security reviewer and hands it the findings file.
+const TICKET_SCAN = String(opt('ticket-scan', 'on'));
 // Optional extra reviewers per ticket via `reviews: ["security", ...]`.
 const REVIEW_AGENTS = {
   security: 'security-auditor',
@@ -278,6 +359,9 @@ const SESSION_ENV_ALLOWLIST = [
 function sessionEnv() {
   const env = {};
   for (const k of SESSION_ENV_ALLOWLIST) if (process.env[k] !== undefined) env[k] = process.env[k];
+  // Turn cap for the session's plugin (see MAX_TURNS). Not in the allowlist
+  // above because it is set BY the conductor, not inherited from the operator.
+  if (MAX_TURNS > 0) env.EXPERTS_MAX_TURNS = String(MAX_TURNS);
   return env;
 }
 
@@ -971,9 +1055,50 @@ const reviewDoc  = (m, kind) => `docs/reviews/${kind}_${m.id}.md`;
 /** Round 2 — one review session per triggered reviewer, on the REVIEWER model. */
 // Reviewer selection lives in ../lib/review-triggers.mjs (this file calls
 // main() at import time, so logic here cannot be unit-tested).
-function pickReviewers(m, diff) {
-  const { reviewers, reasons, dropped } = triggeredReviewers(m, diff, REVIEW_AGENTS);
-  log('round2.reviewers', { ticket: m.id, msg: `${reviewers.join(', ')}${reasons.length ? ` — triggered by ${reasons.join('; ')}` : ''}` });
+/**
+ * Deterministic scan of the ticket diff (scripts/scan/collect.sh, semgrep +
+ * secrets only, range-scoped). Zero tokens. Under the `ticket` tier this is
+ * what replaces the file-NAME heuristics: a security reviewer is recruited
+ * when the scanner actually FINDS something in the change, and the findings
+ * file is handed to it so the session triages instead of rediscovering.
+ */
+function scanTicketDiff(m, wt, branch) {
+  if (TICKET_SCAN === 'off' || DRY) return null;
+  const collect = resolve(LIB_ROOT, 'scan', 'collect.sh');
+  if (!existsSync(collect)) return null;
+  const out = `docs/work/scan/ticket_${m.id}.json`;
+  try {
+    const base = gitIn(wt, 'merge-base', 'main', branch);
+    const r = spawnSync('bash', [collect, '--root', wt, '--base', base, '--head', branch, '--only', 'semgrep,secrets', '--out', out], {
+      cwd: wt, encoding: 'utf8', timeout: 15 * 60_000, maxBuffer: 64 * 1024 * 1024,
+    });
+    const abs = resolve(wt, out);
+    if (r.status !== 0 || !existsSync(abs)) {
+      log('round2.scan.skipped', { ticket: m.id, msg: `collect.sh exited ${r.status}: ${tailLines(r.stderr, 3)}` });
+      return null;
+    }
+    const json = JSON.parse(readFileSync(abs, 'utf8'));
+    const semgrep = Array.isArray(json.semgrep?.findings) ? json.semgrep.findings : [];
+    const secrets = Array.isArray(json.secrets?.findings) ? json.secrets.findings : [];
+    const blockingSemgrep = semgrep.filter((f) => /^(ERROR|HIGH|CRITICAL)$/i.test(String(f.severity || '')));
+    log('round2.scan', {
+      ticket: m.id,
+      msg: `semgrep=${json.semgrep?.status === 'skipped' ? 'skipped' : `${semgrep.length} (${blockingSemgrep.length} error-severity)`} secrets=${json.secrets?.status === 'skipped' ? 'skipped' : secrets.length} -> ${out}`,
+    });
+    return { path: out, semgrep, secrets, blockingSemgrep, recruits: blockingSemgrep.length + secrets.length > 0 };
+  } catch (e) {
+    log('round2.scan.skipped', { ticket: m.id, msg: String(e.message).slice(0, 200) });
+    return null;
+  }
+}
+
+function pickReviewers(m, diff, scan = null) {
+  const { reviewers, reasons, dropped, tier } = triggeredReviewers(m, diff, REVIEW_AGENTS, { tier: REVIEW_TIER });
+  if (scan?.recruits && !reviewers.includes('security')) {
+    reviewers.push('security');
+    reasons.push(`security(deterministic scan: ${scan.blockingSemgrep.length} error-severity semgrep, ${scan.secrets.length} secret pattern(s))`);
+  }
+  log('round2.reviewers', { ticket: m.id, tier, msg: `[${tier} tier] ${reviewers.join(', ')}${reasons.length ? ` — triggered by ${reasons.join('; ')}` : ''}` });
   // A reviewer the board ASKED for that this conductor cannot route is a board
   // defect that silently removes a gate. It does not fail the ticket (the
   // routable set here is deliberately small, and a board may name reviewers a
@@ -1009,11 +1134,34 @@ function archiveStaleReview(m, wt, doc, label) {
   } catch { /* never let evidence capture break a round */ }
 }
 
+/** Is a provider/model id served from the operator's own machine (one GPU)? */
+const LOCAL_PROVIDER_RE = /^(lmstudio|ollama|llama\.?cpp|llamacpp|local|mlx|vllm-local)\b/i;
+function reviewsRunInParallel() {
+  if (PARALLEL_REVIEWS === 'on') return true;
+  if (PARALLEL_REVIEWS === 'off') return false;
+  if (DRY) return false;
+  return !LOCAL_PROVIDER_RE.test(String(REVIEWER_MODEL || ''));
+}
+
 async function runReviewRound(m, wt, reviewers, { label = 'review' } = {}) {
+  // Reviewers are read-only on source and each owns a distinct document, so
+  // the only thing a sequential loop bought was wall-clock. On a frontier
+  // provider the round now runs them concurrently (TOKEN_OPTIMIZATION_PLAN E1);
+  // on a local single-GPU server concurrency just thrashes the KV cache, so
+  // `auto` keeps the loop there. Order of `verdicts` is preserved either way.
+  const runnable = reviewers.filter((r) => (r === 'code-reviewer' ? REVIEWER_AGENT : REVIEW_AGENTS[r]));
+  if (reviewsRunInParallel() && runnable.length > 1) {
+    log('round2.parallel', { ticket: m.id, msg: `running ${runnable.length} reviewers concurrently (${runnable.join(', ')})` });
+    return Promise.all(runnable.map((r) => runOneReview(m, wt, r, label)));
+  }
   const verdicts = [];
-  for (const r of reviewers) {
+  for (const r of runnable) verdicts.push(await runOneReview(m, wt, r, label));
+  return verdicts;
+}
+
+async function runOneReview(m, wt, r, label) {
+  {
     const agent = r === 'code-reviewer' ? REVIEWER_AGENT : REVIEW_AGENTS[r];
-    if (!agent) continue;
     const doc = docForReviewer(m, r);
     // FRESHNESS IS PROVEN, NOT ASSUMED. A reviewer session that exits 0 and
     // writes nothing would otherwise leave the PREVIOUS round's document in
@@ -1037,7 +1185,10 @@ Acceptance the work was meant to meet:
 ${(m.acceptance || []).map((a) => `- ${a}`).join('\n')}
 
 Files the ticket was allowed to touch: ${(m.write_scope || []).join(', ')}
-
+${existsSync(resolve(wt, `docs/work/scan/ticket_${m.id}.json`)) ? `
+Deterministic scanner output for this diff (semgrep + secrets, already run — do not re-run the tools) is at
+\`docs/work/scan/ticket_${m.id}.json\`. Triage what it found; spend your judgement on what tools cannot see.
+` : ''}
 Write your findings to \`${doc}\`. Cite file:line for every finding — an
 uncited finding is deleted before the report is written. End the document with a
 single line of the form "VERDICT: APPROVED" or "VERDICT: CHANGES REQUESTED"
@@ -1052,7 +1203,12 @@ Do NOT edit the implementation. Do NOT run git. You are reviewing, not fixing.`;
     // A document with NO verdict line is not an approval. It used to read as
     // one whenever the body happened to contain the word "approved" anywhere.
     const ok = verdict.found && verdict.approved;
-    verdicts.push({
+    log('round2.review.verdict', {
+      ticket: m.id,
+      msg: `${r}: ${!body ? 'NO DOCUMENT' : !verdict.found ? 'NO VERDICT LINE (treated as blocking)' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` +
+        (verdict.line ? ` — "${verdict.line}"` : ''),
+    });
+    return {
       reviewer: r,
       doc,
       present: Boolean(body),
@@ -1061,14 +1217,8 @@ Do NOT edit the implementation. Do NOT run git. You are reviewing, not fixing.`;
       verdictLine: verdict.line,
       sessionFailed: session.code !== 0,
       sessionCode: session.code,
-    });
-    log('round2.review.verdict', {
-      ticket: m.id,
-      msg: `${r}: ${!body ? 'NO DOCUMENT' : !verdict.found ? 'NO VERDICT LINE (treated as blocking)' : ok ? 'APPROVED' : 'CHANGES REQUESTED'}` +
-        (verdict.line ? ` — "${verdict.line}"` : ''),
-    });
+    };
   }
-  return verdicts;
 }
 
 /** Fix-Verify loop — bounded remediation by the CODER after a blocking review. */
@@ -1149,8 +1299,169 @@ ${notes}`, wt, { agent: CODER_AGENT, model: CODER_MODEL, role: 'coder' });
   };
 }
 
-/** Round 3 — runtime verdict (build/lint/smoke), by the coder agent. */
+/** Round 3 — runtime verdict. Dispatches on --runtime-mode (default: script). */
 async function runRuntimeRound(m, wt) {
+  return RUNTIME_MODE === 'agent' ? runRuntimeRoundAgent(m, wt) : runRuntimeRoundScript(m, wt);
+}
+
+/**
+ * Run one shell command for the deterministic runtime round. Returns the
+ * exit code (or null when the process never produced one) and bounded output.
+ */
+function runRuntimeCommand(cmd, wt, { timeoutMs = 10 * 60_000 } = {}) {
+  const r = spawnSync('bash', ['-lc', cmd], {
+    cwd: wt, encoding: 'utf8', timeout: timeoutMs, maxBuffer: 256 * 1024 * 1024,
+  });
+  const out = `${r.stdout || ''}${r.stderr ? `\n${r.stderr}` : ''}`;
+  const code = r.error || r.status === null || r.status === undefined ? null : r.status;
+  return { cmd, code, out, error: r.error ? String(r.error.message) : null };
+}
+
+/** Last `n` lines of a command's output, fenced for the runtime document. */
+function fenceTail(out, n = 60) {
+  const lines = String(out || '').split('\n');
+  const tail = lines.slice(-n).join('\n').replace(/`{3}/g, '` ` `');
+  const dropped = Math.max(0, lines.length - n);
+  return `\`\`\`\n${dropped ? `… ${dropped} earlier line(s) omitted …\n` : ''}${tail}\n\`\`\``;
+}
+
+/**
+ * Round 3 (script mode) — the machine runs the checks and writes the verdict.
+ *
+ * The project's RUNTIME checks, all from OUTSIDE any model session, in the
+ * order the SDLC guide's runtime gate names them (build -> lint/typecheck ->
+ * tests -> smoke), plus an optional per-ticket `runtime` command from the
+ * board:
+ *   1. m.runtime            — optional ticket-specific runtime command
+ *   2. validate-build.sh    — SKIPPED when the stack defines no build
+ *   3. validate-lint.sh     — SKIPPED likewise
+ *   4. validate-tests.sh    — SKIPPED when no test runner manifest exists
+ *   5. validate-smoke.sh    — SKIPPED unless .sdlc/sdlc.json configures smoke
+ * A validator exit of 2 is "validator error", which the old prompt classified
+ * as SKIPPED, not FAIL; it is reported as such here. Only a real non-zero exit
+ * from a command that ran decides FAIL.
+ *
+ * The ticket's `verify` is deliberately NOT run here. It is the CLOSE gate
+ * (run-handoff-gates: scope, manifest, tracker…) and encodes close-time
+ * assumptions — the tracker-freshness gate, for one, reads the tree as it is
+ * at close, after the round documents are folded in, and fails when run
+ * mid-attempt. close() runs it exactly once, authoritatively (plan item B2:
+ * the old round ran it in the agent session, again in the override check,
+ * and again in close()).
+ *
+ * On FAIL, and only on FAIL, a short diagnosis session is spent (when
+ * --runtime-diagnosis is on and a model is routed): the lean `build` agent is
+ * given the failing command's tail and asked for the "## Why it failed"
+ * section the repair path reads. That is the one part of the old round that
+ * was judgement rather than execution.
+ */
+async function runRuntimeRoundScript(m, wt) {
+  const doc = reviewDoc(m, 'RUNTIME');
+  const abs = resolve(wt, doc);
+  try { rmSync(abs, { force: true }); } catch { /* nothing to remove */ }
+  log('round3.runtime.start', { ticket: m.id, role: 'script', agent: null, mode: 'script' });
+
+  const steps = [];
+  if (m.runtime) {
+    const r = runRuntimeCommand(m.runtime, wt);
+    steps.push({ name: 'runtime (ticket)', authoritative: true, ...r });
+  }
+  for (const [name, script] of [
+    ['build', 'validate-build.sh'],
+    ['lint / type-check', 'validate-lint.sh'],
+    ['tests', 'validate-tests.sh'],
+    ['smoke', 'validate-smoke.sh'],
+  ]) {
+    const path = resolve(VALIDATORS_DIR, script);
+    if (!existsSync(path)) { steps.push({ name, cmd: script, code: null, out: '', skipped: true }); continue; }
+    const r = runRuntimeCommand(`bash ${JSON.stringify(path)} ${JSON.stringify(wt)}`, wt);
+    // _lib.sh contract: 0 clean, 1 gaps, 2 validator error (treated as skipped).
+    steps.push({ name, ...r, cmd: `${script} <worktree>`, skipped: r.code === 2 || r.code === null });
+  }
+
+  const failing = steps.filter((s) => !s.skipped && s.code !== 0);
+  const pass = failing.length === 0;
+  const verdictLine = pass ? 'RUNTIME: PASS' : 'RUNTIME: FAIL';
+
+  const lines = [
+    `# Runtime validation — ${m.id}: ${m.title}`,
+    '',
+    `Produced by the conductor's deterministic runtime gate (\`--runtime-mode script\`),`,
+    `not by a model. Each command below ran in the ticket worktree; the exit codes are the verdict.`,
+    `The ticket's \`verify\` (\`${m.verify || '(none)'}\`) is the close gate and runs once, in close().`,
+    '',
+    '| Step | Command | Exit | Result |',
+    '|---|---|---|---|',
+    ...steps.map((s) => `| ${s.name} | \`${String(s.cmd).replace(/\|/g, '\\|')}\` | ${s.code === null ? '—' : s.code} | ${s.skipped ? 'SKIPPED' : s.code === 0 ? 'ok' : '**FAIL**'} |`),
+    '',
+  ];
+  for (const s of steps) {
+    const exitText = s.code === null ? (s.error ? `none (${s.error})` : 'not run') : String(s.code);
+    lines.push(`## ${s.name}`, '', `Command: \`${s.cmd}\``, '', `Exit code: ${exitText}`, '');
+    if (s.out && s.out.trim()) lines.push(fenceTail(s.out, s.code === 0 ? 20 : 80), '');
+  }
+  if (!pass) {
+    lines.push('## Why it failed', '');
+    for (const s of failing) {
+      lines.push(`- \`${s.cmd}\` exited ${s.code}${s.authoritative ? ' (the ticket\'s own runtime command)' : ''}.`);
+    }
+    lines.push('', '(Diagnosis below is model-written and advisory; the exit codes above are the verdict.)', '');
+  }
+  lines.push(verdictLine, '');
+  writeFileSync(abs, lines.join('\n'));
+
+  let diag = null;
+  if (!pass && RUNTIME_DIAGNOSIS && !DRY && (CODER_MODEL || REVIEWER_MODEL)) {
+    const evidence = failing.map((s) => `### ${s.cmd} (exit ${s.code})\n${fenceTail(s.out, 60)}`).join('\n\n');
+    const prompt = `SDLC-TASK for build:
+
+The runtime gate for ticket ${m.id} — "${m.title}" — FAILED. The failing command(s) and their output:
+
+${evidence}
+
+WRITE-SCOPE (exclusive): \`${doc}\` — append ONLY. Do not edit any other file. Do not run git.
+
+Append to \`${doc}\`, under the existing "## Why it failed" heading, 3–8 plain sentences: which
+command failed and its exit code, the specific output line that shows the failure, what you believe
+is actually wrong, and whether the cause is this ticket's code or something pre-existing. "Tests
+failed" is not an explanation. Do NOT change the final "${verdictLine}" line. Then stop.`;
+    log('round3.diagnosis.start', { ticket: m.id, role: 'runtime', agent: 'build', model: CODER_MODEL || REVIEWER_MODEL });
+    diag = await runSession(prompt, wt, { agent: 'build', model: CODER_MODEL || REVIEWER_MODEL, role: 'runtime' });
+    // The diagnosis session may not change the verdict or any implementation
+    // file; if it rewrote the verdict line, restore the machine's.
+    try {
+      let body = readFileSync(abs, 'utf8');
+      const v = readVerdict(body);
+      if (!v.found || (v.approved !== pass)) {
+        body = `${body.trimEnd()}\n\n${verdictLine}\n`;
+        writeFileSync(abs, body);
+      }
+    } catch { /* document still present from the write above */ }
+  }
+
+  const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';
+  const reason = pass ? null : (extractFailureReason(body) || failing.map((s) => `${s.cmd} exited ${s.code}`).join('; '));
+  log('round3.runtime.verdict', {
+    ticket: m.id,
+    msg: `${pass ? 'PASS' : 'FAIL'} (deterministic)${reason ? ` — ${reason}` : ''}`,
+  });
+  return {
+    present: Boolean(body),
+    pass,
+    doc,
+    reason,
+    // The gate ran out-of-session; a failed DIAGNOSIS session is advisory and
+    // must never block a ticket whose verdict the machine already owns.
+    sessionFailed: false,
+    sessionCode: diag ? diag.code : 0,
+    sessionOutput: diag ? diag.out : '',
+    deterministic: true,
+    steps: steps.map(({ name, cmd, code, skipped }) => ({ name, cmd, code, skipped: Boolean(skipped) })),
+  };
+}
+
+/** Round 3 (agent mode) — runtime verdict (build/lint/smoke), by the coder agent. */
+async function runRuntimeRoundAgent(m, wt) {
   const doc = reviewDoc(m, 'RUNTIME');
   const prompt = `SDLC-TASK for ${CODER_AGENT}:
 
@@ -1396,7 +1707,7 @@ ${excerpt || '(no explanation was recorded)'}
 
     // Recompute from the UPDATED diff. A repair can touch a path that recruits
     // a reviewer the pre-repair diff never triggered.
-    const reviewers = pickReviewers(m, git('diff', `main...${branch}`));
+    const reviewers = pickReviewers(m, git('diff', `main...${branch}`), scanTicketDiff(m, wt, branch));
     log('round3.repair.rereview', { ticket: m.id, msg: `re-reviewing the repaired candidate with: ${reviewers.join(', ')}` });
     const verdicts = await runReviewRound(m, wt, reviewers, { label: `attempt${attempt}-prerepair${i}` });
 
@@ -1511,7 +1822,24 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
     log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${maxAttempts}`, role: 'coder', model: CODER_MODEL });
-    const sess = await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+    let sess = await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+
+    // Turn-budget continuation (TOKEN_OPTIMIZATION_PLAN D2). The plugin ends a
+    // session at --max-turns with the ledger and a partial manifest on disk and
+    // "BLOCKED: turn budget reached" in its output. The work is in the worktree;
+    // a fresh attempt would throw it away. Resume HERE, same worktree, fresh
+    // context, bounded by --turn-continuations.
+    for (let c = 1; c <= TURN_CONTINUATIONS && MAX_TURNS > 0 && TURN_BUDGET_RE.test(sess.out || ''); c++) {
+      log('session.turn-budget', { ticket: m.id, msg: `coder session hit the ${MAX_TURNS}-turn budget — continuation ${c}/${TURN_CONTINUATIONS} in the same worktree` });
+      const ledgers = (() => { try { return readdirSync(resolve(wt, 'docs/work')).filter((f) => /^TASKS_.*\.md$/.test(f)).map((f) => `docs/work/${f}`); } catch { return []; } })();
+      sess = await runSession(`${handoffPrompt(m, startReceipt, null)}
+
+CONTINUATION ${c}/${TURN_CONTINUATIONS}: a previous session on this SAME worktree hit its turn budget. Its
+work is already on disk — do NOT start over and do NOT redo finished items. First re-read the
+ledger(s) ${ledgers.length ? ledgers.map((l) => `\`${l}\``).join(', ') : '(none found — write one now from the HANDOFF steps)'} and reconcile
+each checkbox against what exists in the tree (files, test output). Then do ONLY the first
+unchecked item onward. Write your Completion Manifest when every box is ticked.`, wt);
+    }
 
     // A session that never ran and a session that ran and decided to do nothing
     // both leave a clean tree. Reporting both as "produced no changes" sent a
@@ -1561,7 +1889,7 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     // model that wrote it. A blocking verdict feeds a bounded fix loop; an
     // unresolved one fails the attempt exactly like a gate.
     if (ROUNDS >= 3) {
-      const reviewers = pickReviewers(m, git('diff', `main...${branch}`));
+      const reviewers = pickReviewers(m, git('diff', `main...${branch}`), scanTicketDiff(m, wt, branch));
       const verdicts = await runReviewRound(m, wt, reviewers);
       const failedSessions = verdicts.filter((v) => v.sessionFailed);
       if (failedSessions.length) {
@@ -1791,8 +2119,61 @@ function pushRemotes(ticket, branch, forceRef = null) {
   }
 }
 
+/**
+ * Run the integration-tier audit (TOKEN_OPTIMIZATION_PLAN A4/A5, backlog L8)
+ * in `cwd` over base...head. Returns {ran, approved, summary, exit}. Never
+ * throws: a review that cannot run is logged and reported as not-approved,
+ * which the release gate reads as "no fresh integration summary".
+ */
+function runIntegrationReview(cwd, base, head, label) {
+  if (INTEGRATION_REVIEW === 'off' || DRY) return { ran: false, approved: false };
+  // `auto` follows --rounds: a bare `--rounds 1` run is coder-only by the
+  // operator's choice (no reviewer sessions at all), so the branch audit is not
+  // spawned behind their back either. `on` forces it regardless.
+  if (INTEGRATION_REVIEW === 'auto' && ROUNDS < 3) {
+    log('integration.skipped', { label, msg: `--rounds ${ROUNDS}: no review rounds requested, integration review not run (pass --integration-review on to force)` });
+    return { ran: false, approved: false };
+  }
+  if (!existsSync(INTEGRATION_SCRIPT)) {
+    log('integration.skipped', { msg: `${INTEGRATION_SCRIPT} not found` });
+    return { ran: false, approved: false };
+  }
+  const args = [INTEGRATION_SCRIPT, '--root', cwd, '--base', base, '--head', head, '--models', MODELS_JSON_PATH,
+    '--session-minutes', String(SESSION_MIN), '--parallel', reviewsRunInParallel() ? 'on' : 'off'];
+  log('integration.start', { label, msg: `${base}...${head} in ${cwd}` });
+  const r = spawnSync(process.execPath, args, {
+    cwd, encoding: 'utf8', timeout: (SESSION_MIN * 60_000) + 20 * 60_000, maxBuffer: 64 * 1024 * 1024,
+    env: { ...sessionEnv(), OPENCODE_BIN },
+  });
+  const rows = String(r.stdout || '').split('\n').filter(Boolean).map((l) => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  const end = rows.find((x) => x.kind === 'integration.end');
+  const approved = r.status === 0 && Boolean(end?.approved);
+  log('integration.verdict', {
+    label, exit: r.status,
+    msg: r.status === 3 ? 'nothing to review (empty diff)' : approved ? 'APPROVED' : `BLOCKED (${(end?.blocking || []).join(', ') || 'see summary'})` +
+      (r.status !== 0 && r.status !== 1 ? ` — integration-review exited ${r.status}: ${tailLines(r.stderr, 4)}` : ''),
+  });
+  return { ran: true, approved, summary: end?.summary || null, exit: r.status, empty: r.status === 3 };
+}
+
 function land(plan, m, branch, wt) {
   if (!DO_MERGE) {
+    // PR boundary: the once-per-branch audit runs HERE, in the worktree, and
+    // its documents ride the branch so the PR carries its own evidence.
+    const integ = runIntegrationReview(wt, 'main', branch, m.id);
+    if (integ.ran && !integ.empty) {
+      try {
+        // docs/work is commonly gitignored in targets; `git add` of an ignored
+        // path exits non-zero, so add each location on its own and commit what
+        // was actually staged.
+        for (const d of ['docs/reviews', 'docs/work']) { try { gitIn(wt, 'add', '-A', '--', d); } catch { /* ignored path */ } }
+        if (gitIn(wt, 'diff', '--cached', '--name-only')) {
+          gitIn(wt, 'commit', '-q', '-m', `chore(${m.id}): integration review (${integ.approved ? 'APPROVED' : 'BLOCKED'})`);
+        }
+      } catch (e) { log('integration.commit-failed', { ticket: m.id, msg: String(e.message).slice(0, 200) }); }
+      comment(plan, m.id, REVIEWER_ACTOR,
+        `CONDUCTOR integration review ${integ.approved ? 'APPROVED' : 'BLOCKED'} for ${branch}${integ.summary ? ` — ${integ.summary}` : ''}`.slice(0, 900));
+    }
     pushRemotes(m.id, branch);
     comment(
       plan,
@@ -1962,6 +2343,7 @@ async function main() {
     console.error(`main synchronization refused: ${mainSync.reason}`);
     process.exit(5);
   }
+  const mainAtStart = git('rev-parse', 'main');
   const refreshedConfig = loadTargetConfig();
   const topologyChanged =
     refreshedConfig.worktreeDir !== CONFIG.worktreeDir ||
@@ -2090,6 +2472,25 @@ async function main() {
     process.exit(3);
   }
 
+  // Prompt-weight receipt (TOKEN_OPTIMIZATION_PLAN C5). Every session re-sends
+  // its agent file on every turn; a 49KB coding-agent is ~12k tokens before a
+  // single shared protocol is read. Say what each role will cost up front, and
+  // point at the compact overlay when it is heavy.
+  for (const [role, agent] of [['coder', CODER_AGENT], ['reviewer', REVIEWER_AGENT]]) {
+    const candidates = [
+      resolve(ROOT, '.opencode', 'agents', `${agent}.md`),
+      resolve(homedir(), '.config', 'opencode', 'agents', `${agent}.md`),
+    ];
+    const found = candidates.find((p) => existsSync(p));
+    if (!found) continue;
+    const bytes = readFileSync(found).length;
+    const heavy = bytes > 32 * 1024;
+    log('agents.prompt-size', {
+      role, agent, bytes,
+      msg: `${agent}: ${(bytes / 1024).toFixed(0)}KB (~${Math.round(bytes / 4 / 1000)}k tokens per turn, before shared files)` +
+        (heavy ? ' — heavy; install with --compact (dist/compact-agents) or see TOKEN_OPTIMIZATION_PLAN C4' : ''),
+    });
+  }
   log('conductor.start', {
     msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} agent=${CODER_AGENT} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
     roles: ROLE_MODELS,
@@ -2188,6 +2589,23 @@ async function main() {
 
   if (landed >= MAX_TICKETS) stopReason = `--max-tickets ${MAX_TICKETS} reached`;
   else if (processed >= MAX_PROCESSED) stopReason = `--max-processed ${MAX_PROCESSED} reached`;
+
+  // Merge mode: the once-per-batch integration audit over everything this run
+  // landed on main. Its summary is committed to main so the release gate can
+  // read it; a BLOCKED verdict does not un-land anything (the tickets each
+  // passed their own gates) — it blocks the RELEASE, which is the point.
+  if (DO_MERGE && landed > 0 && mainAtStart) {
+    const integ = runIntegrationReview(ROOT, mainAtStart, 'main', `run:${landedThisRun.size} tickets`);
+    if (integ.ran && !integ.empty) {
+      try {
+        for (const d of ['docs/reviews', 'docs/work']) { try { git('add', '-A', '--', d); } catch { /* ignored path */ } }
+        if (git('diff', '--cached', '--name-only')) {
+          git('commit', '-q', '-m', `chore(conductor): integration review of ${landedThisRun.size} landed ticket(s) (${integ.approved ? 'APPROVED' : 'BLOCKED'})`);
+          pushRemotes('integration', 'main');
+        }
+      } catch (e) { log('integration.commit-failed', { msg: String(e.message).slice(0, 200) }); }
+    }
+  }
 
   const finalPlan = loadFreshPlan();
   const counts = tallyStatuses(finalPlan);

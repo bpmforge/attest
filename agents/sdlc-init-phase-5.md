@@ -10,7 +10,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = write the HANDOFF for X to `docs/work/HANDOFF_X.md` (`════` delimiter format), save state to `docs/work/sdlc-state.md`, run `bash ~/.config/opencode/scripts/handoff-emit.sh X` (it prints the pointer — never type it, never echo the body), wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
@@ -55,9 +55,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -96,7 +97,24 @@ ANY ✗ → return to Phase 4, close the gap first
 
 ### Round 1 — Reviews (always parallel)
 
-Save state, then emit ONE message with all review HANDOFFs:
+**Default: one command runs the whole round (backlog L9).** After saving state:
+
+```bash
+node ~/.config/opencode/scripts/conductor/integration-review.mjs --root . --base <release-base-tag-or-main> --head HEAD \
+     --names final --reviewers security,perf[,ux]
+```
+
+Scanners run once, then code-reviewer (full 7-specialist orchestrator), security-auditor,
+performance-engineer and — if UI-bearing — ux-engineer run **concurrently** as `opencode run`
+sessions over the whole release diff, writing `CODE_REVIEW_FINAL_<date>.md`,
+`SECURITY_FINAL_<date>.md`, `PERF_FINAL_<date>.md`, `UX_AUDIT_<date>.md` and
+`INTEGRATION_SUMMARY_*.md` — exactly the names Round 4's `validate-release-readiness.sh` reads
+(condition 13 requires the summary to be APPROVED and fresh). Read the reports; synthesize the
+FIX_BACKLOG. The HANDOFF blocks below are the **fallback** when `opencode run` cannot be spawned
+here or the user wants to drive each session by hand — then write each `docs/work/HANDOFF_<agent>.md`
+and run `handoff-emit.sh` per file; never print the blocks.
+
+Save state, then (fallback path only) one pointer per HANDOFF file:
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
@@ -202,7 +220,7 @@ task(agent="git-expert", prompt="Commit docs/reviews/FIX_BACKLOG_*_<date>.md and
 
 **Iterate up to 3 times per `agents/shared/FIX_VERIFY_LOOP.md` Steps 3-5:**
 1. Remediation HANDOFF (coding-agent receives FIX_BACKLOG_RELEASE)
-2. Targeted re-verification HANDOFFs — emit ALL triggered specialist re-verifications in ONE message (parallel-safe — each verifies only its own rows)
+2. Targeted re-verification HANDOFFs — write ALL triggered specialist re-verification files, then `handoff-emit.sh` each so the pointers land in ONE message (parallel-safe — each verifies only its own rows)
 3. All PASS → exit loop. Any FAIL → next iteration.
 4. After 3 failed iterations → emit escalation block, STOP, wait for decision [A/B/C/D]
 
@@ -225,7 +243,7 @@ task(agent="git-expert", prompt="Commit docs/reviews/FIX_BACKLOG_*_<date>.md and
 
 Start these alongside Round 2's remediation/re-verify work — they read code without modifying it.
 
-Emit all three in ONE message:
+Write all three HANDOFF files, then `handoff-emit.sh` each — three pointers in ONE message, no bodies:
 
 ```
 ---

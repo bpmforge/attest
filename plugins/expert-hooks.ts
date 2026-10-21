@@ -11,7 +11,13 @@ import { dirname, join } from "node:path";
 // plugin surface. Four phases:
 //
 //   tool.execute.before   block dangerous bash commands; block writes to
-//                         .env / credential / key files.
+//                         .env / credential / key files; enforce the
+//                         EXPERTS_MAX_TURNS turn budget (see below).
+//
+//   tool.execute.after    bound read/grep/glob/list/bash results to
+//                         EXPERTS_TOOL_OUTPUT_MAX chars (head + tail + an
+//                         omission marker with a re-query hint), so one big
+//                         result cannot be re-sent on every later turn.
 //
 //   tool.execute.after    after a write/edit, run format → lint → type-check
 //                         → secret-scan against the file. All formatters
@@ -146,6 +152,34 @@ function basename(filePath: string): string {
   return filePath.slice(filePath.lastIndexOf("/") + 1);
 }
 
+// ─── Turn cap (TOKEN_OPTIMIZATION_PLAN D1) ───────────────────────────
+// CONTEXT_BUDGET.md asks every agent to stop loading when its context fills.
+// The telemetry says it does not: one coding session ran 602 turns against a
+// local model with no prefix cache — 46M input tokens for one ticket, because
+// each turn re-sends the ~40k-token baseline plus everything read so far.
+// EXPERTS_MAX_TURNS=<n> (set per session by the conductor's --max-turns, or
+// exported by an operator) makes the budget mechanical: after n completed
+// assistant turns, every further tool call is refused EXCEPT writes under
+// docs/work/ and docs/reviews/, so the agent can still update its TASKS
+// ledger, write its Completion Manifest ("Partial output — turn budget
+// reached") and stop cleanly. The conductor's existing attempt/resume logic
+// then carries the ledger into a fresh, small-context session.
+const MAX_TURNS = Number(process.env.EXPERTS_MAX_TURNS || 0) || 0;
+const TOOL_OUTPUT_MAX = process.env.EXPERTS_TOOL_OUTPUT_MAX === undefined ? 24000 : Number(process.env.EXPERTS_TOOL_OUTPUT_MAX) || 0;
+const COMPRESSIBLE_TOOLS = new Set(["read", "grep", "glob", "list", "bash", "run"]);
+const turnsBySession = new Map<string, number>();
+const LEDGER_DIR_RE = /(^|\/)docs\/(work|reviews)\//;
+
+function turnCapMessage(session: string, turns: number): string {
+  return (
+    `TURN BUDGET REACHED: this session has completed ${turns} assistant turns (limit ${MAX_TURNS}, EXPERTS_MAX_TURNS). ` +
+    `No further tool calls are allowed except writes under docs/work/ and docs/reviews/. ` +
+    `Do this now, in order: (1) update docs/work/TASKS_*.md so every checkbox reflects what is on disk; ` +
+    `(2) write your Completion Manifest with "Partial output — turn budget reached. Remaining items: [list]"; ` +
+    `(3) print BLOCKED: turn budget reached, and stop. The orchestrator resumes from the ledger in a fresh session.`
+  );
+}
+
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Map<string, number>();
   let traceSeq = 0;
@@ -154,6 +188,17 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
       // only in tool.execute.after) — reading input.args made every guard below a no-op.
       const args = (output as any)?.args ?? (input as any).args ?? {};
+
+      // Turn cap — before anything else, so a capped session cannot spend
+      // another 40k-token turn on a read it will not get to act on.
+      if (MAX_TURNS > 0) {
+        const turns = turnsBySession.get(input.sessionID) ?? 0;
+        if (turns >= MAX_TURNS) {
+          const filePath: string = args?.filePath ?? args?.file_path ?? "";
+          const ledgerWrite = WRITE_TOOLS.has(input.tool) && LEDGER_DIR_RE.test(filePath);
+          if (!ledgerWrite) throw new Error(turnCapMessage(input.sessionID, turns));
+        }
+      }
       // Bash: block dangerous commands
       if (input.tool === "bash" || input.tool === "run") {
         const command: string = args?.command ?? "";
@@ -202,6 +247,37 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
     },
 
     "tool.execute.after": async (input, output) => {
+      // Tool-result compression (TOKEN_OPTIMIZATION_PLAN D4 / backlog L14).
+      // CONTEXT_BUDGET.md rule 3 asks the model to "compress tool results
+      // immediately"; it cannot — a result is in context the moment it
+      // arrives, and it is re-sent on every later turn. 99.5% of measured
+      // tokens were input, and the growth per turn is mostly tool output. So
+      // the harness bounds it: a read/grep/glob/list/bash result longer than
+      // EXPERTS_TOOL_OUTPUT_MAX chars (default 24000 ≈ 6k tokens) keeps its
+      // head and tail with an explicit omission marker that tells the model
+      // how to get the middle (read with offset/limit, narrow the grep).
+      // 0 disables. Write/edit results are never touched (they are small and
+      // the formatter/lint notes below depend on them).
+      if (TOOL_OUTPUT_MAX > 0 && COMPRESSIBLE_TOOLS.has(input.tool) && typeof output?.output === "string") {
+        const text = output.output;
+        if (text.length > TOOL_OUTPUT_MAX) {
+          const head = Math.floor(TOOL_OUTPUT_MAX * 0.65);
+          const tail = Math.floor(TOOL_OUTPUT_MAX * 0.25);
+          const omitted = text.length - head - tail;
+          const hint =
+            input.tool === "read"
+              ? "re-read this file with offset/limit for the part you need"
+              : input.tool === "grep"
+                ? "narrow the pattern or add a path/glob; or grep -c first"
+                : input.tool === "bash"
+                  ? "re-run piped through head/tail/grep for the lines you need"
+                  : "narrow the query";
+          output.output =
+            `${text.slice(0, head)}\n\n[… ${omitted.toLocaleString()} chars omitted by expert-hooks (EXPERTS_TOOL_OUTPUT_MAX=${TOOL_OUTPUT_MAX}) — ${hint} …]\n\n${text.slice(-tail)}`;
+          output.metadata = { ...(output.metadata ?? {}), truncatedBy: "expert-hooks", originalLength: text.length };
+        }
+      }
+
       // K4: opt-in per-tool-call trace (EXPERTS_TRACE_LOG=<file>) for rule-compliance grading.
       const traceLog = process.env.EXPERTS_TRACE_LOG;
       if (traceLog) {
@@ -231,10 +307,21 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
     },
 
     event: async ({ event }) => {
-      if (process.env.EXPERTS_TELEMETRY === "0") return;
       if (event.type !== "message.updated") return;
       const info: any = (event as any).properties?.info;
       if (!info || info.role !== "assistant") return;
+
+      // Turn counting is independent of telemetry: a budget that switches off
+      // with EXPERTS_TELEMETRY=0 is not a budget.
+      if (MAX_TURNS > 0 && info.time?.completed && info.sessionID && !countedTurns.has(info.id)) {
+        countedTurns.add(info.id);
+        if (countedTurns.size > 5000) countedTurns.clear();
+        const n = (turnsBySession.get(info.sessionID) ?? 0) + 1;
+        turnsBySession.set(info.sessionID, n);
+        if (n === MAX_TURNS) console.warn(`[expert-hooks] ${turnCapMessage(info.sessionID, n)}`);
+      }
+
+      if (process.env.EXPERTS_TELEMETRY === "0") return;
 
       // G1 — session-model receipt (T30.2): fires once, on the first
       // assistant message seen for this session. providerID/modelID are
@@ -285,6 +372,7 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
 // telemetry, receipts) silently failed to load on every session. resume-anchor.ts
 // exports only its Plugin and has never failed; that is the control case.
 const sessionModelLogged = new Set<string>();
+const countedTurns = new Set<string>();
 
 // ─── Telemetry (plan 4.12) ───────────────────────────────────────────
 // Append-only JSONL of actuals. Counts and identifiers only — never

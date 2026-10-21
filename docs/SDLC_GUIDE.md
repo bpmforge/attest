@@ -182,8 +182,7 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 - `/dba` — Database migrations
 - `/containers` — Container setup
 - `/devops` — CI/CD pipeline
-- `/security` — Security audit during development
-- `/review-code` — Code quality review
+- `/security`, `/review-code` — **integration-tier** audits: run once per branch before the PR to `main` (and at release), not per ticket. Per ticket, the conductor runs the deterministic scan (`scripts/scan/collect.sh`) and one lean diff review; see [UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md).
 
 **Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 
@@ -197,9 +196,9 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 
 Structured as five sequential rounds. Each round must complete before the next begins.
 
-**Round 1 — Review fan-out (parallel)**
+**Round 1 — Review fan-out (parallel, one command)**
 
-Emit all review HANDOFFs in a single message. Each reviewer produces findings only — no self-fixes.
+`integration-review.mjs --names final` runs the scanners once and every reviewer concurrently over the release diff, producing `CODE_REVIEW_FINAL`, `SECURITY_FINAL`, `PERF_FINAL`, `UX_AUDIT` and `INTEGRATION_SUMMARY` (which Round 4 requires APPROVED and fresh). Each reviewer produces findings only — no self-fixes.
 
 | Reviewer | Always? | Condition |
 |----------|---------|-----------|
@@ -296,7 +295,7 @@ Add a feature to a working system without breaking it. Creates `feat/[slug]` bra
 3. **Sub-component decomposition** — Atomic (linear flow) or Split? Split features produce `docs/features/<slug>/COMPONENT_DAG.md` with sub-components, dependencies, waves, and frozen contracts. Each sub-component cuts `feat/<slug>/<sub-slug>` from the parent branch and runs the full Mode-3 lifecycle (Steps 4–9) on its own branch.
 4. Design — sequence diagram, DB changes, API changes, test plan
 5. Implement — branch-first, tests first, code written against design
-6. **Parallel review fan-out** — code-review (always) + security (if auth/input/data/crypto) + perf (if NFR-tracked / DB / loops / caching / jobs) + ux (if UI) emit together in ONE message; user opens N concurrent OpenCode sessions; reviewers produce findings only (no self-fixes).
+6. **Review fan-out, one command** — `integration-review.mjs --names feature:<slug>` runs the scanners once, then code-review (always) + security / perf / ux (when triggered) **concurrently** as `opencode run` sessions over the whole feature diff; the lead reads the reports. Manual HANDOFFs (written to `docs/work/`, pointer printed by `handoff-emit.sh`) are the fallback when sessions cannot be spawned.
 7. **Fix-Verify loop** — sdlc-lead synthesizes `FIX_BACKLOG_<feature>_<date>.md` from every review. CRITICAL/HIGH rows get a remediation HANDOFF (coding-agent) → targeted re-verification HANDOFF → iterate up to 3 times. After 3 failed cycles → escalation prompt (waive / redesign / defer / change specialist).
 8. Document — update ARCHITECTURE.md, API docs, UX_SPEC.md
 9. **Runtime validation gate (BLOCKING before merge)** — build → lint/typecheck → start → feature smoke → regression smoke. Produces `docs/reviews/RUNTIME_<feature>_<date>.md`. Verdict must be PASS or the merge aborts. In split features, each sub-component produces its own `RUNTIME_<slug>_<sub-slug>_<date>.md`; the parent merges to `main` only when every sub-component is PASS.

@@ -6,6 +6,8 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 (`issues/field-report-mode1-sdlc-run-2026-07.md`). Groups A–G (original audit) remain all-closed.
 Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
 J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
+Updated: 2026-10-21 — added **Group L** (token & overhead optimization) from the telemetry audit in
+`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L10 and L12–L15 shipped on `improve/token-optimization` (v3.14.0); L11 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
 (held privately, not in this repo): 118 delegations, 24% correction rate,
 0 escapes to `main`, all caught by a human lead re-verifying by hand under schedule pressure.
@@ -892,3 +894,66 @@ independent challenger. ~200 skills are domain filler — not taken. Design + ve
 - SKIP: comment-analyzer (R-13/14/15), inherit-legacy-style (pre-code + pattern-consistency + `delegation-gate --patterns`)
 - ✅ click-path-audit → `references/click-path-audit.md` (store side-effect map + 6 patterns), wired into ui-verifier + frontend-design
 - ✅ rust/typescript/python/go reviewers + rules: read in full; ECC's agents are thin → mined into `references/language-review-checklists.md` (32 checks with greps/lints; greps verified on planted code, graded on repopulse/vulnforge/kryptkeeper; lint names verified against ruff/clippy/typescript-eslint/golangci-lint); wired into code-reviewer, concurrency-checker, type-safety, error-handling, coding-agent. build-resolvers SKIP (rust borrow-checker table kept)
+
+---
+
+## Group L — Token & Overhead Optimization (2026-10-21)
+
+Source: `docs/work/TOKEN_OPTIMIZATION_PLAN.md` — 3,141 logged messages, 214M input tokens,
+99.5% input share, ~40k-token baseline per session, a 602-turn session, 5–10 sessions per
+ticket. Full tables, sizing and done-criteria live in the plan; this group tracks status.
+
+### L1. Review tiers — `ticket` / `full` / `integration` ✅ DONE 2026-10-21
+- `scripts/lib/review-triggers.mjs` `tier` option; conductor `--review-tier` (default `ticket`)
+- **Why:** path-name heuristics recruited a 0.5–1.4M-token specialist per ticket, and again per fix iteration
+
+### L2. Deterministic per-ticket scan recruits security ✅ DONE 2026-10-21
+- `scripts/scan/collect.sh --only semgrep,secrets` on `main...branch` before Round 2; conductor `--ticket-scan`
+- **Why:** a scanner finding is a stronger signal than a filename, at zero tokens
+
+### L3. Round 3 runtime gate is a script ✅ DONE 2026-10-21
+- conductor `--runtime-mode script` (default): build/lint/tests/smoke + optional ticket `runtime`; model only on FAIL (diagnosis); `verify` runs once, in `close()`
+- **Why:** the round was a 40k-token session told "do not use judgement", then re-run by the machine, then run again at close
+
+### L4. Round 2 reviewers in parallel ✅ DONE 2026-10-21
+- conductor `--parallel-reviews auto` (hosted providers on, local single-GPU off)
+
+### L5. Scan collector replaces tool-wrapping specialists ✅ DONE 2026-10-21
+- `scripts/scan/collect.sh` (semgrep/secrets/deps/dead-code/dup/complexity → one JSON); `security-auditor` Wave 1 = collect.sh + one triage session (was 3 sessions); `code-reviewer` Step 0 = collect.sh, specialists triage the JSON; specialists honour a pre-collected scan
+
+### L6. Integration-tier audit, once per branch ✅ DONE 2026-10-21 (needs field run)
+- `scripts/conductor/integration-review.mjs --base main --head <branch>`: scanners once, every auditor in parallel over the branch diff, `INTEGRATION_*` docs + summary, exit 0 only on all-APPROVED
+
+### L7. Turn cap as a mechanism ✅ DONE 2026-10-21
+- `EXPERTS_MAX_TURNS` enforced in `plugins/expert-hooks.ts` (tool calls refused after N turns except ledger/manifest writes); conductor `--max-turns N`
+- Rule cards: `agents/shared/cards/{BOUNDED_TASK,LOOP_PREVENTION,ANTI_SLOP}_CARD.md` (≤2KB each); shared blocks and 14 agents now read the cards, long forms on demand
+
+### L8. Wire the integration tier into the merge boundary ✅ DONE 2026-10-21
+- conductor `--integration-review auto` (PR boundary under `--no-merge`; end-of-run over the landed range in merge mode; docs committed); `validate-release-readiness.sh` condition 13: latest `INTEGRATION_SUMMARY` must be APPROVED and fresh (`Head-SHA` covers HEAD, excluding docs/)
+- Open follow-up: `git-expert --release` should call `integration-review.mjs` itself when no summary is fresh, instead of only failing the gate
+
+### L15. HANDOFF emitter — the "prints wrong / repeats three times" fix ✅ DONE 2026-10-21
+- Symptom (field, 2026-10-21): the lead's handoff output renders wrong on screen and the same information appears ~3×.
+- Causes found in the prompts: (1) the `── NEXT HANDOFF ──` pointer was TYPED into a markdown-rendered reply — lines collapse into one paragraph, the indented paste line only survives behind a blank line, box rules become headings; (2) "emit the HANDOFF block" wording from the paste era made models echo the body in prose on top of writing it, while the context packet and the ledger restated the same task text — three to four copies per handoff; (3) ~60 lines of orchestrator-facing prose ("[Code tasks only] … YOU RUN THE --baseline PASS YOURSELF …") sat INSIDE the fenced Template 1 block, so small models copied it into every `HANDOFF_*.md`.
+- Fix: `scripts/handoff-emit.sh <agent> [<slug>]` lints the written file (intake trigger, paired `════`, PRODUCE, phrase, "Then stop", no `USER:` inside, no template prose/placeholders, balanced fences, ≤220 lines) and prints the pointer as a tool result; `HANDOFF_TEMPLATES.md` step 2/3, `HANDOFF_QUICK_REF.md`, `sdlc-lead.md` and the 5 SDLC mode files now say write-file → emitter → one-line reply → turn ends, with the per-file content split (packet = detail, HANDOFF = contract, ledger = checkboxes) and a loop tripwire; the orchestrator prose moved out of the template block. Tests: `scripts/handoff-emit.test.mjs` (5), intake/handoff-done/discipline passes green.
+
+### L9. Attended fan-outs through one command ✅ DONE 2026-10-21
+- Mode 3 step 6 and Phase 5 Round 1 default to `integration-review.mjs --names feature:<slug> | final` (scanners once, reviewers concurrent as `opencode run` sessions, attended document names preserved); manual HANDOFFs are the fallback and go through `handoff-emit.sh`
+- Open: Phase 5 Round 3 audits (tech-debt, coverage, container, doc-gaps) still dispatch as HANDOFFs
+
+### L10. Measure the 33k floor ✅ DONE (from telemetry) 2026-10-21
+- The `build` agent's smallest first message is **13,431 tokens** — that is the floor (opencode system prompt + tool schemas + a short task); its median 33k includes the HANDOFF prompt and first reads. coding-agent's 38.7k median = 13.4k floor + ~25k of agent file + shared protocols. So the agent text, not the harness, is the lever — which is L11. The conductor now logs each role's agent prompt size at startup (`agents.prompt-size`).
+
+### L11. Core/full agent split — OPEN (L) — the one item deliberately NOT in 3.14
+- `agent.md` ≤8KB for bounded-task sessions + `agent.full.md` for interactive; `build-agents.mjs` emits both
+- Not mechanical: each of the 63 agents' Bounded Task section references different methodology sections, so the cut has to be read per agent. Shipped instead in 3.14: rule cards (C2/C3), the startup prompt-size receipt, and `--compact` as the documented mitigation. **Done when:** median first-message baseline < 12k tokens
+
+### L12. Turn budget on by default + same-worktree continuation ✅ DONE 2026-10-21
+- `--max-turns 120` (median coder session is 48 turns; only the 150–600-turn tail is touched); a session that hits it is continued in the SAME worktree from its TASKS ledger, `--turn-continuations 2`; `session.turn-budget` receipt
+
+### L13. Local prefix cache probe ✅ DONE 2026-10-21
+- `scripts/probe-prefix-cache.mjs`: cold / warm / other-prefix timing + `cached_tokens` if reported → VERDICT with the server-specific fix; documented in LOCAL_LLM_GUIDE.md ("check this first")
+
+### L14. Mechanical tool-result compression ✅ DONE 2026-10-21
+- `plugins/expert-hooks.ts` `tool.execute.after`: read/grep/glob/list/bash results over `EXPERTS_TOOL_OUTPUT_MAX` chars (default 24000 ≈ 6k tokens) keep head (65%) + tail (25%) with an omission marker and a tool-specific re-query hint; `0` disables; write/edit untouched
+

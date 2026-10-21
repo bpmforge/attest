@@ -56,6 +56,38 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   config naming a model this opencode install cannot resolve
   (`--model-gate warn|off`).
 
+## Token budget: review tiers, deterministic runtime, turn cap (v3.14, 2026-10-21)
+
+`docs/work/TOKEN_OPTIMIZATION_PLAN.md` has the measurements. The short version:
+99.5% of all tokens were input, every session started at ~40k tokens, and a
+ticket paid for 5–10 sessions — several of them doing a script's job. These
+flags change the per-ticket path; the broad audits move to the branch boundary.
+
+| Flag | Default | What it does |
+| --- | --- | --- |
+| `--review-tier ticket\|full\|integration` | `ticket` | Which reviewers a ticket's diff recruits (`scripts/lib/review-triggers.mjs`). `ticket`: code-reviewer always; a specialist only when the board declares it, a HIGH-signal pattern lands on an ADDED line, or the deterministic scan finds something. Path-NAME heuristics (`session`, `token`, `store/`, any `.css`) no longer recruit per ticket — they recruit at the integration tier. `full` is the pre-tier behaviour. |
+| `--ticket-scan on\|off` | `on` | `scripts/scan/collect.sh --only semgrep,secrets` over `main...branch` before Round 2, zero model tokens. An error-severity semgrep hit or a secret pattern recruits `security` and hands it `docs/work/scan/ticket_<id>.json`. |
+| `--parallel-reviews auto\|on\|off` | `auto` | Round 2 reviewers run concurrently (`Promise.all`) on hosted providers; `auto` keeps the sequential loop for `lmstudio/`, `ollama/`, `llama.cpp` (one GPU). |
+| `--runtime-mode script\|agent` | `script` | Round 3. `script`: the conductor runs the project's runtime checks itself — optional ticket `runtime` command, `validate-build.sh`, `validate-lint.sh`, `validate-tests.sh`, `validate-smoke.sh` — writes `RUNTIME_<id>.md` from the exit codes, and spends a model session **only on FAIL**, with a ~2k-token prompt on the lean `build` agent that appends the "Why it failed" diagnosis (it cannot change the verdict; the verdict line is re-asserted after it). `agent`: the previous model-written round, with its grounding/override machinery. The ticket's `verify` is the CLOSE gate and runs once, in `close()` — it used to run three times. |
+| `--runtime-diagnosis on\|off` | `on` | Whether a script-mode FAIL gets the diagnosis session. |
+| `--integration-review auto\|on\|off` | `auto` | The once-per-branch audit (backlog L8). Under `--no-merge` it runs in the ticket worktree before the push and its `INTEGRATION_*` documents ride the branch; in merge mode it runs once at the end of the run over `main-at-start..main` and the summary is committed to main. `validate-release-readiness.sh` condition 13 refuses a release whose latest `INTEGRATION_SUMMARY` is not APPROVED or has non-document changes after its `Head-SHA`. |
+| `--max-turns N` | `0` (off) | Sets `EXPERTS_MAX_TURNS` for every session; `plugins/expert-hooks.ts` refuses further tool calls after N completed assistant turns, except writes under `docs/work/` and `docs/reviews/`, so the ledger and a partial manifest still land. Telemetry showed a 602-turn session; `CONTEXT_BUDGET.md` is a rule, this is the mechanism. |
+
+**Integration tier.** `node scripts/conductor/integration-review.mjs --root <project> --base main --head <branch>`
+runs the scanners once over the whole branch (`collect.sh`, all scanners), then
+every auditor — code-reviewer (the 7-specialist orchestrator), security-auditor,
+performance-engineer, ux-engineer when UI paths moved — **in parallel** over
+`base...head`, each writing `docs/reviews/INTEGRATION_<KIND>_<range>_<date>.md`
+and a summary. Exit 0 only when every verdict is APPROVED. Run it before the PR
+to `main` is marked ready and again at release; that is where "security and
+code health" now live, instead of once per ticket.
+
+**What did not get weaker.** A high-signal added line (`child_process`,
+`eval(`, `jwt.sign`, `req.body`, raw SQL, `dangerouslySetInnerHTML`) still
+recruits security on the ticket; so does a real scanner finding. Every branch
+still gets the full audit before `main`. The runtime verdict is now only exit
+codes. The turn cap survives `EXPERTS_TELEMETRY=0`.
+
 ## Bounds (every loop has one)
 
 A bounded unattended run is only as bounded as its weakest loop, so each one

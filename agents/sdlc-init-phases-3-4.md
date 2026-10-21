@@ -18,7 +18,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = write the HANDOFF for X to `docs/work/HANDOFF_X.md` (`════` delimiter format), save state to `docs/work/sdlc-state.md`, run `bash ~/.config/opencode/scripts/handoff-emit.sh X` (it prints the pointer — never type it, never echo the body), wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
@@ -63,9 +63,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -1032,7 +1033,7 @@ INFRASTRUCTURE WAVES (parallel-safe alongside Wave N — no code overlap):
 REVIEW ROUNDS (always parallel regardless of wave mode):
   Within every wave, Round 2 reviews fan out in parallel:
   code-reviewer + [security if auth/input touched] + [perf if DB/loops touched] + [ux if UI touched]
-  ALL emitted in ONE message. You open N sessions concurrently.
+  ALL pointers printed by `handoff-emit.sh` in ONE message (bodies stay in their files). You open N sessions concurrently.
 
 Which execution mode per wave? [S = sequential / P = parallel]
   Wave 1: __ (recommended: S — only 1 module or shared foundation)

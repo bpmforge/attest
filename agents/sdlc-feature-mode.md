@@ -85,9 +85,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -140,7 +141,7 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 >
 > 1. Save state to `docs/work/sdlc-state.md`
 > 2. Write a context packet to `docs/work/context-for-<agent>.md`
-> 3. Build a HANDOFF block using the `════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`
+> 3. Write the HANDOFF (`════` delimiter format from `agents/shared/HANDOFF_TEMPLATES.md`) to `docs/work/HANDOFF_<agent>.md` — the file is the only copy; it never appears in your prose
 > 4. Execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default — incl. the opencode TUI) **write the HANDOFF to `docs/work/HANDOFF_<agent>.md`, print a pointer telling the user to open `/skill` and have it read that doc, then STOP and wait** for them to return and say "<agent> done" — do NOT run the specialist via a Task-tool subagent/subprocess, and never run the check yourself. Only in `autonomy=auto` (unattended) dispatch programmatically (Task tool / `opencode run` subprocess) and wait for the manifest
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 >
@@ -148,13 +149,13 @@ This rule is enforced by `~/.config/opencode/scripts/validators/validate-no-asci
 > ```
 > task(agent="X", prompt="...", timeout=N)
 >       ↓  becomes
-> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [Point user at /skill + doc] → [Wait for user]
+> [Save state] → [Write context packet] → [Write docs/work/HANDOFF_X.md] → [bash handoff-emit.sh X  (lints + prints the pointer)] → [one-line reply] → [Wait for user]
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 > ```
 >
 > The task prompt text becomes the `YOUR TASK:` section of the HANDOFF block. Use Template 1 from `agents/shared/HANDOFF_TEMPLATES.md` for the full block format, including the `════` delimiters, ROLE line, CONTEXT section, WRITE-SCOPE, PRODUCE list, VERIFY checklist, Completion Manifest, and completion phrase.
 >
-> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and print one pointer listing the N agents to open. The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
+> **Parallel HANDOFFs** (when the mode file shows multiple `task()` calls in the same step): write each `docs/work/HANDOFF_<agent>.md` and run `handoff-emit.sh` once per file (N pointers, one message, no bodies). The user opens N sessions, each reading its handoff doc. Wait for ALL to return "done" before proceeding.
 
 ---
 
@@ -558,7 +559,24 @@ After "implementation done":
 
 **4. Parallel reviews — fan-out (see Fix-Verify Loop Protocol § Step 1):**
 
-Before emitting, evaluate the auto-trigger rules against the impact analysis:
+**Default: one command runs the whole fan-out (backlog L9).** Do not hand the user N sessions to open. Run:
+
+```bash
+node ~/.config/opencode/scripts/conductor/integration-review.mjs --root . --base main --head HEAD \
+     --names feature:<slug> [--reviewers security,perf,ux]
+```
+
+It runs the deterministic scanners once (`scripts/scan/collect.sh`), then the triggered reviewers
+**concurrently** as `opencode run` sessions over the whole feature diff, each writing its own
+`docs/reviews/<KIND>_<slug>_<date>.md`, plus `INTEGRATION_SUMMARY_*.md`. Pass `--reviewers` with
+the specialists the trigger rules below select (code-reviewer always runs; the script also adds
+security/perf/ux when the diff trips its own high-signal rules). Read ONLY the produced reports and
+the summary, then continue to the Fix-Verify loop. The manual HANDOFF blocks below are the
+**fallback** for when `opencode run` cannot be spawned here, or the user asks to drive each
+specialist session by hand — in that case write each `docs/work/HANDOFF_<agent>.md` and run
+`handoff-emit.sh` per file; never print the blocks.
+
+Before dispatching (either path), evaluate the auto-trigger rules against the impact analysis:
 - **code-reviewer** — ALWAYS runs.
 - **security-auditor** — runs if the impact analysis lists any auth, session, authorization, user-input, file-upload, SQL/ORM, crypto, or external-API-with-credentials surface.
 - **performance-engineer** — runs if the impact touches a path with an NFR target in SRS.md, DB queries (new or modified), loops over collections, caching, or background jobs.
