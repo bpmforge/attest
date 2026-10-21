@@ -2127,6 +2127,13 @@ function pushRemotes(ticket, branch, forceRef = null) {
  */
 function runIntegrationReview(cwd, base, head, label) {
   if (INTEGRATION_REVIEW === 'off' || DRY) return { ran: false, approved: false };
+  // `auto` follows --rounds: a bare `--rounds 1` run is coder-only by the
+  // operator's choice (no reviewer sessions at all), so the branch audit is not
+  // spawned behind their back either. `on` forces it regardless.
+  if (INTEGRATION_REVIEW === 'auto' && ROUNDS < 3) {
+    log('integration.skipped', { label, msg: `--rounds ${ROUNDS}: no review rounds requested, integration review not run (pass --integration-review on to force)` });
+    return { ran: false, approved: false };
+  }
   if (!existsSync(INTEGRATION_SCRIPT)) {
     log('integration.skipped', { msg: `${INTEGRATION_SCRIPT} not found` });
     return { ran: false, approved: false };
