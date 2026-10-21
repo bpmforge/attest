@@ -10,12 +10,13 @@ How to install, configure, and use each MCP server in the expert system. For the
 |-----|---------|-------------|---------|
 | `playwright-mcp` | Browser automation, screenshots, E2E testing | ✅ | ✅ |
 | `playwright-search` | Multi-engine web research + page extraction | ✅ | ✅ |
-| `pullmd` | Clean markdown extraction from JS-heavy pages | ✅ | ✅ |
 | `context7` | Live library API docs lookup | ✅ | ✅ |
 | `memory` | Cross-session project memory (decisions, facts, patterns) | ✅ | ✅ |
 | `code-search` | Semantic code search + symbol index | ✅ | ✅ |
 
-`install.sh` sets up all of these. You can skip individual MCPs with `--no-<name>` flags.
+`install.sh` sets up all of these except `memory`, which is opt-in (`--memory`). Skip others with `--no-playwright-mcp`, `--no-playwright-search` or `--no-code-search`.
+
+There is no separate `pullmd` service any more: it was removed in v2.2.0. The `*_pullmd`-named tools (`web_search_pullmd`, `web_research_pullmd`) are provided by `playwright-search` itself and keep the name only for compatibility. `install.sh` removes a stale `pullmd` entry left by an older install.
 
 ---
 
@@ -131,35 +132,6 @@ playwright-search_web_fetch("https://github.com/microsoft/playwright-mcp")
 
 ---
 
-## pullmd — Markdown extraction fallback
-
-**What it does:** Pulls clean markdown from URLs that `playwright-search_web_fetch` struggles with: JavaScript-rendered SPAs, Cloudflare-protected pages, Reddit threads. 4-stage pipeline: Reddit handler → Cloudflare native MD → Readability + Trafilatura → headless Playwright.
-
-**Install:**
-```bash
-# pullmd runs as a local HTTP server — start it once
-# Check if running: curl http://localhost:33000/health
-
-# Claude Code — register as remote MCP
-claude mcp add pullmd --transport sse http://localhost:33000/mcp
-
-# OpenCode — in opencode.json
-"pullmd": {
-  "type": "remote",
-  "url": "http://localhost:33000/mcp",
-  "enabled": true
-}
-```
-
-**Key tool:**
-```
-pullmd_read_url(url="https://reddit.com/r/...", render="force")
-```
-
-Use as the **last resort** in the research chain: playwright-search → pullmd → give up.
-
----
-
 ## context7 — Live library API docs
 
 **What it does:** Fetches up-to-date library documentation from the Context7 index. Prevents agents from using stale training-data APIs that may have changed. Used by `coding-agent` before using any external library.
@@ -222,13 +194,13 @@ claude mcp add memory node ~/Code/bpm-memory-mcp/mcp/memory-server/dist/index.js
 
 **Fallback when unavailable:** Agents write to `docs/work/SESSION_NOTES.md`.
 
-**Embedding provider:** Requires LM Studio running with `text-embedding-nomic-embed-text-v1.5` on port 1234. If LM Studio isn't running, BM25-only search still works — just set `EMBEDDING_PROVIDER=none` in the server's env.
+**Embedding provider:** Read from `~/.claude-memory/config.json`, not from environment variables. With no config file the server uses Ollama at `http://localhost:11434` with `nomic-embed-text`; `install.sh` writes a config selecting LM Studio when it finds LM Studio serving an embedding model and no config exists. If the embedder isn't reachable, memories are stored without vectors and recall is keyword-only (BM25) automatically — there is no switch to set. See `SETUP.md` §3.
 
 ---
 
 ## code-search — Semantic code search + symbol index
 
-**What it does:** Two-layer search over your codebase: (1) semantic chunk search via embeddings + cosine similarity, (2) structural symbol index (functions, classes, interfaces, types, Markdown sections) extracted at index time. FTS5 BM25 fallback when no embedding provider.
+**What it does:** Two-layer search over your codebase: (1) semantic chunk search via embeddings + cosine similarity, (2) structural symbol index (functions, classes, interfaces, types, Markdown sections) extracted at index time. Building the index needs a reachable embedder (LM Studio by default; `code_index` refuses without one); once indexed, search degrades to keyword-only if the embedder goes away.
 
 **Source:** `~/Code/bpm-code-search-mcp/`
 
@@ -272,9 +244,8 @@ code_index_status()       ← verify: files, chunks, symbols, provider
 |---------|-----|
 | `claude mcp list` shows MCP as "Pending approval" | Run `claude` interactively once to approve |
 | playwright-mcp: "browser not found" | Run `npx playwright install chromium` |
-| memory: no results, vector search returns 0 | Start LM Studio with nomic-embed-text loaded on port 1234 |
+| memory: no results, vector search returns 0 | Start the embedder `~/.claude-memory/config.json` names — with no config file, Ollama with `nomic-embed-text` on port 11434 — then `memory_reembed(onlyMissing=true)` |
 | code-search: index empty after edit | Check hook is installed: `grep reindex ~/.claude/settings.json` |
-| pullmd: connection refused | Start the pullmd server: `cd ~/Code/pullmd && npm start` |
 | context7: rate limited | context7 is free but rate-limited; wait and retry |
 
 ---

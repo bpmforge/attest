@@ -250,7 +250,7 @@ Reach for `--deep` before contract bids, diligence reviews, security-sensitive t
 ```
 /sdlc init my-game "A roguelike about ..." --game
 ```
-Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator, game-asset-pipeline).
+Same SDLC gates with game artifacts: a GDD (replaces the SRS), player stories, and a vertical-slice gate before content production. Activates the game-dev cluster (game-designer, gameplay-engineer, game-balance-designer, playtest-evaluator, game-asset-pipeline, game-producer, level-designer, narrative-designer, game-audio-designer).
 
 ### Cut a release
 ```
@@ -449,14 +449,14 @@ Reports use the skeleton-first format — actionable intel first, verbatim code 
 Modes: `--review` (default), `--debt`, `--consolidate`, `--patterns`
 
 ```
-/review-code                    # full 7-dimension health pass
+/review-code                    # full 9-dimension health pass
 /review-code --debt             # leverage-sorted tech-debt register
 /review-code --consolidate      # DRY + error-handling consolidation proposals
 /review-code --patterns         # cross-codebase pattern drift audit
 /review-code src/auth/          # target a specific directory
 ```
 
-The 7 dimensions: Complexity, Duplication/DRY, Error Handling (silent-failure hunter), Type Safety, Pattern Consistency, Naming, Comment Accuracy. Verdict rubric: APPROVED / APPROVED WITH SUGGESTIONS / NEEDS REVISION / REJECT.
+The 9 dimensions: Complexity, Duplication/DRY, Error Handling (silent-failure hunter), Type Safety, Pattern Consistency, Naming, Comment Accuracy, Dead/Unutilized Code, Tech-Stack Compliance (the anti-slop auditor runs alongside them). Verdict rubric: APPROVED / APPROVED WITH SUGGESTIONS / NEEDS REVISION / REJECT.
 
 Reference: `references/code-health-checklist.md`. Output: `docs/reviews/`.
 
@@ -564,9 +564,10 @@ Modes: `--design`, `--migrate`, `--tune`, `--review`
 Output: `docs/db/`.
 
 ### `/ux`
-Modes: `--design`, `--review`, `--audit`
+Modes: `--design`, `--research`, `--review`, `--audit`, `--flows`
 
 ```
+/ux --research "triage view for failing agent runs"  # cited references from real products → docs/design/REFERENCES.md
 /ux --design "onboarding flow for new users"
 /ux --review src/components/SettingsPanel.tsx
 /ux --audit                     # WCAG 2.2 AA accessibility audit
@@ -617,6 +618,39 @@ Modes: `--implement`, `--polish`, `--system`
 ```
 
 Used by `sdlc-lead` in Phase 3 after the UX spec is approved, and in `/sdlc improve "frontend"`. Distinct from `/ux`: UX handles workflows and accessibility; frontend handles visual implementation and polish.
+
+### `/interaction`
+Modes: `--spec`, `--implement`, `--audit`
+
+```
+/interaction --spec "kanban board"            # interaction contract → docs/design/INTERACTIONS.md
+/interaction --implement "kanban board"       # source components, build, Playwright-verify each gesture
+/interaction --audit http://localhost:3000    # keyboard/touch/reduced-motion/failure audit → docs/reviews/
+```
+
+For anything users drag, sort, resize, or rearrange. Every drag gets a keyboard path and a single-pointer alternative; layouts persist as versioned JSON. Re-verifies library versions/status before using them (`references/ui-ecosystem-map.md`).
+
+### `/graphics`
+Modes: `--design`, `--implement`, `--audit`
+
+```
+/graphics --design "product 3D configurator"   # purpose, tiers + budgets, assets, fallbacks → docs/design/GRAPHICS.md
+/graphics --implement "product 3D configurator" # static fallback first, then the scene, with perf + fallback tests
+/graphics --audit http://localhost:3000         # throttled frame times, memory, WebGL-off, reduced motion → docs/reviews/
+```
+
+For anything rendered in a canvas. Graphics have to earn their place: budgets are measured on the weakest device and the DOM fallback ships first.
+
+### `/agent-ui`
+Modes: `--design`, `--implement`, `--audit`
+
+```
+/agent-ui --design "deploy approval flow"     # action classes, surfaces, catalog, states → docs/design/AGENT_UI.md
+/agent-ui --implement "deploy approval flow"  # approvals → streaming states → trace → generative renderer
+/agent-ui --audit http://localhost:3000/chat  # approve/reject/timeout, cancel, malicious output → docs/reviews/
+```
+
+For products where an AI agent acts. The UI — not the prompt — decides what needs approval; generated UI is a validated JSON spec, never in-origin HTML.
 
 ### `/explore`
 

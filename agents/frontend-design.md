@@ -74,13 +74,13 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop prevention (MANDATORY)
 
-The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. Three loop classes have caused real failures:
+The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. These are the stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not on a call count: stop a work-unit when its success criterion is met (or confidence ≥ 8), when 3 consecutive calls add nothing new, or when you would re-fetch a URL/file you already have. Checkpoint findings to disk as you go.
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -101,6 +101,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 - `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
 
 ## What You Own vs What ux-engineer Owns
 
@@ -239,6 +241,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 Before printing a completion phrase or marking done:
 
 - [ ] All deliverables written to disk — no output exists only in context
+- [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
 - [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
 - [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
@@ -485,6 +488,8 @@ Before declaring any mode complete, check against these markers of generic AI ou
 - [ ] **Spacing:** NOT uniform 16px everywhere. Use a deliberate scale with variation (tight in toolbars, generous in content areas).
 - [ ] **Motion:** NOT zero motion AND not excessive motion. Subtle fade-in, smooth hover states, confident page transitions.
 
+- [ ] **Full deterministic set:** run the 59 checkable rules in `references/ai-design-tells.md` (computed CSS / DOM / copy — no vision needed) on the rendered page.
+
 If 3+ of these fail, the design needs another pass.
 
 ---
@@ -495,6 +500,12 @@ If 3+ of these fail, the design needs another pass.
 - Component architecture needs rethinking → `ux-engineer` for workflow redesign
 - Implementation done and a dev server can run → `design-iterator` for the render→screenshot→critique→fix loop against tokens.json (verified visual conformance beats code-side polish)
 - Need to optimize image/font loading → `performance-engineer`
+- Drag/sort/resize, layout persistence, keyboard alternatives for gestures → `interaction-engineer` (you own how it looks and the motion aesthetic; it owns how it behaves)
+- Agent-facing surfaces (approvals, tool calls, generated UI) → `agent-ui-engineer`
+- 3D, WebGL/WebGPU, shaders, or canvas scenes → `graphics-engineer` (you own the page around the canvas; it owns what renders inside)
+- Before adding any dependency or vendored component → run `node ~/.config/opencode/scripts/stack-coherence.mjs` and the pre-flight in `references/stack-coherence.md` (wrong framework, second kit, or deprecated package = rejected)
+- Before a new screen or a redesign → `references/design-research-protocol.md` (references from shipped products, patterns not pixels)
+- Before building any new component → follow `references/component-sourcing.md` (project → shadcn registries → 21st → galleries) and record it in `docs/design/COMPONENT_SOURCES.md`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`
 

@@ -96,7 +96,7 @@ One-page summary per agent. For full docs, read the agent file directly.
 ## Quality Assurance
 
 ### code-reviewer
-**What:** 8-dimension code health audit (correctness, performance, security, maintainability, tests, docs, style, architecture).  
+**What:** 9-dimension code health audit (complexity, duplication, error handling, type safety, pattern consistency, naming, comment accuracy, dead/unutilized code, tech-stack compliance), plus the anti-slop pass.  
 **When to use:** Before merging, after major refactors, periodic debt reviews.  
 **Modes:** review · debt · consolidate · patterns  
 **Output:** Scored findings (1-10 per dimension) + prioritized fix list.
@@ -218,6 +218,18 @@ Activated by `/sdlc init "<name>" "<desc>" --game`:
 ### design-iterator
 **What:** Render → screenshot → critique → fix → re-verify loop until a running UI matches its design system (cap 3 iterations); `--sync` extracts a token baseline, `--real` audits logged-in browsers.  
 **When to use:** Phase 4 Round 3b, or any UI that drifted from its tokens. `/design-iterate`
+
+### interaction-engineer
+**What:** Interaction contract, implementation, and audit for drag-and-drop/sortable cards, Kanban, resizable panels, layout editors (dnd-kit, Puck), node canvases (React Flow), command palettes, undo/redo, and layout persistence as validated JSON — every gesture gets a keyboard and single-pointer twin.  
+**When to use:** Any screen where things move, resize, reorder, or get rearranged by users; dispatched by ux-engineer when the screen inventory needs it. `/interaction`
+
+### graphics-engineer
+**What:** 3D (three.js / R3F), WebGL/WebGPU and shaders, high-performance 2D canvas (PixiJS, OGL), scroll/timeline scenes. Owns frame budgets per device tier, compressed assets, static/DOM fallbacks, disposal, canvas accessibility.  
+**When to use:** Any screen that renders a scene rather than laying out DOM. `/graphics`
+
+### agent-ui-engineer
+**What:** Interfaces where an AI agent acts — approval (HITL) screens, tool-call and trace views, streaming/cancel/retry states, persistent artifacts, generative UI from a typed component catalog (catalog → JSON spec → validate → render), sandboxing. Selects and grounds CopilotKit / AG-UI / assistant-ui / json-render.  
+**When to use:** Any agent-facing product surface; after llm-integration-engineer defines the output contracts. `/agent-ui`
 
 ---
 

@@ -69,7 +69,7 @@ fine; re-issuing your own task is not.
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 30 tool calls total for this orchestration session. At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -86,7 +86,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 Stopping per 2-strikes rule.
 ```
 
-Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
+Other caps: failure loop → 3 strikes; success loop → stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 **Tool format — copy these exactly:**
 - Read a file: `read(filePath="~/.config/opencode/agents/sdlc-feature-mode.md")`
@@ -548,7 +548,7 @@ Before emitting, evaluate the auto-trigger rules against the impact analysis:
 ───── HANDOFF #1 → /review-code (code-reviewer) ─────
 SDLC-TASK for code-reviewer:
 CONTEXT: [feature] implementation files + docs/ARCHITECTURE.md.
-YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, anti-slop, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design). File:line + severity + fix per finding.
+YOUR TASK: 9-dimension review (complexity, DRY, error handling, type safety, pattern consistency, naming, comment accuracy, dead/unutilized code, tech-stack compliance — deps match TECH_STACK.md, no tech outside the design), plus the anti-slop pass. File:line + severity + fix per finding.
 PRODUCE: docs/reviews/CODE_REVIEW_<feature>_<date>.md — findings per dimension with severity, verdict (APPROVED / NEEDS REVISION / REJECT), required fixes.
 Print exactly: "review done — [verdict and top finding]"
 

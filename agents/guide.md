@@ -17,13 +17,13 @@ deliverable yourself — you get the user to the expert that does.
 
 ## Loop prevention (MANDATORY)
 
-The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. Three loop classes have caused real failures:
+The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. These are the stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not on a call count: stop a work-unit when its success criterion is met (or confidence ≥ 8), when 3 consecutive calls add nothing new, or when you would re-fetch a URL/file you already have. Checkpoint findings to disk as you go.
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
 ## How you operate
 
@@ -50,6 +50,9 @@ These rules override the "be thorough" / "iterate more" / "try harder" instinct.
 | Plan a schema migration (ordered steps + rollback per step) | migration-planner | via `/sdlc feature` or a direct HANDOFF — compares two schema states, emits a reversibility-tested migration plan |
 | Design a UI / UX / check accessibility | ux-engineer | `/ux` |
 | Make existing UI look intentional (visual polish) | frontend-design | `/frontend` |
+| Drag-and-drop / sortable cards / Kanban / resizable panels / dashboard layout editor / command palette / undo — spec, build, or audit | interaction-engineer | `/interaction` |
+| 3D / WebGL / WebGPU / shaders / high-performance canvas scenes, spatial visualizations — design, build, or audit | graphics-engineer | `/graphics` |
+| Agent-facing UI — approvals, tool-call/trace views, streaming states, generative UI from a component catalog (CopilotKit / AG-UI / assistant-ui / json-render) | agent-ui-engineer | `/agent-ui` |
 | Write or review tests | test-engineer | `/test-expert` |
 | Test the app as a real first-time user would | end-user-simulator | `/end-user-simulator` |
 | Design an API / endpoints / contracts | api-designer | `/api-design` |

@@ -14,7 +14,7 @@ Step-by-step setup for a new machine. Covers prerequisites, installation, MCP co
 | **OpenCode** | Latest | `# OpenCode install: https://opencode.ai` |
 
 Optional but recommended:
-- **LM Studio** — for vector embeddings (semantic search). Without it, BM25 keyword search still works.
+- **LM Studio** — embedding server for code-search, which needs one to build its index (and optionally for memory, which defaults to Ollama and falls back to keyword-only search without an embedder). See §3.
 - **Opengrep** — preferred SAST engine for security audits (`./install.sh --opengrep`, or see §2a below). Falls back to Semgrep if unavailable.
 
 ---
@@ -34,7 +34,7 @@ cd ~/Code/attest
 **What it installs:**
 - Agents, skills, shared protocols, hooks, and scripts → `~/.config/opencode/`
 - `bpm-code-search-mcp` → `~/Code/bpm-code-search-mcp/` + registers as `code-search` MCP
-- `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP
+- `bpm-memory-mcp` → `~/Code/bpm-memory-mcp/` + registers as `memory` MCP — **optional, off by default**: pass `--memory`, or answer yes at its prompt (default no; the prompts appear only when `./install.sh` runs with no flags, so `--yes` skips it). It then checks for an embedder (§3, Option C)
 - `playwright-mcp` → registered via `npx -y @playwright/mcp@latest`
 - `playwright-search` → `~/.local/share/playwright-search/` + registers with Claude Code
 
@@ -83,22 +83,25 @@ the official installer above) rather than falling back to Semgrep.
 
 ## 3. Embedding model setup
 
-Both `bpm-code-search-mcp` and `bpm-memory-mcp` use vector embeddings for semantic search. **BM25 keyword search works without any embedding provider** — set it up only if you want semantic ("what does auth?" style) search.
+Both `bpm-code-search-mcp` and `bpm-memory-mcp` use vector embeddings for semantic search, but they configure their embedders separately and behave differently without one:
 
-### Option A — LM Studio (default, free, local)
+- **code-search** reads environment variables (§4) and talks to LM Studio or another OpenAI-compatible server. `code_index` **needs a reachable embedding endpoint** — it embeds every chunk and refuses to run without one. Once an index exists, `code_search` degrades to keyword-only if the embedder later goes away, and `code_symbols` / `code_outline` / `code_references` never need it.
+- **memory** reads `~/.claude-memory/config.json` (no environment variable selects the embedder). With no config file it uses **Ollama** at `http://localhost:11434` with `nomic-embed-text`. It works with no embedder at all: memories are stored without vectors and recall is keyword-only (BM25). The server re-probes its configured embedder at most every 30 s, so starting one later turns vector recall on without a restart.
+
+### Option A — LM Studio (default for code-search, free, local)
 
 1. Download [LM Studio](https://lmstudio.ai)
 2. In the model search bar, find and download: `nomic-ai/nomic-embed-text-v1.5-GGUF`
 3. Load it → it will listen on `http://localhost:1234`
-4. No further config needed — the MCPs default to this model and URL
+4. No further config needed for code-search — it defaults to this URL and the model ID `text-embedding-nomic-embed-text-v1.5`. Memory uses LM Studio only when `~/.claude-memory/config.json` selects it; `install.sh` writes that file for you when it finds LM Studio (see Option C).
 
-### Option B — Different LM Studio model
+### Option B — Different LM Studio model (code-search)
 
-Any text embedding model loaded in LM Studio works. Set these env vars (add to `~/.zshrc` or `~/.bashrc`):
+Any text embedding model loaded in LM Studio works. Set these env vars (add to `~/.zshrc` or `~/.bashrc`) — code-search reads them; memory does not:
 
 ```bash
 export LM_STUDIO_MODEL="your-model-name-here"   # model ID as shown in LM Studio
-export LM_STUDIO_URL="http://localhost:1234"     # default port, change if different
+export LM_STUDIO_URL="http://localhost:1234"     # server root, no /v1 — change if different
 ```
 
 Common alternatives:
@@ -110,29 +113,35 @@ Common alternatives:
 | `CompendiumLabs/bge-large-en-v1.5-gguf` | 1024 | Medium | Better |
 | `CompendiumLabs/bge-small-en-v1.5-gguf` | 384 | Fastest | OK |
 
-> **Important:** If you change the embedding model after indexing, you must re-index with `force=true` (for code-search) or the existing vectors become incompatible. Memory is provider-sticky — changing the model requires re-embedding stored memories.
+> **Important:** If you change the embedding model after indexing, you must re-index with `force=true`. code-search records the provider, model and vector dimension at index time; after a change, `code_search` and `code_index` refuse with a message until you run `code_index(force=true)`, which clears the old index and re-embeds every file. Memory is provider-sticky — after switching its model, run `memory_reembed()` to re-embed stored memories.
 
-### Option C — OpenAI embeddings
+### Option C — Memory embedder (`~/.claude-memory/config.json`)
 
-Set these env vars:
+**Default (no config file):** install [Ollama](https://ollama.com) and run `ollama pull nomic-embed-text`. Nothing else to configure.
 
-```bash
-export LM_STUDIO_URL="https://api.openai.com/v1"
-export LM_STUDIO_MODEL="text-embedding-3-small"
-export OPENAI_API_KEY="sk-..."
+**LM Studio, another model, or a remote host** — create `~/.claude-memory/config.json`:
+
+```json
+{
+  "embedding": {
+    "provider": "lmstudio",
+    "endpoint": "http://localhost:1234",
+    "model": "text-embedding-nomic-embed-text-v1.5",
+    "dimensions": 768
+  },
+  "version": 1
+}
 ```
 
-`bpm-code-search-mcp` and `bpm-memory-mcp` both speak the OpenAI embeddings API format, so this works transparently.
+`provider` is `ollama` or `lmstudio`. `endpoint` is the server root — the client appends `/v1/embeddings` (LM Studio) or `/api/embeddings` (Ollama) itself.
 
-### Option D — No embeddings (BM25 only)
+**What `install.sh` does** (when you install memory with `--memory` or answer yes at the prompt): it never touches an existing `config.json` — it reports the provider it names and probes that endpoint. With no config file, if Ollama is serving `nomic-embed-text` it writes nothing (that is the server's default). Otherwise, if LM Studio on `localhost:1234` lists a model whose ID contains `embed` (a nomic one preferred), it writes `config.json` selecting that model, with `dimensions` measured from one probe embedding (768 if the probe fails). If Ollama is up without the model it offers to pull it; if no embedder is found it says memory runs keyword-only and prints how to enable one later.
 
-If you don't want to run LM Studio at all, disable vector embeddings:
+### Option D — Other OpenAI-compatible servers (no hosted APIs)
 
-```bash
-export EMBEDDING_PROVIDER=none
-```
+Any server exposing `GET /v1/models` and `POST /v1/embeddings` works: point code-search's `LM_STUDIO_URL`, or memory's `endpoint` with `"provider": "lmstudio"`, at its root (the clients append `/v1/...` themselves, so do not include `/v1`). Neither server sends an API key or `Authorization` header, so hosted APIs that require one — OpenAI included — are **not supported**.
 
-Both MCPs will use BM25 keyword search only. This is faster and still effective for exact-match queries — just not semantic ("find code that handles auth" style).
+There is no switch to turn embeddings off: memory falls back to keyword-only on its own when its embedder is unreachable, and code-search cannot build an index without one.
 
 ---
 
@@ -154,18 +163,22 @@ code_index()          # builds the index (takes ~30s for medium codebases)
 code_index_status()   # verify: provider, files, chunks, symbols
 ```
 
-The index lives at `.code-search/index.db` in your project root (gitignored). It's rebuilt automatically when you re-index.
+`code_index` refuses to run until an embedder is reachable (§3). The index lives at `.code-search/index.db` under the project root (`CODE_SEARCH_ROOT`). The server does not gitignore it — add `.code-search/` to your `.gitignore` (`/sdlc hygiene` adds that rule). Re-running `code_index()` refreshes it, skipping files whose mtime is unchanged.
 
 ### bpm-memory-mcp
 
+The embedder is not set by environment variables — it comes from `~/.claude-memory/config.json` (§3, Option C). The server reads these:
+
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `LM_STUDIO_URL` | `http://localhost:1234` | Embedding API base URL |
-| `LM_STUDIO_MODEL` | `text-embedding-nomic-embed-text-v1.5` | Embedding model name |
-| `EMBEDDING_PROVIDER` | _(auto-detect)_ | Set to `none` to disable vectors |
-| `CLAUDE_MEMORY_DB_PATH` | `~/.claude-memory/memory.db` | Override the DB location |
+| `CLAUDE_PROJECT_ROOT` | `cwd` | Project whose memory database is used |
+| `MEMORY_AGENT_ID` | _(unset)_ | Default writer/reader agent id for fleet-scoped memories |
+| `MEMORY_TEAM_ID` | _(unset)_ | Default writer/reader team id for `team`-visibility memories |
+| `CLAUDE_MEMORY_SLEEP_CONSOLIDATION` | `false` | Set to `true` to run consolidation automatically on `session_save` |
+| `CLAUDE_MEMORY_CONSOLIDATION_INTERVAL_HOURS` | `24` | Minimum hours between automatic consolidation runs per project |
+| `CLAUDE_MEMORY_CONSOLIDATION_LOG_PATH` | `~/.claude-memory/logs/consolidation.log` | Consolidation run log |
 
-Memory is shared across all projects by default (project-scoped via project ID). Each project's memories are isolated automatically.
+Each project gets its own database at `~/.claude-memory/<project-id>/memory.db`, where `<project-id>` is the first 16 hex characters of the SHA-256 of the project root path, so projects' memories are isolated automatically. The location is fixed — no variable overrides it.
 
 ### playwright-mcp
 
@@ -286,8 +299,10 @@ browser_navigate("https://example.com") && browser_screenshot()
 If LM Studio runs on a different machine (e.g., a home server):
 
 ```bash
-export LM_STUDIO_URL="http://192.168.1.x:1234"   # replace with your server IP
+export LM_STUDIO_URL="http://192.168.1.x:1234"   # code-search — replace with your server IP
 ```
+
+Memory ignores that variable: set `"endpoint": "http://192.168.1.x:1234"` (with `"provider": "lmstudio"`) in `~/.claude-memory/config.json` instead (§3, Option C).
 
 Make sure LM Studio is configured to accept connections on all interfaces (not just localhost) in its settings.
 
@@ -298,8 +313,9 @@ Make sure LM Studio is configured to accept connections on all interfaces (not j
 | Problem | Fix |
 |---------|-----|
 | `cat ~/.config/opencode/opencode.json \| python3 -m json.tool` shows MCP as "Pending approval" | Restart OpenCode once and approve it |
-| code-search: "no embedding provider available" | Start LM Studio with the embedding model loaded, or set `EMBEDDING_PROVIDER=none` for BM25-only |
-| memory: vector search returns 0 results | LM Studio isn't running or model name doesn't match — check `LM_STUDIO_MODEL` |
+| code-search: "No embedding provider available" | Start LM Studio (or the server at `LM_STUDIO_URL`) with an embedding model loaded, then retry — `code_index` cannot build an index without one |
+| code-search: "The embedding model changed since this index was built" | Run `code_index(force=true)` to rebuild the index with the current model |
+| memory: vector search returns 0 results | Its embedder isn't reachable, so recall is keyword-only. With no `~/.claude-memory/config.json` that embedder is Ollama with `nomic-embed-text` on port 11434; otherwise check the file's `provider`, `endpoint` and `model`. Then run `memory_reembed(onlyMissing=true)` to embed memories stored while it was down |
 | playwright-mcp: "browser not found" | Run `npx playwright install chromium` |
 | install.sh: "node not found" or wrong version | The installer will prompt to install NVM + Node 24 automatically |
 | `jq: command not found` | `brew install jq` (macOS) or `apt install jq` (Linux) |
@@ -313,4 +329,4 @@ Make sure LM Studio is configured to accept connections on all interfaces (not j
 ./uninstall.sh
 ```
 
-Removes all installed files from `~/.claude/`. Does not remove MCP repos from `~/Code/` or the memory database (`~/.claude-memory/memory.db`).
+Removes all installed files from `~/.config/opencode/`. Does not remove MCP repos from `~/Code/` or the memory databases and config under `~/.claude-memory/`.

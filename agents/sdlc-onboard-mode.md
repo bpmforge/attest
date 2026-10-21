@@ -65,7 +65,7 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 30 tool calls total for this orchestration session. At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). At each phase boundary, evaluate: "Have I made meaningful progress? Or am I cycling?" Stop and checkpoint rather than loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -85,7 +85,7 @@ Read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md` before loading multipl
 
 ## Loop Prevention (MANDATORY — rules are here, no file read required)
 
-**Class 2 — Schema-validation loop — STOP after 2 strikes.** Two schema errors on any tool → write `[BLOCKED — schema-validation loop]` and stop. Other caps: failure loop → 3 strikes; success loop → 15 total calls max.
+**Class 2 — Schema-validation loop — STOP after 2 strikes.** Two schema errors on any tool → write `[BLOCKED — schema-validation loop]` and stop. Other caps: failure loop → 3 strikes; success loop → stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 ---
 

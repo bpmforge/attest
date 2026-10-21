@@ -14,7 +14,7 @@
 |-----|---------------|
 | [SDLC_GUIDE.md](SDLC_GUIDE.md) | The four `/sdlc` modes, phases, git branching model, gates |
 | [EXPERT_GUIDE.md](EXPERT_GUIDE.md) | How each slash-command expert thinks and what it produces |
-| [AGENT_REFERENCE.md](AGENT_REFERENCE.md) | One paragraph per agent, every agent |
+| [AGENT_REFERENCE.md](AGENT_REFERENCE.md) | One paragraph per primary and game-cluster agent (micro-agents are catalogued in FEATURES.md) |
 | [UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md) | Running Phase 4 unattended with the conductor |
 | [LOCAL_LLM_GUIDE.md](LOCAL_LLM_GUIDE.md) | Running on local models: tiers, compact variants |
 | [MCP_GUIDE.md](MCP_GUIDE.md) | Configuring the MCP servers the experts use |

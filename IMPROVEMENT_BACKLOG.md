@@ -7,7 +7,7 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
 J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
 Updated: 2026-10-21 — added **Group L** (token & overhead optimization) from the telemetry audit in
-`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L10 and L12–L15 shipped on `improve/token-optimization` (v3.13.0); L11 open.
+`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L10 and L12–L15 shipped on `improve/token-optimization` (v3.14.0); L11 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
 (held privately, not in this repo): 118 delegations, 24% correction rate,
 0 escapes to `main`, all caught by a human lead re-verifying by hand under schedule pressure.
@@ -944,9 +944,9 @@ ticket. Full tables, sizing and done-criteria live in the plan; this group track
 ### L10. Measure the 33k floor ✅ DONE (from telemetry) 2026-10-21
 - The `build` agent's smallest first message is **13,431 tokens** — that is the floor (opencode system prompt + tool schemas + a short task); its median 33k includes the HANDOFF prompt and first reads. coding-agent's 38.7k median = 13.4k floor + ~25k of agent file + shared protocols. So the agent text, not the harness, is the lever — which is L11. The conductor now logs each role's agent prompt size at startup (`agents.prompt-size`).
 
-### L11. Core/full agent split — OPEN (L) — the one item deliberately NOT in 3.13
+### L11. Core/full agent split — OPEN (L) — the one item deliberately NOT in 3.14
 - `agent.md` ≤8KB for bounded-task sessions + `agent.full.md` for interactive; `build-agents.mjs` emits both
-- Not mechanical: each of the 63 agents' Bounded Task section references different methodology sections, so the cut has to be read per agent. Shipped instead in 3.13: rule cards (C2/C3), the startup prompt-size receipt, and `--compact` as the documented mitigation. **Done when:** median first-message baseline < 12k tokens
+- Not mechanical: each of the 63 agents' Bounded Task section references different methodology sections, so the cut has to be read per agent. Shipped instead in 3.14: rule cards (C2/C3), the startup prompt-size receipt, and `--compact` as the documented mitigation. **Done when:** median first-message baseline < 12k tokens
 
 ### L12. Turn budget on by default + same-worktree continuation ✅ DONE 2026-10-21
 - `--max-turns 120` (median coder session is 48 turns; only the 150–600-turn tail is touched); a session that hits it is continued in the SAME worktree from its TASKS ledger, `--turn-continuations 2`; `session.turn-budget` receipt

@@ -122,11 +122,14 @@ scan_file() {
     # docs that mention it in prose or in quotes are not drawing a diagram.
     # A genuine ═ banner is still caught by rule 1 (^═{40,}$) above, and a real
     # ═ box always carries ║/╔/╗/╚/╝ corners, which remain banned.
-    local banned_chars='║┌┐└┘─│╔╗╚╝╠╣╦╩╬┏┓┗┛━┃┣┫┳┻╋├┤┬┴┼'
-    local i
+    #
+    # Space-separated, not sliced one character at a time: under LANG=C,
+    # ${str:i:1} yields a single BYTE, and the lead byte 0xE2 these glyphs
+    # share with → and — then matched nearly every line of prose.
+    local banned_chars='║ ┌ ┐ └ ┘ ─ │ ╔ ╗ ╚ ╝ ╠ ╣ ╦ ╩ ╬ ┏ ┓ ┗ ┛ ━ ┃ ┣ ┫ ┳ ┻ ╋ ├ ┤ ┬ ┴ ┼'
+    local ch
     local banned=""
-    for (( i=0; i<${#banned_chars}; i++ )); do
-      local ch="${banned_chars:$i:1}"
+    for ch in $banned_chars; do
       if [[ "$scan_line" == *"$ch"* ]]; then
         banned="$ch"
         break

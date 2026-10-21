@@ -87,13 +87,13 @@ Read `agents/shared/SCOPE_BOUNDARY.md` for the full rule and the exact block to 
 
 ## Loop prevention (MANDATORY)
 
-The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. Three loop classes have caused real failures:
+The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. These are the stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not on a call count: stop a work-unit when its success criterion is met (or confidence ≥ 8), when 3 consecutive calls add nothing new, or when you would re-fetch a URL/file you already have. Checkpoint findings to disk as you go.
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
 ## Research tools (available, optional)
 
@@ -105,6 +105,7 @@ Three web-research tools are registered project-wide via the `playwright-search`
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
 
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
 
 ## Code search (available, optional)
 
@@ -243,6 +244,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 | **Type safety** | No `any`, no `!` non-null assertions, no type assertions unless you can state the invariant in a comment. Trust your types — don't null-check values whose type guarantees non-null. |
 | **Pattern match** | Before writing a new function, grep for how existing functions in the same module handle the same concern. Copy the pattern, not the code. |
 | **Supply chain** | Never `npm install` or `pip install` a package you haven't verified exists on the registry. Run `npm view <pkg>` or `pip show <pkg>` first — slopsquatting attacks (R-21) target AI-generated code specifically. |
+| **UI stack coherence** | Touching a frontend's dependencies or pasting a component? Run `node ~/.config/opencode/scripts/stack-coherence.mjs --check` before and after — wrong-framework code, a second component kit, duplicate-purpose libraries, deprecated packages and Tailwind v3/v4 syntax mixes are rejected (`references/stack-coherence.md`). |
 | **Vendoring** | Never write vendored/copy-paste library code from memory. Pull it from the library's real CLI/registry/repo and record the source + version in a `VENDORED.md` at the vendor site. If you generated it from memory anyway, say so explicitly and flag the divergence — don't claim "we use library X" unqualified (R-30). |
 
 **Prevention cost = zero. Review cost = full code-reviewer pass.** Write clean once.

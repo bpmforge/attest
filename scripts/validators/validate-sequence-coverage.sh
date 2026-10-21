@@ -37,7 +37,8 @@ fi
 
 # Collect P0 use-case identifiers
 P0_CASES=$(mktemp -t "p0.XXXXXX")
-trap 'rm -f "$P0_CASES"' EXIT
+COVERED=$(mktemp -t "seqcov.XXXXXX")
+trap 'rm -f "$GAP_FILE" "$P0_CASES" "$COVERED"' EXIT
 
 # Patterns: line contains UC-NN and P0
 grep -E 'UC-[0-9]+' "$USECASES" | grep -E '\bP0\b' | \
@@ -53,66 +54,88 @@ pass "found $P0_COUNT P0 use case(s)"
 
 # -- Each P0 should have a sequence diagram ---------------------------------
 # Acceptable evidence (any one):
-#   1. A sequenceDiagram mermaid block in ARCHITECTURE.md whose block header
-#      (a ## or ### heading within 10 lines above it, OR a title inside the
-#      block) references the UC-id
+#   1. A sequenceDiagram in ARCHITECTURE.md with the UC-id
+#        - in a markdown heading (#..######) within 10 lines above it, or
+#        - on any line within 5 lines above it, or
+#        - in the block header: the `sequenceDiagram` line itself, or a
+#          `title ...` / `%% ...` line inside the same mermaid block.
 #   2. A file docs/sequences/<UC-id>*.md containing a sequenceDiagram block
 #   3. A file under docs/diagrams/sequences/ (where /sdlc onboard's
 #      entry-point-tracer writes them, named by flow: auth.md,
-#      write-operation.md ...) with a heading naming the UC-id within 5
-#      lines above a sequenceDiagram -- the same heading rule as (1).
+#      write-operation.md ...) satisfying the same rule as (1).
 #      Onboard sequences used to count for nothing here: the default and
 #      deep onboard gates both failed missing-sequence on diagrams that
 #      existed, one directory over.
+#
+# UC-ids match exactly (UC-1 does not satisfy UC-14, and vice versa).
+#
+# NO `producer | grep -q` PIPELINES FOR DECISIONS. _lib.sh runs under
+# `set -euo pipefail`: `grep -q` exits on its first match, the upstream
+# awk/grep takes SIGPIPE on its next write, the pipeline returns 141 and the
+# `if` reads it as "not found". On an ARCHITECTURE.md past one pipe buffer
+# (~64 KB) that reported EVERY P0 use case missing (3.13.2, attest-browser:
+# 14 false gaps on a 65 KB file with 21 sequence diagrams). The evidence is
+# now collected ONCE into a file and each UC is looked up with
+# `grep -qxF uc FILE` -- grep reads a file, no pipe, no SIGPIPE.
+
+# Emit every UC-id that rule (1) attributes to a sequenceDiagram, one per
+# line. Works per file (FNR), so it serves ARCHITECTURE.md and the
+# docs/diagrams/sequences/ files alike. Portable awk: no \b (stock macOS
+# awk treats it as a no-op -- see test-awk-word-boundary.ts).
+collect_sequence_ucs() {
+  awk '
+    function emit(s,   rest) {
+      rest = s
+      while (match(rest, /UC-[0-9]+/)) {
+        print substr(rest, RSTART, RLENGTH)
+        rest = substr(rest, RSTART + RLENGTH)
+      }
+    }
+    FNR == 1 { n = 0; in_mermaid = 0; in_seq = 0 }
+    {
+      line = $0
+      if (line ~ /^[[:space:]]*```[[:space:]]*mermaid/) { in_mermaid = 1; in_seq = 0 }
+      else if (in_mermaid && line ~ /^[[:space:]]*```/) { in_mermaid = 0; in_seq = 0 }
+      else if (line ~ /^[[:space:]]*sequenceDiagram/) {
+        emit(line)
+        for (k = 1; k <= 10 && k <= n; k++) {
+          prev = hist[(n - k) % 10]
+          if (k <= 5 || prev ~ /^[[:space:]]*#/) emit(prev)
+        }
+        if (in_mermaid) in_seq = 1
+      }
+      else if (in_seq && line ~ /^[[:space:]]*(title[[:space:]]|%%)/) emit(line)
+      hist[n % 10] = line
+      n++
+    }
+  ' "$@"
+}
+
+if [[ -f "$ARCH" ]]; then
+  collect_sequence_ucs "$ARCH" >> "$COVERED"
+fi
+if [[ -d "$DIAG_SEQ_DIR" ]]; then
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    collect_sequence_ucs "$f" >> "$COVERED"
+  done < <(find "$DIAG_SEQ_DIR" -type f -name '*.md' 2>/dev/null)
+fi
 
 while IFS= read -r uc; do
   [[ -z "$uc" ]] && continue
   found=0
 
-  # Check ARCHITECTURE.md -- look for UC-id within 15 lines of any
-  # sequenceDiagram fence.
-  if [[ -f "$ARCH" ]]; then
-    if awk -v uc="$uc" '
-      /^```mermaid/ { in_mermaid = 1; block = ""; next }
-      /^```$/ && in_mermaid { in_mermaid = 0; print block; block = ""; next }
-      in_mermaid { block = block "\n" $0 }
-      !in_mermaid { hist[NR] = $0; if (NR>15) delete hist[NR-15] }
-      END {}
-    ' "$ARCH" | grep -q "sequenceDiagram" 2>/dev/null; then
-      # We have sequenceDiagrams. Check one of them references this UC.
-      if grep -E "(sequenceDiagram|$uc)" "$ARCH" | grep -A 50 "$uc" 2>/dev/null | grep -q 'sequenceDiagram'; then
-        found=1
-      elif grep -E 'sequenceDiagram' "$ARCH" | grep -q "$uc" 2>/dev/null; then
-        found=1
-      else
-        # Fallback: any section heading referencing UC above a sequenceDiagram
-        if grep -B 5 'sequenceDiagram' "$ARCH" | grep -q "$uc" 2>/dev/null; then
-          found=1
-        fi
-      fi
-    fi
+  if grep -qxF "$uc" "$COVERED"; then
+    found=1
   fi
 
-  # Check docs/sequences/<uc>*.md
+  # Check docs/sequences/<uc>*.md -- capture first, then test (no grep -q
+  # at the end of a find pipeline).
   if [[ "$found" -eq 0 && -d "$SEQ_DIR" ]]; then
-    if find "$SEQ_DIR" -type f -name "${uc}*" 2>/dev/null | head -1 | grep -q .; then
-      # File exists -- confirm it has a sequenceDiagram block
-      match=$(find "$SEQ_DIR" -type f -name "${uc}*" 2>/dev/null | head -1)
-      if grep -q 'sequenceDiagram' "$match"; then
-        found=1
-      fi
+    match=$(find "$SEQ_DIR" -type f -name "${uc}*" 2>/dev/null | head -1 || true)
+    if [[ -n "$match" ]] && grep -q 'sequenceDiagram' "$match"; then
+      found=1
     fi
-  fi
-
-  # Check docs/diagrams/sequences/*.md by heading
-  if [[ "$found" -eq 0 && -d "$DIAG_SEQ_DIR" ]]; then
-    while IFS= read -r f; do
-      [[ -z "$f" ]] && continue
-      if grep -B 5 'sequenceDiagram' "$f" 2>/dev/null | grep -E '^#' | grep -qw "$uc"; then
-        found=1
-        break
-      fi
-    done < <(find "$DIAG_SEQ_DIR" -type f -name '*.md' 2>/dev/null)
   fi
 
   if [[ "$found" -eq 0 ]]; then

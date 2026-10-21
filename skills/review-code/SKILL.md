@@ -8,7 +8,7 @@ description: 'Code-health audit — complexity, duplication, error handling, typ
 Load and follow the instructions in the `code-reviewer` agent.
 
 **Usage:**
-- `/review-code --review` — Full 8-dimension code-health pass (default if no flag)
+- `/review-code --review` — Full 9-dimension code-health pass (default if no flag)
 - `/review-code --debt` — Tech-debt catalog sorted by leverage
 - `/review-code --consolidate` — DRY + error-handling consolidation proposals (silent-failure hunter, extract-method suggestions, references Consolidation Catalog)
 - `/review-code --patterns` — Cross-codebase pattern consistency audit (drift from established idioms)

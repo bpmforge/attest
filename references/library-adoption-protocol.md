@@ -71,6 +71,8 @@ node "$EXPERTS/api-surface.mjs" --package=<pkg>  # Q2+Q4 — generated, version-
 Then Context7 for Q1 usage patterns. Prefer the generated doc when they disagree: it read
 your tree, Context7 read the docs.
 
+**Design-only runs (nothing installed, no install allowed):** Q2 and Q4 have no authority yet. Answer Q1 from Context7 if available, otherwise from `npm view <pkg> readme` and the published types (`https://unpkg.com/<pkg>@<version>/` → the `types`/`typings` file named in `npm view <pkg> types typings --json`). Record every API claim made this way as `UNVERIFIED (design-only, read from <source>)` in the design doc; `--package` grounding becomes the first step of the implementation run.
+
 **In CI, every build:**
 
 ```bash

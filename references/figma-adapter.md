@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-07-14
 **Code:** `scripts/figma/figma.mjs` (+ `figma.sh`), `scripts/lib/design-tokens.mjs`
-**Design:** [`docs/DESIGN_FIGMA_ADAPTER.md`](../docs/DESIGN_FIGMA_ADAPTER.md)
+**Design:** [`docs/DESIGN_FIGMA_ADAPTER.md`](https://github.com/bpmforge/attest/blob/main/docs/DESIGN_FIGMA_ADAPTER.md)
 
 Pulls a Figma file into a normalized snapshot the design agents consume, and
 derives `docs/design/tokens.json` from it. **`tokens.json` stays the source of

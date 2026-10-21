@@ -192,7 +192,7 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"): criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop
 
 These rules override the "be thorough" instinct. Track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 

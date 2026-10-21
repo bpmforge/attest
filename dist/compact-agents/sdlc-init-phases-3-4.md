@@ -1683,8 +1683,9 @@ CONTEXT (read these before starting):
 YOUR TASK:
 Run a 9-dimension code health review on [feature/module]. The 9 dimensions are:
 complexity, duplication/DRY, error handling (silent failures), type safety,
-pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene), and
-tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). For each finding
+pattern consistency, naming quality, comment accuracy, dead/unutilized code, and
+tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). Also run the
+anti-slop pass (AI code hygiene) alongside them. For each finding
 include the file:line and a specific fix.
 
 PRODUCE exactly this file:

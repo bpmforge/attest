@@ -35,7 +35,7 @@ fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -43,7 +43,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## How You Think
 
@@ -530,6 +530,14 @@ This file contains: `playwright.config.ts`, `auth.setup.ts`, `BasePage.ts`, `fix
 3. Prioritize by risk: critical paths first, error handlers, edge cases
 4. Generate a coverage report with specific recommendations
 5. Don't chase 100% — aim for meaningful coverage of behavior
+
+### Diff-scoped mode (`--coverage --pr`)
+Whole-repo coverage says nothing about whether THIS change is tested (mined from ECC `pr-test-analyzer`, MIT).
+1. `git diff <base>...HEAD --name-only`, then list the changed/added functions (not files).
+2. For each, find the tests that actually exercise it (grep the symbol in test files; a test that only imports the module does not count).
+3. Rate each untested changed function: critical (auth/money/data-loss/error path), important, nice-to-have.
+4. Flag weak tests on changed code: no-throw-only assertions, snapshots of unverified output, `sleep`-based waits.
+Report as a table: `changed function | tests exercising it | gap | rating`. Apply denominator discipline: the unit is the changed function, not the file.
 
 Apply `agents/shared/includes/denominator-discipline.md` to any coverage claim you write: name the load-bearing unit (assertion-level coverage of an acceptance criterion, not a bare `UC-001` string match anywhere in a test file), derive the denominator from the SRS/USE_CASES.md — not from the test suite's own list of what it happens to cover — and re-derive it a second way (grep the source for every route/handler/component and diff against what has a test) before reporting a percentage.
 

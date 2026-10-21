@@ -32,7 +32,7 @@ Stdout JSON schema:
 |--------|--------|
 | `validate-architecture.sh` | 6 diagram types present, Mermaid syntax valid, HLA overview, no placeholders |
 | `validate-owasp.sh` | All 10 OWASP categories present, confidence >= 7, status DONE, `ATTACK_CHAINS_<date>.md` (or legacy `attack-chains.md`) present |
-| `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md AND openapi.yaml |
+| `validate-api-coverage.sh` | Every route in source has a row in API_DESIGN.md AND openapi.yaml. JSON-Schema contract mode (no HTTP API: MCP servers, native messaging, CLIs): every backticked name in an API_DESIGN.md table's Tool/Endpoint/Operation/Command/Method/RPC column has a `docs/api/schemas/*.json` file with a matching `.`-separated basename segment (case-insensitive, `-`/`_` ignored), and every schema parses. Selected by `api_contract_mode` in `_lib.sh`: no openapi.yaml + ≥1 schema + a "no HTTP API" / "JSON Schema contracts" line in DESIGN_CONTEXT.md or API_DESIGN.md |
 | `validate-erd-coverage.sh` | Every table/model has an ERD entry; erDiagram mermaid block present |
 | `validate-sequence-coverage.sh` | Every P0 use case has a sequence diagram |
 | `validate-inventory.sh` | Every row in INVENTORY.md has a corresponding artifact |
@@ -61,6 +61,7 @@ Stdout JSON schema:
 - Route discovery is best-effort across Express/Fastify/Next.js/FastAPI/Go. Custom frameworks will be missed.
 - Table discovery covers Prisma, TypeORM, Sequelize, Knex, SQLAlchemy, Django, raw SQL. GORM structs detected via `gorm:` tag grep (imperfect).
 - `validate-sequence-coverage.sh` looks for UC-NN identifiers above/in sequenceDiagram mermaid blocks. False negatives possible if the convention differs.
+- Under `_lib.sh`'s `set -euo pipefail`, never make a decision with `producer | grep -q` (or `| head -1 | grep -q .`): grep exits early, the producer takes SIGPIPE once its output passes a pipe buffer, the pipeline returns 141 and the `if` reads "no match". Use `grep -q x <<< "$VAR"`, `grep -q x FILE`, or `find ... -print -quit`.
 
 ## Adding a validator
 

@@ -60,11 +60,11 @@ Read `agents/shared/SCOPE_BOUNDARY.md` for the full rule and the exact block to 
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## Code search (available, optional)
 
@@ -193,6 +193,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 | **Type safety** | No `any`, no `!` non-null assertions, no type assertions unless you can state the invariant in a comment. Trust your types — don't null-check values whose type guarantees non-null. |
 | **Pattern match** | Before writing a new function, grep for how existing functions in the same module handle the same concern. Copy the pattern, not the code. |
 | **Supply chain** | Never `npm install` or `pip install` a package you haven't verified exists on the registry. Run `npm view <pkg>` or `pip show <pkg>` first — slopsquatting attacks (R-21) target AI-generated code specifically. |
+| **UI stack coherence** | Touching a frontend's dependencies or pasting a component? Run `node ~/.config/opencode/scripts/stack-coherence.mjs --check` before and after — wrong-framework code, a second component kit, duplicate-purpose libraries, deprecated packages and Tailwind v3/v4 syntax mixes are rejected (`references/stack-coherence.md`). |
 | **Vendoring** | Never write vendored/copy-paste library code from memory. Pull it from the library's real CLI/registry/repo and record the source + version in a `VENDORED.md` at the vendor site. If you generated it from memory anyway, say so explicitly and flag the divergence — don't claim "we use library X" unqualified (R-30). |
 
 **Prevention cost = zero. Review cost = full code-reviewer pass.** Write clean once.
@@ -202,6 +203,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
 **Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 30 rules (R-01 through R-30) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28), prose padding (R-29), library-shaped reimplementation (R-30).
+- For Rust/TypeScript/Python/Go, when a compiler/lint error tempts a shortcut (`unsafe`, `.unwrap()`, `#[allow]`, `as any`), read the matching section of `references/language-review-checklists.md` first — never silence the check to make it pass.
 
 Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-30 are in that file.
 

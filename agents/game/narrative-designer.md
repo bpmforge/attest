@@ -77,7 +77,7 @@ If the GDD has no fantasy/pillars, print `BLOCKED: narrative needs the GDD's fan
 
 ## Loop Prevention
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard caps: 3 tool failures → stop; 15 total tool calls max.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Same tool failure 3× → stop; otherwise stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 ## Design rules (discipline reality: `agents/shared/GAME_PRODUCTION.md` §2)
 

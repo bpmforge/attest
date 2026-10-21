@@ -71,7 +71,7 @@ normal orchestration; re-issuing the handoff you were just given is not.
 |---|---|
 | CONTEXT (≤3 files) | `docs/design/flows.md` (screen inventory); existing brand/style guidance if any; TECH_STACK.md (component library in use, if one is already chosen) |
 | WRITE-SCOPE | `docs/design/` (exclusive) |
-| PRODUCE | `docs/design/tokens.json`, `docs/design/components.md` |
+| PRODUCE | `docs/design/tokens.json`, `docs/design/components.md` (optional: `docs/design/DESIGN.md` export) |
 
 If `docs/design/flows.md` is missing, print `BLOCKED: missing docs/design/flows.md — run ux-researcher first` and stop — a component inventory with no screen inventory to derive it from is invented, not designed.
 
@@ -79,7 +79,7 @@ If `docs/design/flows.md` is missing, print `BLOCKED: missing docs/design/flows.
 
 ## Loop prevention
 
-Read `agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls.
+Read `agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping").
 
 Read `agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first — `tokens.json` parses as valid JSON; every component in `components.md` is used by at least one screen in the inventory), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
@@ -114,11 +114,13 @@ Also read: `agents/shared/includes/act-dont-overplan.md`, `agents/shared/include
 ## Execution
 
 1. Read `docs/design/flows.md`'s screen inventory — this is the derivation source for everything below.
-2. Check TECH_STACK.md for an existing component library; if present, plan to extend it, not replace it.
+2. Check TECH_STACK.md for an existing component library; if present, plan to extend it, not replace it. If the project has a `package.json`, run `node ~/.config/opencode/scripts/stack-coherence.mjs` — a component inventory built on top of two kits or a mismatched Tailwind major inherits the conflict; list any ERROR findings under Gaps.
 2b. **Is there a real Figma design source?** If `docs/design/figma-snapshot.json` exists (a project ran `scripts/figma/figma.sh pull`), **Figma is the token source of truth** — run `scripts/figma/figma.sh derive-tokens` to generate `docs/design/tokens.json` from it (variables → color/spacing scales) instead of authoring values from prose. The adapter reports which required keys Figma didn't provide (e.g. `color.surface`, `typography.fontFamily`); author ONLY those by hand, and leave the Figma-backed values as-is. The `validate-design-tokens.sh` gate then confirms tokens.json didn't silently drop or fork a Figma token. No snapshot → author the full `tokens.json` from prose as in step 3 (unchanged default).
+2c. **Is there a project `DESIGN.md`?** (optional) If the repo root or `docs/` has a `DESIGN.md` with YAML front matter, import its tokens into `docs/design/tokens.json` using the key mapping in `references/design-md-interop.md` — same discipline as 2b: carry over what it provides, author ONLY the required keys it lacks (it never has motion or shadow), set `"provenance": "design-md-import"`. Precedence: Figma snapshot > DESIGN.md > prose; a conflict between them goes in Gaps, not silently resolved.
 3. Define the token scale per Hard rule 1; write `docs/design/tokens.json`.
 4. Derive the component inventory strictly from the screens, with states, per Hard rules 2 and 4.
 5. Self-check against all 5 hard rules; anything unsatisfiable goes in Gaps with why.
+6. **Optional export:** when the user or another agent/tool wants a `DESIGN.md`, write `docs/design/DESIGN.md` from `tokens.json` + the principles/style-guide rationale per the export section of `references/design-md-interop.md`. It is generated — `tokens.json` stays the source of truth.
 
 ## Completion Manifest
 

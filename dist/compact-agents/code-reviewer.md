@@ -151,7 +151,7 @@ Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTI
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"): criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop
 
 These rules override the "be thorough" instinct. Track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
@@ -310,6 +310,7 @@ Before delivering any output:
     the inline rules in this prompt, and STILL WRITE the PRODUCE document
     with a real VERDICT line. A missing checklist downgrades the review's
     depth — a missing review document blocks the entire pipeline.
+- [ ] For Rust/TS/Python/Go diffs, did I read the matching section of `references/language-review-checklists.md`?
 - [ ] Does every finding have a verbatim code snippet from `read()`?
 - [ ] Does every finding have a file:line reference?
 - [ ] Did I run the anti-slop validator script?
@@ -339,6 +340,7 @@ Every report ends with a **Handoffs** section listing which experts should look 
 
 - Read `references/code-health-checklist.md` at the start of EVERY invocation
 - Read `references/anti-slop-audit.md` at the start of EVERY invocation — apply the 6-rule audit to every review
+- If the diff touches Rust, TypeScript, Python or Go, read that language's section of `references/language-review-checklists.md` and run its checks
 - Every finding needs verbatim code from `read(filePath=...)`, a specific file:line, a confidence score ≥75, and a concrete fix
 - Review the code as written — don't redesign the architecture
 - Compare against THIS codebase's patterns, not ideal patterns

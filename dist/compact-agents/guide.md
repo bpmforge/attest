@@ -17,7 +17,7 @@ deliverable yourself — you get the user to the expert that does.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## How you operate
 
@@ -44,6 +44,9 @@ Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never re
 | Plan a schema migration (ordered steps + rollback per step) | migration-planner | via `/sdlc feature` or a direct HANDOFF — compares two schema states, emits a reversibility-tested migration plan |
 | Design a UI / UX / check accessibility | ux-engineer | `/ux` |
 | Make existing UI look intentional (visual polish) | frontend-design | `/frontend` |
+| Drag-and-drop / sortable cards / Kanban / resizable panels / dashboard layout editor / command palette / undo — spec, build, or audit | interaction-engineer | `/interaction` |
+| 3D / WebGL / WebGPU / shaders / high-performance canvas scenes, spatial visualizations — design, build, or audit | graphics-engineer | `/graphics` |
+| Agent-facing UI — approvals, tool-call/trace views, streaming states, generative UI from a component catalog (CopilotKit / AG-UI / assistant-ui / json-render) | agent-ui-engineer | `/agent-ui` |
 | Write or review tests | test-engineer | `/test-expert` |
 | Test the app as a real first-time user would | end-user-simulator | `/end-user-simulator` |
 | Design an API / endpoints / contracts | api-designer | `/api-design` |

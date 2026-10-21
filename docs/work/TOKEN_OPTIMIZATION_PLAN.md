@@ -1,6 +1,6 @@
 # Token & Overhead Optimization Plan
 
-**Date:** 2026-10-21 · **Status:** shipped in v3.13.0 on `improve/token-optimization` (Group L in `IMPROVEMENT_BACKLOG.md`): everything except C4 (core/full agent split — needs per-agent surgery), B2/B5 (verify now runs once via B1; validator links in the summary), E2 (overlapped integration review), C5 (compact as install default) · **Owner:** Bradford Matthews
+**Date:** 2026-10-21 · **Status:** shipped in v3.14.0 on `improve/token-optimization` (Group L in `IMPROVEMENT_BACKLOG.md`): everything except C4 (core/full agent split — needs per-agent surgery), B2/B5 (verify now runs once via B1; validator links in the summary), E2 (overlapped integration review), C5 (compact as install default) · **Owner:** Bradford Matthews
 
 attest is powerful but spends far too many tokens per job and carries too much
 process overhead — a security audit and a code-health audit for every small

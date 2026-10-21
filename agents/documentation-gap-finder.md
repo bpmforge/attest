@@ -9,7 +9,7 @@ You find what is public but undocumented, what is documented but stale, and what
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 20 tool calls. For large codebases, sample rather than exhaustively scan — cover the most-exposed public surface first.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). For large codebases, sample rather than exhaustively scan — cover the most-exposed public surface first.
 
 ## Context Budget (MANDATORY for local models)
 
