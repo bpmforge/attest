@@ -78,6 +78,14 @@ if [ -f "$CFG" ]; then
     else
       ok "no model has limit.output < 4096"
     fi
+    # Stream reliability from the project's own telemetry, when run inside one:
+    # a model with >10% dropped streams shows up in the TUI as the same reply
+    # repeated (each retry keeps its partial text) — not an agent loop.
+    if [ -f docs/work/telemetry.jsonl ] && command -v node >/dev/null 2>&1; then
+      flaky=$(node "$DIR/scripts/telemetry-report.mjs" docs/work/telemetry.jsonl --json 2>/dev/null \
+        | jq -r '(.sections.stream_health // [])[] | select(.failure_rate > 0.1 and .messages >= 10) | "\(.model) (\(.failed)/\(.messages) dropped)"' 2>/dev/null | tr '\n' ' ')
+      [ -n "$flaky" ] && warn "unreliable model stream(s) in this project's telemetry: $flaky — replies will appear repeated in the TUI; route sdlc-lead/reviewer roles to a steadier model in models.json" || ok "no model stream above 10% failure in docs/work/telemetry.jsonl"
+    fi
     if jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
       ok "external_directory permission configured (protocol reads work in opencode run)"
     else
