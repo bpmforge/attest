@@ -11,7 +11,8 @@ import { dirname, join } from "node:path";
 // plugin surface. Four phases:
 //
 //   tool.execute.before   block dangerous bash commands; block writes to
-//                         .env / credential / key files.
+//                         .env / credential / key files; enforce the
+//                         EXPERTS_MAX_TURNS turn budget (see below).
 //
 //   tool.execute.after    after a write/edit, run format → lint → type-check
 //                         → secret-scan against the file. All formatters
@@ -146,6 +147,32 @@ function basename(filePath: string): string {
   return filePath.slice(filePath.lastIndexOf("/") + 1);
 }
 
+// ─── Turn cap (TOKEN_OPTIMIZATION_PLAN D1) ───────────────────────────
+// CONTEXT_BUDGET.md asks every agent to stop loading when its context fills.
+// The telemetry says it does not: one coding session ran 602 turns against a
+// local model with no prefix cache — 46M input tokens for one ticket, because
+// each turn re-sends the ~40k-token baseline plus everything read so far.
+// EXPERTS_MAX_TURNS=<n> (set per session by the conductor's --max-turns, or
+// exported by an operator) makes the budget mechanical: after n completed
+// assistant turns, every further tool call is refused EXCEPT writes under
+// docs/work/ and docs/reviews/, so the agent can still update its TASKS
+// ledger, write its Completion Manifest ("Partial output — turn budget
+// reached") and stop cleanly. The conductor's existing attempt/resume logic
+// then carries the ledger into a fresh, small-context session.
+const MAX_TURNS = Number(process.env.EXPERTS_MAX_TURNS || 0) || 0;
+const turnsBySession = new Map<string, number>();
+const LEDGER_DIR_RE = /(^|\/)docs\/(work|reviews)\//;
+
+function turnCapMessage(session: string, turns: number): string {
+  return (
+    `TURN BUDGET REACHED: this session has completed ${turns} assistant turns (limit ${MAX_TURNS}, EXPERTS_MAX_TURNS). ` +
+    `No further tool calls are allowed except writes under docs/work/ and docs/reviews/. ` +
+    `Do this now, in order: (1) update docs/work/TASKS_*.md so every checkbox reflects what is on disk; ` +
+    `(2) write your Completion Manifest with "Partial output — turn budget reached. Remaining items: [list]"; ` +
+    `(3) print BLOCKED: turn budget reached, and stop. The orchestrator resumes from the ledger in a fresh session.`
+  );
+}
+
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Map<string, number>();
   let traceSeq = 0;
@@ -154,6 +181,17 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
       // only in tool.execute.after) — reading input.args made every guard below a no-op.
       const args = (output as any)?.args ?? (input as any).args ?? {};
+
+      // Turn cap — before anything else, so a capped session cannot spend
+      // another 40k-token turn on a read it will not get to act on.
+      if (MAX_TURNS > 0) {
+        const turns = turnsBySession.get(input.sessionID) ?? 0;
+        if (turns >= MAX_TURNS) {
+          const filePath: string = args?.filePath ?? args?.file_path ?? "";
+          const ledgerWrite = WRITE_TOOLS.has(input.tool) && LEDGER_DIR_RE.test(filePath);
+          if (!ledgerWrite) throw new Error(turnCapMessage(input.sessionID, turns));
+        }
+      }
       // Bash: block dangerous commands
       if (input.tool === "bash" || input.tool === "run") {
         const command: string = args?.command ?? "";
@@ -231,10 +269,21 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
     },
 
     event: async ({ event }) => {
-      if (process.env.EXPERTS_TELEMETRY === "0") return;
       if (event.type !== "message.updated") return;
       const info: any = (event as any).properties?.info;
       if (!info || info.role !== "assistant") return;
+
+      // Turn counting is independent of telemetry: a budget that switches off
+      // with EXPERTS_TELEMETRY=0 is not a budget.
+      if (MAX_TURNS > 0 && info.time?.completed && info.sessionID && !countedTurns.has(info.id)) {
+        countedTurns.add(info.id);
+        if (countedTurns.size > 5000) countedTurns.clear();
+        const n = (turnsBySession.get(info.sessionID) ?? 0) + 1;
+        turnsBySession.set(info.sessionID, n);
+        if (n === MAX_TURNS) console.warn(`[expert-hooks] ${turnCapMessage(info.sessionID, n)}`);
+      }
+
+      if (process.env.EXPERTS_TELEMETRY === "0") return;
 
       // G1 — session-model receipt (T30.2): fires once, on the first
       // assistant message seen for this session. providerID/modelID are
@@ -285,6 +334,7 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
 // telemetry, receipts) silently failed to load on every session. resume-anchor.ts
 // exports only its Plugin and has never failed; that is the control case.
 const sessionModelLogged = new Set<string>();
+const countedTurns = new Set<string>();
 
 // ─── Telemetry (plan 4.12) ───────────────────────────────────────────
 // Append-only JSONL of actuals. Counts and identifiers only — never

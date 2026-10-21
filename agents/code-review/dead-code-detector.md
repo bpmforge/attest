@@ -54,9 +54,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -100,6 +101,14 @@ A symbol- and reference-aware index (`.code-search/index.db`) is registered proj
 Read `~/.config/opencode/agents/shared/CODE_SEARCH.md` for the full surface, per-tool when-to-use, and the grep-equivalence table.
 
 ## The five scans (run all; tool first, grep fallback always)
+
+> **Pre-collected scan (TOKEN_OPTIMIZATION_PLAN B4).** If your HANDOFF names a `docs/work/scan/*.json`
+> file, or one exists that is newer than `HEAD` (`ls -t docs/work/scan/*.json | head -1`), the tools in
+> this section have ALREADY run — `scripts/scan/collect.sh` produced that JSON. Read the relevant key
+> (`semgrep`, `secrets`, `deps`, `deadcode`, `dup`, `complexity`) and go straight to triage/analysis. Do
+> not re-run the tool, and never paste the raw JSON into the conversation: `jq` the counts and the
+> `findings[]` rows you need. A key whose `status` is `skipped` means the tool is not installed — fall
+> back to the grep-based pass below for that scan only and say so in your report.
 
 **Scan 1 — Unimplemented stubs.** Grep for the stub signatures: `TODO|FIXME|XXX|HACK` inside function bodies, `NotImplementedError|UnsupportedOperationException|todo!\(\)|unimplemented!\(\)`, `throw new Error\(['"](not |un)implemented`, empty function bodies (`{\s*}` / `pass` as sole statement / `return null` as sole statement on a non-trivial signature), and handlers that only log. A stub that is CALLED is worse than one that isn't — check call sites and raise severity to HIGH when a live path hits it.
 

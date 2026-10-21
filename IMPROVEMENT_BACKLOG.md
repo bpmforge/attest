@@ -6,6 +6,8 @@ Updated: 2026-07-08 — added **Group H** (9 open findings) from a live Mode-1 e
 (`issues/field-report-mode1-sdlc-run-2026-07.md`). Groups A–G (original audit) remain all-closed.
 Updated: 2026-07-27 — added **Group J** (7 findings) from the library-grounding build session;
 J-items 1-3 shipped in v2.34.0-v2.36.0, 4-7 open.
+Updated: 2026-10-21 — added **Group L** (token & overhead optimization) from the telemetry audit in
+`docs/work/TOKEN_OPTIMIZATION_PLAN.md`; L1–L7 shipped on `improve/token-optimization`, L8–L14 open.
 Updated: 2026-07-27 — added **Group I** (5 proposals) from the a downstream project delegation field report
 (held privately, not in this repo): 118 delegations, 24% correction rate,
 0 escapes to `main`, all caught by a human lead re-verifying by hand under schedule pressure.
@@ -892,3 +894,61 @@ independent challenger. ~200 skills are domain filler — not taken. Design + ve
 - SKIP: comment-analyzer (R-13/14/15), inherit-legacy-style (pre-code + pattern-consistency + `delegation-gate --patterns`)
 - ✅ click-path-audit → `references/click-path-audit.md` (store side-effect map + 6 patterns), wired into ui-verifier + frontend-design
 - ✅ rust/typescript/python/go reviewers + rules: read in full; ECC's agents are thin → mined into `references/language-review-checklists.md` (32 checks with greps/lints; greps verified on planted code, graded on repopulse/vulnforge/kryptkeeper; lint names verified against ruff/clippy/typescript-eslint/golangci-lint); wired into code-reviewer, concurrency-checker, type-safety, error-handling, coding-agent. build-resolvers SKIP (rust borrow-checker table kept)
+
+---
+
+## Group L — Token & Overhead Optimization (2026-10-21)
+
+Source: `docs/work/TOKEN_OPTIMIZATION_PLAN.md` — 3,141 logged messages, 214M input tokens,
+99.5% input share, ~40k-token baseline per session, a 602-turn session, 5–10 sessions per
+ticket. Full tables, sizing and done-criteria live in the plan; this group tracks status.
+
+### L1. Review tiers — `ticket` / `full` / `integration` ✅ DONE 2026-10-21
+- `scripts/lib/review-triggers.mjs` `tier` option; conductor `--review-tier` (default `ticket`)
+- **Why:** path-name heuristics recruited a 0.5–1.4M-token specialist per ticket, and again per fix iteration
+
+### L2. Deterministic per-ticket scan recruits security ✅ DONE 2026-10-21
+- `scripts/scan/collect.sh --only semgrep,secrets` on `main...branch` before Round 2; conductor `--ticket-scan`
+- **Why:** a scanner finding is a stronger signal than a filename, at zero tokens
+
+### L3. Round 3 runtime gate is a script ✅ DONE 2026-10-21
+- conductor `--runtime-mode script` (default): build/lint/tests/smoke + optional ticket `runtime`; model only on FAIL (diagnosis); `verify` runs once, in `close()`
+- **Why:** the round was a 40k-token session told "do not use judgement", then re-run by the machine, then run again at close
+
+### L4. Round 2 reviewers in parallel ✅ DONE 2026-10-21
+- conductor `--parallel-reviews auto` (hosted providers on, local single-GPU off)
+
+### L5. Scan collector replaces tool-wrapping specialists ✅ DONE 2026-10-21
+- `scripts/scan/collect.sh` (semgrep/secrets/deps/dead-code/dup/complexity → one JSON); `security-auditor` Wave 1 = collect.sh + one triage session (was 3 sessions); `code-reviewer` Step 0 = collect.sh, specialists triage the JSON; specialists honour a pre-collected scan
+
+### L6. Integration-tier audit, once per branch ✅ DONE 2026-10-21 (needs field run)
+- `scripts/conductor/integration-review.mjs --base main --head <branch>`: scanners once, every auditor in parallel over the branch diff, `INTEGRATION_*` docs + summary, exit 0 only on all-APPROVED
+
+### L7. Turn cap as a mechanism ✅ DONE 2026-10-21
+- `EXPERTS_MAX_TURNS` enforced in `plugins/expert-hooks.ts` (tool calls refused after N turns except ledger/manifest writes); conductor `--max-turns N`
+- Rule cards: `agents/shared/cards/{BOUNDED_TASK,LOOP_PREVENTION,ANTI_SLOP}_CARD.md` (≤2KB each); shared blocks and 14 agents now read the cards, long forms on demand
+
+### L8. Wire the integration tier into the merge boundary — OPEN
+- `validate-release-readiness.sh` requires a fresh `INTEGRATION_SUMMARY`; `git-expert --release` and `--no-merge` / autopilot call `integration-review.mjs` before marking a PR ready
+- **Why:** L6 exists but nothing refuses a merge without it yet
+
+### L9. Attended fan-outs through `run-plan.mjs` — OPEN
+- Mode 3 step 6 and Phase 5 Round 1/3 stop asking the user to open N sessions by hand
+- Files: `agents/sdlc-feature-mode.md`, `agents/sdlc-init-phase-5.md`, `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md`
+
+### L10. Measure the 33k floor — OPEN
+- One no-op `opencode run --agent build`; attribute first-message `tokens_in` to global instructions, the 20 custom tool schemas, AGENTS.md; record in the plan
+
+### L11. Core/full agent split — OPEN (L)
+- `agent.md` ≤8KB for bounded-task sessions + `agent.full.md` for interactive; `build-agents.mjs` emits both; conductor sessions default to compact
+- **Done when:** median first-message baseline < 12k tokens
+
+### L12. Conductor default `--max-turns 80` + resume-from-ledger reuses the worktree — OPEN
+- Needs one field run of L7 first
+
+### L13. Local prefix cache — OPEN
+- `cache_read` = 0 on 2,700 local messages; verify LM Studio / llama.cpp `cache_prompt`; `sync-model-limits.mjs` warns when off
+
+### L14. Mechanical tool-result compression — OPEN
+- `tool.execute.after` truncates read/grep/bash output above N KB with a re-read hint (CONTEXT_BUDGET rule 3 as a mechanism)
+

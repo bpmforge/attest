@@ -41,8 +41,14 @@ function sh(cmd, args, opts = {}) {
 /** Run the conductor, returning stdout+stderr and the parsed receipt log. */
 function runConductor(target, stub, extra = []) {
   let out = '';
+  // `--runtime-mode agent`: every case in this file pins the MODEL-WRITTEN
+  // runtime round (verdict grounding, override, lying-pass…). The default is
+  // now `script` (TOKEN_OPTIMIZATION_PLAN B1); the script path has its own
+  // cases at the end of this file. A case that passes its own --runtime-mode
+  // wins because later flags override earlier ones in opt().
+  const defaults = extra.includes('--runtime-mode') ? [] : ['--runtime-mode', 'agent'];
   try {
-    out = sh('node', [CONDUCTOR, '--root', target, '--rounds', '3', '--no-push', ...extra], {
+    out = sh('node', [CONDUCTOR, '--root', target, '--rounds', '3', '--no-push', ...defaults, ...extra], {
       cwd: target,
       env: { ...process.env, OPENCODE_BIN: stub },
     });
@@ -65,7 +71,7 @@ function runConductor(target, stub, extra = []) {
  * prompt says "Review the work already committed", and the bounded-fix prompt
  * is the coder handoff plus "A reviewer rejected the previous attempt."
  */
-function setupFixture({ reviewVerdict, repairWrites = null, runtimeWrites = null, runtimeVerdict = 'RUNTIME: PASS' }) {
+function setupFixture({ reviewVerdict, repairWrites = null, runtimeWrites = null, runtimeVerdict = 'RUNTIME: PASS', verify = null, runtime = null }) {
   const base = mkdtempSync(resolve(tmpdir(), 'conductor-hardening-'));
   const target = resolve(base, 'target-repo');
   mkdirSync(target, { recursive: true });
@@ -81,8 +87,9 @@ function setupFixture({ reviewVerdict, repairWrites = null, runtimeWrites = null
     modules: [{
       id: 'TICK-1', kind: 'module', title: 'Ticket one', lane: 'lane-a', owner: null, status: 'ready',
       write_scope: ['a/**'], depends_on: [], acceptance: ['writes a/hello.txt'],
-      verify: `bash ${GATES_SH} --scope a --manifest docs/reviews/MANIFEST_TICK-1.md --root .`,
+      verify: verify ?? `bash ${GATES_SH} --scope a --manifest docs/reviews/MANIFEST_TICK-1.md --root .`,
       manifest: 'docs/reviews/MANIFEST_TICK-1.md',
+      ...(runtime ? { runtime } : {}),
     }],
   };
   writeFileSync(resolve(target, 'plan.json'), JSON.stringify(plan, null, 2) + '\n');
@@ -112,6 +119,12 @@ while [[ $# -gt 0 ]]; do
   case "$1" in --dir) DIR="$2"; shift 2 ;; *) shift ;; esac
 done
 mkdir -p "$DIR/docs/reviews"
+
+# --- round 3 (script mode): the bounded FAIL diagnosis session ---------------
+if grep -qF 'The runtime gate for ticket' <<<"$PROMPT"; then
+  printf '%s\\n' 'The verify command exited non-zero because the fixture asked it to (stub diagnosis).' >> "$DIR/docs/reviews/RUNTIME_TICK-1.md"
+  exit 0
+fi
 
 # --- round 3: runtime validation -------------------------------------------
 if grep -qF 'Runtime-validate ticket' <<<"$PROMPT"; then
@@ -1222,4 +1235,93 @@ test('the scope matcher fixture suite runs, and passes', { timeout: 60_000 }, ()
   // A suite that matched nothing must never read as a pass — the same rule
   // Pass 53 applies to node --test.
   assert.ok(Number(m[1]) > 0, 'a zero-assertion run is not a passing run');
+});
+
+// ═══ TOKEN_OPTIMIZATION_PLAN (2026-10-21) — deterministic Round 3, review tiers ═══
+//
+// Telemetry over 3,141 messages: 99.5% of tokens were INPUT and Round 3 was a
+// full coder-agent session asked to "run verify, paste the exit code, do not
+// use judgement" — then re-run by the conductor anyway. `--runtime-mode script`
+// (now the default) runs the commands from outside and spends a model only on
+// a FAIL's diagnosis. These cases pin both directions of that gate and the
+// `ticket` review tier that stops path-name heuristics recruiting a 1M-token
+// specialist per ticket.
+
+test('script runtime mode: green runtime checks land the ticket with NO runtime agent session',
+  { timeout: 120_000 }, () => {
+    const { base, target, stub } = setupFixture({ reviewVerdict: 'VERDICT: APPROVED' });
+    try {
+      const { log } = runConductor(target, stub, ['--runtime-mode', 'script', '--max-attempts', '1']);
+      const starts = log.filter((r) => r.kind === 'round3.runtime.start');
+      assert.equal(starts.length, 1, 'exactly one runtime round');
+      assert.equal(starts[0].mode, 'script', 'the round must be the script-mode gate');
+      assert.equal(log.some((r) => r.kind === 'session.start' && r.role === 'runtime'), false,
+        'a PASS must not spend a model session');
+      const verdict = log.find((r) => r.kind === 'round3.runtime.verdict');
+      assert.ok(verdict && /PASS \(deterministic\)/.test(verdict.msg), `expected a deterministic PASS, got ${verdict?.msg}`);
+      assert.ok(log.some((r) => r.kind === 'ticket.receipt'), 'the ticket must close');
+      // The document the repair path and the operator read must exist on the
+      // landed branch and carry the machine's verdict line last.
+      const doc = sh('git', ['show', 'main:docs/reviews/RUNTIME_TICK-1.md'], { cwd: target });
+      assert.match(doc, /\| build \|[\s\S]*\| tests \|/, 'the build and test steps must be tabulated');
+      assert.match(doc, /is the close gate and runs once/, 'the document must say verify is close()\'s job');
+      assert.equal(readVerdict(doc).approved, true, 'the last verdict line must read PASS');
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('script runtime mode: a red runtime command FAILS from the exit code, and only then spends a diagnosis session',
+  { timeout: 120_000 }, () => {
+    const { base, target, stub } = setupFixture({
+      reviewVerdict: 'VERDICT: APPROVED',
+      runtime: 'bash -c "echo fixture: boom >&2; exit 3"',
+    });
+    try {
+      const { log } = runConductor(target, stub, [
+        '--runtime-mode', 'script', '--max-attempts', '1', '--runtime-fix-iterations', '0',
+      ]);
+      const verdict = log.find((r) => r.kind === 'round3.runtime.verdict');
+      assert.ok(verdict && /^FAIL \(deterministic\)/.test(verdict.msg), `expected a deterministic FAIL, got ${verdict?.msg}`);
+      assert.ok(log.some((r) => r.kind === 'round3.diagnosis.start'), 'a FAIL gets exactly the small diagnosis session');
+      assert.equal(log.filter((r) => r.kind === 'session.start' && r.role === 'runtime').length, 1);
+      // The diagnosis the stub appended must have reached the receipts via
+      // extractFailureReason — that is what the next attempt is told.
+      assert.match(verdict.msg, /stub diagnosis/, 'the model-written diagnosis must be lifted into the verdict receipt');
+      const fail = log.find((r) => r.kind === 'gates.fail' && /round 3: runtime verdict FAIL/.test(r.msg || ''));
+      assert.ok(fail, 'the attempt must fail on the runtime gate');
+      assert.equal(log.some((r) => r.kind === 'ticket.receipt'), false, 'a red runtime never closes');
+      // Evidence: the preserved document ends with the MACHINE's verdict even
+      // though a model appended to it afterwards.
+      const ev = evidenceFiles(target).find((f) => /RUNTIME_TICK-1\.md$/.test(f));
+      assert.ok(ev, 'the runtime document must be preserved as evidence');
+      const body = readFileSync(ev, 'utf8');
+      assert.match(body, /exit 3|Exit code: 3/);
+      assert.equal(readVerdict(body).approved, false);
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
+
+test('review tiers: `ticket` ignores path-name heuristics, `integration` recruits every auditor', async () => {
+  const { triggeredReviewers } = await import('../lib/review-triggers.mjs');
+  const KNOWN = { security: 'security-auditor', perf: 'performance-engineer', ux: 'ux-engineer', test: 'test-engineer' };
+  // A file NAMED session.ts with an innocuous added line: the old behaviour
+  // (and `full`) recruits security off the path alone; `ticket` does not.
+  const pathOnly = '--- a/src/auth/session.ts\n+++ b/src/auth/session.ts\n@@\n+const label = "hello";\n';
+  assert.deepEqual(triggeredReviewers({}, pathOnly, KNOWN, { tier: 'full' }).reviewers, ['code-reviewer', 'security']);
+  assert.deepEqual(triggeredReviewers({}, pathOnly, KNOWN, { tier: 'ticket' }).reviewers, ['code-reviewer']);
+  // A high-signal ADDED line still recruits security at the ticket tier.
+  const highSignal = '--- a/src/util/x.ts\n+++ b/src/util/x.ts\n@@\n+const out = execSync(cmd);\n';
+  assert.deepEqual(triggeredReviewers({}, highSignal, KNOWN, { tier: 'ticket' }).reviewers, ['code-reviewer', 'security']);
+  // A declared reviewer always runs, whatever the tier.
+  assert.deepEqual(triggeredReviewers({ reviews: ['perf'] }, pathOnly, KNOWN, { tier: 'ticket' }).reviewers, ['code-reviewer', 'perf']);
+  // Integration tier: every auditor over the branch; ux only when UI paths moved.
+  const integ = triggeredReviewers({}, pathOnly, KNOWN, { tier: 'integration' });
+  assert.deepEqual(integ.reviewers, ['code-reviewer', 'security', 'perf']);
+  assert.equal(integ.tier, 'integration');
+  const ui = '--- a/src/components/Button.tsx\n+++ b/src/components/Button.tsx\n@@\n+x\n';
+  assert.deepEqual(triggeredReviewers({}, ui, KNOWN, { tier: 'integration' }).reviewers, ['code-reviewer', 'security', 'perf', 'ux']);
+  // No tier given = `full` = unchanged behaviour for every existing caller.
+  assert.equal(triggeredReviewers({}, pathOnly, KNOWN).tier, 'full');
 });
