@@ -66,6 +66,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, existsSync, appendFileSync, mkdirSync, rmSync, readdirSync } from 'node:fs';
 import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
 import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
 import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
@@ -300,7 +301,19 @@ const RUNTIME_DIAGNOSIS = String(opt('runtime-diagnosis', 'on')) !== 'off';
 //   manifest can still be written) once a session has completed N assistant
 //   turns. CONTEXT_BUDGET.md asks the model to self-police; this is the
 //   mechanism behind the rule.
-const MAX_TURNS = intOpt('max-turns', 0);
+//   Default 120: telemetry puts the coding-agent median at 48 turns, so the cap
+//   touches only the runaway tail (602, 516, 153 observed). A capped session
+//   ends with its ledger on disk; the conductor then CONTINUES it in the same
+//   worktree (below) instead of discarding the work.
+const MAX_TURNS = intOpt('max-turns', 120);
+// --turn-continuations N (default 2): how many times a coder session that hit
+//   the turn budget is resumed in the SAME worktree from its TASKS ledger before
+//   the attempt is treated as failed. Each continuation starts with a fresh,
+//   small context — that is the whole point: the 602-turn session would have
+//   been 5 sessions of ~120 turns, each re-sending a small prefix instead of a
+//   growing one.
+const TURN_CONTINUATIONS = intOpt('turn-continuations', 2);
+const TURN_BUDGET_RE = /TURN BUDGET REACHED|BLOCKED:\s*turn budget/i;
 // --integration-review auto|on|off (default auto): the ONCE-PER-BRANCH audit
 //   (scripts/conductor/integration-review.mjs — scanners + every auditor in
 //   parallel over the whole diff). `auto` = on. Under --no-merge it runs in
@@ -1809,7 +1822,24 @@ async function executeTicket(plan, m, { alreadyStarted = false, maxAttempts = MA
     const { branch, wt } = makeWorktree(m); // always fresh off main — no leftover state from a prior attempt
 
     log('ticket.attempt', { ticket: m.id, msg: `attempt ${attempt}/${maxAttempts}`, role: 'coder', model: CODER_MODEL });
-    const sess = await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+    let sess = await runSession(handoffPrompt(m, startReceipt, gapsPerAttempt.length ? gapsPerAttempt[gapsPerAttempt.length - 1] : null), wt);
+
+    // Turn-budget continuation (TOKEN_OPTIMIZATION_PLAN D2). The plugin ends a
+    // session at --max-turns with the ledger and a partial manifest on disk and
+    // "BLOCKED: turn budget reached" in its output. The work is in the worktree;
+    // a fresh attempt would throw it away. Resume HERE, same worktree, fresh
+    // context, bounded by --turn-continuations.
+    for (let c = 1; c <= TURN_CONTINUATIONS && MAX_TURNS > 0 && TURN_BUDGET_RE.test(sess.out || ''); c++) {
+      log('session.turn-budget', { ticket: m.id, msg: `coder session hit the ${MAX_TURNS}-turn budget — continuation ${c}/${TURN_CONTINUATIONS} in the same worktree` });
+      const ledgers = (() => { try { return readdirSync(resolve(wt, 'docs/work')).filter((f) => /^TASKS_.*\.md$/.test(f)).map((f) => `docs/work/${f}`); } catch { return []; } })();
+      sess = await runSession(`${handoffPrompt(m, startReceipt, null)}
+
+CONTINUATION ${c}/${TURN_CONTINUATIONS}: a previous session on this SAME worktree hit its turn budget. Its
+work is already on disk — do NOT start over and do NOT redo finished items. First re-read the
+ledger(s) ${ledgers.length ? ledgers.map((l) => `\`${l}\``).join(', ') : '(none found — write one now from the HANDOFF steps)'} and reconcile
+each checkbox against what exists in the tree (files, test output). Then do ONLY the first
+unchecked item onward. Write your Completion Manifest when every box is ticked.`, wt);
+    }
 
     // A session that never ran and a session that ran and decided to do nothing
     // both leave a clean tree. Reporting both as "produced no changes" sent a
@@ -2435,6 +2465,25 @@ async function main() {
     process.exit(3);
   }
 
+  // Prompt-weight receipt (TOKEN_OPTIMIZATION_PLAN C5). Every session re-sends
+  // its agent file on every turn; a 49KB coding-agent is ~12k tokens before a
+  // single shared protocol is read. Say what each role will cost up front, and
+  // point at the compact overlay when it is heavy.
+  for (const [role, agent] of [['coder', CODER_AGENT], ['reviewer', REVIEWER_AGENT]]) {
+    const candidates = [
+      resolve(ROOT, '.opencode', 'agents', `${agent}.md`),
+      resolve(homedir(), '.config', 'opencode', 'agents', `${agent}.md`),
+    ];
+    const found = candidates.find((p) => existsSync(p));
+    if (!found) continue;
+    const bytes = readFileSync(found).length;
+    const heavy = bytes > 32 * 1024;
+    log('agents.prompt-size', {
+      role, agent, bytes,
+      msg: `${agent}: ${(bytes / 1024).toFixed(0)}KB (~${Math.round(bytes / 4 / 1000)}k tokens per turn, before shared files)` +
+        (heavy ? ' — heavy; install with --compact (dist/compact-agents) or see TOKEN_OPTIMIZATION_PLAN C4' : ''),
+    });
+  }
   log('conductor.start', {
     msg: `root=${ROOT} plan=${PLAN_PATH} actor=${ACTOR} maxAttempts=${MAX_ATTEMPTS} merge=${DO_MERGE} push=${DO_PUSH} agent=${CODER_AGENT} roles=coder:${ROLE_MODELS.coder ?? 'none'},reviewer:${ROLE_MODELS.reviewer ?? 'none'},challenger:${ROLE_MODELS.challenger ?? 'none'}`,
     roles: ROLE_MODELS,

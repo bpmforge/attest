@@ -14,6 +14,11 @@ import { dirname, join } from "node:path";
 //                         .env / credential / key files; enforce the
 //                         EXPERTS_MAX_TURNS turn budget (see below).
 //
+//   tool.execute.after    bound read/grep/glob/list/bash results to
+//                         EXPERTS_TOOL_OUTPUT_MAX chars (head + tail + an
+//                         omission marker with a re-query hint), so one big
+//                         result cannot be re-sent on every later turn.
+//
 //   tool.execute.after    after a write/edit, run format → lint → type-check
 //                         → secret-scan against the file. All formatters
 //                         are best-effort: failures inform the LLM via
@@ -160,6 +165,8 @@ function basename(filePath: string): string {
 // reached") and stop cleanly. The conductor's existing attempt/resume logic
 // then carries the ledger into a fresh, small-context session.
 const MAX_TURNS = Number(process.env.EXPERTS_MAX_TURNS || 0) || 0;
+const TOOL_OUTPUT_MAX = process.env.EXPERTS_TOOL_OUTPUT_MAX === undefined ? 24000 : Number(process.env.EXPERTS_TOOL_OUTPUT_MAX) || 0;
+const COMPRESSIBLE_TOOLS = new Set(["read", "grep", "glob", "list", "bash", "run"]);
 const turnsBySession = new Map<string, number>();
 const LEDGER_DIR_RE = /(^|\/)docs\/(work|reviews)\//;
 
@@ -240,6 +247,37 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
     },
 
     "tool.execute.after": async (input, output) => {
+      // Tool-result compression (TOKEN_OPTIMIZATION_PLAN D4 / backlog L14).
+      // CONTEXT_BUDGET.md rule 3 asks the model to "compress tool results
+      // immediately"; it cannot — a result is in context the moment it
+      // arrives, and it is re-sent on every later turn. 99.5% of measured
+      // tokens were input, and the growth per turn is mostly tool output. So
+      // the harness bounds it: a read/grep/glob/list/bash result longer than
+      // EXPERTS_TOOL_OUTPUT_MAX chars (default 24000 ≈ 6k tokens) keeps its
+      // head and tail with an explicit omission marker that tells the model
+      // how to get the middle (read with offset/limit, narrow the grep).
+      // 0 disables. Write/edit results are never touched (they are small and
+      // the formatter/lint notes below depend on them).
+      if (TOOL_OUTPUT_MAX > 0 && COMPRESSIBLE_TOOLS.has(input.tool) && typeof output?.output === "string") {
+        const text = output.output;
+        if (text.length > TOOL_OUTPUT_MAX) {
+          const head = Math.floor(TOOL_OUTPUT_MAX * 0.65);
+          const tail = Math.floor(TOOL_OUTPUT_MAX * 0.25);
+          const omitted = text.length - head - tail;
+          const hint =
+            input.tool === "read"
+              ? "re-read this file with offset/limit for the part you need"
+              : input.tool === "grep"
+                ? "narrow the pattern or add a path/glob; or grep -c first"
+                : input.tool === "bash"
+                  ? "re-run piped through head/tail/grep for the lines you need"
+                  : "narrow the query";
+          output.output =
+            `${text.slice(0, head)}\n\n[… ${omitted.toLocaleString()} chars omitted by expert-hooks (EXPERTS_TOOL_OUTPUT_MAX=${TOOL_OUTPUT_MAX}) — ${hint} …]\n\n${text.slice(-tail)}`;
+          output.metadata = { ...(output.metadata ?? {}), truncatedBy: "expert-hooks", originalLength: text.length };
+        }
+      }
+
       // K4: opt-in per-tool-call trace (EXPERTS_TRACE_LOG=<file>) for rule-compliance grading.
       const traceLog = process.env.EXPERTS_TRACE_LOG;
       if (traceLog) {

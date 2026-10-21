@@ -97,7 +97,24 @@ ANY ✗ → return to Phase 4, close the gap first
 
 ### Round 1 — Reviews (always parallel)
 
-Save state, then emit ONE message with all review HANDOFFs:
+**Default: one command runs the whole round (backlog L9).** After saving state:
+
+```bash
+node ~/.config/opencode/scripts/conductor/integration-review.mjs --root . --base <release-base-tag-or-main> --head HEAD \
+     --names final --reviewers security,perf[,ux]
+```
+
+Scanners run once, then code-reviewer (full 7-specialist orchestrator), security-auditor,
+performance-engineer and — if UI-bearing — ux-engineer run **concurrently** as `opencode run`
+sessions over the whole release diff, writing `CODE_REVIEW_FINAL_<date>.md`,
+`SECURITY_FINAL_<date>.md`, `PERF_FINAL_<date>.md`, `UX_AUDIT_<date>.md` and
+`INTEGRATION_SUMMARY_*.md` — exactly the names Round 4's `validate-release-readiness.sh` reads
+(condition 13 requires the summary to be APPROVED and fresh). Read the reports; synthesize the
+FIX_BACKLOG. The HANDOFF blocks below are the **fallback** when `opencode run` cannot be spawned
+here or the user wants to drive each session by hand — then write each `docs/work/HANDOFF_<agent>.md`
+and run `handoff-emit.sh` per file; never print the blocks.
+
+Save state, then (fallback path only) one pointer per HANDOFF file:
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="

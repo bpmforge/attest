@@ -20,6 +20,7 @@
 //   node scripts/conductor/integration-review.mjs [--root .] [--base main] [--head HEAD]
 //        [--models models.json] [--reviewers code-reviewer,security,perf,ux]
 //        [--parallel on|off] [--session-minutes 45] [--dry-run] [--no-scan]
+//        [--names integration|final|feature:<slug>]   (document naming scheme, see docFor)
 //
 // Exit: 0 all approved · 1 a verdict blocks (or a reviewer wrote nothing) ·
 //       2 usage/config · 3 nothing to review (empty diff).
@@ -108,7 +109,18 @@ function main() {
 
   // 3. One session per auditor, concurrently unless the model is local.
   const parallel = PARALLEL === 'on' || (PARALLEL === 'auto' && !DRY && !LOCAL_PROVIDER_RE.test(String(REVIEWER_MODEL || '')));
-  const docFor = (r) => `docs/reviews/INTEGRATION_${r === 'code-reviewer' ? 'CODE_REVIEW' : r.toUpperCase()}_${range}_${date}.md`;
+  // Document naming. Default: INTEGRATION_<KIND>_<range>_<date>.md. The attended
+  // SDLC flows have their own expected names (validate-release-readiness.sh
+  // reads *_FINAL_*, Mode 3 reads *_<feature>_*), so --names selects a scheme:
+  //   --names final            CODE_REVIEW_FINAL / SECURITY_FINAL / PERF_FINAL / UX_AUDIT
+  //   --names feature:<slug>   CODE_REVIEW_<slug> / SECURITY_<slug> / PERF_<slug> / UX_REVIEW_<slug>
+  const NAMES = String(opt('names', 'integration'));
+  const docFor = (r) => {
+    const kind = r === 'code-reviewer' ? 'CODE_REVIEW' : r === 'security' ? 'SECURITY' : r === 'perf' ? 'PERF' : 'UX';
+    if (NAMES === 'final') return `docs/reviews/${kind === 'UX' ? 'UX_AUDIT' : `${kind}_FINAL`}_${date}.md`;
+    if (NAMES.startsWith('feature:')) { const slug = NAMES.slice(8); return `docs/reviews/${kind === 'UX' ? 'UX_REVIEW' : kind}_${slug}_${date}.md`; }
+    return `docs/reviews/INTEGRATION_${kind === 'UX' ? 'UX' : kind}_${range}_${date}.md`;
+  };
   const prompts = reviewers.map((r) => {
     const agent = REVIEW_AGENTS[r];
     const doc = docFor(r);

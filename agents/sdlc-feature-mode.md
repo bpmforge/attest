@@ -559,7 +559,24 @@ After "implementation done":
 
 **4. Parallel reviews — fan-out (see Fix-Verify Loop Protocol § Step 1):**
 
-Before emitting, evaluate the auto-trigger rules against the impact analysis:
+**Default: one command runs the whole fan-out (backlog L9).** Do not hand the user N sessions to open. Run:
+
+```bash
+node ~/.config/opencode/scripts/conductor/integration-review.mjs --root . --base main --head HEAD \
+     --names feature:<slug> [--reviewers security,perf,ux]
+```
+
+It runs the deterministic scanners once (`scripts/scan/collect.sh`), then the triggered reviewers
+**concurrently** as `opencode run` sessions over the whole feature diff, each writing its own
+`docs/reviews/<KIND>_<slug>_<date>.md`, plus `INTEGRATION_SUMMARY_*.md`. Pass `--reviewers` with
+the specialists the trigger rules below select (code-reviewer always runs; the script also adds
+security/perf/ux when the diff trips its own high-signal rules). Read ONLY the produced reports and
+the summary, then continue to the Fix-Verify loop. The manual HANDOFF blocks below are the
+**fallback** for when `opencode run` cannot be spawned here, or the user asks to drive each
+specialist session by hand — in that case write each `docs/work/HANDOFF_<agent>.md` and run
+`handoff-emit.sh` per file; never print the blocks.
+
+Before dispatching (either path), evaluate the auto-trigger rules against the impact analysis:
 - **code-reviewer** — ALWAYS runs.
 - **security-auditor** — runs if the impact analysis lists any auth, session, authorization, user-input, file-upload, SQL/ORM, crypto, or external-API-with-credentials surface.
 - **performance-engineer** — runs if the impact touches a path with an NFR target in SRS.md, DB queries (new or modified), loops over collections, caching, or background jobs.
