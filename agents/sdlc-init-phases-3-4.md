@@ -104,7 +104,7 @@ After the user responds:
 - `docs/TECH_STACK.md` — Language, framework, libraries + justification
 - `docs/DATABASE.md` — ERD, schema, migrations, access patterns
 - `docs/API_DESIGN.md` — Human-readable endpoint contracts (narrative + examples)
-- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible)
+- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible). **No HTTP API** (MCP server, native messaging, CLI): `docs/api/schemas/*.json` JSON Schemas instead, with the adaptation declared ("no HTTP API") in DESIGN_CONTEXT.md — see `validate-api-coverage.sh` JSON-Schema mode
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/PARALLELIZATION_MAP.md` — modules grouped into Phase 4 implementation waves based on dependency order (enables opt-in parallel agent sets)
 - `docs/diagrams/` — Mermaid files for all diagrams
@@ -283,6 +283,10 @@ PRODUCE exactly these two files:
    - All error responses (400/401/403/404/500) as reusable `$ref` components
    - No inline schemas for objects used in more than one place — always $ref
    - The spec must pass `swagger-cli validate docs/api/openapi.yaml` with 0 errors
+   NO HTTP API (MCP server, native messaging, CLI): write docs/api/schemas/*.json
+   JSON Schemas instead of openapi.yaml — one file per tool/message, the name as a
+   `.`-separated basename segment (tool.<name>.input.json); list the names in an
+   API_DESIGN.md table with a `Tool` column; state "no HTTP API" in API_DESIGN.md.
 
 When both files are written, print exactly:
 "api done — [one sentence: how many endpoints designed and key resources covered]"
@@ -953,7 +957,7 @@ This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validat
 - TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
 - DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
 - API_DESIGN.md has example request/response payloads for every endpoint, not just schemas
-- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry
+- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry — or, for a declared no-HTTP-API system, `docs/api/schemas/*.json` covers every tool in API_DESIGN.md (`validate-api-coverage.sh` clean)
 - THREAT_MODEL.md has mitigations, not just threats listed
 - `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table AND a Waves section listing Wave 1..N
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md` all present, all gate-passed. If NOT UI-bearing, ARCHITECTURE.md § Logical View must say "No UI — UX branch not applicable".
@@ -1710,8 +1714,9 @@ CONTEXT (read these before starting):
 YOUR TASK:
 Run a 9-dimension code health review on [feature/module]. The 9 dimensions are:
 complexity, duplication/DRY, error handling (silent failures), type safety,
-pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene), and
-tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). For each finding
+pattern consistency, naming quality, comment accuracy, dead/unutilized code, and
+tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). Also run the
+anti-slop pass (AI code hygiene) alongside them. For each finding
 include the file:line and a specific fix.
 
 PRODUCE exactly this file:

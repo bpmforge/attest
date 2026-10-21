@@ -47,7 +47,7 @@ fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -55,7 +55,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 
 ## Research tools (available, optional)
 
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`.
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
 
 ## What You Own vs What ux-engineer Owns
 
@@ -194,6 +194,7 @@ Verifier: <who independently checked — never the same identity as Maker>
 Before printing a completion phrase or marking done:
 
 - [ ] All deliverables written to disk — no output exists only in context
+- [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
 - [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
 - [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
 - [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
@@ -440,6 +441,8 @@ Before declaring any mode complete, check against these markers of generic AI ou
 - [ ] **Spacing:** NOT uniform 16px everywhere. Use a deliberate scale with variation (tight in toolbars, generous in content areas).
 - [ ] **Motion:** NOT zero motion AND not excessive motion. Subtle fade-in, smooth hover states, confident page transitions.
 
+- [ ] **Full deterministic set:** run the 59 checkable rules in `references/ai-design-tells.md` (computed CSS / DOM / copy — no vision needed) on the rendered page.
+
 If 3+ of these fail, the design needs another pass.
 
 ---
@@ -450,6 +453,12 @@ If 3+ of these fail, the design needs another pass.
 - Component architecture needs rethinking → `ux-engineer` for workflow redesign
 - Implementation done and a dev server can run → `design-iterator` for the render→screenshot→critique→fix loop against tokens.json (verified visual conformance beats code-side polish)
 - Need to optimize image/font loading → `performance-engineer`
+- Drag/sort/resize, layout persistence, keyboard alternatives for gestures → `interaction-engineer` (you own how it looks and the motion aesthetic; it owns how it behaves)
+- Agent-facing surfaces (approvals, tool calls, generated UI) → `agent-ui-engineer`
+- 3D, WebGL/WebGPU, shaders, or canvas scenes → `graphics-engineer` (you own the page around the canvas; it owns what renders inside)
+- Before adding any dependency or vendored component → run `node ~/.config/opencode/scripts/stack-coherence.mjs` and the pre-flight in `references/stack-coherence.md` (wrong framework, second kit, or deprecated package = rejected)
+- Before a new screen or a redesign → `references/design-research-protocol.md` (references from shipped products, patterns not pixels)
+- Before building any new component → follow `references/component-sourcing.md` (project → shadcn registries → 21st → galleries) and record it in `docs/design/COMPONENT_SOURCES.md`
 - CSS is complex enough to cause build issues → `container-ops` for build config
 - Design system needs API-driven theming → `api-designer`
 
@@ -494,6 +503,8 @@ Common mistakes this prevents:
 - Using patterns from an older version of the framework
 
 **This applies to test frameworks too.** Playwright, vitest, jest — check the version before using an API.
+
+**Interaction-correctness pass (when reviewing existing UI):** for components that write shared state (Zustand/Redux/context), apply `references/click-path-audit.md` — a button whose handler undoes itself looks fine in a mockup and in a screenshot.
 
 ## Rules
 

@@ -132,7 +132,7 @@ over the tree that is actually being merged.
 | `perf` | declared; a raw query / query-builder on an ADDED line | always |
 | `ux` | declared; `aria-`/`role=` on an ADDED line | when UI paths changed |
 
-`--review-tier full` restores the pre-3.13 behaviour where a file *named*
+`--review-tier full` restores the pre-3.14 behaviour where a file *named*
 `session.ts` or any `.css` file recruited a specialist per ticket.
 
 A ticket may also request reviewers explicitly with `"reviews": ["security",

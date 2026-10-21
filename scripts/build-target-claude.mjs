@@ -18,7 +18,7 @@
 //   CHANGELOG, CLAUDE.md. Everything this script generates is stamped as
 //   generated in the build manifest it writes.
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, chmodSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname.replace(/\/$/, '');
@@ -43,7 +43,7 @@ export const COPY_GLOBS = [
   // directory is self-contained — every import inside it is a lib/ sibling.
   ['scripts/lib', '.mjs'],
 ];
-export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
+export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/stack-coherence.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
 
 // Whole-file overrides: runtime-flavored docs maintained per-target in
 // build/overrides/claude/<relpath>. No transforms applied to these.
@@ -73,6 +73,11 @@ const PROSE = [
    '(or wherever references are installed for your setup)'],
   ["personal store at `~/.config/opencode/.semgrep/custom-rules/` (global) or `.opencode/.semgrep/custom-rules/` (project install)",
    "personal store at `~/.claude/.semgrep/custom-rules/`"],
+  // The game-asset-pipeline scripts need `sharp`, which attest's package.json
+  // provides and attest-claude (no package.json) cannot, so they are not
+  // generated into this target; point the agent at an attest checkout.
+  ['run every raw sprite through\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs',
+   'run every raw sprite through (from an attest checkout: the three scripts\n   ship only in attest, see the `game-asset-pipeline` skill)\n   `skills/game-asset-pipeline/scripts/pixel-snap.mjs'],
   // generic runtime mentions that read wrong on Claude
   ['Open a new OpenCode conversation and paste this EXACT prompt',
    'Delegate this EXACT prompt (Task tool preferred; fallback: paste in a new conversation)'],
@@ -81,6 +86,8 @@ const PROSE = [
   ['OpenCode session', 'session'],
 ];
 const PATHS = [
+  // Claude installs references flat into ~/.claude/agents/ — must precede the generic rule.
+  ['~/.config/opencode/references/', '~/.claude/agents/'],
   ['~/.config/opencode/', '~/.claude/'],
   ['$HOME/.config/opencode', '$HOME/.claude'],
   ['.opencode/', '.claude/'],
@@ -127,8 +134,8 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
   // Claude-only: a usage cheat sheet for the claude-memory MCP tool surface
   // (memory_store/memory_recall/session_restore/...), which has no
   // opencode-side equivalent skill trigger. Cited: attest-claude
-  // skills/memory/SKILL.md content (entirely MCP tool-call examples, no
-  // frontmatter/slash trigger at all).
+  // skills/memory/SKILL.md content (entirely MCP tool-call examples; its
+  // frontmatter carries name + description only, no agent).
   'memory',
 ]);
 
@@ -207,8 +214,8 @@ function opencodeSkillId(dirName, fm) {
 // claude: generated-style skills carry `trigger:` (their `name:` is a
 // display label, e.g. "Git Expert", not a slug) — strip the leading `/`.
 // Hand-authored skills (architect, code, guide, ...) have no `trigger:` and
-// use `name:` as the slug directly, same convention as opencode. `memory`
-// has no frontmatter at all — fall back to the directory name.
+// use `name:` as the slug directly, same convention as opencode. A skill
+// with no frontmatter at all falls back to the directory name.
 function claudeSkillId(dirName, fm) {
   if (fm.trigger) return fm.trigger.replace(/^\//, '');
   if (fm.name && /^[a-z][a-z0-9-]*$/.test(fm.name)) return fm.name;
@@ -256,14 +263,21 @@ function* walk(dir, ext) {
 // above) can be imported for testing without triggering a real build/check.
 if (import.meta.url === `file://${process.argv[1]}`) {
   const outputs = new Map(); // relpath -> content
+  // relpath -> source permission bits. A generated file keeps its source's
+  // mode: writeFileSync only applies a mode on CREATE (default 0644 after
+  // umask), so a regenerated/recreated target lost the executable bit and
+  // scripts/*.mjs flipped between 644 and 755 across regens.
+  const modes = new Map();
   for (const [dir, ext] of COPY_GLOBS) {
     for (const abs of walk(join(ROOT, dir), ext)) {
       const rel = relative(ROOT, abs);
       outputs.set(rel, transform(readFileSync(abs, 'utf8')));
+      modes.set(rel, statSync(abs).mode & 0o777);
     }
   }
   for (const rel of COPY_FILES) {
     outputs.set(rel, transform(readFileSync(join(ROOT, rel), 'utf8')));
+    modes.set(rel, statSync(join(ROOT, rel)).mode & 0o777);
   }
   // apply overrides last (already target-flavored)
   for (const abs of walk(OVERRIDES_DIR, '.md')) {
@@ -284,10 +298,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   for (const [rel, content] of outputs) {
     const dest = join(OUT, rel);
     const current = existsSync(dest) ? readFileSync(dest, 'utf8') : null;
+    const srcMode = modes.get(rel);
     if (current !== content) drift.push(rel + (current === null ? ' (missing)' : ''));
+    else if (srcMode !== undefined && (statSync(dest).mode & 0o111) !== (srcMode & 0o111)) {
+      drift.push(`${rel} (mode ${(statSync(dest).mode & 0o777).toString(8)}, source ${srcMode.toString(8)})`);
+    }
     if (MODE === 'write') {
       mkdirSync(dirname(dest), { recursive: true });
       writeFileSync(dest, content);
+      if (srcMode !== undefined) chmodSync(dest, srcMode);
     }
   }
 

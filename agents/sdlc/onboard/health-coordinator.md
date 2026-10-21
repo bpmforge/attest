@@ -83,7 +83,7 @@ If the HANDOFF omits WRITE-SCOPE or PRODUCE, use the defaults above. If LANDSCAP
 
 ## Loop Prevention
 
-Hard cap: 15 tool calls (plus specialist HANDOFFs). Same error 3× → STOP. Full rules: `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`.
+Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). Same error 3× → STOP. Full rules: `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`.
 
 Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first; any model self-verify runs on `verifier_model`, not your own session), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
@@ -132,7 +132,7 @@ Write this block to `docs/work/HANDOFF_code-reviewer-health.md`, then tell the u
 
 SDLC-TASK for code-reviewer:
 CONTEXT: The entire codebase (src/ directory)
-YOUR TASK: Run a 9-dimension code health review. Dimensions: complexity, duplication/DRY, error handling (silent failure hunter), type safety, pattern consistency, naming quality, comment accuracy, anti-slop (AI code hygiene), tech-stack compliance (deps match TECH_STACK.md; no tech outside the design). Flag CRITICAL and HIGH findings with file:line and a specific fix.
+YOUR TASK: Run a 9-dimension code health review. Dimensions: complexity, duplication/DRY, error handling (silent failure hunter), type safety, pattern consistency, naming quality, comment accuracy, dead/unutilized code, tech-stack compliance (deps match TECH_STACK.md; no tech outside the design); also run the anti-slop pass (AI code hygiene). Flag CRITICAL and HIGH findings with file:line and a specific fix.
 PRODUCE: docs/reviews/CODE_REVIEW_<date>.md — findings per dimension, health scores (1-10 per dimension), verdict, top 5 highest-priority fixes.
 Print exactly: "review done — [overall verdict and worst dimension]" then stop.
 ```

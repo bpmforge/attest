@@ -155,7 +155,7 @@ I am stopping per the 2-strikes rule. Please clarify or take this step manually.
 ### Other caps
 
 - Failure loop (same error 3+ times) → STOP after 3 strikes
-- Success loop → hard cap 15 total calls / 4 per work-unit
+- Success loop → stop on quality, not call count (criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file)
 
 Full rules: `~/.config/opencode/agents/shared/LOOP_PREVENTION.md` (read with `read` tool, not bash).
 

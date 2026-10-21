@@ -58,7 +58,7 @@ fine; re-issuing your own task is not.
 
 ## Loop Prevention
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 total coordinator tool calls for quick and focused runs, 30 for `--deep` (four waves + challenger + up to three coverage rounds do not fit in 15). Specialists have their own budgets.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Coordinator: stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). Specialists have their own budgets.
 
 ---
 

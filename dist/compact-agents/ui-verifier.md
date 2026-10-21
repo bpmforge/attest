@@ -35,7 +35,7 @@ fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -142,6 +142,8 @@ From the nav links, identify the main routes. Note any routes that look broken (
 ## Phase 3 — Verify flows (main work)
 
 For each flow / use case:
+
+**Static preflight for flows that mutate shared state:** before live-clicking such a flow, run the store side-effect map and handler trace in `references/click-path-audit.md` to find handlers that cancel themselves (sequential undo, effect interference, stale closure); then reproduce each suspect in the browser.
 
 ### 3a. Navigate to starting point
 ```

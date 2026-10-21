@@ -62,13 +62,13 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop prevention (MANDATORY)
 
-The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. Three loop classes have caused real failures:
+The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. These are the stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
-3. **Success loop** — every call works but you keep going → hard cap at 15 total / 4 per work-unit, no duplicate URLs, diminishing-returns check after each call
+3. **Success loop** — every call works but you keep going → stop on quality, not on a call count: stop a work-unit when its success criterion is met (or confidence ≥ 8), when 3 consecutive calls add nothing new, or when you would re-fetch a URL/file you already have. Checkpoint findings to disk as you go.
 
-These rules override the "be thorough" / "iterate more" / "try harder" instinct. Always track call counts and seen URLs/files explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
+These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -89,6 +89,8 @@ Three web-research tools are registered project-wide via the `playwright-search`
 - `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
 
 Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
 
 ## How You Think
 
@@ -338,12 +340,17 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] Security section: rate limits, CORS policy, input validation, auth scheme (if SECURITY_CONTROLS.md exists)
 - [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` anywhere
 
-**openapi.yaml — required:**
+**openapi.yaml — required (HTTP APIs):**
 - [ ] `openapi: "3.0.3"` header
 - [ ] Every endpoint from API_DESIGN.md has a `paths` entry
 - [ ] `components/schemas` for every request/response object
 - [ ] `components/securitySchemes` matching auth strategy
 - [ ] Run: `swagger-cli validate docs/api/openapi.yaml` — must exit 0
+
+**No HTTP API (MCP server, native messaging, CLI, IPC) — JSON-Schema contract mode instead of openapi.yaml:**
+- [ ] Declare it: a line in `docs/DESIGN_CONTEXT.md` or `docs/API_DESIGN.md` saying "no HTTP API" / "JSON Schema contracts"
+- [ ] API_DESIGN.md lists every tool/message/command in a table with a `Tool` (or Endpoint/Operation/Command/Method/RPC) column, one backticked name per cell
+- [ ] One `docs/api/schemas/*.json` per name, the name as a `.`-separated basename segment (e.g. `tool.get_feedback.input.json`); every file parses as JSON
 
 **Run the coverage validator:**
 ```bash

@@ -50,7 +50,9 @@ elif find "$INFRA_DIR" -name "Pulumi.yaml" -maxdepth 3 | grep -q .; then
   IAC_TYPE="pulumi"
   ENTRY_POINT="$(find "$INFRA_DIR" -name "Pulumi.yaml" -maxdepth 3 | head -1)"
   pass "IaC type: Pulumi (Pulumi.yaml found)"
-elif find "$INFRA_DIR" \( -name "*.tf" -o -name "*.yaml" -o -name "*.json" \) -maxdepth 4 | grep -q .; then
+# -print -quit, not `| grep -q .`: an infra tree with many manifests overflows
+# the pipe, find takes SIGPIPE under pipefail and this branch was skipped.
+elif [[ -n "$(find "$INFRA_DIR" -maxdepth 4 \( -name "*.tf" -o -name "*.yaml" -o -name "*.json" \) -print -quit 2>/dev/null)" ]]; then
   IAC_TYPE="unknown"
   pass "IaC files present (type not auto-detected — manual review recommended)"
 else

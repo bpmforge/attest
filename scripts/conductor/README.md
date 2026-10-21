@@ -56,7 +56,7 @@ shipwright's flat `todo/in_progress/blocked/done` board:
   config naming a model this opencode install cannot resolve
   (`--model-gate warn|off`).
 
-## Token budget: review tiers, deterministic runtime, turn cap (v3.13, 2026-10-21)
+## Token budget: review tiers, deterministic runtime, turn cap (v3.14, 2026-10-21)
 
 `docs/work/TOKEN_OPTIMIZATION_PLAN.md` has the measurements. The short version:
 99.5% of all tokens were input, every session started at ~40k tokens, and a

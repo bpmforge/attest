@@ -1,6 +1,6 @@
 # attest
 
-Expert agent system for [OpenCode](https://opencode.ai) — 39 primary expert agents + 32 cluster specialists (security, code-review, performance, onboarding, game dev), 48 skills, a 4-mode SDLC workflow, full git lifecycle management, and 71 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
+Expert agent system for [OpenCode](https://opencode.ai) — 42 primary expert agents + 36 cluster specialists (security, code-review, performance, onboarding, game dev), 51 skills, a 4-mode SDLC workflow, full git lifecycle management, and 79 automated validators that enforce quality gates at every phase. Works with cloud frontier models and small local models (32k LM Studio/Ollama) via tier detection, compact agent variants, and capability-probed delegation.
 
 **Not sure which command to run? Just describe your goal:** `/guide` is the front door — it routes any plain-English goal ("securely check all my source and help fix the issues", "this codebase is unfamiliar", "harden before launch") to the right expert and drives the workflow, always offering the next step.
 
@@ -35,7 +35,7 @@ That gives you **`main`** — the newest state, which can contain work landed si
 **To install a specific release instead** (pick the version from [Releases](https://github.com/bpmforge/attest/releases)):
 
 ```bash
-git clone --branch v3.1.25 --depth 1 https://github.com/bpmforge/attest.git
+git clone --branch v3.12.0 --depth 1 https://github.com/bpmforge/attest.git
 cd attest
 ./install.sh
 ```
@@ -44,15 +44,15 @@ Or, in a clone you already have:
 
 ```bash
 git fetch --tags
-git checkout v3.1.25   # prints a "detached HEAD" notice — that is expected
+git checkout v3.12.0   # prints a "detached HEAD" notice — that is expected
 ./install.sh
 ```
 
-**`main` vs a tag:** `main` moves with every push; a tag (`v3.1.25`) always points at the same commit. Use a tag when you want a fixed, CI-verified state; use `main` for the newest work. The "detached HEAD" notice on checkout is normal and installing works fine — you only need a branch if you intend to edit: `git checkout -b my-fix v3.1.25`. Go back to the latest with `git checkout main && git pull`.
+**`main` vs a tag:** `main` moves with every push; a tag (`v3.12.0`) always points at the same commit. Use a tag when you want a fixed, CI-verified state; use `main` for the newest work. The "detached HEAD" notice on checkout is normal and installing works fine — you only need a branch if you intend to edit: `git checkout -b my-fix v3.12.0`. Go back to the latest with `git checkout main && git pull`.
 
 `install.sh` records what it installed to `experts-version` in the install directory, so you can always tell which one is active.
 
-Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--tools` (install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--link` (symlink for dev), `--semgrep`, `--pullmd`, `--no-playwright-search`, `--uninstall`. Requires macOS, Linux, or WSL2. **Use opencode ≥ v1.2.11** — older builds stop after every tool call on OpenAI-compatible/local endpoints (the `finish_reason:"stop"` bug, fixed in PR #14973); `doctor.sh` warns on older versions.
+Common flags: `--project` (install into `.opencode/` instead of global), `--compact` (overlay compact agent variants for 32k local models), `--tools` (install the optional code-analysis tools — semgrep, knip, vulture, mmdc, …), `--link` (symlink for dev), `--opengrep` (alias `--semgrep`), `--memory`, `--no-game`, `--no-code-search`, `--no-playwright-search`, `--uninstall`, `--version`; `./install.sh --help` lists them all. Requires macOS, Linux, or WSL2. **Use opencode ≥ v1.2.11** — older builds stop after every tool call on OpenAI-compatible/local endpoints (the `finish_reason:"stop"` bug, fixed in PR #14973); `doctor.sh` warns on older versions.
 
 **Verify the install:**
 
@@ -113,7 +113,7 @@ Plain English routes automatically — `/guide` (or the SDLC lead) detects inten
 - **Unattended Phase 4** — the conductor (`scripts/conductor/`) works a `plan.json` board on its own: claim → code in an isolated worktree → review on a *different model* → runtime verification → merge → next. Reviewers are triggered by what the diff touches (auth pulls in security, queries pull in perf), every landed ticket carries its own review documents, a failed one goes back to `ready` with its evidence preserved, and a chain of startup gates (model roles, board lint, remote sync, baseline verify, resume drift) refuses a bad board before a single model call. See [docs/UNATTENDED_EXECUTION.md](docs/UNATTENDED_EXECUTION.md). Planning stays interactive — the Discovery Interview is NEVER-AUTO.
 - **Any LLM** — tier detection, compact agent variants (`dist/compact-agents/`, install with `--compact`), capability-probed delegation (`agents/shared/EXECUTOR_SELECTION.md` — HANDOFF, never a naive spawn), a **plan-strong/execute-cheap tier split** (`MODEL_ADAPTER.md` Rule 5), checkpoint/revert recovery (`CHECKPOINT_REVERT.md`), and a local-model picks + runtime-gotchas playbook (`references/local-agentic-models.md`).
 - **Eval suite** — `npm run evals` runs the pipeline against fixture repos with planted defects (`evals/`). `EVAL_MODEL=<provider/model>` pins a model per run and `npm run evals:compare` produces a **tiered frontier-vs-local lift / gap / cost** report (outcome-based scoring, sandboxed agent runs); `npm run evals:status` shows live sub-agent fan-out. Protocol changes and model choices are measured, not vibed.
-- **Token budget by design (v3.13)** — two review tiers: per ticket, deterministic scans (`scripts/scan/collect.sh`) + one lean diff review + a script-run runtime gate (a model is spent only on a FAIL); once per branch, the full security / code-health / perf audit runs concurrently and `validate-release-readiness.sh` refuses a release without a fresh APPROVED summary. Sessions carry a turn budget with same-worktree continuation, tool results are bounded by the plugin, and HANDOFF pointers are printed by `handoff-emit.sh` (lint + verbatim tool output) instead of typed. Measured baseline and the plan: `docs/work/TOKEN_OPTIMIZATION_PLAN.md`.
+- **Token budget by design (v3.14)** — two review tiers: per ticket, deterministic scans (`scripts/scan/collect.sh`) + one lean diff review + a script-run runtime gate (a model is spent only on a FAIL); once per branch, the full security / code-health / perf audit runs concurrently and `validate-release-readiness.sh` refuses a release without a fresh APPROVED summary. Sessions carry a turn budget with same-worktree continuation, tool results are bounded by the plugin, and HANDOFF pointers are printed by `handoff-emit.sh` (lint + verbatim tool output) instead of typed. Measured baseline and the plan: `docs/work/TOKEN_OPTIMIZATION_PLAN.md`.
 - **Telemetry** — every completed assistant message logs real token/cost actuals to `docs/work/telemetry.jsonl` (plugin hook; counts only, never content; `EXPERTS_TELEMETRY=0` to disable). `npm run telemetry:report` turns the data into tuned tier budgets, timeouts, and escalation thresholds.
 
 ## Docs
@@ -128,7 +128,7 @@ Full index: [docs/README.md](docs/README.md).
 - [docs/UNATTENDED_EXECUTION.md](docs/UNATTENDED_EXECUTION.md) — running Phase 4 coding tickets unattended: the conductor, its startup gates, diff-triggered reviewers, Jira mirroring, and what to check before pointing it at a large board
 - [docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md) — running on local models (tiers, compact variants)
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for attest-claude)
-- [Releases](https://github.com/bpmforge/attest/releases) — release notes for each version (the per-release detail lives in the annotated tag; `CHANGELOG.md` covers 1.x–2.12 only)
+- [Releases](https://github.com/bpmforge/attest/releases) — release notes for each version; [CHANGELOG.md](CHANGELOG.md) has full entries for 1.x–2.12.0 and 3.4.0 onward, and a per-tag summary table for 2.13.0–3.3.1
 
 ## License
 

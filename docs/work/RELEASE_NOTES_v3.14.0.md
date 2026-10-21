@@ -1,4 +1,4 @@
-chore(release): v3.13.0 — token budget by design: review tiers, script-run runtime gate, once-per-branch audit, HANDOFF emitter
+chore(release): v3.14.0 — token budget by design: review tiers, script-run runtime gate, once-per-branch audit, HANDOFF emitter
 
 Measured over 3,141 logged messages (docs/work/TOKEN_OPTIMIZATION_PLAN.md):
 99.5% of all tokens were INPUT, every session started at ~40k tokens, one
@@ -85,7 +85,7 @@ Not in this release
 Upgrade notes
 - Defaults changed: review tier `ticket`, runtime mode `script`, max-turns 120,
   tool output bounded at 24000 chars, integration review `auto`. To get the
-  3.12 behaviour: --review-tier full --runtime-mode agent --max-turns 0
+  3.13 behaviour: --review-tier full --runtime-mode agent --max-turns 0
   --integration-review off and EXPERTS_TOOL_OUTPUT_MAX=0.
 - Run ./install.sh so handoff-emit.sh, collect.sh and the updated agents land
   in ~/.config/opencode; run doctor.sh after.

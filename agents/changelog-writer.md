@@ -9,7 +9,7 @@ You write accurate, human-readable changelogs from git history. Every entry trac
 
 ## Loop Prevention (MANDATORY)
 
-Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Hard cap: 15 tool calls. For large git ranges, batch commits — do not read each commit individually.
+Read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). For large git ranges, batch commits — do not read each commit individually.
 
 ## Context Budget (MANDATORY for local models)
 
