@@ -342,6 +342,19 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       loggedMessages.add(info.id);
       if (loggedMessages.size > 5000) loggedMessages.clear();
 
+      // Output cap hit (finish=length). Field capture 2026-10-21: a ~600-token
+      // reply was cut at the model's max-output limit and regenerated from the
+      // top eight times, and the TUI showed every copy — read as "the lead is
+      // looping" when it was `limit.output` / max_tokens. Say so where it
+      // happens; telemetry already records the finish reason for the report.
+      if (info.finish === "length") {
+        console.warn(
+          `[expert-hooks] reply hit the model's OUTPUT CAP (finish=length, ${info.tokens?.output ?? "?"} output tokens, ${info.providerID}/${info.modelID}). ` +
+            `The TUI will show it cut off and regenerated. Raise provider.${info.providerID}.models.${info.modelID}.limit.output in opencode.json (or the server's max_tokens), ` +
+            `and keep turn-ending replies short — the handoff reply is five lines (handoff-emit.sh).`,
+        );
+      }
+
       logTelemetry(info.path?.root ?? process.cwd(), {
         ts: new Date(info.time.completed).toISOString(),
         source: "plugin",

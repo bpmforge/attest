@@ -48,42 +48,41 @@ interactive case: no board, no conductor, or a human deliberately driving each s
 
 1. **Write** the full HANDOFF body (the `SDLC-TASK for <agent>` block below) to **`docs/work/HANDOFF_<agent>.md`**.
    **Two or more HANDOFFs to the same agent in flight at once** (parallel waves, fan-outs) each get their own file: `docs/work/HANDOFF_<agent>-<slug>.md`, with `<slug>` the module or task (the same slug as the specialist's `TASKS_<agent>-<slug>.md` ledger). A second write to a shared `HANDOFF_<agent>.md` overwrites the first before its session reads it. The intake rule matches any `HANDOFF_*.md`, so specialists need no change.
-2. **Print the pointer by running the emitter — never type it yourself:**
+2. **Run the emitter, then reply with EXACTLY the block it prints:**
    ```bash
    bash ~/.config/opencode/scripts/handoff-emit.sh <agent-name> [<slug>]
    ```
-   The script lints the file you just wrote (intake prefix present, `════` delimiters paired, PRODUCE
+   It lints the file you just wrote (intake prefix present, `════` delimiters paired, PRODUCE
    + completion phrase + "Then stop" present, no `USER:` lines inside the delimiters, no template
-   prose or `<placeholders>` copied in, code fences balanced, ≤220 lines) and then prints the
-   `── NEXT HANDOFF ──` pointer **as a tool result**, which the TUI renders verbatim. A pointer typed
-   into your reply is rendered as markdown: its lines collapse into one paragraph, the indented paste
-   line only survives when a blank line happens to precede it, and the box rules become headings —
-   that is the "handoff printed wrong" failure. If the script reports `HANDOFF-LINT:` gaps, **fix the
-   file and re-run it** (at most twice; then `BLOCKED:` with the gap list). Do not paste the HANDOFF
-   body into the chat, before or after — the file is the contract and the pointer is the only thing
-   the user needs to see.
-   The pointer it prints is:
+   prose or `<placeholders>` copied in, code fences balanced, ≤220 lines) and prints a
+   `REPLY TO THE USER WITH EXACTLY THE FOLLOWING` block between `----8<----` markers.
+   **The TUI collapses tool output — the user never sees the script's output, only your reply.**
+   So your reply IS that block, copied verbatim, nothing before or after:
    ```
-   ── NEXT HANDOFF ──────────────────────────────
-   Open agent:   /<skill>            (<agent-name>)
-   Paste this one line into it:
-
-       SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
-
-   It produces:  <docs/reviews/REPORT_*.md>     ← come back when done
-   Lead:         waits here; reads the report; does NOT run the check itself.
-   ──────────────────────────────────────────────
+   Open /<skill> (<agent-name>) and paste:
+   ```text
+   SDLC-TASK for <agent-name>: read docs/work/HANDOFF_<agent>.md and execute it.
    ```
+   It produces <report>. Reply here with "<agent-name> done" when it finishes.
+   ```
+   Five lines. The paste line sits inside a fenced block because fences are the one markdown
+   construct the TUI renders verbatim — a pointer typed as prose collapses into one paragraph, and
+   the box-rule pointer the old template used became a heading. Five lines also cannot hit a model's
+   output cap: field capture 2026-10-21 showed a ~600-token "gate verdict + next step + pointer"
+   reply cut at the cap and regenerated from the top eight times. The gate verdict and the
+   "advancing to…" narrative go in `DELEGATION_LOG.md` / `STATE.md` (you already write them), never
+   in the handoff reply. If the emitter reports `HANDOFF-LINT:` gaps, **fix the file and re-run it**
+   (at most twice; then `BLOCKED:` with the gap list). Never paste the HANDOFF body into the chat.
    **The paste line must start with `SDLC-TASK for`.** That prefix is the trigger every specialist
    matches on to enter Bounded Task Mode. A bare pointer ("open /<skill>, it reads
    docs/work/HANDOFF_<agent>.md") is *not* reliable: smaller models fall through to their default or
    orchestrator mode and hand the task straight back — asking which mode/slug to run, or re-printing
    the handoff and telling the user to open the very skill they are already in. Verified failure on
    `gpt-5-mini` (2026-07); the receiving-side backstop is the **HANDOFF intake** block in every agent.
-3. **STOP and wait — your turn ENDS on the pointer.** Your final message after the emitter ran is ONE
-   line: `Handoff ready — open /<skill> and paste the line above.` Nothing else: no second copy of
-   the pointer, no summary of the HANDOFF, no re-read of the file, no next HANDOFF in the same turn
-   unless the wave calls for parallel dispatch (then run the emitter once per file, in order). The
+3. **STOP and wait — your turn ENDS on that reply.** Nothing else in it: no gate recap, no second
+   copy of the paste line, no summary of the HANDOFF, no re-read of the file, no next HANDOFF in the
+   same turn unless the wave calls for parallel dispatch (then run the emitter once per file and
+   stack the five-line blocks, one per specialist). The
    persistence rule is satisfied — the file write and the emitter run ARE the action; waiting for the
    human is the protocol, not a stall. When the user returns with the completion phrase / report
    path, read the REPORT and continue. Never open the specialist for them, and never do the check

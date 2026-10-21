@@ -60,7 +60,7 @@ END HANDOFF #3
 ════════════════════════════════════════════════════════════
 `;
 
-test('emitter: a well-formed HANDOFF yields ONE pointer whose paste line starts with the intake trigger', () => {
+test('emitter: a well-formed HANDOFF yields ONE five-line reply template with the paste line fenced', () => {
   const root = fixture();
   try {
     writeFileSync(resolve(root, 'docs/work/HANDOFF_coding-agent.md'), GOOD);
@@ -68,9 +68,17 @@ test('emitter: a well-formed HANDOFF yields ONE pointer whose paste line starts 
     // dir is the fallback, so pass --skill explicitly to keep the test hermetic.
     const r = run(root, ['coding-agent', '--skill', '/code']);
     assert.equal(r.code, 0, r.out);
-    assert.equal((r.out.match(/── NEXT HANDOFF ──/g) || []).length, 1, 'exactly one pointer');
-    assert.match(r.out, /^\s{4}SDLC-TASK for coding-agent: read docs\/work\/HANDOFF_coding-agent\.md and execute it\.$/m);
-    assert.match(r.out, /It produces:\s+docs\/reviews\/MANIFEST_coding-agent_auth-refresh\.md/);
+    assert.equal((r.out.match(/REPLY TO THE USER WITH EXACTLY THE FOLLOWING/g) || []).length, 1, 'exactly one reply template');
+    // The reply block: paste line inside a ```text fence, five lines, between the 8<-- markers.
+    const block = r.out.split('----8<----')[1];
+    assert.ok(block, 'reply block delimited by ----8<---- markers');
+    const lines = block.trim().split('\n');
+    assert.equal(lines.length, 5, `five-line reply, got ${lines.length}:\n${block}`);
+    assert.equal(lines[0], 'Open /code (coding-agent) and paste:');
+    assert.equal(lines[1], '```text');
+    assert.equal(lines[2], 'SDLC-TASK for coding-agent: read docs/work/HANDOFF_coding-agent.md and execute it.');
+    assert.equal(lines[3], '```');
+    assert.match(lines[4], /^It produces docs\/reviews\/MANIFEST_coding-agent_auth-refresh\.md\. Reply here with "coding-agent done" when it finishes\.$/);
     assert.doesNotMatch(r.out, /YOUR TASK:/, 'the body is never printed');
     assert.match(r.out, /ledger .* not written yet/, 'a missing ledger is named, not fatal');
   } finally {
@@ -113,7 +121,7 @@ END HANDOFF #N
     const r = run(root, ['coding-agent', '--skill', '/code']);
     assert.equal(r.code, 1, 'lint gaps must exit 1');
     assert.match(r.out, /^HANDOFF-LINT: \d+ gap/m);
-    assert.doesNotMatch(r.out, /── NEXT HANDOFF ──/, 'no pointer to a broken file');
+    assert.doesNotMatch(r.out, /REPLY TO THE USER/, 'no reply template for a broken file');
     for (const needle of ['USER:-addressed line sits INSIDE', 'unbalanced code fence', "missing 'Then stop'", "'<agent-name>'", "'[Code tasks only]'", "'END HANDOFF #N'"]) {
       assert.ok(r.out.includes(needle), `expected gap mentioning ${needle}\n${r.out}`);
     }
@@ -144,7 +152,7 @@ test('linter: --lint-only reports clean without printing a pointer; the size cap
     let r = run(root, ['coding-agent', '--lint-only']);
     assert.equal(r.code, 0);
     assert.match(r.out, /HANDOFF-LINT: clean/);
-    assert.doesNotMatch(r.out, /NEXT HANDOFF/);
+    assert.doesNotMatch(r.out, /REPLY TO THE USER/);
     const padded = GOOD.replace('Then stop.\n', `Then stop.\n${'- filler line\n'.repeat(230)}`);
     writeFileSync(resolve(root, 'docs/work/HANDOFF_coding-agent.md'), padded);
     r = run(root, ['coding-agent', '--lint-only']);
