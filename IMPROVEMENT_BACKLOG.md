@@ -928,9 +928,14 @@ ticket. Full tables, sizing and done-criteria live in the plan; this group track
 - `EXPERTS_MAX_TURNS` enforced in `plugins/expert-hooks.ts` (tool calls refused after N turns except ledger/manifest writes); conductor `--max-turns N`
 - Rule cards: `agents/shared/cards/{BOUNDED_TASK,LOOP_PREVENTION,ANTI_SLOP}_CARD.md` (≤2KB each); shared blocks and 14 agents now read the cards, long forms on demand
 
-### L8. Wire the integration tier into the merge boundary — OPEN
-- `validate-release-readiness.sh` requires a fresh `INTEGRATION_SUMMARY`; `git-expert --release` and `--no-merge` / autopilot call `integration-review.mjs` before marking a PR ready
-- **Why:** L6 exists but nothing refuses a merge without it yet
+### L8. Wire the integration tier into the merge boundary ✅ DONE 2026-10-21
+- conductor `--integration-review auto` (PR boundary under `--no-merge`; end-of-run over the landed range in merge mode; docs committed); `validate-release-readiness.sh` condition 13: latest `INTEGRATION_SUMMARY` must be APPROVED and fresh (`Head-SHA` covers HEAD, excluding docs/)
+- Open follow-up: `git-expert --release` should call `integration-review.mjs` itself when no summary is fresh, instead of only failing the gate
+
+### L15. HANDOFF emitter — the "prints wrong / repeats three times" fix ✅ DONE 2026-10-21
+- Symptom (field, 2026-10-21): the lead's handoff output renders wrong on screen and the same information appears ~3×.
+- Causes found in the prompts: (1) the `── NEXT HANDOFF ──` pointer was TYPED into a markdown-rendered reply — lines collapse into one paragraph, the indented paste line only survives behind a blank line, box rules become headings; (2) "emit the HANDOFF block" wording from the paste era made models echo the body in prose on top of writing it, while the context packet and the ledger restated the same task text — three to four copies per handoff; (3) ~60 lines of orchestrator-facing prose ("[Code tasks only] … YOU RUN THE --baseline PASS YOURSELF …") sat INSIDE the fenced Template 1 block, so small models copied it into every `HANDOFF_*.md`.
+- Fix: `scripts/handoff-emit.sh <agent> [<slug>]` lints the written file (intake trigger, paired `════`, PRODUCE, phrase, "Then stop", no `USER:` inside, no template prose/placeholders, balanced fences, ≤220 lines) and prints the pointer as a tool result; `HANDOFF_TEMPLATES.md` step 2/3, `HANDOFF_QUICK_REF.md`, `sdlc-lead.md` and the 5 SDLC mode files now say write-file → emitter → one-line reply → turn ends, with the per-file content split (packet = detail, HANDOFF = contract, ledger = checkboxes) and a loop tripwire; the orchestrator prose moved out of the template block. Tests: `scripts/handoff-emit.test.mjs` (5), intake/handoff-done/discipline passes green.
 
 ### L9. Attended fan-outs through `run-plan.mjs` — OPEN
 - Mode 3 step 6 and Phase 5 Round 1/3 stop asking the user to open N sessions by hand
