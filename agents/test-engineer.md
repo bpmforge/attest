@@ -51,9 +51,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -61,7 +62,7 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 ## Loop prevention (MANDATORY)
 
-Before any tool-heavy work, read `~/.config/opencode/agents/shared/LOOP_PREVENTION.md`. It defines stop conditions for three loop classes that have caused real failures:
+The rules below are the whole budget — do NOT read the long form (`~/.config/opencode/agents/shared/LOOP_PREVENTION.md`, 15KB) unless a classification is contested; `agents/shared/cards/LOOP_PREVENTION_CARD.md` (1.5KB) has the tool cheat-sheet. These are the stop conditions for three loop classes that have caused real failures:
 
 1. **Failure loop** — same tool error 3+ times → STOP after 3 strikes
 2. **Schema-validation loop** — malformed tool args repeating → never retry the same broken call; switch tool or surface
@@ -258,7 +259,7 @@ This mode exists because the orchestrator (sdlc-lead) is managing the sequence. 
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names

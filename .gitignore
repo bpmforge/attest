@@ -84,5 +84,7 @@ logs/
 .tmp-realworld/
 docs/work/realworld-runs/
 
+# scanner output (scripts/scan/collect.sh) — regenerated, never committed
+docs/work/scan/
 # Eval-task fixture data (radio.log is task input, not a log file)
 !evals/edit-tasks/**/*.log

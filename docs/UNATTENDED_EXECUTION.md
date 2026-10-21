@@ -99,27 +99,41 @@ theatre.
 
 ---
 
-## The three rounds, per ticket
+## The three rounds, per ticket — and the once-per-branch audit
 
 ```
 Round 1  code       coder model, isolated worktree, no git or plan.json access
          ↓          scope gate + Completion Manifest gate
-Round 2  review     reviewer model — code-reviewer, plus whoever the diff triggers
+         scan       scripts/scan/collect.sh on the ticket diff (semgrep + secrets) — no model
+Round 2  review     reviewer model — one lean code-reviewer, plus whoever the ticket declares,
+         ↓          a HIGH-signal added line, or the scan recruits; reviewers run concurrently
          ↓          blocking verdict → bounded fix loop (--fix-iterations, default 3)
-Round 3  runtime    build / lint / test actually executed; verdict must be evidenced
-         ↓
-         close()    runs the ticket's own `verify` from OUTSIDE the session
+Round 3  runtime    build / lint / tests / smoke executed BY THE CONDUCTOR; the exit codes are
+         ↓          the verdict; a model is spent only on FAIL, for the diagnosis
+         close()    runs the ticket's own `verify` from OUTSIDE the session (once)
          merge --no-ff → next ticket
+         ...
+Integration  once per branch (--no-merge: before the push; merge mode: end of run) —
+             scanners over the whole diff, then code-health (7 specialists), security,
+             perf, ux(if UI) CONCURRENTLY; INTEGRATION_SUMMARY must be APPROVED and
+             fresh for validate-release-readiness.sh to pass
 ```
 
-**Reviewers are triggered by the diff**, per `PARALLEL_WAVE_PROTOCOL`:
+This is the two-tier design from `docs/work/TOKEN_OPTIMIZATION_PLAN.md`: the
+per-ticket gate is cheap and mostly deterministic; the broad audits run once
+over the tree that is actually being merged.
 
-| Reviewer | Fires when the diff touches |
-|---|---|
-| `code-reviewer` | always |
-| `security` | auth, input handling, secrets, shell-exec |
-| `perf` | DB queries or loops |
-| `ux` | UI components |
+**Reviewers are triggered by the diff** (`--review-tier`, default `ticket`):
+
+| Reviewer | `ticket` tier (per ticket) fires when | `integration` tier (per branch) |
+|---|---|---|
+| `code-reviewer` | always | always (full orchestrator) |
+| `security` | declared on the ticket; a HIGH-signal ADDED line (`child_process`, `eval(`, `jwt.sign`, `req.body`, raw SQL, `dangerouslySetInnerHTML`); a semgrep ERROR or secret pattern in the diff | always |
+| `perf` | declared; a raw query / query-builder on an ADDED line | always |
+| `ux` | declared; `aria-`/`role=` on an ADDED line | when UI paths changed |
+
+`--review-tier full` restores the pre-3.14 behaviour where a file *named*
+`session.ts` or any `.css` file recruited a specialist per ticket.
 
 A ticket may also request reviewers explicitly with `"reviews": ["security",
 "perf", "test"]`. That is a **union** with the triggers, not a replacement — use
@@ -128,6 +142,13 @@ it to force a discipline that the patterns would not otherwise summon.
 Each reviewer writes its own document (`docs/reviews/SECURITY_<id>.md`, …) and
 they are committed alongside the code, so every landed ticket carries its own
 audit trail.
+
+**Session budget.** Every session gets `--max-turns` (default 120); a session
+that hits it ends with its ledger on disk and is continued in the same worktree
+(`--turn-continuations`, default 2). Tool results over `EXPERTS_TOOL_OUTPUT_MAX`
+chars (default 24000) are bounded by the plugin with a re-query hint. The
+conductor logs each role's agent prompt size at startup (`agents.prompt-size`);
+above 32KB it suggests the compact overlay.
 
 ---
 

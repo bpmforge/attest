@@ -23,7 +23,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.

@@ -63,9 +63,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is

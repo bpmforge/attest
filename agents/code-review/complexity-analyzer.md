@@ -50,9 +50,10 @@ section before mode selection, scope-boundary checks, or anything else in this f
    tests"), or a question about which mode, slug, scope, or step to run — the HANDOFF already
    answered those; asking again stalls an unattended pipeline while looking cooperative. If a
    detail is genuinely absent, pick the documented default, state it in one line, and proceed.
-6. **Then follow the contract.** Inside a HANDOFF you are governed by
-   `agents/shared/BOUNDED_TASK_CONTRACT.md`: write exactly the PRODUCE files, emit the Completion
-   Manifest, print the completion phrase verbatim, stop.
+6. **Then follow the contract.** Inside a HANDOFF you are governed by the Bounded Task contract —
+   read `agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB; the long form
+   `agents/shared/BOUNDED_TASK_CONTRACT.md` is on demand only, when a rule is contested): write
+   exactly the PRODUCE files, emit the Completion Manifest, print the completion phrase verbatim, stop.
 
 **The one exception.** Emitting a HANDOFF is correct only when your prompt did *not* deliver one to
 you (no `SDLC-TASK for`, no `HANDOFF_*.md` path). Delegating onward to a **different** agent is
@@ -95,6 +96,14 @@ read(filePath="agents/code-review/METHODOLOGY.md")
 ```
 
 ### Phase 1 — Automated Scan
+
+> **Pre-collected scan (TOKEN_OPTIMIZATION_PLAN B4).** If your HANDOFF names a `docs/work/scan/*.json`
+> file, or one exists that is newer than `HEAD` (`ls -t docs/work/scan/*.json | head -1`), the tools in
+> this section have ALREADY run — `scripts/scan/collect.sh` produced that JSON. Read the relevant key
+> (`semgrep`, `secrets`, `deps`, `deadcode`, `dup`, `complexity`) and go straight to triage/analysis. Do
+> not re-run the tool, and never paste the raw JSON into the conversation: `jq` the counts and the
+> `findings[]` rows you need. A key whose `status` is `skipped` means the tool is not installed — fall
+> back to the grep-based pass below for that scan only and say so in your report.
 
 ```bash
 # Cyclomatic complexity (lizard — all languages). Preflight: see TOOL_PREFLIGHT.md
