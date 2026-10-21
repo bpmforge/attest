@@ -56,8 +56,27 @@ if (plugin.length) {
       cost: Number(g.reduce((a, r) => a + (r.cost ?? 0), 0).toFixed(4)),
       ms_p50: dur.p50, ms_p95: dur.p95,
       errors: g.filter((r) => r.error).length,
+      // Stream health: a provider that drops streams shows up as errors and
+      // as finishes that are neither stop nor tool-calls; `length` is the
+      // output cap. Both looked like "the agent is looping" in the TUI.
+      finish_length: g.filter((r) => r.finish === 'length').length,
+      finish_other: g.filter((r) => r.finish && !['stop', 'tool-calls', 'length'].includes(String(r.finish))).length,
     };
   }).sort((a, b) => b.messages - a.messages);
+
+  // Per-model stream reliability, so a flaky provider is one line in the report.
+  report.sections.stream_health = Object.entries(groupBy(plugin, (r) => r.model ?? '?')).map(([model, g]) => {
+    const failed = g.filter((r) => r.error || (r.finish && !['stop', 'tool-calls'].includes(String(r.finish))));
+    return {
+      model, messages: g.length,
+      failed: failed.length,
+      failure_rate: Number((failed.length / g.length).toFixed(3)),
+      errors: Object.fromEntries(Object.entries(groupBy(g.filter((r) => r.error), (r) => r.error)).map(([k, v]) => [k, v.length])),
+      finish_length: g.filter((r) => r.finish === 'length').length,
+      verdict: failed.length / g.length > 0.1 ? 'UNRELIABLE — route sdlc-lead / reviewer roles elsewhere (models.json) or raise the provider timeout'
+        : failed.length ? 'occasional stream failures' : 'ok',
+    };
+  }).sort((a, b) => b.failure_rate - a.failure_rate);
 }
 
 // ── run-plan rows: node outcomes per agent×tier ──────────────────────────
@@ -109,6 +128,7 @@ if (JSON_OUT) {
     console.table(items);
   };
   table('Assistant messages (real tokens — plugin)', report.sections.messages);
+  table('Stream health per model (errors + non-stop finishes; >10% = UNRELIABLE)', report.sections.stream_health);
   table('run-plan nodes', report.sections.nodes);
   table('Eval agent checks', report.sections.evals);
   table('Validators', report.sections.validators);

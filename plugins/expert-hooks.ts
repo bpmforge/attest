@@ -347,6 +347,18 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // top eight times, and the TUI showed every copy — read as "the lead is
       // looping" when it was `limit.output` / max_tokens. Say so where it
       // happens; telemetry already records the finish reason for the report.
+      // Provider stream failure (TUI capture 2026-10-21, second set): the same
+      // reply arrived four times, each cut at a different point and reworded —
+      // separate generations, i.e. the provider dropped the stream and opencode
+      // retried, keeping every failed attempt's partial text in the message.
+      // Name it where it happens so it is not read as the agent looping.
+      if (info.error || (info.finish && !["stop", "tool-calls", "length"].includes(String(info.finish)))) {
+        console.warn(
+          `[expert-hooks] provider stream did not complete (${info.error?.name ?? `finish=${info.finish}`}${info.error?.message ? `: ${String(info.error.message).slice(0, 160)}` : ""}) on ${info.providerID}/${info.modelID} after ${info.tokens?.output ?? "?"} output tokens. ` +
+            `opencode retries; the partial text shown above is from the failed attempt, not the agent repeating itself. ` +
+            `If this recurs, route this role to a more reliable model in models.json (roles.* / agents.*) or raise the provider's timeout.`,
+        );
+      }
       if (info.finish === "length") {
         console.warn(
           `[expert-hooks] reply hit the model's OUTPUT CAP (finish=length, ${info.tokens?.output ?? "?"} output tokens, ${info.providerID}/${info.modelID}). ` +
@@ -371,6 +383,7 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
         cost: info.cost ?? 0,
         finish: info.finish ?? null,
         error: info.error?.name ?? null,
+        error_detail: info.error?.message ? String(info.error.message).slice(0, 200) : null,
       });
     },
   };
