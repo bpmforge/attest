@@ -3,7 +3,7 @@
 // the v2 shell (plugins-v2/expert-hooks/index.ts). Seam for WP-X1 (stall guard) and
 // WP-X3 (compaction trigger): add sibling modules, wire them in both shells.
 //
-// EXPERTS_MAX_TURNS=<n> makes the budget mechanical: after n completed assistant
+// EXPERTS_MAX_TURNS=<n> (default 150 when unset, 0 = off) makes the budget mechanical: after n completed assistant
 // turns every further tool call is refused EXCEPT writes under docs/work/ and
 // docs/reviews/, so the agent can update its ledger, write its Completion
 // Manifest and stop cleanly (the conductor then resumes in a fresh session).
@@ -11,8 +11,16 @@
 export const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
 export const LEDGER_DIR_RE = /(^|\/)docs\/(work|reviews)\//;
 
+/** Default budget when EXPERTS_MAX_TURNS is unset (WP-X1): one 602-turn session burned 46.6M input tokens. */
+export const DEFAULT_MAX_TURNS = 150;
+
+// The conductor exports no "I am the conductor" marker, only EXPERTS_MAX_TURNS itself (set whenever its
+// --max-turns > 0, default 120). So "unset" is the signal for "not under the conductor": it gets
+// DEFAULT_MAX_TURNS. An explicit EXPERTS_MAX_TURNS=0 (or garbage) still means off.
 export function parseMaxTurns(env: Record<string, string | undefined>): number {
-  return Number(env.EXPERTS_MAX_TURNS || 0) || 0;
+  const raw = env.EXPERTS_MAX_TURNS;
+  if (raw === undefined || raw === "") return DEFAULT_MAX_TURNS;
+  return Number(raw) || 0;
 }
 
 export function turnCapMessage(turns: number, max: number): string {

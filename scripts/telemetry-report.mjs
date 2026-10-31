@@ -14,6 +14,7 @@
 //   run-plan  — per-node status/attempts/duration (estimates marked _est)
 //   evals     — per-agent-check pass/fail/duration
 //   validator — per-validator gaps/exit
+//   stall     — sessions aborted by the harness stall guard (WP-X1) -> `## Stalls` section
 
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -118,6 +119,29 @@ if (valRows.length) {
   })).sort((a, b) => b.runs - a.runs);
 }
 
+// ── stall rows (WP-X1): sessions the harness stall guard aborted ─────────
+// Rows: {source:"stall", session, turns, tokens_in_wasted, reason}. "Turns saved" is an estimate: the turns an
+// un-guarded session would have kept spending, taken from the observed degenerate-run length (602-turn incident)
+// minus the turns at abort, floored at 0 — a lower bound is not knowable, so treat it as indicative only.
+const stallRows = rows.filter((r) => r.source === 'stall');
+if (stallRows.length) {
+  const REF_RUNAWAY_TURNS = 602;
+  const perTurnIn = (r) => (r.turns > 0 ? (r.tokens_in_wasted ?? 0) / Math.min(r.turns, 6) : 0);
+  report.sections.stalls = stallRows.map((r) => {
+    const saved = Math.max(0, REF_RUNAWAY_TURNS - (r.turns ?? 0));
+    return {
+      session: r.session, aborted_at_turn: r.turns ?? 0, tokens_in_at_abort: r.tokens_in_wasted ?? 0,
+      turns_saved_est: saved, tokens_saved_est: Math.round(saved * perTurnIn(r)), reason: r.reason ?? '',
+    };
+  });
+  report.stall_summary = {
+    sessions_aborted: stallRows.length,
+    tokens_in_at_abort: stallRows.reduce((a, r) => a + (r.tokens_in_wasted ?? 0), 0),
+    turns_saved_est: report.sections.stalls.reduce((a, r) => a + r.turns_saved_est, 0),
+    tokens_saved_est: report.sections.stalls.reduce((a, r) => a + r.tokens_saved_est, 0),
+  };
+}
+
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
@@ -132,5 +156,10 @@ if (JSON_OUT) {
   table('run-plan nodes', report.sections.nodes);
   table('Eval agent checks', report.sections.evals);
   table('Validators', report.sections.validators);
+  if (report.stall_summary) {
+    console.log('## Stalls');
+    console.log(`sessions aborted: ${report.stall_summary.sessions_aborted} | tokens_in at abort: ${report.stall_summary.tokens_in_at_abort} | turns saved (est, vs a ${602}-turn runaway): ${report.stall_summary.turns_saved_est} | tokens saved (est): ${report.stall_summary.tokens_saved_est}`);
+    console.table(report.sections.stalls);
+  }
   console.log('Use: p95 tokens_out per agent → CONTEXT_BUDGET/plan max_tokens_est; p95 duration → run-plan TIMEOUTS; retry/escalation rates → escalation ladder thresholds.');
 }

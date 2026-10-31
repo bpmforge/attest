@@ -1,9 +1,10 @@
 // plugins/lib/telemetry.ts — pure telemetry + assistant-message event handling (plan 4.12).
 // NO opencode imports. Append-only JSONL of ACTUALS to <project>/docs/work/telemetry.jsonl:
 // counts and identifiers only — never message content. Disable: EXPERTS_TELEMETRY=0.
-// Seam for WP-X1: the stall guard consumes the same `info` stream via `onMessage`.
+// WP-X1: the stall guard (stall-guard.ts) consumes the same `info` stream via createAssistantMessageHandler's `stall` dep.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { stallAbortMessage, stallWarnMessage, type StallGuard } from "./stall-guard.ts";
 
 export function logTelemetry(projectRoot: string, row: Record<string, unknown>): void {
   try {
@@ -68,6 +69,8 @@ export interface MessageHandlerDeps {
   turnCapMessage: (turns: number, max: number) => string;
   /** G1 session-model receipt (scripts/lib/session-receipt.mjs logSessionReceipt). */
   logSessionReceipt: (root: string, info: any) => void;
+  /** WP-X1 stall guard (plugins/lib/stall-guard.ts createStallGuard). Optional: absent = no stall detection. */
+  stall?: StallGuard;
   env?: Record<string, string | undefined>;
   warn?: (msg: string) => void;
   cwd?: () => string;
@@ -80,6 +83,7 @@ export interface MessageHandlerDeps {
 export function createAssistantMessageHandler(deps: MessageHandlerDeps) {
   const sessionModelLogged = new Set<string>();
   const loggedMessages = new Set<string>();
+  const stallSeen = new Set<string>();
   const warn = deps.warn ?? ((m: string) => console.warn(m));
   const env = deps.env ?? process.env;
   return function onAssistantMessage(info: any): void {
@@ -89,6 +93,28 @@ export function createAssistantMessageHandler(deps: MessageHandlerDeps) {
     // with EXPERTS_TELEMETRY=0 is not a budget.
     const n = deps.turns.record(info.sessionID, info.id, info.time?.completed);
     if (n !== null && n === deps.maxTurns) warn(`[expert-hooks] ${deps.turnCapMessage(n, deps.maxTurns)}`);
+
+    // Stall guard (WP-X1): like the turn count, independent of telemetry. Completed messages only, once each.
+    if (deps.stall && info.time?.completed && info.sessionID && info.id && !stallSeen.has(info.id)) {
+      stallSeen.add(info.id);
+      if (stallSeen.size > 5000) stallSeen.clear();
+      const sig = deps.stall.signals(info.sessionID, info.id);
+      const r = deps.stall.observe({
+        sessionID: info.sessionID, messageID: info.id, text: sig.text, wroteFile: sig.wroteFile,
+        tokensOut: info.tokens?.output ?? 0, tokensIn: info.tokens?.input ?? 0,
+      });
+      // Same injection channel as the TURN BUDGET message: warn(). Abort additionally gates tool calls in the shells.
+      if (r.action === "warn") warn(`[expert-hooks] ${stallWarnMessage(r.consecutive)}`);
+      if (r.action === "abort") {
+        warn(`[expert-hooks] ${stallAbortMessage(r.turns)}`);
+        if (env.EXPERTS_TELEMETRY !== "0") {
+          logTelemetry(info.path?.root ?? (deps.cwd ?? process.cwd)(), {
+            ts: new Date(deps.stall.now()).toISOString(), source: "stall", session: info.sessionID,
+            turns: r.turns, tokens_in_wasted: r.tokensInWasted, reason: r.reason,
+          });
+        }
+      }
+    }
 
     if (env.EXPERTS_TELEMETRY === "0") return;
 

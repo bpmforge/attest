@@ -121,7 +121,7 @@ async function testPluginLib(
   const guards = await load("plugins/lib/guards.ts");
 
   // turn cap
-  check("lib turn-cap: parseMaxTurns reads EXPERTS_MAX_TURNS, unset/garbage -> 0", cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "3" }) === 3 && cap.parseMaxTurns({}) === 0 && cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "x" }) === 0);
+  check("lib turn-cap: parseMaxTurns reads EXPERTS_MAX_TURNS, unset -> default 150, 0/garbage -> 0", cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "3" }) === 3 && cap.parseMaxTurns({}) === 150 && cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "0" }) === 0 && cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "x" }) === 0);
   check("lib turn-cap: below the cap nothing is refused", cap.turnCapDecision({ turns: 2, max: 3, tool: "read" }) === null);
   check("lib turn-cap: at the cap a read is refused with the budget message", /TURN BUDGET REACHED.*limit 3/.test(cap.turnCapDecision({ turns: 3, max: 3, tool: "read" }) ?? ""));
   check("lib turn-cap: at the cap a ledger write (docs/work, docs/reviews) is still allowed", cap.turnCapDecision({ turns: 9, max: 3, tool: "write", filePath: "/p/docs/work/TASKS_x.md" }) === null && cap.turnCapDecision({ turns: 9, max: 3, tool: "edit", filePath: "docs/reviews/M.md" }) === null);
@@ -130,6 +130,57 @@ async function testPluginLib(
   const tc = cap.createTurnCounter(2);
   check("lib turn-cap: counter counts each completed message once, ignores incomplete", tc.record("s", "m1", 1) === 1 && tc.record("s", "m1", 1) === null && tc.record("s", "m2", 0) === null && tc.record("s", "m2", 1) === 2 && tc.get("s") === 2 && tc.get("other") === 0);
   check("lib turn-cap: a disabled (max 0) counter never counts", cap.createTurnCounter(0).record("s", "m", 1) === null);
+
+  // stall guard (WP-X1): replay of the real 602-turn session's row pattern + synthetic controls
+  const sg = await load("plugins/lib/stall-guard.ts");
+  const replay = (guard: any, rows: Array<{ id: string; out: number; tin: number; text?: string; wrote?: boolean }>, sid = "ses_0610c84d") => {
+    let warnAt = 0, abortAt = 0, last: any = null;
+    rows.forEach((r, i) => {
+      last = guard.observe({ sessionID: sid, messageID: r.id, text: r.text, tokensOut: r.out, tokensIn: r.tin, wroteFile: !!r.wrote });
+      if (last.action === "warn" && !warnAt) warnAt = i + 1;
+      if (last.action === "abort" && !abortAt) abortAt = i + 1;
+    });
+    return { warnAt, abortAt, last };
+  };
+  // Row pattern of ses_0610c84ddffedep2fRsJnm41Ax (docs/work/telemetry.jsonl is git-ignored, so generated here):
+  // ~74 normal turns (tokens_in 41k->61k, 139+ out), then 16 output tokens per turn, +63 input per turn, 602 turns.
+  const fixture = Array.from({ length: 602 }, (_, i) => i < 74
+    ? { id: `m${i}`, out: 139 + (i * 37) % 400, tin: 41280 + i * 270 }
+    : { id: `m${i}`, out: 16, tin: 60990 + (i - 74) * 63 });
+  const g1 = sg.createStallGuard({ env: {} });
+  const rep = replay(g1, fixture);
+  check(`lib stall: replay of the 602-turn fixture warns at turn ${rep.warnAt} and aborts at turn ${rep.abortAt} (<= 81, not 602)`, rep.warnAt === 78 && rep.abortAt === 80 && rep.abortAt <= 81);
+  check("lib stall: abort fires once; the stall row data (turns, tokens_in wasted, reason) is populated", g1.isAborted("ses_0610c84d") && rep.last.action === "none" && g1.turns("ses_0610c84d") === 602);
+  const g1b = sg.createStallGuard({ env: {} });
+  const abortRes = fixture.slice(0, 80).map((r, i) => g1b.observe({ sessionID: "s", messageID: r.id, tokensOut: r.out, tokensIn: r.tin, wroteFile: false })).at(-1)!;
+  check("lib stall: abort result carries consecutive=6, turns=80, tokensInWasted>0 and a reason", abortRes.action === "abort" && abortRes.consecutive === 6 && abortRes.turns === 80 && abortRes.tokensInWasted > 300000 && /6 consecutive/.test(abortRes.reason));
+  const varying = Array.from({ length: 300 }, (_, i) => ({ id: `v${i}`, out: 150 + (i % 7) * 40, tin: 40000 + i * 100, text: `step ${i}: read file ${i % 13}` }));
+  const rv = replay(sg.createStallGuard({ env: {} }), varying, "normal");
+  check("lib stall: a varying-output fixture never warns or aborts", rv.warnAt === 0 && rv.abortAt === 0);
+  const gw = sg.createStallGuard({ env: {} });
+  const broken = [0, 1, 2].map((k) => [1, 2, 3].map((j) => ({ id: `b${k}${j}`, out: 16, tin: 50000 })).concat([{ id: `bw${k}`, out: 16, tin: 50000, wrote: true }])).flat();
+  const rb = replay(gw, broken, "broken");
+  check("lib stall: a tiny-output streak broken by a file write resets (3 tiny + write, repeated, never warns)", rb.warnAt === 0 && rb.abortAt === 0 && rb.last.consecutive === 0);
+  const gs = sg.createStallGuard({ env: {} });
+  const rs = replay(gs, [1, 2, 3].map((i) => ({ id: `p${i}`, out: 16, tin: 1 })).concat([{ id: "p4", out: 500, tin: 1 }, { id: "p5", out: 16, tin: 1 }, { id: "p6", out: 16, tin: 1 }, { id: "p7", out: 16, tin: 1 }]), "subst");
+  check("lib stall: a substantive different output resets the streak", rs.warnAt === 0 && rs.last.consecutive === 3);
+  const gi = sg.createStallGuard({ env: {} });
+  const ri = replay(gi, Array.from({ length: 8 }, (_, i) => ({ id: `i${i}`, out: 300, tin: 10, text: i % 2 ? "  Same   REPLY\n" : "same reply" })), "ident");
+  check("lib stall: identical normalized text (case/whitespace-insensitive) warns at 4 and aborts at 6 even with big outputs", ri.warnAt === 4 && ri.abortAt === 6);
+  const rw1 = replay(sg.createStallGuard({ env: {} }), Array.from({ length: 12 }, (_, i) => ({ id: `w${i}`, out: 16, tin: 1 })), "once");
+  const warnCount = (() => { const g = sg.createStallGuard({ env: { EXPERTS_STALL_ABORT: "0" } }); let n = 0; for (let i = 0; i < 12; i++) if (g.observe({ sessionID: "x", messageID: `o${i}`, tokensOut: 16, wroteFile: false }).action === "warn") n++; return n; })();
+  check("lib stall: warn fires once per streak; EXPERTS_STALL_ABORT=0 never aborts", warnCount === 1 && rw1.abortAt === 6);
+  const gOff = replay(sg.createStallGuard({ env: { EXPERTS_STALL_WARN: "0", EXPERTS_STALL_ABORT: "0" } }), fixture, "off");
+  check("lib stall: EXPERTS_STALL_WARN=0 + EXPERTS_STALL_ABORT=0 disables the guard on the 602-turn fixture", gOff.warnAt === 0 && gOff.abortAt === 0);
+  const gEnv = replay(sg.createStallGuard({ env: { EXPERTS_STALL_WARN: "2", EXPERTS_STALL_ABORT: "3" } }), fixture.slice(74, 90), "envs");
+  check("lib stall: EXPERTS_STALL_WARN/ABORT override the 4/6 defaults", gEnv.warnAt === 2 && gEnv.abortAt === 3);
+  const gSig = sg.createStallGuard({ env: {} });
+  gSig.noteText("t1", "hello"); gSig.noteWrite("sx");
+  const sig1 = gSig.signals("sx", "t1"); const sig2 = gSig.signals("sx", "t1");
+  check("lib stall: shell signals (assistant text, file write) are consumed once", sig1.text === "hello" && sig1.wroteFile === true && sig2.text === undefined && sig2.wroteFile === false);
+  check("lib stall: abort refuses tool calls but still allows docs/work and docs/reviews ledger writes",
+    /BLOCKED: repeat-output stall after 80 turns/.test(sg.stallAbortDecision({ aborted: true, turns: 80, tool: "read" }) ?? "") && sg.stallAbortDecision({ aborted: true, turns: 80, tool: "write", filePath: "/p/docs/work/TASKS_x.md" }) === null && sg.stallAbortDecision({ aborted: false, turns: 80, tool: "read" }) === null && !!sg.stallAbortDecision({ aborted: true, turns: 80, tool: "edit", filePath: "/p/src/a.ts" }));
+  check("lib stall: STALL DETECTED directive names the ledger and BLOCKED escape", /STALL DETECTED: your last 4 replies.*HANDOFF.*ONE concrete tool action.*BLOCKED/.test(sg.stallWarnMessage(4)));
 
   // tool-output truncation: head / tail / omission marker
   const big = "H".repeat(650) + "M".repeat(98_000) + "T".repeat(350);
@@ -179,6 +230,22 @@ async function testPluginLib(
     const quiet = tel.createAssistantMessageHandler({ turns: c2, maxTurns: 1, turnCapMessage: cap.turnCapMessage, logSessionReceipt: () => {}, env: { EXPERTS_TELEMETRY: "0" }, warn: (m: string) => off.push(m), cwd: () => path.join(tmp, "quiet") });
     quiet(info("q1", 5000));
     check("lib handler: EXPERTS_TELEMETRY=0 stops the log but the turn budget still counts", c2.get("ses1") === 1 && off.length === 1 && !fs.existsSync(path.join(tmp, "quiet")));
+
+    // stall guard through the shared handler (what both shells run): warn via the turn-cap channel, abort writes a telemetry row
+    const sw: string[] = [];
+    const sgd = await load("plugins/lib/stall-guard.ts");
+    const sguard = sgd.createStallGuard({ env: {} });
+    const stallRoot = path.join(tmp, "stallproj");
+    const sh = tel.createAssistantMessageHandler({ turns: cap.createTurnCounter(0), maxTurns: 0, turnCapMessage: cap.turnCapMessage, logSessionReceipt: () => {}, stall: sguard, env: {}, warn: (m: string) => sw.push(m), cwd: () => stallRoot });
+    for (let i = 0; i < 8; i++) sh({ ...info(`s${i}`, 9000 + i, { sessionID: "sesS", path: { root: stallRoot }, tokens: { input: 60000 + i * 63, output: 16, reasoning: 19, cache: { read: 0, write: 0 } } }) });
+    const stallRows = fs.readFileSync(path.join(stallRoot, "docs/work/telemetry.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)).filter((r: any) => r.source === "stall");
+    check("lib handler: stall warn (once, at 4) and abort (at 6) reach warn(); abort prints BLOCKED", sw.filter((m) => /STALL DETECTED/.test(m)).length === 1 && sw.filter((m) => /BLOCKED: repeat-output stall after 6 turns/.test(m)).length === 1 && sguard.isAborted("sesS"));
+    check("lib handler: exactly one source:stall telemetry row {session, turns, tokens_in_wasted, reason}", stallRows.length === 1 && stallRows[0].session === "sesS" && stallRows[0].turns === 6 && stallRows[0].tokens_in_wasted > 360000 && /consecutive/.test(stallRows[0].reason));
+    const quietStall = path.join(tmp, "stallquiet");
+    const sg2 = sgd.createStallGuard({ env: {} });
+    const sh2 = tel.createAssistantMessageHandler({ turns: cap.createTurnCounter(0), maxTurns: 0, turnCapMessage: cap.turnCapMessage, logSessionReceipt: () => {}, stall: sg2, env: { EXPERTS_TELEMETRY: "0" }, warn: () => {}, cwd: () => quietStall });
+    for (let i = 0; i < 7; i++) sh2({ ...info(`q${i}`, 9000 + i, { sessionID: "sesQ", tokens: { input: 1, output: 16, cache: {} } }) });
+    check("lib handler: EXPERTS_TELEMETRY=0 still aborts a stalled session but writes no row", sg2.isAborted("sesQ") && !fs.existsSync(quietStall));
 
     // guards: the pre-tool check both shells delegate to
     const blocked = (o: any) => { try { guards.beforeToolCheck({ sessionID: "s", gated: new Map(), turns: 0, maxTurns: 0, env: {}, ...o }); return null; } catch (e: any) { return String(e.message); } };
