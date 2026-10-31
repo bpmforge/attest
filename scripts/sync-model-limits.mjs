@@ -12,6 +12,9 @@
 //   node sync-model-limits.mjs --config <opencode.json> [--base http://127.0.0.1:1234]
 //        [--models <models.json>] [--write] [--margin 2048] [--floor 49152]
 //        [--output-cap 8000] [--tool-output-max-lines 500] [--tool-output-max-bytes 20000]
+//        [--write-models]   WP-X3: also record each loaded model's loaded_context_length as
+//                           models.json models["<provider>/<model>"].context_window (the source the compaction
+//                           trigger's 0.6 x window default reads; never guessed, only what LM Studio reports).
 // Default is dry-run (prints the proposed limits). --write patches the config (with .bak).
 // Exit codes: 0 = clean/no refusals, 1 = at least one REFUSE finding (or LM Studio
 // unreachable / nothing loaded -- a GAP, not an error), 2 = usage error.
@@ -28,6 +31,7 @@ const arg = (name, dflt) => {
   return i > -1 ? process.argv[i + 1] : dflt;
 };
 const WRITE = process.argv.includes('--write');
+const WRITE_MODELS = process.argv.includes('--write-models');
 const BASE = arg('base', 'http://127.0.0.1:1234');
 const CONFIG = arg('config', null);
 const MODELS_PATH = arg('models', resolve(HERE, '..', 'models.json'));
@@ -77,6 +81,35 @@ const { findings, changed, refused, cfg: nextCfg } = planSync(loaded, cfg, {
 });
 
 console.log(findings.join('\n'));
+
+// WP-X3: context_window per model for the compaction trigger. Keys follow opencode's "<provider>/<model>" ids
+// for providers pointing at the probed server (same exact-origin rule as planSync).
+if (WRITE_MODELS) {
+  const origin = (u) => { try { return new URL(u).origin; } catch { return null; } };
+  const mc = modelsConfig ?? { models: {} };
+  mc.models ??= {};
+  let wrote = 0;
+  for (const [provId, prov] of Object.entries(cfg.provider ?? {})) {
+    if (origin(prov.options?.baseURL ?? '') !== origin(BASE)) continue;
+    for (const modelId of Object.keys(prov.models ?? {})) {
+      const live = loaded.find((m) => m.id === modelId);
+      if (!live?.loaded_context_length) continue;
+      const key = `${provId}/${modelId}`;
+      const entry = (mc.models[key] ??= {});
+      if (entry.context_window === live.loaded_context_length) continue;
+      console.log(`MODELS ${key}: context_window ${entry.context_window ?? 'unset'} -> ${live.loaded_context_length}`);
+      entry.context_window = live.loaded_context_length;
+      wrote++;
+    }
+  }
+  if (wrote && WRITE) {
+    if (existsSync(MODELS_PATH)) copyFileSync(MODELS_PATH, `${MODELS_PATH}.bak`);
+    writeFileSync(MODELS_PATH, JSON.stringify(mc, null, 2) + '\n');
+    console.log(`wrote ${MODELS_PATH} (${wrote} context_window value(s))`);
+  } else if (wrote) {
+    console.log('dry-run: re-run with --write --write-models to record context_window');
+  }
+}
 if (changed && WRITE) {
   copyFileSync(CONFIG, `${CONFIG}.bak`);
   writeFileSync(CONFIG, JSON.stringify(nextCfg, null, 2) + '\n');
