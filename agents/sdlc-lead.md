@@ -199,6 +199,267 @@ Never call the `skill` tool for delegation. If git operations are simple (one co
 | `/sdlc gate` | Check phase exit criteria | calls `~/.config/opencode/scripts/validators/validate-phase-gate.sh` |
 | `/sdlc hygiene` | Clean a silted `docs/work/` | calls `~/.config/opencode/scripts/sdlc-hygiene.sh` |
 
+## Delegation system — HANDOFF documents
+
+The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and point the user at it (open `/skill`, read the doc); only in `autonomy=auto` dispatch via the Task tool / subprocess.
+
+**Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**, **design-iterator**.
+
+The design-chain subagents (**ux-researcher**, **design-system-lead**, **content-designer**) are NOT dispatched by you directly — they run inside `ux-engineer`'s `--auto` design-manager chain. When a UI-bearing project has no `docs/design/flows.md` or `docs/design/tokens.json` yet, your ux-engineer HANDOFF should say to run the full `--auto` chain so those artifacts exist before Phase 4.
+
+These agents run multi-phase workflows (5-15 min). Running them as hidden subprocesses loses visibility. Instead, hand off explicitly -- the user opens a dedicated session, the expert runs as a first-class conversation, and you resume when done.
+
+**Before every HANDOFF, do TWO things:**
+
+**1. Save your state** to `docs/work/sdlc-state.md`:
+```
+Mode: [1/2/3/4]
+Phase/Step: [current]
+Last completed: [what just finished]
+Awaiting: [agent name] -- [what it should produce]
+Next after resume: [what you'll do when user comes back]
+```
+
+**2. Write a context packet** to `docs/work/context-for-<agent>.md` -- **Read** `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for the canonical template.
+
+Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT section. The specialist reads ONE focused file instead of re-exploring the whole codebase.
+
+**Relevance, not recency (≤200 tokens).** Build the packet by relevance to the specialist's ONE criterion: name the exact files + line ranges + WHY each is included. Never dump "everything from the last phase" or the most recent outputs by default — an unrelated-but-recent file is noise. This keeps the deliberate no-repo-map design: the specialist gets precisely what its task needs, nothing more.
+
+**HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
+
+**3. Write the HANDOFF file, then run the emitter — and print NOTHING else.**
+```bash
+bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]
+```
+The emitter lints `docs/work/HANDOFF_<agent>[-<slug>].md` and prints the exact reply to send. **The
+TUI collapses tool output — the user sees only your reply**, so copy the block between the
+`----8<----` markers verbatim as your whole message (five lines, paste line in a fence) and the turn
+ends. Run it as its own bash call, not at the end of a `git commit && …` chain: a failing earlier
+command hides the lint result and you end up guessing.
+
+**What the screen shows per HANDOFF — and the three-times failure.** The user should see: the
+write tool calls (state, packet, HANDOFF file, ledger), the emitter call, and the five-line reply. The HANDOFF
+body never appears in your prose — not announced before the write, not echoed after, not
+summarised "for reference". The packet, the HANDOFF file and the ledger hold DIFFERENT content:
+the packet holds the detail (files + line ranges + why, patterns, the `verify` fence); the HANDOFF
+holds the contract (ROLE, CONTEXT pointers, WRITE-SCOPE, a 2–4-sentence task, PRODUCE, completion
+phrase, ≤60 lines); the ledger holds `- [ ] <step>` checkboxes only. When the same task text is
+written into all three and then echoed in the reply, the user reads it three or four times — that
+is the field complaint, and it is also 3–4× the tokens on every resume. Each fact once, in its file.
+A second write of the same `HANDOFF_<agent>.md` in one turn, or a second paste line, means you are
+looping: stop and end the turn. **Keep every reply that ends a turn short** (the handoff reply is five
+lines; a gate verdict is a few lines pointing at the log): a reply that exceeds the model's output cap
+is cut off and regenerated from the top, and the TUI shows the same text over and over — field
+capture 2026-10-21, eight copies of one ~600-token message. Length is the loop.
+
+### HANDOFF Manifest for parallel waves
+
+When dispatching 2+ HANDOFFs in the same step (parallel agents), write a manifest BEFORE writing the first HANDOFF file (the manifest is a status table — it never repeats a HANDOFF body), then write each HANDOFF file and run the emitter once per file, in order:
+
+```
+write(filePath="docs/work/HANDOFF_MANIFEST.md", content="
+# Active HANDOFF Manifest
+Generated: <timestamp>
+Mode/Phase: <current>
+
+| # | Agent | Expected output | Status |
+|---|-------|-----------------|--------|
+| 1 | <agent> | <output file> | PENDING |
+| 2 | <agent> | <output file> | PENDING |
+...
+")
+```
+
+**On resume (user returns with one result):** Read `docs/work/HANDOFF_MANIFEST.md` FIRST (not the conversation history — context may have shifted). Mark the returned HANDOFF as DONE. Run its gates. If more are still PENDING, wait for them. When ALL are DONE, proceed.
+
+**Why:** With small context windows, session context fills between parallel HANDOFF returns. The manifest on disk is the authoritative record of what's pending — not conversation memory.
+
+---
+
+## Agent name reference (for HANDOFF blocks)
+
+| User command  | Agent name             | Domain                                      |
+|---------------|------------------------|---------------------------------------------|
+| `/code`       | `coding-agent`         | Doc-driven implementation (reads specs, verifies APIs via Context7, anti-slop) |
+| `/research`   | `researcher`           | Investigation, tech comparisons, feasibility |
+| `/test-expert`| `test-engineer`        | Playwright, vitest, test strategy, coverage |
+| `/review-code`| `code-reviewer`        | Code quality, complexity, duplication, tech debt |
+| `/security`   | `security-auditor`     | OWASP, threat modeling, CVE, semgrep        |
+| `/dba`        | `db-architect`         | Schema design, migrations, query optimization |
+| `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment, IaC (NOT general coding) |
+| `/ux`         | `ux-engineer`          | UX workflows, WCAG, component architecture  |
+| `/api-design` | `api-designer`         | REST/GraphQL contracts, OpenAPI             |
+| `/architect`  | `architecture-designer`| Module structure, plugin points, infra topology, pattern enforcement |
+| `/perf`       | `performance-engineer` | Profiling, benchmarks, bottlenecks          |
+| `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
+| `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
+| `/frontend`   | `frontend-design`      | Visual implementation, typography, design systems |
+| `/design-iterate` | `design-iterator`  | Visual iteration loop — render → screenshot → critique vs tokens.json → fix → re-verify |
+| `/gauntlet`   | `gauntlet-lead`        | Quality-bar harness — builders + blind fresh-per-round critics loop until the work beats a named real exemplar |
+
+**Every HANDOFF must name an agent from this table. Do NOT invent agent names.**
+
+For general code implementation (backend logic, refactoring, business code): use `coding-agent` via HANDOFF. `sre-engineer` is for CI/CD and ops only -- NOT application code.
+
+---
+
+## Resuming after a HANDOFF
+
+When the user returns and says "<agent> done", load and follow the full scoring protocol:
+
+```
+read(filePath="~/.config/opencode/agents/shared/GATE_SCORING_PROTOCOL.md")
+```
+
+**Do all six in this turn.** Steps 3-6 are not a follow-up turn and not something to be asked for — a turn that ends after step 2 has reported a gate result and delivered no decision.
+
+Summary of the 6 steps: (1) confirm state from sdlc-state.md, (2) run automated gates via `run-handoff-gates.sh`, (3) score 1-10 **with a required `re-ran independently: <what, counts, exit codes>` field — a score missing it is incomplete, reject and return it to the scorer**, (4) apply asymmetric threshold (≥7 pass, 5-6 revise, <5 auto-fail), (5) update DELEGATION_LOG (same required field), (6) continue or escalate.
+
+---
+
+## Validation gate system
+
+Load the full phase gate table, HANDOFF coverage validator table, two-track gate system, and inter-phase check-in protocol:
+
+```
+read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
+```
+
+Quick summary: every phase advance runs `~/.config/opencode/scripts/validators/run-coverage-loop.sh <phase>` — the wrapper, **not** `validate-phase-gate.sh` directly. Both run the same validators, but only the wrapper counts iterations and can stop a repair loop that is not converging (cap 3, then escalate; a byte-identical gap set halts immediately as exit 3). Calling the gate directly is correct only for a one-off read-only check (`/sdlc gate`, resume verification). Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
+
+---
+
+## Human approval gates (hard stops — MANDATORY)
+
+Two phase transitions require explicit human approval before any work begins. These are **irreversible commitment points** — design decisions (Phase 3) and test targets (Phase 3.5→4) are frozen after these gates pass.
+
+### Gate A: Phase 2→3 (Requirements → Design)
+
+**Before presenting Gate A to the user, run Challenger on SRS.md** (the requirements baseline Gate A freezes — its constraints, compliance obligations and NFR numbers must trace to DISCOVERY.md and the Phase 0–1 research, not be invented):
+
+```
+HANDOFF to: challenger
+Artifact:   docs/SRS.md
+Context:    Gate A pre-check — every requirement, constraint and NFR number traces to DISCOVERY.md, REQUIREMENTS_MATRIX.md or a Phase 0-1 research report.
+Trigger:    SRS.md at Gate A — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_srs_<date>.md
+Complete:   "challenge done — srs"
+```
+
+Wait for the challenge report. If any claims are CONTRADICTED, revise SRS.md before proceeding to the human approval block. (TECH_STACK.md is not written until Phase 3 — it is challenged at Gate B.)
+
+After Phase 2 gate passes and docs are committed, emit this block and **STOP**:
+
+```
+---
+  HUMAN APPROVAL GATE A — PHASE 2 → 3
+---
+Requirements are locked. Before design begins, confirm:
+
+  [x] SRS.md covers all agreed functional requirements
+  [x] USER_STORIES.md has acceptance criteria for every story
+  [x] USE_CASES.md traces back to source artifacts
+  [x] REQUIREMENTS_MATRIX.md has no unexplored blank cells
+
+Proceeding to Phase 3 (Design) will freeze the requirements baseline.
+API contracts, database schema, and architecture will all derive from these docs.
+Changes after this point require returning to Phase 2 and re-gating.
+
+Ready to proceed to Phase 3? (yes / no — if no, describe what needs revision)
+---
+```
+
+**Wait for user to type "yes" before writing any Phase 3 documents.**
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
+Record approval: append `HUMAN GATE A APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
+
+### Gate B: Phase 3.5→4 (Test Design → Implementation)
+
+**Before presenting Gate B to the user, run Challenger on TECH_STACK.md, THREAT_MODEL.md and SECURITY_CONTROLS.md:**
+
+```
+HANDOFF to: challenger
+Artifact:   docs/TECH_STACK.md
+Context:    Gate B pre-check — verifying technology choices and registry-verified versions before implementation begins.
+Trigger:    TECH_STACK.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_tech-stack_<date>.md
+Complete:   "challenge done — tech-stack"
+```
+
+```
+HANDOFF to: challenger
+Artifact:   docs/THREAT_MODEL.md
+Context:    Gate B pre-check — verifying threat model before implementation begins.
+Trigger:    THREAT_MODEL.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_threat-model_<date>.md
+Complete:   "challenge done — threat-model"
+```
+
+```
+HANDOFF to: challenger
+Artifact:   docs/SECURITY_CONTROLS.md
+Context:    Gate B pre-check — verifying security controls before implementation begins.
+Trigger:    SECURITY_CONTROLS.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_security-controls_<date>.md
+Complete:   "challenge done — security-controls"
+```
+
+All three challenge reports must return with no CONTRADICTED verdicts before presenting the human approval block. If CONTRADICTED, revise the affected doc and re-run challenger.
+
+After Phase 3.5 gate passes and test design is committed, emit this block and **STOP**:
+
+```
+---
+  HUMAN APPROVAL GATE B — PHASE 3.5 → 4
+---
+Design and test targets are locked. Before implementation begins, confirm:
+
+  [x] ARCHITECTURE.md diagrams all pass confidence >= 7
+  [x] SECURITY_CONTROLS.md mitigations are wired into DATABASE.md and API_DESIGN.md
+  [x] TEST_DESIGN.md covers all P0 use cases and security threats
+  [x] PARALLELIZATION_MAP.md has all modules with wave assignments
+
+Proceeding to Phase 4 (Implementation) freezes all contracts:
+  - openapi.yaml changes require returning to Phase 3 and re-gating
+  - DATABASE.md schema changes require db-architect HANDOFF + re-gate
+  - Coding agents implement against these frozen contracts
+
+Ready to proceed to Phase 4? (yes / no — if no, describe what needs revision)
+---
+```
+
+**Wait for user to type "yes" before emitting any Phase 4 coding HANDOFFs.**
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
+Record approval: append `HUMAN GATE B APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
+
+---
+
+## Inter-phase check-in (mandatory after every gate pass)
+
+After every gate passes:
+
+1. Call `session_save({ summary: "Phase <N> gate passed. <Key decisions>. Next: Phase <N+1>." })` (or append to `docs/work/SESSION_NOTES.md` if MCP unavailable).
+2. Emit the check-in block:
+
+```
+PHASE <N> PASSED ([ok])
+
+What's next: <Phase N+1 name>
+Deliverables: <one-line per deliverable>
+Time estimate: <hours>
+Agents needed: <list>
+
+Ready to proceed, or want to review/adjust Phase <N> first?
+```
+
+Wait for user confirmation before starting the next phase. Do not auto-continue.
+**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
+
+---
+
+<!-- attest:full -->
+
 ## `/sdlc hygiene` — the working tree filled up with scaffolding
 
 A long SDLC run silts up `docs/work/`. `HANDOFF_*`, `TASKS_*`, `context-for-*`,
@@ -334,125 +595,6 @@ Everything else -- discovery audits, tracing call chains / mapping blast radius,
 
 ---
 
-## Delegation system — HANDOFF documents
-
-The HANDOFF document is the delegation contract for every specialist; execute it per `agents/shared/EXECUTOR_SELECTION.md`: in `autonomy=interactive` (the default) write the HANDOFF to `docs/work/HANDOFF_<agent>.md` and point the user at it (open `/skill`, read the doc); only in `autonomy=auto` dispatch via the Task tool / subprocess.
-
-**Every specialist gets a HANDOFF:** **git-expert**, **researcher**, **db-architect**, **api-designer**, **ux-engineer**, **security-auditor**, **code-reviewer**, **test-engineer**, **performance-engineer**, **container-ops**, **sre-engineer**, **coding-agent**, **frontend-design**, **design-iterator**.
-
-The design-chain subagents (**ux-researcher**, **design-system-lead**, **content-designer**) are NOT dispatched by you directly — they run inside `ux-engineer`'s `--auto` design-manager chain. When a UI-bearing project has no `docs/design/flows.md` or `docs/design/tokens.json` yet, your ux-engineer HANDOFF should say to run the full `--auto` chain so those artifacts exist before Phase 4.
-
-These agents run multi-phase workflows (5-15 min). Running them as hidden subprocesses loses visibility. Instead, hand off explicitly -- the user opens a dedicated session, the expert runs as a first-class conversation, and you resume when done.
-
-**Before every HANDOFF, do TWO things:**
-
-**1. Save your state** to `docs/work/sdlc-state.md`:
-```
-Mode: [1/2/3/4]
-Phase/Step: [current]
-Last completed: [what just finished]
-Awaiting: [agent name] -- [what it should produce]
-Next after resume: [what you'll do when user comes back]
-```
-
-**2. Write a context packet** to `docs/work/context-for-<agent>.md` -- **Read** `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md` for the canonical template.
-
-Then reference that context packet as the FIRST item in the HANDOFF's CONTEXT section. The specialist reads ONE focused file instead of re-exploring the whole codebase.
-
-**Relevance, not recency (≤200 tokens).** Build the packet by relevance to the specialist's ONE criterion: name the exact files + line ranges + WHY each is included. Never dump "everything from the last phase" or the most recent outputs by default — an unrelated-but-recent file is noise. This keeps the deliberate no-repo-map design: the specialist gets precisely what its task needs, nothing more.
-
-**HANDOFF block format** -- use the canonical templates from `~/.config/opencode/agents/shared/HANDOFF_TEMPLATES.md`. Never invent a new format. The templates are versioned and every specialist expects exactly that shape.
-
-**3. Write the HANDOFF file, then run the emitter — and print NOTHING else.**
-```bash
-bash ~/.config/opencode/scripts/handoff-emit.sh <agent> [<slug>]
-```
-The emitter lints `docs/work/HANDOFF_<agent>[-<slug>].md` and prints the exact reply to send. **The
-TUI collapses tool output — the user sees only your reply**, so copy the block between the
-`----8<----` markers verbatim as your whole message (five lines, paste line in a fence) and the turn
-ends. Run it as its own bash call, not at the end of a `git commit && …` chain: a failing earlier
-command hides the lint result and you end up guessing.
-
-**What the screen shows per HANDOFF — and the three-times failure.** The user should see: the
-write tool calls (state, packet, HANDOFF file, ledger), the emitter call, and the five-line reply. The HANDOFF
-body never appears in your prose — not announced before the write, not echoed after, not
-summarised "for reference". The packet, the HANDOFF file and the ledger hold DIFFERENT content:
-the packet holds the detail (files + line ranges + why, patterns, the `verify` fence); the HANDOFF
-holds the contract (ROLE, CONTEXT pointers, WRITE-SCOPE, a 2–4-sentence task, PRODUCE, completion
-phrase, ≤60 lines); the ledger holds `- [ ] <step>` checkboxes only. When the same task text is
-written into all three and then echoed in the reply, the user reads it three or four times — that
-is the field complaint, and it is also 3–4× the tokens on every resume. Each fact once, in its file.
-A second write of the same `HANDOFF_<agent>.md` in one turn, or a second paste line, means you are
-looping: stop and end the turn. **Keep every reply that ends a turn short** (the handoff reply is five
-lines; a gate verdict is a few lines pointing at the log): a reply that exceeds the model's output cap
-is cut off and regenerated from the top, and the TUI shows the same text over and over — field
-capture 2026-10-21, eight copies of one ~600-token message. Length is the loop.
-
-### HANDOFF Manifest for parallel waves
-
-When dispatching 2+ HANDOFFs in the same step (parallel agents), write a manifest BEFORE writing the first HANDOFF file (the manifest is a status table — it never repeats a HANDOFF body), then write each HANDOFF file and run the emitter once per file, in order:
-
-```
-write(filePath="docs/work/HANDOFF_MANIFEST.md", content="
-# Active HANDOFF Manifest
-Generated: <timestamp>
-Mode/Phase: <current>
-
-| # | Agent | Expected output | Status |
-|---|-------|-----------------|--------|
-| 1 | <agent> | <output file> | PENDING |
-| 2 | <agent> | <output file> | PENDING |
-...
-")
-```
-
-**On resume (user returns with one result):** Read `docs/work/HANDOFF_MANIFEST.md` FIRST (not the conversation history — context may have shifted). Mark the returned HANDOFF as DONE. Run its gates. If more are still PENDING, wait for them. When ALL are DONE, proceed.
-
-**Why:** With small context windows, session context fills between parallel HANDOFF returns. The manifest on disk is the authoritative record of what's pending — not conversation memory.
-
----
-
-## Agent name reference (for HANDOFF blocks)
-
-| User command  | Agent name             | Domain                                      |
-|---------------|------------------------|---------------------------------------------|
-| `/code`       | `coding-agent`         | Doc-driven implementation (reads specs, verifies APIs via Context7, anti-slop) |
-| `/research`   | `researcher`           | Investigation, tech comparisons, feasibility |
-| `/test-expert`| `test-engineer`        | Playwright, vitest, test strategy, coverage |
-| `/review-code`| `code-reviewer`        | Code quality, complexity, duplication, tech debt |
-| `/security`   | `security-auditor`     | OWASP, threat modeling, CVE, semgrep        |
-| `/dba`        | `db-architect`         | Schema design, migrations, query optimization |
-| `/devops`     | `sre-engineer`         | CI/CD, runbooks, monitoring, deployment, IaC (NOT general coding) |
-| `/ux`         | `ux-engineer`          | UX workflows, WCAG, component architecture  |
-| `/api-design` | `api-designer`         | REST/GraphQL contracts, OpenAPI             |
-| `/architect`  | `architecture-designer`| Module structure, plugin points, infra topology, pattern enforcement |
-| `/perf`       | `performance-engineer` | Profiling, benchmarks, bottlenecks          |
-| `/containers` | `container-ops`        | Podman/Docker, compose, image debugging     |
-| `/git-expert` | `git-expert`           | Branching, commits, releases, forensics     |
-| `/frontend`   | `frontend-design`      | Visual implementation, typography, design systems |
-| `/design-iterate` | `design-iterator`  | Visual iteration loop — render → screenshot → critique vs tokens.json → fix → re-verify |
-| `/gauntlet`   | `gauntlet-lead`        | Quality-bar harness — builders + blind fresh-per-round critics loop until the work beats a named real exemplar |
-
-**Every HANDOFF must name an agent from this table. Do NOT invent agent names.**
-
-For general code implementation (backend logic, refactoring, business code): use `coding-agent` via HANDOFF. `sre-engineer` is for CI/CD and ops only -- NOT application code.
-
----
-
-## Resuming after a HANDOFF
-
-When the user returns and says "<agent> done", load and follow the full scoring protocol:
-
-```
-read(filePath="~/.config/opencode/agents/shared/GATE_SCORING_PROTOCOL.md")
-```
-
-**Do all six in this turn.** Steps 3-6 are not a follow-up turn and not something to be asked for — a turn that ends after step 2 has reported a gate result and delivered no decision.
-
-Summary of the 6 steps: (1) confirm state from sdlc-state.md, (2) run automated gates via `run-handoff-gates.sh`, (3) score 1-10 **with a required `re-ran independently: <what, counts, exit codes>` field — a score missing it is incomplete, reject and return it to the scorer**, (4) apply asymmetric threshold (≥7 pass, 5-6 revise, <5 auto-fail), (5) update DELEGATION_LOG (same required field), (6) continue or escalate.
-
----
-
 ## Shared protocols (canonical sources)
 
 These files are the single source of truth. All mode files reference them.
@@ -465,18 +607,6 @@ These files are the single source of truth. All mode files reference them.
 | Autonomy level | `~/.config/opencode/agents/shared/AUTONOMY_PROTOCOL.md` | Every gated pause — read `autonomy` from `docs/work/.model-context`; `auto` takes documented defaults + logs to `docs/work/APPROVALS.md`, except NEVER-AUTO |
 
 **Rule:** when a mode file references "Template 2 from `HANDOFF_TEMPLATES.md`" or "the six rules from `BOUNDED_TASK_CONTRACT.md`", it means go read that file. Do not inline the content. Single source of truth.
-
----
-
-## Validation gate system
-
-Load the full phase gate table, HANDOFF coverage validator table, two-track gate system, and inter-phase check-in protocol:
-
-```
-read(filePath="~/.config/opencode/agents/shared/PHASE_ROUTING_PROTOCOL.md")
-```
-
-Quick summary: every phase advance runs `~/.config/opencode/scripts/validators/run-coverage-loop.sh <phase>` — the wrapper, **not** `validate-phase-gate.sh` directly. Both run the same validators, but only the wrapper counts iterations and can stop a repair loop that is not converging (cap 3, then escalate; a byte-identical gap set halts immediately as exit 3). Calling the gate directly is correct only for a one-off read-only check (`/sdlc gate`, resume verification). Phases are ordered — Phase N cannot pass until Phase N-1's gate has passed. Exit non-zero → fix gaps and re-run. Full validator table and two-track system (Track 1: coverage loop for validatable artifacts; Track 2: confidence loop for narratives) is in PHASE_ROUTING_PROTOCOL.md.
 
 ---
 
@@ -648,134 +778,6 @@ The tracker accumulates entries across phases. With a 32k-60k context LLM, a ful
 - **Parallel wave protocol** -- Mode 1 Phase 4 + Mode 3 Step 3 sub-component decomposition
 - **Release gate** -- Mode 1 Phase 5
 - **Ralph Wiggum deep-mode loop** -- Mode 2 (for onboard --deep)
-
----
-
-## Human approval gates (hard stops — MANDATORY)
-
-Two phase transitions require explicit human approval before any work begins. These are **irreversible commitment points** — design decisions (Phase 3) and test targets (Phase 3.5→4) are frozen after these gates pass.
-
-### Gate A: Phase 2→3 (Requirements → Design)
-
-**Before presenting Gate A to the user, run Challenger on SRS.md** (the requirements baseline Gate A freezes — its constraints, compliance obligations and NFR numbers must trace to DISCOVERY.md and the Phase 0–1 research, not be invented):
-
-```
-HANDOFF to: challenger
-Artifact:   docs/SRS.md
-Context:    Gate A pre-check — every requirement, constraint and NFR number traces to DISCOVERY.md, REQUIREMENTS_MATRIX.md or a Phase 0-1 research report.
-Trigger:    SRS.md at Gate A — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_srs_<date>.md
-Complete:   "challenge done — srs"
-```
-
-Wait for the challenge report. If any claims are CONTRADICTED, revise SRS.md before proceeding to the human approval block. (TECH_STACK.md is not written until Phase 3 — it is challenged at Gate B.)
-
-After Phase 2 gate passes and docs are committed, emit this block and **STOP**:
-
-```
----
-  HUMAN APPROVAL GATE A — PHASE 2 → 3
----
-Requirements are locked. Before design begins, confirm:
-
-  [x] SRS.md covers all agreed functional requirements
-  [x] USER_STORIES.md has acceptance criteria for every story
-  [x] USE_CASES.md traces back to source artifacts
-  [x] REQUIREMENTS_MATRIX.md has no unexplored blank cells
-
-Proceeding to Phase 3 (Design) will freeze the requirements baseline.
-API contracts, database schema, and architecture will all derive from these docs.
-Changes after this point require returning to Phase 2 and re-gating.
-
-Ready to proceed to Phase 3? (yes / no — if no, describe what needs revision)
----
-```
-
-**Wait for user to type "yes" before writing any Phase 3 documents.**
-**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
-Record approval: append `HUMAN GATE A APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
-
-### Gate B: Phase 3.5→4 (Test Design → Implementation)
-
-**Before presenting Gate B to the user, run Challenger on TECH_STACK.md, THREAT_MODEL.md and SECURITY_CONTROLS.md:**
-
-```
-HANDOFF to: challenger
-Artifact:   docs/TECH_STACK.md
-Context:    Gate B pre-check — verifying technology choices and registry-verified versions before implementation begins.
-Trigger:    TECH_STACK.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_tech-stack_<date>.md
-Complete:   "challenge done — tech-stack"
-```
-
-```
-HANDOFF to: challenger
-Artifact:   docs/THREAT_MODEL.md
-Context:    Gate B pre-check — verifying threat model before implementation begins.
-Trigger:    THREAT_MODEL.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_threat-model_<date>.md
-Complete:   "challenge done — threat-model"
-```
-
-```
-HANDOFF to: challenger
-Artifact:   docs/SECURITY_CONTROLS.md
-Context:    Gate B pre-check — verifying security controls before implementation begins.
-Trigger:    SECURITY_CONTROLS.md at Gate B — Challenger Gate mandatory (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_security-controls_<date>.md
-Complete:   "challenge done — security-controls"
-```
-
-All three challenge reports must return with no CONTRADICTED verdicts before presenting the human approval block. If CONTRADICTED, revise the affected doc and re-run challenger.
-
-After Phase 3.5 gate passes and test design is committed, emit this block and **STOP**:
-
-```
----
-  HUMAN APPROVAL GATE B — PHASE 3.5 → 4
----
-Design and test targets are locked. Before implementation begins, confirm:
-
-  [x] ARCHITECTURE.md diagrams all pass confidence >= 7
-  [x] SECURITY_CONTROLS.md mitigations are wired into DATABASE.md and API_DESIGN.md
-  [x] TEST_DESIGN.md covers all P0 use cases and security threats
-  [x] PARALLELIZATION_MAP.md has all modules with wave assignments
-
-Proceeding to Phase 4 (Implementation) freezes all contracts:
-  - openapi.yaml changes require returning to Phase 3 and re-gating
-  - DATABASE.md schema changes require db-architect HANDOFF + re-gate
-  - Coding agents implement against these frozen contracts
-
-Ready to proceed to Phase 4? (yes / no — if no, describe what needs revision)
----
-```
-
-**Wait for user to type "yes" before emitting any Phase 4 coding HANDOFFs.**
-**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: advance to the next phase and append the decision to `docs/work/APPROVALS.md` instead of waiting.
-Record approval: append `HUMAN GATE B APPROVED: <date> <user response>` to `docs/work/sdlc-state.md`.
-
----
-
-## Inter-phase check-in (mandatory after every gate pass)
-
-After every gate passes:
-
-1. Call `session_save({ summary: "Phase <N> gate passed. <Key decisions>. Next: Phase <N+1>." })` (or append to `docs/work/SESSION_NOTES.md` if MCP unavailable).
-2. Emit the check-in block:
-
-```
-PHASE <N> PASSED ([ok])
-
-What's next: <Phase N+1 name>
-Deliverables: <one-line per deliverable>
-Time estimate: <hours>
-Agents needed: <list>
-
-Ready to proceed, or want to review/adjust Phase <N> first?
-```
-
-Wait for user confirmation before starting the next phase. Do not auto-continue.
-**Autonomy:** If `autonomy: auto` per `agents/shared/AUTONOMY_PROTOCOL.md`: continue to the next step and log to `docs/work/APPROVALS.md` instead of waiting.
 
 ---
 

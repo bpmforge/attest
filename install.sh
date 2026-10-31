@@ -69,6 +69,9 @@ for _arg in "$@"; do
     echo "plugins=$OPENCODE_PLUGIN_SET"
     echo "stamp-line-1=$ATTEST_VERSION"
     echo "stamp-line-2=opencode-major=$OPENCODE_MAJOR"
+    _variant=core
+    for _a in "$@"; do case "$_a" in --full-agents|--link) _variant=full ;; esac; done
+    echo "stamp-line-3=agents-variant=$_variant"
     exit 0
   fi
 done
@@ -385,12 +388,14 @@ INSTALL_CODE_SEARCH=true
 INSTALL_GAME=true   # game-dev expert cluster (agents/game/* + game skill) — optional; default on for upgrade compatibility
 
 DO_UPDATE=false
+FULL_AGENTS=false   # --full-agents: install unsplit agent sources instead of the core/full split (WP-X5)
 
 for arg in "$@"; do
   case $arg in
     --update)               DO_UPDATE=true ;;
     --project)              MODE="project" ;;
     --compact)               COMPACT_AGENTS=true ;;
+    --full-agents)           FULL_AGENTS=true ;;
     --tools)                 INSTALL_TOOLS=true ;;
     --link)                 METHOD="link" ;;
     --uninstall)            MODE="uninstall" ;;
@@ -422,6 +427,8 @@ for arg in "$@"; do
       echo "                                     BM25 keyword fallback if absent"
       echo "  ./install.sh --no-game             Skip the game-dev expert cluster (agents/game/*, 9 agents + game skill)"
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
+      echo "  ./install.sh --full-agents         Install the UNSPLIT agent sources (escape hatch). Default: the core set (<= ~8-12 KB per"
+      echo "                                     agent) with full methodology in agents/shared/full/ on demand (--link also installs unsplit)"
       echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
       echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
       echo "  ./install.sh --uninstall           Remove installed files"
@@ -563,17 +570,34 @@ echo ""
 
 DIRS="agents skills commands references exemplars tools hooks plugins"
 
-# OpenCode v2: agents come from the generated, frontmatter-renamed dist (disable->disabled, ...).
+# Agents (WP-X5 / TOKEN_OPTIMIZATION_PLAN C4+C5): the DEFAULT install is the CORE set — every split agent as its
+# <=8-12 KB core (identity, HANDOFF intake, Input Contract, write-scope, PRODUCE/completion phrase, loop prevention,
+# Delta review) built by scripts/build-agents.mjs --build for the detected OpenCode major; the long-form methodology
+# lands in agents/shared/full/<name>.full.md (disable: true — never registered as an agent) and the core points to it.
+# --full-agents (and --link, which symlinks the repo) install the unsplit sources instead.
 AGENTS_SRC="$SCRIPT_DIR/agents"
+FULL_SRC=""
 COMPACT_SRC="$SCRIPT_DIR/dist/compact-agents"
+AGENT_VARIANT="core"
+if [ "${FULL_AGENTS:-false}" = "true" ] || [ "$METHOD" = "link" ]; then AGENT_VARIANT="full"; fi
 if [ "$OPENCODE_MAJOR" = "2" ]; then
-  node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --target opencode-v2 || { echo "ERROR: could not build the v2 agents" >&2; exit 1; }
+  if [ "$AGENT_VARIANT" = "full" ]; then
+    node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --no-split --target opencode-v2 || { echo "ERROR: could not build the v2 agents" >&2; exit 1; }
+  else
+    node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --target opencode-v2 || { echo "ERROR: could not build the v2 agents" >&2; exit 1; }
+    FULL_SRC="$SCRIPT_DIR/dist/full-agents-v2"
+  fi
   AGENTS_SRC="$SCRIPT_DIR/dist/agents-v2"
   COMPACT_SRC="$SCRIPT_DIR/dist/compact-agents-v2"
   if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
     node "$SCRIPT_DIR/scripts/build-agents.mjs" --compact --target opencode-v2 || { echo "ERROR: could not build the v2 compact agents" >&2; exit 1; }
   fi
+elif [ "$AGENT_VARIANT" = "core" ]; then
+  node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --target opencode-v1 || { echo "ERROR: could not build the core agents" >&2; exit 1; }
+  AGENTS_SRC="$SCRIPT_DIR/dist/agents"
+  FULL_SRC="$SCRIPT_DIR/dist/full-agents"
 fi
+echo "  Agent variant: $AGENT_VARIANT$([ "${COMPACT_AGENTS:-false}" = "true" ] && echo " + compact overlay")"
 
 for dir in $DIRS; do
   # Skip global-only directories during project-level installs
@@ -623,8 +647,10 @@ for dir in $DIRS; do
     ln -sf "$SCRIPT_DIR/$dir" "$DEST/$dir"
     echo "  Linked $dir/ → $DEST/$dir/"
   else
-    # Deep copy (handles nested dirs like skills/<name>/SKILL.md)
-    cp -r "$SCRIPT_DIR/$dir" "$DEST/$dir"
+    # Deep copy (handles nested dirs like skills/<name>/SKILL.md); agents/ comes from AGENTS_SRC (core set by default)
+    _src="$SCRIPT_DIR/$dir"
+    if [ "$dir" = "agents" ]; then _src="$AGENTS_SRC"; fi
+    cp -r "$_src" "$DEST/$dir"
     if [ "$dir" = "tools" ] || [ "$dir" = "hooks" ] || [ "$dir" = "plugins" ]; then
       count=$(find "$DEST/$dir" -type f | wc -l | tr -d ' ')
     else
@@ -633,6 +659,19 @@ for dir in $DIRS; do
     echo "  Copied $dir/ ($count files) → $DEST/$dir/"
   fi
 done
+
+# --- Full methodology files (core/full split): agents/shared/full/ is a non-agent reference dir ---
+if [ -n "$FULL_SRC" ] && [ -d "$FULL_SRC" ] && [ "$METHOD" != "link" ]; then
+  mkdir -p "$DEST/agents/shared/full"
+  cp "$FULL_SRC"/*.full.md "$DEST/agents/shared/full/"
+  echo "  Installed $(ls "$FULL_SRC" | wc -l | tr -d ' ') full-methodology files → $DEST/agents/shared/full/ (read on demand, never registered as agents)"
+  if [ "$MODE" = "project" ]; then
+    # The core's pointer line names the global path; a project install keeps them under .opencode/.
+    grep -rl "~/.config/opencode/agents/shared/full/" "$DEST/agents" 2>/dev/null | while IFS= read -r _f; do
+      sed -i.bak "s#~/.config/opencode/agents/shared/full/#$DEST/agents/shared/full/#g" "$_f" && rm -f "$_f.bak"
+    done
+  fi
+fi
 
 # --- Optional game-dev expert cluster (agents/game/* + game skill) ---
 if [ "$INSTALL_GAME" = false ]; then
@@ -645,6 +684,7 @@ if [ "$INSTALL_GAME" = false ]; then
       removed=$(find "$DEST/agents/game" -name "*.md" | wc -l | tr -d ' ')
       rm -rf "$DEST/agents/game"
     fi
+    for _g in "$SCRIPT_DIR"/agents/game/*.md; do rm -f "$DEST/agents/shared/full/$(basename "$_g" .md).full.md"; done
     [ -d "$DEST/skills/game-asset-pipeline" ] && rm -rf "$DEST/skills/game-asset-pipeline"
     echo "  Skipped game-dev expert cluster ($removed agents + game-asset-pipeline skill) — re-run with --game-experts to add it"
   fi
@@ -694,9 +734,9 @@ if [ "$MODE" = "global" ]; then
   if [ -f "$SCRIPT_DIR/package.json" ]; then
     EXPERTS_VERSION="$ATTEST_VERSION"
     if [ "$EXPERTS_VERSION" != "unknown" ]; then
-      # Two lines: (1) the attest version — resume-anchor reads line 1 ONLY; (2) opencode-major=N (WP-V1),
-      # read by scripts/lib/opencode-cli.mjs so the conductor builds the right `opencode run` argv.
-      printf '%s\nopencode-major=%s\n' "$EXPERTS_VERSION" "$OPENCODE_MAJOR" > "$DEST/experts-version"
+      # Three lines: (1) the attest version — resume-anchor reads line 1 ONLY; (2) opencode-major=N (WP-V1),
+      # read by scripts/lib/opencode-cli.mjs so the conductor builds the right `opencode run` argv; (3) agents-variant=core|full[+compact] (WP-X5).
+      printf '%s\nopencode-major=%s\nagents-variant=%s\n' "$EXPERTS_VERSION" "$OPENCODE_MAJOR" "$AGENT_VARIANT$([ "${COMPACT_AGENTS:-false}" = "true" ] && echo "+compact")" > "$DEST/experts-version"
       echo "  Stamped version: v$EXPERTS_VERSION (opencode-major=$OPENCODE_MAJOR) → $DEST/experts-version"
     fi
   fi

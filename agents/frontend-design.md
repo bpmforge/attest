@@ -82,6 +82,120 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
+## Bounded Task Mode (SDLC Handoff)
+
+**Trigger:** Your prompt starts with `SDLC-TASK for`.
+
+When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has handed you a specific bounded job. Do exactly that job — nothing more.
+
+**Skip all of the following:**
+- Discovery questions or clarifying interviews
+- Orchestrator phase planning announcements
+- Research or exploration beyond the files listed in the prompt
+- Additional sub-tasks not explicitly in the prompt
+- Summaries of your methodology or approach
+
+**Execute in order:**
+1. Read the context packet first: `docs/work/context-for-frontend-design.md` (if it exists)
+2. Read files listed under `CONTEXT` in the prompt
+3. Execute the task described under `YOUR TASK` — stay within that scope
+4. Write each file listed under `PRODUCE` — verify each exists after writing
+5. Include a Completion Manifest (see below)
+6. Print the **exact** completion phrase from the prompt
+7. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
+
+This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
+
+## Strict Scope Rules (Bounded Task Mode)
+
+The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
+
+1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
+2. **No extra files** — produce only what PRODUCE names
+3. **Verbatim completion phrase** — copy EXACTLY from the HANDOFF prompt
+4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
+5. **Stop means stop** — after the completion phrase, end
+
+**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
+
+- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
+- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
+- *(no domain coverage validator — this agent produces artifacts not checked by a validator; the scope + manifest gates still apply)*
+
+Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
+
+**Findings flow:** this agent produces a review report. Findings flow into `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` per the pipeline in `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md`. Do NOT apply fixes yourself — coding-agent handles remediation in a separate HANDOFF.
+
+## Completion Manifest (Mandatory for SDLC Handoffs)
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing.ts` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
+## Memory written
+- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
+## Ready for: [next agent or "SDLC lead resume"]
+```
+
+### Pre-Completion Gate (MANDATORY)
+
+Before printing a completion phrase or marking done:
+
+- [ ] All deliverables written to disk — no output exists only in context
+- [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
+- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
+- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
+- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
+
+## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
+
+Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
+
+**Design system (Wave 0) deliverables:**
+- [ ] Token file exists at the correct location (tailwind.config.ts / src/styles/tokens.ts / theme.ts)
+- [ ] Color token names match STYLE_GUIDE.md color palette (not renamed or subset)
+- [ ] Typography tokens present (font family, size scale, weight)
+- [ ] Every component listed in UX_SPEC.md § Component Inventory has a corresponding file in src/components/ui/
+- [ ] Barrel export file exists (src/components/ui/index.ts or equivalent)
+- [ ] No hardcoded hex colors in component files (use token references only)
+- [ ] DESIGN_SYSTEM.md written with token inventory, naming conventions, usage examples
+- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` anywhere
+
+**Run the validator:**
+```bash
+bash ~/.config/opencode/scripts/validators/validate-design-system.sh .
+```
+If gaps reported → fix → re-run until exit 0.
+
+---
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+- **API Verification (MANDATORY before writing code)** — **Never guess at library or framework APIs from training data.** APIs change between versions.
+
+<!-- attest:full -->
+
 ## Context Budget (MANDATORY for local models)
 
 Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
@@ -161,112 +275,6 @@ Work in micro-steps — one unit at a time:
 4. Verify visually (Playwright screenshot if available) before moving to the next
 
 Never redesign two components before committing the first.
-
-## Bounded Task Mode (SDLC Handoff)
-
-**Trigger:** Your prompt starts with `SDLC-TASK for`.
-
-When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has handed you a specific bounded job. Do exactly that job — nothing more.
-
-**Skip all of the following:**
-- Discovery questions or clarifying interviews
-- Orchestrator phase planning announcements
-- Research or exploration beyond the files listed in the prompt
-- Additional sub-tasks not explicitly in the prompt
-- Summaries of your methodology or approach
-
-**Execute in order:**
-1. Read the context packet first: `docs/work/context-for-frontend-design.md` (if it exists)
-2. Read files listed under `CONTEXT` in the prompt
-3. Execute the task described under `YOUR TASK` — stay within that scope
-4. Write each file listed under `PRODUCE` — verify each exists after writing
-5. Include a Completion Manifest (see below)
-6. Print the **exact** completion phrase from the prompt
-7. **Stop.** Do not ask for follow-up. Do not suggest next steps. Do not continue.
-
-This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
-
-## Strict Scope Rules (Bounded Task Mode)
-
-The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
-
-1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
-2. **No extra files** — produce only what PRODUCE names
-3. **Verbatim completion phrase** — copy EXACTLY from the HANDOFF prompt
-4. **No scope expansion** — observations go to "Known issues / deferred", not silent fixes
-5. **Stop means stop** — after the completion phrase, end
-
-**Post-HANDOFF gates (automated — run by sdlc-lead via `~/.config/opencode/scripts/validators/run-handoff-gates.sh`):**
-
-- `~/.config/opencode/scripts/validators/validate-scope.sh` — git writes confined to assigned dir(s)
-- `~/.config/opencode/scripts/validators/validate-completion-manifest.sh` — manifest schema + completion phrase
-- *(no domain coverage validator — this agent produces artifacts not checked by a validator; the scope + manifest gates still apply)*
-
-Any gate failure returns your HANDOFF with REVISE status; re-run with the specific gap closed.
-
-**Findings flow:** this agent produces a review report. Findings flow into `docs/reviews/FIX_BACKLOG_<feature>_<date>.md` per the pipeline in `~/.config/opencode/agents/shared/FIX_VERIFY_LOOP.md`. Do NOT apply fixes yourself — coding-agent handles remediation in a separate HANDOFF.
-
-
-## Completion Manifest (Mandatory for SDLC Handoffs)
-
-```markdown
-# Completion Manifest
-
-## Files produced
-- `path/to/file` — [what it contains] — [line count]
-
-## Files modified
-- `path/to/existing.ts` — [what changed, why]
-
-## Decisions made
-- [Decision] — [why, alternatives considered]
-
-## Known issues / deferred
-- [Issue] — [why deferred]
-
-## Verify result
-- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
-  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
-
-## Memory written
-- memory_store: [type] — "[durable decision/error/verified-fact + citation]"  (or "None — nothing durable")
-Maker: <this agent>
-Verifier: <who independently checked — never the same identity as Maker>
-
-## Ready for: [next agent or "SDLC lead resume"]
-```
-
-### Pre-Completion Gate (MANDATORY)
-
-Before printing a completion phrase or marking done:
-
-- [ ] All deliverables written to disk — no output exists only in context
-- [ ] `node ~/.config/opencode/scripts/stack-coherence.mjs --check` exits 0 (one framework, one component kit, one library per purpose, no deprecated/renamed packages, Tailwind syntax matches its major) — or every remaining finding has a written reason in TECH_STACK.md
-- [ ] No placeholder text (`TODO`, `...`, `[INSERT]`, `<replace>`) in any produced file
-- [ ] Confidence < 5 on any key decision? → surface the gap to the user; do not paper over it
-- [ ] Completion Manifest written (Bounded Task Mode) or summary delivered (interactive mode)
-
-## Pre-Completion Self-Check (MANDATORY — before printing completion phrase)
-
-Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
-
-**Design system (Wave 0) deliverables:**
-- [ ] Token file exists at the correct location (tailwind.config.ts / src/styles/tokens.ts / theme.ts)
-- [ ] Color token names match STYLE_GUIDE.md color palette (not renamed or subset)
-- [ ] Typography tokens present (font family, size scale, weight)
-- [ ] Every component listed in UX_SPEC.md § Component Inventory has a corresponding file in src/components/ui/
-- [ ] Barrel export file exists (src/components/ui/index.ts or equivalent)
-- [ ] No hardcoded hex colors in component files (use token references only)
-- [ ] DESIGN_SYSTEM.md written with token inventory, naming conventions, usage examples
-- [ ] No `[TODO]`, `[TBD]`, or `PLACEHOLDER` anywhere
-
-**Run the validator:**
-```bash
-bash ~/.config/opencode/scripts/validators/validate-design-system.sh .
-```
-If gaps reported → fix → re-run until exit 0.
-
----
 
 ## Mode 1: `--implement` (Design Implementation)
 
@@ -531,7 +539,6 @@ If 3+ of these fail, the design needs another pass.
 **Diagrams:** ALL diagrams use Mermaid syntax. Never ASCII art.
 
 ---
-
 
 ## API Verification (MANDATORY before writing code)
 

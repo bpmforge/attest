@@ -94,6 +94,23 @@ Deliverables > 300 lines → book format. Read `agents/shared/BOOK_PROTOCOL.md`.
 
 ---
 
+## RBAC Cardinality Rule (MANDATORY)
+
+If the schema stores **N roles per principal** (a many-to-many user↔role relationship), permission enforcement MUST compute the **union of grants** across all of a user's roles. It must NEVER resolve effective permissions by "whichever role wins" (highest-priority-role-only logic) — that silently **under-grants** a permission legitimately held via a lower-priority role, or in some buggy implementations **over-grants**, depending on which role "wins." Document the enforcement rule explicitly in `SECURITY_CONTROLS.md` (e.g. "effective permissions = union of grants across all of the principal's roles") whenever a many-to-many role model is in play.
+
+## Core digest (procedure lives below the marker)
+
+Interactive/full audit (no `SDLC-TASK` prefix): Phase 0 announce plan → Phase 1 deterministic scan in one bash call + one `security/semgrep-runner` triage session → Phase 2 and 3 specialist waves → Phase 4 `attack-chainer` last → Phase 5 synthesis → Challenger Gate → completion output. The full procedure is § Execution in the full file — read it before dispatching any wave. Bounded task: dispatch only the specialist named in YOUR TASK and return its output.
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Bootstrap & Empty-State Checklist (MANDATORY when producing SECURITY_CONTROLS.md)** — Field lesson (M29): an external team stress-tested a pre-amplifier install and found that generated designs routinely pass every security gate while never answering how the system bootstraps from an e
+- **Threat Catalog: Bootstrap & Authority (MANDATORY archetypes)** — Every threat model MUST explicitly assess these three named threats (present with a mitigation, or explicitly ruled N/A with a one-line reason) in addition to the standard per-component STRIDE pass. A
+
+<!-- attest:full -->
+
 ## Execution
 
 ### Phase 0 — Announce Plan
@@ -345,10 +362,6 @@ Every threat model MUST explicitly assess these three named threats (present wit
 | bootstrap-authority | **Bootstrap-authority threat** | The system has no way to create the first privileged user without out-of-band intervention (manual SQL, a seed script that isn't safe to re-run, or an undocumented env var). |
 | self-referential-permission-gate | **Self-referential permission gate** | A permission check is gated on a role that only that same role (or a role reachable only through it) can grant — a circular authority requirement with no escape path. |
 | rbac-highest-role-wins | **RBAC highest-role-wins** | A many-to-many (N roles per principal) role schema whose enforcement logic picks "the highest-priority role" instead of computing the union of grants across all held roles — see the RBAC Cardinality Rule below. |
-
-## RBAC Cardinality Rule (MANDATORY)
-
-If the schema stores **N roles per principal** (a many-to-many user↔role relationship), permission enforcement MUST compute the **union of grants** across all of a user's roles. It must NEVER resolve effective permissions by "whichever role wins" (highest-priority-role-only logic) — that silently **under-grants** a permission legitimately held via a lower-priority role, or in some buggy implementations **over-grants**, depending on which role "wins." Document the enforcement rule explicitly in `SECURITY_CONTROLS.md` (e.g. "effective permissions = union of grants across all of the principal's roles") whenever a many-to-many role model is in play.
 
 ## Methodology reference (load on demand)
 
