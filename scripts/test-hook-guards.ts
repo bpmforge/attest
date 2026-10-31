@@ -182,6 +182,69 @@ async function testPluginLib(
     /BLOCKED: repeat-output stall after 80 turns/.test(sg.stallAbortDecision({ aborted: true, turns: 80, tool: "read" }) ?? "") && sg.stallAbortDecision({ aborted: true, turns: 80, tool: "write", filePath: "/p/docs/work/TASKS_x.md" }) === null && sg.stallAbortDecision({ aborted: false, turns: 80, tool: "read" }) === null && !!sg.stallAbortDecision({ aborted: true, turns: 80, tool: "edit", filePath: "/p/src/a.ts" }));
   check("lib stall: STALL DETECTED directive names the ledger and BLOCKED escape", /STALL DETECTED: your last 4 replies.*HANDOFF.*ONE concrete tool action.*BLOCKED/.test(sg.stallWarnMessage(4)));
 
+  // compaction trigger (WP-X3): pure trigger + handler with fixture assistant messages
+  const ct = await load("plugins/lib/compaction-trigger.ts");
+  const cfgModels = { models: { "lmstudio/qwen-test": { context_window: 100000 }, "lmstudio/glob-*": { context_window: 40000 }, "x/zero": { context_window: 0 } } };
+  const mkTrig = (env: Record<string, string>, cfg: any = cfgModels) => ct.createCompactionTrigger({ thresholdFor: ct.createThresholdResolver({ env, root: () => "/p", loadConfig: () => cfg }) });
+  const ramp = (trig: any, model: string, from: number, step: number, n: number, sid = "s") => {
+    const fires: number[] = [];
+    for (let t = 1; t <= n; t++) { const r = trig.observe({ sessionID: sid, model, tokensIn: from + step * (t - 1), turn: t }); if (r.action === "compact") fires.push(t); }
+    return fires;
+  };
+  check("lib compaction: default threshold is 0.6 x context_window (exact id and glob key), unknown model -> null", ct.resolveThreshold("lmstudio/qwen-test", {}, cfgModels) === 60000 && ct.resolveThreshold("lmstudio/glob-7b", {}, cfgModels) === 24000 && ct.resolveThreshold("other/m", {}, cfgModels) === null && ct.resolveThreshold("x/zero", {}, cfgModels) === null && ct.resolveThreshold("a/b", {}, null) === null);
+  const t1 = mkTrig({});
+  const f1 = ramp(t1, "lmstudio/qwen-test", 40000, 2500, 15);
+  check(`lib compaction: rising tokens_in fires exactly once, at the first turn reaching the threshold (turn ${f1[0]})`, f1.length === 1 && f1[0] === 9);
+  const t2 = mkTrig({});
+  const r2 = ramp(t2, "lmstudio/qwen-test", 70000, 1000, 25);
+  check("lib compaction: still above the threshold -> no second fire within 10 turns; re-fires at turn 11 (gap = 10)", r2.length === 3 && r2[0] === 1 && r2[1] === 11 && r2[2] === 21);
+  const t3 = mkTrig({});
+  const a3 = t3.observe({ sessionID: "s", model: "lmstudio/qwen-test", tokensIn: 61000, turn: 1 });
+  t3.noteCompaction("s", 4);
+  const b3 = t3.observe({ sessionID: "s", model: "lmstudio/qwen-test", tokensIn: 62000, turn: 8 });
+  const c3 = t3.observe({ sessionID: "s", model: "lmstudio/qwen-test", tokensIn: 62000, turn: 14 });
+  check("lib compaction: an observed compaction resets the gap (turn 8 blocked, turn 14 fires) and sessions are independent", a3.action === "compact" && b3.action === "none" && /within 10 turns/.test(b3.reason) && c3.action === "compact" && t3.observe({ sessionID: "other", model: "lmstudio/qwen-test", tokensIn: 61000, turn: 2 }).action === "compact");
+  const t4 = mkTrig({});
+  const u1 = t4.observe({ sessionID: "s", model: "mystery/model", tokensIn: 900000, turn: 1 });
+  const u2 = t4.observe({ sessionID: "s", model: "mystery/model", tokensIn: 900000, turn: 2 });
+  check("lib compaction: unknown model + no env never fires; the disabled notice is flagged once", u1.action === "none" && u1.threshold === null && u1.disabledFirst === true && u2.action === "none" && !u2.disabledFirst);
+  check("lib compaction: EXPERTS_COMPACT_AT=0.5 is a fraction of the window (50000), =50000 is absolute", ramp(mkTrig({ EXPERTS_COMPACT_AT: "0.5" }), "lmstudio/qwen-test", 49000, 500, 5)[0] === 3 && ct.resolveThreshold("lmstudio/qwen-test", { EXPERTS_COMPACT_AT: "0.5" }, cfgModels) === 50000 && ct.resolveThreshold("lmstudio/qwen-test", { EXPERTS_COMPACT_AT: "50000" }, cfgModels) === 50000);
+  check("lib compaction: absolute EXPERTS_COMPACT_AT works with no known window; a fraction without a window, 0 and 'off' disable; garbage falls back to the default", ct.resolveThreshold("mystery/m", { EXPERTS_COMPACT_AT: "50000" }, null) === 50000 && ct.resolveThreshold("mystery/m", { EXPERTS_COMPACT_AT: "0.5" }, null) === null && ct.resolveThreshold("lmstudio/qwen-test", { EXPERTS_COMPACT_AT: "0" }, cfgModels) === null && ct.resolveThreshold("lmstudio/qwen-test", { EXPERTS_COMPACT_AT: "off" }, cfgModels) === null && ct.resolveThreshold("lmstudio/qwen-test", { EXPERTS_COMPACT_AT: "lots" }, cfgModels) === 60000);
+
+  const ctmp = fs.mkdtempSync(path.join(os.tmpdir(), "compact-trig-"));
+  try {
+    const warns: string[] = []; const reqs: string[] = [];
+    const mkMsg = (id: string, input: number, extra: any = {}) => ({ id, role: "assistant", sessionID: "cs", providerID: "lmstudio", modelID: "qwen-test", path: { root: ctmp }, time: { created: 1, completed: 2 }, tokens: { input, output: 5, cache: { read: 0, write: 0 } }, ...extra });
+    const h = ct.createCompactionHandler({ trigger: mkTrig({ EXPERTS_COMPACT_AT: "50000" }), warn: (m: string) => warns.push(m), request: async (s: string, p: string, m: string) => { reqs.push(`${s}|${p}|${m}`); }, env: {}, cwd: () => ctmp });
+    await h.onAssistantMessage(mkMsg("a1", 30000));
+    await h.onAssistantMessage(mkMsg("a2", 51000));
+    await h.onAssistantMessage(mkMsg("a2", 52000)); // duplicate delivery of one message id
+    await h.onAssistantMessage(mkMsg("a3", 53000, { time: { created: 1 } })); // incomplete
+    await h.onAssistantMessage(mkMsg("a4", 54000));
+    const rows = fs.existsSync(path.join(ctmp, "docs/work/telemetry.jsonl")) ? fs.readFileSync(path.join(ctmp, "docs/work/telemetry.jsonl"), "utf8").trim().split("\n").map((l) => JSON.parse(l)) : [];
+    check("lib compaction handler: one fire -> one summarize request, one CONTEXT SIZE directive with the compaction text, one telemetry row", reqs.length === 1 && reqs[0] === "cs|lmstudio|qwen-test" && warns.length === 1 && /CONTEXT SIZE: .*51000 tokens.*threshold 50000.*requested a compaction/s.test(warns[0]) && /YOU ARE WRITING A SUMMARY DOCUMENT/.test(warns[0]) && rows.length === 1 && rows[0].source === "compaction-trigger" && rows[0].session === "cs" && rows[0].turn === 2 && rows[0].tokens_in === 51000 && rows[0].threshold === 50000);
+    const warns2: string[] = [];
+    const h2 = ct.createCompactionHandler({ trigger: mkTrig({ EXPERTS_COMPACT_AT: "50000" }), warn: (m: string) => warns2.push(m), request: async () => { throw new Error("nope"); }, env: { EXPERTS_TELEMETRY: "0" }, cwd: () => ctmp });
+    await h2.onAssistantMessage(mkMsg("b1", 80000, { sessionID: "cs2" }));
+    check("lib compaction handler: a failing summarize request falls back to the /compact directive; EXPERTS_TELEMETRY=0 writes no row", warns2.length === 1 && /Run \/compact now/.test(warns2[0]) && fs.readFileSync(path.join(ctmp, "docs/work/telemetry.jsonl"), "utf8").trim().split("\n").length === 1);
+    const warns3: string[] = [];
+    const h3 = ct.createCompactionHandler({ trigger: mkTrig({ EXPERTS_COMPACT_AT: "50000" }), warn: (m: string) => warns3.push(m), env: { EXPERTS_TELEMETRY: "0" }, cwd: () => ctmp });
+    await h3.onAssistantMessage(mkMsg("c1", 60000, { sessionID: "cs3" }));
+    h3.onCompacted("cs3");
+    await h3.onAssistantMessage(mkMsg("c2", 60000, { sessionID: "cs3" }));
+    check("lib compaction handler: no request fn -> directive-only; a session.compacted event suppresses the next fire (gap reset)", warns3.length === 1 && /Run \/compact now/.test(warns3[0]));
+    const w4: string[] = [];
+    const h4 = ct.createCompactionHandler({ trigger: mkTrig({}), warn: (m: string) => w4.push(m), env: { EXPERTS_TELEMETRY: "0" }, cwd: () => ctmp });
+    await h4.onAssistantMessage(mkMsg("d1", 500000, { modelID: "unknown-model" }));
+    await h4.onAssistantMessage(mkMsg("d2", 500000, { modelID: "unknown-model" }));
+    check("lib compaction handler: unknown model + no env -> never compacts, one 'disabled' notice only", w4.length === 1 && /trigger disabled for lmstudio\/unknown-model/.test(w4[0]) && !/CONTEXT SIZE/.test(w4[0]));
+  } finally {
+    fs.rmSync(ctmp, { recursive: true, force: true });
+  }
+  const wireSrc = (f: string) => fs.readFileSync(path.join(root, f), "utf8");
+  check("compaction trigger is wired in both expert-hooks shells (message handler + session.compacted) and v1 binds client.session.summarize",
+    ["plugins/expert-hooks.ts", "plugins-v2/expert-hooks/index.ts"].every((f) => /createCompactionHandler/.test(wireSrc(f)) && /session\.compacted/.test(wireSrc(f)) && /compaction\.onAssistantMessage/.test(wireSrc(f))) && /session\.summarize/.test(wireSrc("plugins/expert-hooks.ts")) && /compaction\.keep\.tokens/.test(wireSrc("plugins-v2/expert-hooks/index.ts")));
+
   // tool-output truncation: head / tail / omission marker
   const big = "H".repeat(650) + "M".repeat(98_000) + "T".repeat(350);
   const cut = out.truncateToolOutput("grep", big, 1000);

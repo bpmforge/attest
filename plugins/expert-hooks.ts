@@ -4,6 +4,7 @@ import { beforeToolCheck } from "./lib/guards.ts";
 import { createAfterToolHandler } from "./lib/post-edit.ts";
 import { createAssistantMessageHandler } from "./lib/telemetry.ts";
 import { createStallGuard, stallAbortDecision } from "./lib/stall-guard.ts";
+import { createCompactionHandler, createCompactionTrigger, createThresholdResolver } from "./lib/compaction-trigger.ts";
 import { WRITE_TOOLS, createTurnCounter, parseMaxTurns, turnCapMessage } from "./lib/turn-cap.ts";
 import { parseToolOutputMax } from "./lib/tool-output.ts";
 
@@ -49,6 +50,12 @@ import { parseToolOutputMax } from "./lib/tool-output.ts";
 //                         (EXPERTS_STALL_WARN / EXPERTS_STALL_ABORT, 0 disables); abort refuses further
 //                         tool calls like the turn cap and logs a source:"stall" telemetry row.
 //
+//   event (compaction)   WP-X3: when a completed assistant message's context (input + cache) reaches
+//                         EXPERTS_COMPACT_AT (tokens, or a 0-1 fraction; default 0.6 x models.json context_window,
+//                         disabled when unknown) inject the resume-anchor compaction directive and REQUEST a
+//                         compaction via client.session.summarize (falls back to asking the model to /compact).
+//                         At most once per 10 turns / observed compaction. Logs a source:"compaction-trigger" row.
+//
 // Skipped hooks (different abstraction, not portable as plugins):
 //   - commit-validator.sh  → use a git pre-commit hook in the user's repo
 //   - test-on-stop.sh      → no clean session.idle "wind down" semantic;
@@ -61,10 +68,23 @@ const turns = createTurnCounter(MAX_TURNS);
 // Stall guard (WP-X1, D1b) — see plugins/lib/stall-guard.ts. EXPERTS_STALL_WARN / EXPERTS_STALL_ABORT, 0 disables.
 const stall = createStallGuard();
 
+// Compaction trigger (WP-X3) — see plugins/lib/compaction-trigger.ts. `compactRequest` is bound in the plugin factory
+// (it needs opencode's `client`); until then / without a client the handler falls back to the /compact directive.
+let compactRequest: ((sessionID: string, providerID: string, modelID: string) => Promise<unknown>) | undefined;
+const compaction = createCompactionHandler({
+  trigger: createCompactionTrigger({ thresholdFor: createThresholdResolver() }),
+  request: (sessionID, providerID, modelID) => (compactRequest ? compactRequest(sessionID, providerID, modelID) : Promise.reject(new Error("no client"))),
+});
+
 // Module-level so once-only state is shared across plugin instances, as it always was.
 const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt, stall });
 
-export const ExpertHooks: Plugin = async ({ $ }) => {
+export const ExpertHooks: Plugin = async ({ $, client }) => {
+  // opencode's own compaction path (same as /compact): POST /session/{id}/summarize.
+  compactRequest = async (sessionID, providerID, modelID) => {
+    const res: any = await (client as any).session.summarize({ path: { id: sessionID }, body: { providerID, modelID } });
+    if (res?.error) throw new Error("summarize rejected");
+  };
   const gated = new Map<string, number>();
   const afterTool = createAfterToolHandler({ $, toolOutputMax: TOOL_OUTPUT_MAX });
   return {
@@ -88,8 +108,14 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
         if (part?.type === "text") stall.noteText(part.messageID, part.text);
         return;
       }
+      if ((event as any).type === "session.compacted") {
+        compaction.onCompacted((event as any).properties?.sessionID);
+        return;
+      }
       if (event.type !== "message.updated") return;
-      onAssistantMessage((event as any).properties?.info);
+      const info = (event as any).properties?.info;
+      onAssistantMessage(info);
+      void compaction.onAssistantMessage(info);
     },
   };
 };

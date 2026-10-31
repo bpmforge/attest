@@ -8,6 +8,9 @@ import { anchorForRequest, buildAnchor, compactionContext, createAnchorSessions,
 //   experimental.chat.system.transform   (load-bearing) — inject the anchor every request.
 //   experimental.session.compacting      (best-effort) — name the pointers that must survive summarization.
 // Disable with EXPERTS_RESUME_ANCHOR=0.
+// WP-X3: the proactive compaction trigger lives in expert-hooks.ts (it needs the assistant-message stream); it REQUESTS
+// compaction via client.session.summarize, which runs OpenCode's normal compaction — i.e. the compacting hook below
+// fires for it too, so the pointers survive. This shell needs no change; it still marks the session compacted for WP-X6.
 //
 // A file in plugins/ must export ONLY its Plugin (see the note at the bottom of expert-hooks.ts).
 

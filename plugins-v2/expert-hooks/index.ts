@@ -16,6 +16,7 @@ import { shellShim } from "../../plugins/lib/shell-shim.ts";
 import { createAssistantMessageHandler } from "../../plugins/lib/telemetry.ts";
 import { allTools } from "../../plugins/lib/tools/index.ts";
 import { createStallGuard, stallAbortDecision } from "../../plugins/lib/stall-guard.ts";
+import { createCompactionHandler, createCompactionTrigger, createThresholdResolver } from "../../plugins/lib/compaction-trigger.ts";
 import { WRITE_TOOLS, createTurnCounter, parseMaxTurns, turnCapMessage } from "../../plugins/lib/turn-cap.ts";
 import { parseToolOutputMax } from "../../plugins/lib/tool-output.ts";
 
@@ -55,7 +56,21 @@ export default Plugin.define({
     // v1 chat.message -> ctx.session.hook('prompt'). Stall guard (WP-X1) needs no prompt hook: it runs off the event stream below.
     ctx.session.hook("prompt", async () => {});
 
-    // Compaction/context injection is owned by plugins-v2/resume-anchor; WP-X3 adds its trigger here.
+    // Compaction/context injection is owned by plugins-v2/resume-anchor. WP-X3 trigger (below, in the event subscription):
+    // PREFERRED v2 knob is native — set `compaction.keep.tokens` in opencode.json. This hook-based trigger is the fallback.
+    // ASSUMPTION: a session summarize call is reachable as ctx.client.session.summarize or ctx.session.summarize; if neither
+    // exists (or it throws) the trigger degrades to the "run /compact" directive.
+    const compaction = createCompactionHandler({
+      trigger: createCompactionTrigger({ thresholdFor: createThresholdResolver() }),
+      request: async (sessionID, providerID, modelID) => {
+        const summarize = ctx.client?.session?.summarize ?? ctx.session?.summarize;
+        if (typeof summarize !== "function") throw new Error("no summarize API");
+        const res: any = ctx.client?.session?.summarize
+          ? await ctx.client.session.summarize({ path: { id: sessionID }, body: { providerID, modelID } })
+          : await ctx.session.summarize({ sessionID, providerID, modelID });
+        if (res?.error) throw new Error("summarize rejected");
+      },
+    });
 
     // v1 `event` -> ctx.event.subscribe(). ASSUMPTION: still delivers { type: 'message.updated', properties: { info } }.
     ctx.event.subscribe((event: any) => {
@@ -66,8 +81,14 @@ export default Plugin.define({
         if (part?.type === "text") stall.noteText(part.messageID, part.text);
         return;
       }
+      // ASSUMPTION: v2 still emits session.compacted { properties: { sessionID } }.
+      if (event?.type === "session.compacted") {
+        compaction.onCompacted(event.properties?.sessionID);
+        return;
+      }
       if (event?.type !== "message.updated") return;
       onAssistantMessage(event.properties?.info);
+      void compaction.onAssistantMessage(event.properties?.info);
     });
 
     // v1 tool() helper is gone: register every shared tool through ctx.tool.transform. ASSUMPTION: the editor's
