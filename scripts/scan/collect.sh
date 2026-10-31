@@ -38,8 +38,8 @@
 #   deps      skipped as status "cached" (prior findings copied) when the lockfile
 #             hash (package-lock.json, pnpm-lock.yaml, yarn.lock, poetry.lock,
 #             Cargo.lock, go.sum, requirements*.txt; manifests if no lockfile) is
-#             unchanged. Note: new advisories on an unchanged lockfile are only seen
-#             by a --full run.
+#             unchanged AND the ledger's deps.audited_on equals today's UTC date, so
+#             an unchanged lockfile is re-audited at most once per day (new advisories).
 #   deadcode / dup  whole-tree properties: skipped as "cached" only when
 #             `git rev-parse HEAD^{tree}` equals the ledger AND the working tree is
 #             clean; otherwise run in full.
@@ -263,6 +263,7 @@ cache_hit() { # name input-key tool_version   (returns 0 and writes $TMP/<name>.
   if ! led_has "$s"; then printf -v "RES_$s" '%s' "tree|no-ledger"; return 1; fi
   [[ "$(led "$s" "$field")" == "$key" ]] || { printf -v "RES_$s" '%s' "tree|inputs-changed"; return 1; }
   [[ "$(led "$s" tool_version)" == "$tv" ]] || { printf -v "RES_$s" '%s' "tree|tool-changed"; return 1; }
+  if [[ "$s" == "deps" && "$(led deps audited_on)" != "$DATE" ]]; then printf -v "RES_$s" '%s' "tree|stale-audit"; return 1; fi
   if [[ "$s" != "deps" && -s "$DIRTY" ]]; then printf -v "RES_$s" '%s' "tree|dirty-tree"; return 1; fi
   lsha="$(led "$s" head_sha)"; pj="$(led "$s" json)"
   prior_ok "$pj" "$s" "$lsha" || { printf -v "RES_$s" '%s' "tree|prior-missing"; return 1; }
@@ -473,7 +474,7 @@ if [[ "$SCOPE" != "range" && -n "$HEAD_FULL" ]]; then
       jq --arg s "$s" --arg sha "$HEAD_FULL" --arg tree "$th" --arg tv "${!tvn:-}" --arg rh "${!rhn:-}" --arg out "$OUT_REL" \
          --arg sc "$esc" --arg date "$DATE" --argjson inc "${!iv:-0}" --arg base "${!bv:-$HEAD_FULL}" --arg lock "$DEPS_KEY" --rawfile dirty "$DIRTY" '
          .[$s] = ({head_sha:$sha,tree_hash:$tree,tool_version:$tv,rules_hash:$rh,json:$out,scope:$sc,date:$date,increments:$inc,base_full_sha:$base}
-                  + (if $s=="deps" then {lockfile_hash:$lock} else {} end)
+                  + (if $s=="deps" then {lockfile_hash:$lock,audited_on:$date} else {} end)
                   + (if ($s=="semgrep" or $s=="secrets" or $s=="complexity") then {dirty_files:($dirty|split("\n")|map(select(length>0)))} else {} end))' \
          "$TMP/ledger.new" > "$TMP/ledger.m" && mv "$TMP/ledger.m" "$TMP/ledger.new"
     fi

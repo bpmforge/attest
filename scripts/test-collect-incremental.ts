@@ -207,6 +207,20 @@ echo knip >> "$STUB_LOG"; echo '{"files":[],"issues":[]}'`,
     const dp = run([]);
     check(dp.out?.deps?.status === "ok" && stubCalls("npm") === nBefore + 1, "collect-incr: deps re-run when lockfile hash changes", `deps=${dp.out?.deps?.status}`);
 
+    // Daily rule: unchanged lockfile but audited_on of yesterday -> deps re-audited.
+    const hit = run([]);
+    check(hit.out?.deps?.status === "cached" && stubCalls("npm") === nBefore + 1, "collect-incr: deps cached again on the same day (audited_on == today)", `deps=${hit.out?.deps?.status}`);
+    const lg = readLedger();
+    const today = lg.deps.audited_on;
+    lg.deps.audited_on = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+    fs.writeFileSync(ledgerPath, JSON.stringify(lg));
+    const stale = run([]);
+    check(
+      stale.out?.deps?.status === "ok" && stubCalls("npm") === nBefore + 2 && readLedger().deps.audited_on === today,
+      "collect-incr: deps re-audited when ledger audited_on is yesterday (unchanged lockfile)",
+      `deps=${stale.out?.deps?.status} audited_on=${readLedger().deps.audited_on}`,
+    );
+
     // ---- 6. .semgrep change forces a full semgrep run ----------------------
     write(".semgrep/r.yml", "rules: [] # changed\n");
     commit("rules");
