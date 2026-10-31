@@ -253,8 +253,8 @@
       "kind": "module",
       "title": "WP-A5: integration-review.mjs watermark + --since auto|full|<sha> + validators before model sessions (B5)",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a5",
       "write_scope": [
         "scripts/conductor/integration-review.mjs",
@@ -277,7 +277,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A5-integration-watermark.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:41:05.176Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main ae8377d; suite 1274 pass / 2 pre-existing fails; a delta summary can shadow a same-day full summary by filename — rerun --since full before release"
+        }
+      ]
     },
     {
       "id": "M-A6-validators-incremental",
@@ -319,8 +328,8 @@
       "kind": "module",
       "title": "WP-A7: /sdlc improve and /sdlc onboard default to delta audits from the ledger",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a7",
       "write_scope": [
         "agents/sdlc-improve-mode.md",
@@ -342,7 +351,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A7-improve-onboard-ledger.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:41:05.176Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main a3eeffd; suite 1274 pass / 2 pre-existing fails; onboard confirmed full re-walk pre-change (sdlc-onboard-mode.md:431,467); prompt-level change, gate-checked"
+        }
+      ]
     },
     {
       "id": "M-X2-cache-gate",
@@ -376,8 +394,8 @@
       "kind": "module",
       "title": "WP-X3: proactive compaction trigger at 60% of context window",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x3",
       "write_scope": [
         "plugins/lib/compaction-trigger.ts",
@@ -399,7 +417,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-X3-compaction-trigger.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:41:05.176Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main e1fd5a2; suite 1274 pass / 2 pre-existing fails; MAC: run node scripts/sync-model-limits.mjs --config <opencode.json> --write --write-models to fill context_window, else set EXPERTS_COMPACT_AT; verify client.session.summarize mid-loop"
+        }
+      ]
     },
     {
       "id": "M-X6-anchor-cadence",
@@ -442,7 +469,7 @@
       "title": "WP-X5: TOKEN_OPTIMIZATION_PLAN C4/C5 — core/full agent split and compact default, emitted per OpenCode target",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/TOKEN_OPTIMIZATION_PLAN.md#C4",
       "write_scope": [
         "agents/**",
@@ -470,7 +497,7 @@
       "title": "WP-A8: docs, CHANGELOG, telemetry scope breakdown",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a8",
       "write_scope": [
         "docs/work/TOKEN_OPTIMIZATION_PLAN.md",
