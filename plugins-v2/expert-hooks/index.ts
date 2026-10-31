@@ -15,13 +15,15 @@ import { createAfterToolHandler } from "../../plugins/lib/post-edit.ts";
 import { shellShim } from "../../plugins/lib/shell-shim.ts";
 import { createAssistantMessageHandler } from "../../plugins/lib/telemetry.ts";
 import { allTools } from "../../plugins/lib/tools/index.ts";
-import { createTurnCounter, parseMaxTurns, turnCapMessage } from "../../plugins/lib/turn-cap.ts";
+import { createStallGuard, stallAbortDecision } from "../../plugins/lib/stall-guard.ts";
+import { WRITE_TOOLS, createTurnCounter, parseMaxTurns, turnCapMessage } from "../../plugins/lib/turn-cap.ts";
 import { parseToolOutputMax } from "../../plugins/lib/tool-output.ts";
 
 const MAX_TURNS = parseMaxTurns(process.env);
 const TOOL_OUTPUT_MAX = parseToolOutputMax(process.env);
 const turns = createTurnCounter(MAX_TURNS);
-const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt });
+const stall = createStallGuard();
+const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt, stall });
 
 export default Plugin.define({
   id: "attest.expert-hooks",
@@ -32,6 +34,8 @@ export default Plugin.define({
 
     // v1 tool.execute.before -> ctx.tool.hook('execute.before'). ASSUMPTION: event carries { tool, sessionID, args }.
     ctx.tool.hook("execute.before", async (ev: any) => {
+      const stallMsg = stallAbortDecision({ aborted: stall.isAborted(ev.sessionID), turns: stall.turns(ev.sessionID), tool: ev.tool, filePath: (ev.args ?? ev.input ?? {})?.filePath ?? (ev.args ?? ev.input ?? {})?.file_path ?? "" });
+      if (stallMsg) throw new Error(stallMsg);
       beforeToolCheck({
         tool: ev.tool,
         sessionID: ev.sessionID,
@@ -44,16 +48,24 @@ export default Plugin.define({
 
     // v1 tool.execute.after -> ctx.tool.hook('execute.after'). ASSUMPTION: (ev, out) with out.output a string.
     ctx.tool.hook("execute.after", async (ev: any, out: any) => {
+      if (WRITE_TOOLS.has(ev.tool)) stall.noteWrite(ev.sessionID);
       await afterTool({ tool: ev.tool, sessionID: ev.sessionID, callID: ev.callID, args: ev.args ?? ev.input ?? {} }, out);
     });
 
-    // v1 chat.message -> ctx.session.hook('prompt'). Seam for WP-X1 (stall guard) — nothing to do yet.
+    // v1 chat.message -> ctx.session.hook('prompt'). Stall guard (WP-X1) needs no prompt hook: it runs off the event stream below.
     ctx.session.hook("prompt", async () => {});
 
     // Compaction/context injection is owned by plugins-v2/resume-anchor; WP-X3 adds its trigger here.
 
     // v1 `event` -> ctx.event.subscribe(). ASSUMPTION: still delivers { type: 'message.updated', properties: { info } }.
     ctx.event.subscribe((event: any) => {
+      // ASSUMPTION: text parts still arrive as message.part.updated { properties: { part: { type:'text', messageID, text } } };
+      // if not, the guard degrades to the tiny-output rule (text undefined never counts as identical).
+      if (event?.type === "message.part.updated") {
+        const part = event.properties?.part;
+        if (part?.type === "text") stall.noteText(part.messageID, part.text);
+        return;
+      }
       if (event?.type !== "message.updated") return;
       onAssistantMessage(event.properties?.info);
     });

@@ -3,7 +3,8 @@ import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
 import { beforeToolCheck } from "./lib/guards.ts";
 import { createAfterToolHandler } from "./lib/post-edit.ts";
 import { createAssistantMessageHandler } from "./lib/telemetry.ts";
-import { createTurnCounter, parseMaxTurns, turnCapMessage } from "./lib/turn-cap.ts";
+import { createStallGuard, stallAbortDecision } from "./lib/stall-guard.ts";
+import { WRITE_TOOLS, createTurnCounter, parseMaxTurns, turnCapMessage } from "./lib/turn-cap.ts";
 import { parseToolOutputMax } from "./lib/tool-output.ts";
 
 // expert-hooks.ts — opencode v1 plugin SHELL (WP-V1). The logic lives in plugins/lib/*.ts (pure, no
@@ -44,6 +45,10 @@ import { parseToolOutputMax } from "./lib/tool-output.ts";
 //                         message content. Disable: EXPERTS_TELEMETRY=0.
 //                         Analyze: scripts/telemetry-report.mjs.
 //
+//   event (stall guard)  WP-X1: warn at 4 / abort at 6 consecutive repeated-or-empty assistant turns
+//                         (EXPERTS_STALL_WARN / EXPERTS_STALL_ABORT, 0 disables); abort refuses further
+//                         tool calls like the turn cap and logs a source:"stall" telemetry row.
+//
 // Skipped hooks (different abstraction, not portable as plugins):
 //   - commit-validator.sh  → use a git pre-commit hook in the user's repo
 //   - test-on-stop.sh      → no clean session.idle "wind down" semantic;
@@ -53,9 +58,11 @@ import { parseToolOutputMax } from "./lib/tool-output.ts";
 const MAX_TURNS = parseMaxTurns(process.env);
 const TOOL_OUTPUT_MAX = parseToolOutputMax(process.env);
 const turns = createTurnCounter(MAX_TURNS);
+// Stall guard (WP-X1, D1b) — see plugins/lib/stall-guard.ts. EXPERTS_STALL_WARN / EXPERTS_STALL_ABORT, 0 disables.
+const stall = createStallGuard();
 
 // Module-level so once-only state is shared across plugin instances, as it always was.
-const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt });
+const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt, stall });
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Map<string, number>();
@@ -65,12 +72,22 @@ export const ExpertHooks: Plugin = async ({ $ }) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
       // only in tool.execute.after) — reading input.args made every guard below a no-op.
       const args = (output as any)?.args ?? (input as any).args ?? {};
+      const stallMsg = stallAbortDecision({ aborted: stall.isAborted(input.sessionID), turns: stall.turns(input.sessionID), tool: input.tool, filePath: args?.filePath ?? args?.file_path ?? "" });
+      if (stallMsg) throw new Error(stallMsg);
       beforeToolCheck({ tool: input.tool, sessionID: input.sessionID, args, gated, turns: turns.get(input.sessionID), maxTurns: MAX_TURNS });
     },
 
-    "tool.execute.after": async (input, output) => afterTool(input, output),
+    "tool.execute.after": async (input, output) => {
+      if (WRITE_TOOLS.has(input.tool)) stall.noteWrite(input.sessionID);
+      return afterTool(input, output);
+    },
 
     event: async ({ event }) => {
+      if ((event as any).type === "message.part.updated") {
+        const part = (event as any).properties?.part;
+        if (part?.type === "text") stall.noteText(part.messageID, part.text);
+        return;
+      }
       if (event.type !== "message.updated") return;
       onAssistantMessage((event as any).properties?.info);
     },
