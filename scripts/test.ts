@@ -99,6 +99,7 @@ import {
 } from "./test-gate-output-contract.ts";
 import { testConductorSuite } from "./test-conductor-suite.ts";
 import { testCollectIncremental } from "./test-collect-incremental.ts";
+import { testIntegrationReview } from "./test-integration-review.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
   testRetryBudgets,
@@ -806,6 +807,10 @@ testConductorSuite(root, ok, fail);
 // WP-A1 — collect.sh ledger + incremental (auto/diff) merge, tmp git fixtures with tool stubs.
 console.log("\n[Pass 54] collect.sh incremental scan ledger");
 await testCollectIncremental(root, ok, fail);
+
+// WP-A5 — integration-review watermark + delta re-review, release refuses Scope: delta.
+console.log("\n[Pass 55] integration review watermark and delta scope");
+await testIntegrationReview(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

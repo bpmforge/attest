@@ -14,7 +14,9 @@
 #   8. CONTAINER_AUDIT has no CRITICAL CVE
 #   9. TECH_DEBT report exists (tech debt catalogued before release)
 #  10. All RUNTIME_*.md files have PASS verdict
-#  13. Latest INTEGRATION_SUMMARY_*.md is APPROVED and fresh (Head-SHA covers HEAD) — backlog L8
+#  13. Latest INTEGRATION_SUMMARY_*.md is APPROVED, fresh (Head-SHA covers HEAD) — backlog L8 —
+#      and FULL scope: a summary (or *_FINAL_* review doc) saying `Scope: delta` is a delta
+#      review, a weaker guarantee than full re-approval, so release refuses it (WP-A5, claim C4)
 #
 
 # shellcheck disable=SC1091
@@ -282,6 +284,19 @@ else
   else
     gap "integration-review-blocked" "latest INTEGRATION_SUMMARY is not APPROVED (${integ_verdict:-no verdict line}) — resolve the blocking INTEGRATION_*.md findings and re-run integration-review.mjs: ${integ_summary#"$ROOT/"}"
   fi
+  # Release never rides on a chain of deltas (INCREMENTAL_SCAN_PLAN D3): the review must be --since full.
+  if grep -qiE '^[[:space:]>*_#-]*Scope[[:space:]]*:[[:space:]*_]*delta\b' "$integ_summary" 2>/dev/null; then
+    gap "integration-review-delta-scope" "latest INTEGRATION_SUMMARY says '$(grep -iE '^[[:space:]>*_#-]*Scope[[:space:]]*:[[:space:]*_]*delta' "$integ_summary" | head -1 | cut -c1-120)' — a delta review is a weaker guarantee than full re-approval; re-run: node scripts/conductor/integration-review.mjs --root . --base main --head HEAD --since full (${integ_summary#"$ROOT/"})"
+  else
+    pass "INTEGRATION_SUMMARY scope is full (not a delta review)"
+  fi
+  # The *_FINAL_* review docs this gate already reads carry the same rule when a delta run wrote them.
+  for _final_doc in "${sec_final:-}" "${perf_final:-}" "${review_final:-}"; do
+    [[ -n "$_final_doc" ]] || continue
+    if grep -qiE '^[[:space:]>*_#-]*Scope[[:space:]]*:[[:space:]*_]*delta\b' "$_final_doc" 2>/dev/null; then
+      gap "final-review-delta-scope" "${_final_doc#"$ROOT/"} says 'Scope: delta' — release requires a full-scope review; re-run the integration review with --since full"
+    fi
+  done
   integ_head=$(grep -E '^Head-SHA:' "$integ_summary" | head -1 | awk '{print $2}')
   if [[ -z "$integ_head" ]]; then
     warn "INTEGRATION_SUMMARY carries no Head-SHA line — freshness cannot be checked"

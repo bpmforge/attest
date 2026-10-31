@@ -166,6 +166,7 @@ After Wave 1 completes:
 ```
 HANDOFF to: security/owasp-web-checker
 Context: Read docs/work/scan/scan_<date>.json and SEMGREP_FINDINGS to avoid duplication — do not re-run the scanners.
+Prior report: <path of the newest docs/security/OWASP_WEB_FINDINGS_*.md, if one exists — omit the line otherwise>
 Produce: docs/security/OWASP_WEB_FINDINGS_<date>.md, OWASP_TRACKER.md
 Complete: "owasp-web done"
 ```
@@ -183,6 +184,7 @@ Complete: "owasp-llm done"
 ```
 HANDOFF to: security/threat-modeler
 Context: Read SEMGREP_FINDINGS and OWASP_WEB_FINDINGS.
+Prior report: <path of the newest docs/security/THREAT_MODEL_FINDINGS_*.md, if one exists — omit the line otherwise>
 Produce: docs/security/THREAT_MODEL_FINDINGS_<date>.md, docs/THREAT_MODEL.md
 Complete: "threat-model done"
 ```
