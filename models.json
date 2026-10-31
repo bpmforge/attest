@@ -19,9 +19,7 @@
         "*opus*",
         "*fable*",
         "*gpt-5*",
-        "*gemini-*-pro*",
-        "*opus-5*",
-        "*sonnet-5*"
+        "*gemini-*-pro*"
       ],
       "gate": "escalation-token"
     }
