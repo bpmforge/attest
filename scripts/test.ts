@@ -28,6 +28,7 @@ import { testChallengerGateCorrelation } from "./test-challenger-gate-correlatio
 import { testAwkWordBoundary } from "./test-awk-word-boundary.ts";
 import { testLoadBearingDenominators } from "./test-load-bearing-denominators.ts";
 import { testDocRenderHealth } from "./test-doc-render-health.ts";
+import { testValidatorsIncremental } from "./test-validators-incremental.ts";
 import { testAdrExternalRationale } from "./test-adr-external-rationale.ts";
 import { testCloseReceipt } from "./test-close-receipt.ts";
 import { testRefuseNextWork } from "./test-refuse-next-work.ts";
@@ -442,6 +443,10 @@ console.log(
   "\n[Pass 16] Publish render-health — mermaid backtick (M013) + table orphan-fragment linter",
 );
 await testDocRenderHealth(root, ok, fail);
+
+// Pass 16b: incremental validators (M-A6) — changed-only walks + tree-hash result cache.
+console.log("\n[Pass 16b] Incremental validators — --since scoping + result cache");
+await testValidatorsIncremental(root, ok, fail);
 
 // Pass 17: ADR + external-rationale routing (T29.5) — hard-choice gate + Challenger correlation.
 console.log("\n[Pass 17] ADR + external-rationale routing");

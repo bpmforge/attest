@@ -45,9 +45,11 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 validator_init "validate-doc-render-health"
 
 ROOT="$(detect_project_root "${1:-}")"
+validator_scope_init
 SCAN_PATH="${2:-$ROOT/docs}"
 [[ ! -d "$SCAN_PATH" ]] && SCAN_PATH="$ROOT"
 
@@ -126,8 +128,9 @@ while IFS= read -r -d '' mdfile; do
   [[ "$mdfile" == *"/.git/"* ]] && continue
   files_scanned=$((files_scanned + 1))
   scan_file "$mdfile"
-done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
+done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null | { if [[ "$VALIDATOR_SCOPED" -eq 1 ]]; then tr '\0' '\n' | validator_filter_scope | tr '\n' '\0'; else cat; fi; })
 
+[[ "$VALIDATOR_SCOPED" -eq 1 ]] && validator_scope_json $(find "$SCAN_PATH" -name "*.md" 2>/dev/null | validator_filter_scope | sed "s|^$ROOT/||")
 if [[ "$GAP_COUNT" -eq 0 ]]; then
   pass "scanned ${files_scanned} file(s) under ${SCAN_PATH#"$ROOT/"} — no orphaned table fragments found"
   note "Mermaid diagram render-health (backtick-in-label, unbalanced brackets, unclosed fences) is checked by validate-mermaid.sh — run both together for full render-health coverage"

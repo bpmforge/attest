@@ -27,9 +27,11 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 validator_init "validate-code-health"
 
 ROOT="$(detect_project_root "${1:-}")"
+validator_scope_init
 
 # -- Locate source directories ------------------------------------------------
 SRC_DIRS=()
@@ -45,7 +47,7 @@ fi
 note "Scanning: ${SRC_DIRS[*]}"
 
 # -- Helper: find source files ------------------------------------------------
-find_source_files() {
+_find_all_source_files() {
   find "${SRC_DIRS[@]}" \
     -type f \
     \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" \
@@ -59,6 +61,13 @@ find_source_files() {
     -not -name "*.spec.*" \
     2>/dev/null || true
 }
+
+# --since / VALIDATE_SINCE: walk only the changed source files (same list for
+# every rule below). Without it the full tree is walked, as before.
+find_source_files() {
+  _find_all_source_files | validator_filter_scope
+}
+[[ "$VALIDATOR_SCOPED" -eq 1 ]] && validator_scope_json $(find_source_files | sed "s|^$ROOT/||")
 
 VIOLATION_COUNT=0
 

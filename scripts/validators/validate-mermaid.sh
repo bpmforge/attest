@@ -22,8 +22,13 @@
 # static checks don't). Set MERMAID_NO_RENDER=1 to skip.
 #
 # Usage:
-#   validate-mermaid.sh [root-dir] [scan-path]
+#   validate-mermaid.sh [root-dir] [scan-path] [--since <ref>] [--no-cache]
 #   Defaults: root-dir=$(pwd), scan-path=root-dir/docs
+#   --since <ref> / VALIDATE_SINCE: scan only .md files changed since <ref>
+#   (plus dirty/untracked). Whole-run result cache keyed on tree hash + dirty
+#   files + script + args: an unchanged tree replays the stored result
+#   (`cached: true` on stderr) without re-running mmdc. --no-cache /
+#   VALIDATE_NO_CACHE=1 bypasses it.
 #
 # Exit: 0 = clean, 1 = errors found, 2 = invocation error
 # stdout: one JSON object per line: {"file":"...","line":N,"code":"...","message":"...","severity":"error|warning"}
@@ -31,9 +36,16 @@
 #
 
 set -uo pipefail
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+set +e   # _lib.sh turns on -e; this script counts errors itself
 
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 ROOT="${1:-$(pwd)}"
 SCAN_PATH="${2:-$ROOT/docs}"
+validator_cache_run "${BASH_SOURCE[0]}" "$ROOT" "$SCAN_PATH" "since=${VALIDATE_SINCE}" \
+  "norender=${MERMAID_NO_RENDER:-0}" "mmdc=$(command -v mmdc || true)"
+validator_scope_init
 
 [[ ! -d "$SCAN_PATH" ]] && SCAN_PATH="$ROOT"
 
@@ -294,7 +306,9 @@ while IFS= read -r -d '' mdfile; do
   files_scanned=$((files_scanned + 1))
   scan_file "$mdfile" || true
   [[ -n "$MMDC" ]] && render_check_file "$mdfile"
-done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null)
+done < <(find "$SCAN_PATH" -name "*.md" -print0 2>/dev/null \
+  | { if [[ "$VALIDATOR_SCOPED" -eq 1 ]]; then tr '\0' '\n' | validator_filter_scope | tr '\n' '\0'; else cat; fi; })
+[[ -n "$VALIDATOR_CHANGED_FILE" ]] && rm -f "$VALIDATOR_CHANGED_FILE"
 
 # ── summary to stderr ─────────────────────────────────────────────────────────
 {

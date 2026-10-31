@@ -19,9 +19,10 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-validator_init "validate-module-boundaries-transitive"
-
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 ROOT="$(detect_project_root "${1:-}")"
+validator_cache_run "${BASH_SOURCE[0]}" "$ROOT"
+validator_init "validate-module-boundaries-transitive"
 MD="$ROOT/docs/MODULE_DESIGN.md"
 
 if ! file_exists_nonempty "$MD"; then

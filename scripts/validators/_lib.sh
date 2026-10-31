@@ -103,8 +103,9 @@ validator_exit() {
     done < "$GAP_FILE"
   fi
 
-  printf '{"validator":"%s","gaps":%d,"exit":%d,"items":[%s]}\n' \
-    "$VALIDATOR_NAME" "$GAP_COUNT" "$exit_code" "$gaps_json"
+  printf '{"validator":"%s","gaps":%d,"exit":%d,"items":[%s]%s}\n' \
+    "$VALIDATOR_NAME" "$GAP_COUNT" "$exit_code" "$gaps_json" "$VALIDATOR_EXTRA_JSON"
+  [[ -n "$VALIDATOR_CHANGED_FILE" ]] && rm -f "$VALIDATOR_CHANGED_FILE"
 
   if [[ "$exit_code" -eq 0 ]]; then
     printf '%s[%s]%s clean -- 0 gaps\n' "$_GREEN" "$VALIDATOR_NAME" "$_RESET" >&2
@@ -241,4 +242,194 @@ sha256_of_paths() {
       fi
     done
   } | sort | shasum -a 256 | awk '{print $1}'
+}
+
+# -- incremental scan + result cache (M-A6 / WP-A6) --------------------------
+# Common flags, opt-in per validator:
+#   --since <ref>   (or VALIDATE_SINCE=<ref>)  per-file validators walk only
+#                   files changed since <ref> (merge-base semantics, plus the
+#                   dirty + untracked working tree). No flag = whole tree.
+#   --no-cache      (or VALIDATE_NO_CACHE=1)   bypass the whole-tree result cache.
+#
+# Usage at the top of a validator (before validator_init):
+#   validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
+#   ROOT="$(detect_project_root "${1:-}")"
+#   validator_cache_run "${BASH_SOURCE[0]}" [extra-key-part...]     # whole-tree only
+#   validator_init "name"
+#   validator_scope_init                                            # per-file only
+VALIDATE_SINCE="${VALIDATE_SINCE:-}"
+VALIDATE_NO_CACHE="${VALIDATE_NO_CACHE:-}"
+VALIDATOR_ARGS=()
+VALIDATOR_ORIG_ARGS=()
+VALIDATOR_SCOPED=0
+VALIDATOR_CHANGED_FILE=""
+VALIDATOR_EXTRA_JSON=""
+
+validator_parse_flags() {
+  VALIDATOR_ORIG_ARGS=()
+  VALIDATOR_ARGS=()
+  [[ $# -gt 0 ]] && VALIDATOR_ORIG_ARGS=("$@")
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --since)    VALIDATE_SINCE="${2:-}"; shift; [[ $# -gt 0 ]] && shift ;;
+      --since=*)  VALIDATE_SINCE="${1#--since=}"; shift ;;
+      --no-cache) VALIDATE_NO_CACHE=1; shift ;;
+      *)          VALIDATOR_ARGS+=("$1"); shift ;;
+    esac
+  done
+  return 0
+}
+
+_v_sha256() {
+  if command -v shasum >/dev/null 2>&1; then shasum -a 256 | awk '{print $1}'
+  else sha256sum | awk '{print $1}'; fi
+}
+
+# Generated outputs that validators themselves write; they must never count as
+# "dirty inputs" or the second run would always miss.
+_v_dirty_exclude='^(docs/work/\.validator-cache/|docs/work/telemetry\.jsonl$|docs/work/COVERAGE_LOOP_|docs/work/gates/|docs/reviews/RUNTIME_|node_modules(/|$)|\.git/)'
+
+# _v_dirty_files -- tracked-modified + untracked paths relative to $ROOT, sorted.
+_v_dirty_files() {
+  local root="${ROOT:-.}"
+  {
+    git -C "$root" diff --name-only --relative HEAD 2>/dev/null || true
+    git -C "$root" ls-files --others --exclude-standard 2>/dev/null || true
+  } | grep -vE "$_v_dirty_exclude" | sort -u || true
+}
+
+# validator_changed_files [--since <ref>]
+# Prints changed + dirty files (relative to $ROOT), one per line.
+# Return 0 = scoped (output may legitimately be EMPTY: nothing changed);
+# return 3 = no scope (no ref given, not a git repo, or ref unresolvable) --
+# callers treat that as "all files".
+validator_changed_files() {
+  local ref="${VALIDATE_SINCE:-}" root="${ROOT:-.}"
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --since) ref="${2:-}"; shift; [[ $# -gt 0 ]] && shift ;;
+      *) shift ;;
+    esac
+  done
+  [[ -z "$ref" ]] && return 3
+  if ! git -C "$root" rev-parse --verify --quiet "${ref}^{commit}" >/dev/null 2>&1; then
+    warn "--since ref '${ref}' does not resolve -- scanning ALL files" 2>/dev/null || true
+    return 3
+  fi
+  {
+    git -C "$root" diff --name-only --relative --diff-filter=ACMR "${ref}...HEAD" 2>/dev/null || true
+    git -C "$root" diff --name-only --relative --diff-filter=ACMR HEAD 2>/dev/null || true
+    git -C "$root" ls-files --others --exclude-standard 2>/dev/null || true
+  } | grep -vE "$_v_dirty_exclude" | sort -u || true
+  return 0
+}
+
+# validator_scope_init -- sets VALIDATOR_SCOPED=1 and VALIDATOR_CHANGED_FILE when
+# a usable --since/VALIDATE_SINCE is in effect.
+validator_scope_init() {
+  VALIDATOR_SCOPED=0
+  [[ -z "${VALIDATE_SINCE:-}" ]] && return 0
+  local tmp rc=0
+  tmp="$(mktemp -t "validator.changed.XXXXXX")"
+  validator_changed_files > "$tmp" || rc=$?
+  if [[ $rc -eq 0 ]]; then
+    VALIDATOR_SCOPED=1
+    VALIDATOR_CHANGED_FILE="$tmp"
+    note "scoped to $(wc -l < "$tmp" | tr -d ' ') file(s) changed since ${VALIDATE_SINCE}"
+  else
+    rm -f "$tmp"
+  fi
+  return 0
+}
+
+# validator_filter_scope -- stdin: file paths (absolute or $ROOT-relative);
+# stdout: only those in the changed set (everything when not scoped).
+validator_filter_scope() {
+  if [[ "$VALIDATOR_SCOPED" -ne 1 ]]; then cat; return 0; fi
+  [[ -s "$VALIDATOR_CHANGED_FILE" ]] || { cat >/dev/null; return 0; }
+  awk -v root="${ROOT:-.}/" 'NR==FNR{c[$0]=1;next}
+    {p=$0; if(index(p,root)==1)p=substr(p,length(root)+1); sub(/^\.\//,"",p); if(p in c)print $0}' \
+    "$VALIDATOR_CHANGED_FILE" -
+}
+
+# validator_scope_json -- fills VALIDATOR_EXTRA_JSON with a "scope" object that
+# validator_exit appends to the envelope. Args: the files actually examined.
+validator_scope_json() {
+  local f list="" esc
+  for f in "$@"; do
+    esc="${f//\\/\\\\}"; esc="${esc//\"/\\\"}"
+    list="${list:+$list,}\"$esc\""
+  done
+  VALIDATOR_EXTRA_JSON=",\"scope\":{\"since\":\"${VALIDATE_SINCE}\",\"files\":[${list}]}"
+}
+
+validator_cache_dir() { printf '%s/docs/work/.validator-cache' "${ROOT:-.}"; }
+
+# validator_cache_key <extra...> -- sha256 of HEAD^{tree} + every dirty file's
+# hash + this validator script + _lib.sh + args. Non-zero when $ROOT is not a
+# git work tree (callers then skip caching).
+validator_cache_key() {
+  local root="${ROOT:-.}" script="${VALIDATOR_SCRIPT:-${BASH_SOURCE[1]:-}}" tree f
+  # Only cache when $ROOT is itself a git work-tree top level: a fixture dir
+  # nested inside some outer repo must neither share that repo's tree hash nor
+  # get a cache dir written into it.
+  [[ "$(git -C "$root" rev-parse --show-toplevel 2>/dev/null)" == "$(cd "$root" 2>/dev/null && pwd -P)" ]] || return 1
+  tree="$(git -C "$root" rev-parse 'HEAD^{tree}' 2>/dev/null || echo none)"
+  {
+    printf 'tree:%s\n' "$tree"
+    while IFS= read -r f; do
+      [[ -z "$f" ]] && continue
+      if [[ -f "$root/$f" && ! -L "$root/$f" ]]; then
+        printf 'dirty:%s:%s\n' "$f" "$(_v_sha256 < "$root/$f")"
+      else
+        printf 'dirty:%s:NONFILE\n' "$f"
+      fi
+    done < <(_v_dirty_files)
+    [[ -f "$script" ]] && printf 'script:%s\n' "$(_v_sha256 < "$script")"
+    printf 'lib:%s\n' "$(_v_sha256 < "${BASH_SOURCE[0]}")"
+    printf 'args:%s\n' "$*"
+  } | _v_sha256
+}
+
+# validator_cached_result <key> -- on a hit prints the stored JSON/stdout, sets
+# VALIDATOR_CACHED_EXIT, returns 0. Miss: returns 1.
+VALIDATOR_CACHED_EXIT=0
+validator_cached_result() {
+  local f; f="$(validator_cache_dir)/$1.out"
+  [[ -f "$f" ]] || return 1
+  VALIDATOR_CACHED_EXIT="$(head -n 1 "$f")"
+  tail -n +2 "$f"
+  return 0
+}
+
+# validator_store_result <key> <exit> <json>
+validator_store_result() {
+  local d tmp; d="$(validator_cache_dir)"
+  mkdir -p "$d" 2>/dev/null || return 0
+  tmp="$d/.tmp.$$"
+  { printf '%s\n' "$2"; printf '%s\n' "$3"; } > "$tmp" 2>/dev/null && mv "$tmp" "$d/$1.out" 2>/dev/null || rm -f "$tmp"
+  find "$d" -name '*.out' -mtime +14 -delete 2>/dev/null || true
+  return 0
+}
+
+# validator_cache_run <script> [extra-key-part...]
+# Whole-tree wrapper. Hit: replay stored stdout + exit code, note
+# `cached: true (key ...)` on stderr, exit. Miss: re-run the script once (inner
+# mode, same args), print its stdout, store {exit, stdout}, exit with its code.
+# Returns 0 immediately (caller runs normally) when bypassed or not in git.
+validator_cache_run() {
+  local script="$1" key out rc=0 stored
+  shift
+  [[ "${VALIDATOR_CACHE_INNER:-}" == "1" ]] && return 0
+  [[ -n "${VALIDATE_NO_CACHE:-}" && "${VALIDATE_NO_CACHE}" != "0" ]] && return 0
+  key="$(VALIDATOR_SCRIPT="$script" validator_cache_key "$@")" || return 0
+  if stored="$(validator_cached_result "$key")"; then
+    printf 'cached: true (key %s)\n' "${key:0:16}" >&2
+    printf '%s\n' "$stored"
+    exit "$(head -n 1 "$(validator_cache_dir)/$key.out")"
+  fi
+  out="$(VALIDATOR_CACHE_INNER=1 bash "$script" ${VALIDATOR_ORIG_ARGS[@]+"${VALIDATOR_ORIG_ARGS[@]}"})" || rc=$?
+  printf '%s\n' "$out"
+  [[ "$rc" -le 1 ]] && validator_store_result "$key" "$rc" "$out"
+  exit "$rc"
 }
