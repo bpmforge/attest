@@ -62,8 +62,8 @@
       "kind": "module",
       "title": "WP-X1: harness-level repeat-output stall guard (37% of historical input tokens were stalled turns)",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x1",
       "write_scope": [
         "plugins/lib/stall-guard.ts",
@@ -85,7 +85,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-X1-stall-guard.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:14:44.703Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 3584e38; suite 1241 pass / 2 pre-existing fails; VERIFY ON MAC: v2 message.part.updated payload shape; note EXPERTS_MAX_TURNS unset now = 150 (conductor --max-turns 0 included)"
+        }
+      ]
     },
     {
       "id": "M-A1-collect-ledger",
@@ -128,8 +137,8 @@
       "kind": "module",
       "title": "WP-A2: /security and /review-code call collect.sh in auto mode, gain --full, report scope",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a2",
       "write_scope": [
         "agents/security-auditor.md",
@@ -149,7 +158,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A2-coordinators-auto.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:14:44.703Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 5103c1e; suite 1241 pass / 2 pre-existing fails; regenerate attest-claude sibling on the Mac (npm run build:claude)"
+        }
+      ]
     },
     {
       "id": "M-A3-fix-verify-delta",
@@ -188,8 +206,8 @@
       "kind": "module",
       "title": "WP-A4: DELTA_REVIEW shared block — model specialists review the delta and carry findings forward",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a4",
       "write_scope": [
         "agents/shared/blocks/delta-review.md",
@@ -219,7 +237,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A4-delta-review-block.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:14:44.703Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 6a9317a; suite 1241 pass / 2 pre-existing fails; token-telemetry acceptance (>=60% fewer input tokens on 2nd /security) to measure on the Mac; HANDOFF templates Prior report line deferred to A5"
+        }
+      ]
     },
     {
       "id": "M-A5-integration-watermark",
@@ -227,7 +254,7 @@
       "title": "WP-A5: integration-review.mjs watermark + --since auto|full|<sha> + validators before model sessions (B5)",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a5",
       "write_scope": [
         "scripts/conductor/integration-review.mjs",
@@ -293,7 +320,7 @@
       "title": "WP-A7: /sdlc improve and /sdlc onboard default to delta audits from the ledger",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a7",
       "write_scope": [
         "agents/sdlc-improve-mode.md",
@@ -350,7 +377,7 @@
       "title": "WP-X3: proactive compaction trigger at 60% of context window",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x3",
       "write_scope": [
         "plugins/lib/compaction-trigger.ts",
@@ -379,8 +406,8 @@
       "kind": "module",
       "title": "WP-X6: resume anchor full text only on turn 1, post-compaction and every 10th turn",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x6",
       "write_scope": [
         "plugins/lib/resume-anchor-text.ts",
@@ -398,7 +425,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-X6-anchor-cadence.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:14:44.703Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 4271016; suite 1241 pass / 2 pre-existing fails; VERIFY ON MAC: hooks carry sessionID"
+        }
+      ]
     },
     {
       "id": "M-X5-core-full-split",
