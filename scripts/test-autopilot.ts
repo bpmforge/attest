@@ -146,14 +146,14 @@ export async function testAutopilot(
     const { KNOWN_MISSING_IN_CLAUDE } = await import(
       pathToFileURL(path.join(root, "scripts/build-target-claude.mjs")).href
     );
-    if (KNOWN_MISSING_IN_CLAUDE.has("autopilot"))
+    if (!KNOWN_MISSING_IN_CLAUDE.has("autopilot"))
       ok(
-        "autopilot registered: KNOWN_MISSING_IN_CLAUDE tracks the attest-claude port (wave/goal pattern)",
+        "autopilot registered: ported to attest-claude, no longer in KNOWN_MISSING_IN_CLAUDE (skills-parity enforces the live pair)",
       );
     else
       fail(
         "autopilot registered: KNOWN_MISSING_IN_CLAUDE",
-        "'autopilot' not in the set — skills-parity will flag an uncited gap",
+        "'autopilot' still listed as missing — remove it once skills/autopilot/SKILL.md lands in attest-claude",
       );
   } catch (e) {
     fail(
