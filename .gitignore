@@ -91,3 +91,7 @@ docs/work/scan/
 
 # validator result cache (scripts/validators/_lib.sh) -- regenerated, never committed
 docs/work/.validator-cache/
+
+# generated per-target agent builds (install.sh / build-agents.mjs --target opencode-v2)
+dist/agents-v2/
+dist/compact-agents-v2/
