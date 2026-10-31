@@ -571,7 +571,15 @@ It runs the deterministic scanners once (`scripts/scan/collect.sh`), then the tr
 `docs/reviews/<KIND>_<slug>_<date>.md`, plus `INTEGRATION_SUMMARY_*.md`. Pass `--reviewers` with
 the specialists the trigger rules below select (code-reviewer always runs; the script also adds
 security/perf/ux when the diff trips its own high-signal rules). Read ONLY the produced reports and
-the summary, then continue to the Fix-Verify loop. The manual HANDOFF blocks below are the
+the summary, then continue to the Fix-Verify loop.
+
+**Re-runs are deltas by default (`--since auto`).** After each reviewer finishes, the script records a watermark
+(`docs/work/.integration-reviewed.json`, per branch and reviewer); the next run reviews only `<watermark>...HEAD`, carries
+the prior report's findings forward per the specialists' Delta review rules, and reuses the prior verdict of any reviewer
+the delta does not touch (no session spawned). The summary says `Scope: full` or `Scope: delta <wm7>..<head7> (reviewers
+reused: …)`. **A delta review is a weaker guarantee than full re-approval:** `--since full` forces the whole-branch review
+and clears the watermark, and `validate-release-readiness.sh` fails a release whose newest summary says `Scope: delta` —
+run the release-time review with `--since full`. The manual HANDOFF blocks below are the
 **fallback** for when `opencode run` cannot be spawned here, or the user asks to drive each
 specialist session by hand — in that case write each `docs/work/HANDOFF_<agent>.md` and run
 `handoff-emit.sh` per file; never print the blocks.

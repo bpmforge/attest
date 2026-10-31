@@ -82,6 +82,24 @@ and a summary. Exit 0 only when every verdict is APPROVED. Run it before the PR
 to `main` is marked ready and again at release; that is where "security and
 code health" now live, instead of once per ticket.
 
+**Watermark and delta re-review (`--since auto|full|<sha>`).** After each reviewer finishes,
+`docs/work/.integration-reviewed.json` records `{ "<branch>": { "<reviewer>": { head_sha, doc, verdict, date } } }`
+(branch = `git rev-parse --abbrev-ref HEAD`, or `--branch <name>`; nothing is written under `--dry-run`).
+With `--since auto` (the default) a reviewer whose watermark is an ancestor of `HEAD` reviews only
+`<watermark>...HEAD`: its prompt carries `DELTA REVIEW: prior report <doc> (verdict <v>) covers <base>..<wm>; …` plus a
+`Prior report:` line, and the scanners are collected once per distinct base with `--base <wm> --head HEAD`.
+A reviewer the delta does not touch (empty delta, or its trigger rule does not fire on it) **reuses** its prior verdict —
+logged as `integration.review.reused`, no session spawned. No watermark, or one that is not an ancestor of `HEAD`,
+falls back to the whole-branch `merge-base` review. `--since full` (alias `--full`) forces the whole-branch review and
+clears the branch's watermark; `--since <sha>` forces that base for every reviewer.
+
+The summary states the scope: `Scope: full`, or `Scope: delta <wm7>..<head7> (reviewers reused: …)`. **A delta review is a
+weaker guarantee than full re-approval**, so `validate-release-readiness.sh` (condition 13) fails when the newest
+`INTEGRATION_SUMMARY_*.md` — or a `*_FINAL_*` review doc it reads — says `Scope: delta`: release never rides on a chain of
+deltas; re-run with `--since full`. Before any model session the script also runs `validate-code-health.sh`,
+`validate-dead-code.sh` and `validate-deps.sh` once and links their exit codes in the summary (`| Validator | Exit |`);
+they inform the reader and never gate the verdict (`--no-validators` skips them).
+
 **What did not get weaker.** A high-signal added line (`child_process`,
 `eval(`, `jwt.sign`, `req.body`, raw SQL, `dangerouslySetInnerHTML`) still
 recruits security on the ticket; so does a real scanner finding. Every branch
