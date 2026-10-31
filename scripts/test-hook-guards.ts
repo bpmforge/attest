@@ -6,6 +6,8 @@
 
 import * as fs from "fs";
 import * as path from "path";
+import * as os from "os";
+import * as nodeModule from "node:module";
 import { pathToFileURL } from "url";
 
 export async function testHookGuards(
@@ -99,5 +101,155 @@ export async function testHookGuards(
     check("wiring: a create is distinguished from an edit (exists flag)", rows.at(-1).exists === false && rows[0].exists === true);
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
+  }
+  await testPluginLib(root, ok, fail);
+}
+
+// ─── WP-V1: shared plugin lib (plugins/lib/*.ts) exercised directly ──────────────────────────
+// Both shells (v1 plugins/*.ts, v2 plugins-v2/<name>/index.ts) call exactly these functions, so
+// testing them with fixture events covers the behaviour of both.
+async function testPluginLib(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): Promise<void> {
+  const check = (label: string, cond: boolean) => (cond ? ok(label) : fail(label, "assertion false"));
+  const load = (rel: string, q = "") => import(pathToFileURL(path.join(root, rel)).href + q);
+  const cap = await load("plugins/lib/turn-cap.ts");
+  const out = await load("plugins/lib/tool-output.ts");
+  const tel = await load("plugins/lib/telemetry.ts");
+  const guards = await load("plugins/lib/guards.ts");
+
+  // turn cap
+  check("lib turn-cap: parseMaxTurns reads EXPERTS_MAX_TURNS, unset/garbage -> 0", cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "3" }) === 3 && cap.parseMaxTurns({}) === 0 && cap.parseMaxTurns({ EXPERTS_MAX_TURNS: "x" }) === 0);
+  check("lib turn-cap: below the cap nothing is refused", cap.turnCapDecision({ turns: 2, max: 3, tool: "read" }) === null);
+  check("lib turn-cap: at the cap a read is refused with the budget message", /TURN BUDGET REACHED.*limit 3/.test(cap.turnCapDecision({ turns: 3, max: 3, tool: "read" }) ?? ""));
+  check("lib turn-cap: at the cap a ledger write (docs/work, docs/reviews) is still allowed", cap.turnCapDecision({ turns: 9, max: 3, tool: "write", filePath: "/p/docs/work/TASKS_x.md" }) === null && cap.turnCapDecision({ turns: 9, max: 3, tool: "edit", filePath: "docs/reviews/M.md" }) === null);
+  check("lib turn-cap: at the cap a source write and a bash call are refused", !!cap.turnCapDecision({ turns: 3, max: 3, tool: "edit", filePath: "/p/src/a.ts" }) && !!cap.turnCapDecision({ turns: 3, max: 3, tool: "bash", filePath: "" }));
+  check("lib turn-cap: max 0 never refuses", cap.turnCapDecision({ turns: 999, max: 0, tool: "bash" }) === null);
+  const tc = cap.createTurnCounter(2);
+  check("lib turn-cap: counter counts each completed message once, ignores incomplete", tc.record("s", "m1", 1) === 1 && tc.record("s", "m1", 1) === null && tc.record("s", "m2", 0) === null && tc.record("s", "m2", 1) === 2 && tc.get("s") === 2 && tc.get("other") === 0);
+  check("lib turn-cap: a disabled (max 0) counter never counts", cap.createTurnCounter(0).record("s", "m", 1) === null);
+
+  // tool-output truncation: head / tail / omission marker
+  const big = "H".repeat(650) + "M".repeat(98_000) + "T".repeat(350);
+  const cut = out.truncateToolOutput("grep", big, 1000);
+  check("lib tool-output: head 65% + tail 25% kept, middle replaced by a marker with the omitted count and a re-query hint",
+    !!cut && cut.text.startsWith("H".repeat(650)) && cut.text.endsWith("T".repeat(250)) && !cut.text.includes("MMMMMMMMMM") &&
+    /\[… 98,100 chars omitted by expert-hooks \(EXPERTS_TOOL_OUTPUT_MAX=1000\) — narrow the pattern/.test(cut.text) && cut.originalLength === big.length);
+  check("lib tool-output: per-tool hints (read/bash)", /offset\/limit/.test(out.truncateToolOutput("read", big, 1000)?.text ?? "") && /head\/tail\/grep/.test(out.truncateToolOutput("bash", big, 1000)?.text ?? ""));
+  check("lib tool-output: within budget, non-compressible tool, max 0, non-string -> untouched", out.truncateToolOutput("read", "short", 1000) === null && out.truncateToolOutput("write", big, 1000) === null && out.truncateToolOutput("read", big, 0) === null && out.truncateToolOutput("read", undefined, 1000) === null);
+  check("lib tool-output: EXPERTS_TOOL_OUTPUT_MAX default 24000, 0 disables", out.parseToolOutputMax({}) === 24000 && out.parseToolOutputMax({ EXPERTS_TOOL_OUTPUT_MAX: "0" }) === 0 && out.parseToolOutputMax({ EXPERTS_TOOL_OUTPUT_MAX: "500" }) === 500);
+
+  // telemetry row writer + the shared assistant-message handler (fixture events)
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "plugin-lib-"));
+  try {
+    const info = (id: string, completed?: number, extra: any = {}) => ({
+      id, role: "assistant", sessionID: "ses1", providerID: "p", modelID: "m", mode: "coder", path: { root: tmp },
+      time: { created: 1000, completed }, tokens: { input: 10, output: 2, reasoning: 1, cache: { read: 4, write: 5 } }, cost: 0.5, finish: "stop", ...extra,
+    });
+    const row = tel.buildTelemetryRow(info("a", 2000));
+    check("lib telemetry: row carries ACTUALS only (tokens, cache, cost, duration), never content",
+      row.tokens_in === 10 && row.cache_read === 4 && row.cache_write === 5 && row.duration_ms === 1000 && row.source === "plugin" && row.model === "p/m" && !("text" in row) && !("content" in row));
+    tel.logTelemetry(tmp, { x: 1 });
+    check("lib telemetry: logTelemetry appends a JSONL row under docs/work/telemetry.jsonl", fs.readFileSync(path.join(tmp, "docs/work/telemetry.jsonl"), "utf8").trim() === '{"x":1}');
+    fs.writeFileSync(path.join(tmp, "blocker"), "x");
+    check("lib telemetry: logTelemetry swallows write errors", (() => { try { tel.logTelemetry(path.join(tmp, "blocker"), { a: 1 }); return true; } catch { return false; } })());
+    check("lib telemetry: output-cap and stream-failure warnings are named", tel.streamWarnings(info("b", 2, { finish: "length" })).some((w: string) => /OUTPUT CAP/.test(w)) && tel.streamWarnings(info("b", 2, { finish: "error" })).some((w: string) => /stream did not complete/.test(w)) && tel.streamWarnings(info("b", 2)).length === 0);
+
+    const warns: string[] = [];
+    const receipts: string[] = [];
+    const counter = cap.createTurnCounter(2);
+    const handle = tel.createAssistantMessageHandler({
+      turns: counter, maxTurns: 2, turnCapMessage: cap.turnCapMessage, logSessionReceipt: (_r: string, i: any) => receipts.push(i.id),
+      env: {}, warn: (m: string) => warns.push(m),
+    });
+    handle(info("m1")); // partial: receipt only
+    handle(info("m1", 2000));
+    handle(info("m1", 2000)); // duplicate update
+    handle(info("m2", 3000));
+    handle({ ...info("u1", 4000), role: "user" });
+    const rows = fs.readFileSync(path.join(tmp, "docs/work/telemetry.jsonl"), "utf8").trim().split("\n").slice(1);
+    check("lib handler: one telemetry row per completed assistant message, none for partial/duplicate/user updates", rows.length === 2 && JSON.parse(rows[0]).message === "m1" && JSON.parse(rows[1]).message === "m2");
+    check("lib handler: session receipt fires once per session", receipts.length === 1 && receipts[0] === "m1");
+    check("lib handler: the turn-budget warning fires exactly when the cap is reached", warns.filter((w) => /TURN BUDGET REACHED/.test(w)).length === 1 && counter.get("ses1") === 2);
+
+    const off: string[] = [];
+    const c2 = cap.createTurnCounter(1);
+    const quiet = tel.createAssistantMessageHandler({ turns: c2, maxTurns: 1, turnCapMessage: cap.turnCapMessage, logSessionReceipt: () => {}, env: { EXPERTS_TELEMETRY: "0" }, warn: (m: string) => off.push(m), cwd: () => path.join(tmp, "quiet") });
+    quiet(info("q1", 5000));
+    check("lib handler: EXPERTS_TELEMETRY=0 stops the log but the turn budget still counts", c2.get("ses1") === 1 && off.length === 1 && !fs.existsSync(path.join(tmp, "quiet")));
+
+    // guards: the pre-tool check both shells delegate to
+    const blocked = (o: any) => { try { guards.beforeToolCheck({ sessionID: "s", gated: new Map(), turns: 0, maxTurns: 0, env: {}, ...o }); return null; } catch (e: any) { return String(e.message); } };
+    check("lib guards: rm -rf / and .env writes are BLOCKED", /BLOCKED/.test(blocked({ tool: "bash", args: { command: "rm -rf /" } }) ?? "") && /BLOCKED/.test(blocked({ tool: "write", args: { filePath: path.join(tmp, ".env") } }) ?? ""));
+    check("lib guards: ordinary bash and write are allowed", blocked({ tool: "bash", args: { command: "ls" } }) === null && blocked({ tool: "write", args: { filePath: path.join(tmp, "a.txt") } }) === null);
+    check("lib guards: turn cap is enforced ahead of every other check", /TURN BUDGET/.test(blocked({ tool: "read", args: {}, turns: 5, maxTurns: 5 }) ?? ""));
+
+    // resume-anchor builder: pure, version = line 1 only, never tail-truncated
+    const proj = path.join(tmp, "proj");
+    fs.mkdirSync(path.join(proj, "docs/work/coder/t1"), { recursive: true });
+    fs.writeFileSync(path.join(proj, "docs/work/HANDOFF_x.md"), 'PRODUCE\n- `docs/reviews/OUT.md`\nPrint exactly: "DONE X"\n');
+    fs.writeFileSync(path.join(proj, "docs/work/TASKS_x.md"), "- [x] a\n- [ ] b\n");
+    fs.writeFileSync(path.join(proj, "docs/work/coder/t1/phase1.md"), "x");
+    const cfg = path.join(tmp, "cfg");
+    fs.mkdirSync(cfg);
+    fs.writeFileSync(path.join(cfg, "experts-version"), "9.9.9\nopencode-major=2\n");
+    const savedCfg = process.env.OPENCODE_CONFIG_DIR;
+    process.env.OPENCODE_CONFIG_DIR = cfg;
+    let anchor: string | null = null;
+    let compaction = "";
+    try {
+      const at = await load("plugins/lib/resume-anchor-text.ts", "?fresh-" + Date.now());
+      anchor = at.buildAnchor(proj);
+      compaction = at.compactionContext(anchor);
+      check("lib anchor: not an SDLC project -> no anchor at all", at.buildAnchor(path.join(tmp, "empty")) === null);
+    } finally {
+      if (savedCfg === undefined) delete process.env.OPENCODE_CONFIG_DIR; else process.env.OPENCODE_CONFIG_DIR = savedCfg;
+    }
+    check("lib anchor: experts-version is read from line 1 only (two-line stamp)", !!anchor && anchor.includes("experts v9.9.9 —") && !anchor.includes("opencode-major"));
+    check("lib anchor: names the owed PRODUCE file, completion phrase and ledger", !!anchor && /\[MISSING\] docs\/reviews\/OUT\.md/.test(anchor) && anchor.includes('"DONE X"') && /Task ledger docs\/work\/TASKS_x\.md: 1\/2 done/.test(anchor));
+    check("lib anchor: never tail-truncated — the directive tail is intact and there is no ellipsis cap", !!anchor && !anchor.endsWith("…") && anchor.endsWith("a confirm-request, or a which-step question.") && anchor.length <= 3600);
+    check("lib anchor: compaction context ends with the on-disk anchor, and works without one", compaction.includes("RESUME NOW") && compaction.endsWith(anchor ?? "?") && !(await load("plugins/lib/resume-anchor-text.ts")).compactionContext(null).includes("Current on-disk state"));
+
+    // shell shim ($-compatible, used by the v2 shell when ctx has no `$`)
+    const { shellShim } = await load("plugins/lib/shell-shim.ts");
+    const echoed = await shellShim`echo ${"a b"}`.quiet().text();
+    const failed = await shellShim`false`.quiet().nothrow();
+    check("lib shell-shim: interpolations stay single argv entries; nothrow() yields exitCode", echoed.trim() === "a b" && failed.exitCode === 1);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+
+  // shells: v1 exports ONLY its Plugin; v2 shells are valid TypeScript that default-export Plugin.define
+  for (const [f, name] of [["plugins/expert-hooks.ts", "ExpertHooks"], ["plugins/resume-anchor.ts", "ResumeAnchor"]]) {
+    const m = await load(f);
+    check(`${f} exports ONLY its Plugin (OpenCode's loader calls every export)`, Object.keys(m).length === 1 && typeof m[name] === "function");
+  }
+  for (const f of ["plugins-v2/expert-hooks/index.ts", "plugins-v2/resume-anchor/index.ts"]) {
+    const src = fs.readFileSync(path.join(root, f), "utf8");
+    let parsed = true;
+    try {
+      // The v2 package is not installed, so these cannot be imported or type-checked here; stripping types proves they parse.
+      (nodeModule as any).stripTypeScriptTypes(src);
+    } catch (e: any) { parsed = false; fail(`${f} is valid TypeScript`, String(e.message).slice(0, 200)); }
+    if (parsed) check(`${f} parses and default-exports Plugin.define({ id, setup })`, /import \{ Plugin \} from "@opencode\/plugin"/.test(src) && /export default Plugin\.define\(\{\s*id: "attest\./.test(src) && /async setup\(ctx/.test(src));
+  }
+  check("v2 expert-hooks wires tool hooks, session prompt hook, event subscription and tool.transform",
+    ["ctx.tool.hook(\"execute.before\"", "ctx.tool.hook(\"execute.after\"", "ctx.session.hook(\"prompt\"", "ctx.event.subscribe(", "ctx.tool.transform("].every((n) => fs.readFileSync(path.join(root, "plugins-v2/expert-hooks/index.ts"), "utf8").includes(n)));
+  check("v2 resume-anchor wires session context + compaction hooks", ["ctx.session.hook(\"context\"", "ctx.session.hook(\"compaction\""].every((n) => fs.readFileSync(path.join(root, "plugins-v2/resume-anchor/index.ts"), "utf8").includes(n)));
+  const libFiles = (function walk(d: string): string[] { return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])); })(path.join(root, "plugins/lib"));
+  const leaks = libFiles.filter((f) => /@opencode(-ai)?\//.test(fs.readFileSync(f, "utf8").replace(/^\s*\/\/.*$/gm, "")));
+  check("plugins/lib imports nothing from opencode (pure, shared by both majors)", leaks.length === 0);
+
+  // tools: v1 shells re-wrap the lib; zod args and JSON Schema must agree
+  const { allTools } = await load("plugins/lib/tools/index.ts");
+  const toolFiles = fs.readdirSync(path.join(root, "tools")).filter((f) => f.endsWith(".ts"));
+  check(`plugins/lib/tools registers every tools/*.ts (${toolFiles.length})`, allTools.length === toolFiles.length);
+  for (const f of toolFiles) {
+    const v1 = (await load(`tools/${f}`)).default;
+    const lib = allTools.find((t: any) => `${t.name}.ts` === f);
+    const same = !!lib && v1.description === lib.description && JSON.stringify(Object.keys(v1.args).sort()) === JSON.stringify(Object.keys(lib.inputSchema.properties ?? {}).sort()) && typeof lib.execute === "function" && lib.inputSchema.type === "object";
+    check(`tools/${f}: v1 zod args == lib JSON Schema properties, same description`, same);
   }
 }

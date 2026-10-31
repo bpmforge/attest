@@ -50,6 +50,33 @@ if command -v opencode >/dev/null 2>&1; then
 else
   bad "opencode CLI not found — install: https://opencode.ai"
 fi
+# OpenCode major (WP-V1): OPENCODE_MAJOR env > `opencode --version` > the install stamp (experts-version line 2).
+OC_MAJOR="${OPENCODE_MAJOR:-}"
+if [ -z "$OC_MAJOR" ] && command -v opencode >/dev/null 2>&1; then
+  OC_MAJOR="$(opencode --version 2>/dev/null | head -1 | sed -n 's/^[^0-9]*\([0-9][0-9]*\)\..*/\1/p')"
+fi
+OC_STAMP="$(sed -n 's/^opencode-major=\([0-9][0-9]*\)$/\1/p' "$DIR/experts-version" 2>/dev/null | head -1)"
+[ -z "$OC_MAJOR" ] && OC_MAJOR="$OC_STAMP"
+case "$OC_MAJOR" in
+  1) OC_SET="plugins/*.ts + tools/*.ts (v1)" ;;
+  2) OC_SET="plugins/<name>/index.ts directories (v2)" ;;
+  "") OC_SET="" ;;
+  *) OC_SET="unsupported" ;;
+esac
+if [ -z "$OC_MAJOR" ]; then
+  warn "OpenCode major unknown (opencode not on PATH, no install stamp) — assuming v1"
+  OC_MAJOR=1; OC_SET="plugins/*.ts + tools/*.ts (v1)"
+elif [ "$OC_SET" = "unsupported" ]; then
+  bad "OpenCode v$OC_MAJOR is not supported — attest supports v1 and v2"
+else
+  ok "OpenCode v$OC_MAJOR detected · plugins: $OC_SET"
+  [ -n "$OC_STAMP" ] && [ "$OC_STAMP" != "$OC_MAJOR" ] && warn "install stamp says opencode-major=$OC_STAMP but v$OC_MAJOR is running — re-run ./install.sh to install the matching plugin set"
+  if [ "$OC_MAJOR" = "2" ]; then
+    [ -f "$DIR/plugins/expert-hooks/index.ts" ] && [ -f "$DIR/plugins/resume-anchor/index.ts" ] && [ -f "$DIR/plugins/lib/turn-cap.ts" ] && ok "v2 plugin directories + shared lib installed" || bad "v2 plugins missing under $DIR/plugins/ — re-run ./install.sh"
+  else
+    [ -f "$DIR/plugins/expert-hooks.ts" ] && [ -f "$DIR/plugins/resume-anchor.ts" ] && [ -f "$DIR/plugins/lib/turn-cap.ts" ] && ok "v1 plugins + shared lib installed" || bad "v1 plugins (or plugins/lib) missing under $DIR/plugins/ — re-run ./install.sh"
+  fi
+fi
 command -v node >/dev/null 2>&1 && ok "node: $(node --version)" || bad "node missing (custom tools need it)"
 command -v jq   >/dev/null 2>&1 && ok "jq present" || warn "jq missing — install.sh cannot safely merge opencode.json (brew install jq)"
 command -v git  >/dev/null 2>&1 && ok "git present" || bad "git missing"
@@ -89,7 +116,11 @@ if [ -f "$CFG" ]; then
     if jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
       ok "external_directory permission configured (protocol reads work in opencode run)"
     else
-      bad "external_directory permission MISSING — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
+      if [ "$OC_MAJOR" = "2" ]; then
+        warn "v1-style .permission.external_directory not found — expected under v2 (key renamed to permissions); verify non-interactive runs can read shared protocols"
+      else
+        bad "external_directory permission MISSING — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
+      fi
     fi
   else
     grep -q "external_directory" "$CFG" && ok "external_directory permission appears configured" || bad "external_directory permission missing — re-run ./install.sh (with jq installed)"

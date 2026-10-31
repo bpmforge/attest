@@ -25,6 +25,53 @@ ATTEST_VERSION="${ATTEST_VERSION:-unknown}"
 for _arg in "$@"; do [ "$_arg" = "--version" ] && { echo "attest v$ATTEST_VERSION"; exit 0; }; done
 GLOBAL_DIR="$HOME/.config/opencode"
 PROJECT_DIR=".opencode"
+
+# ─── OpenCode major detection (WP-V1) ─────────────────────────────────────────
+# attest supports OpenCode v1 and v2. They load DIFFERENT plugin/tool/agent shapes
+# (v1 plugins/*.ts + tools/*.ts + V1 frontmatter; v2 plugin directories, ctx.tool.transform,
+# renamed frontmatter keys), so exactly one set is installed, chosen by the major.
+# OPENCODE_MAJOR in the environment overrides detection (also how tests/CI pick a set).
+# Echoes the major number, or nothing when opencode is not on PATH / unparseable.
+detect_opencode_major() {
+  if [ -n "${OPENCODE_MAJOR:-}" ]; then echo "$OPENCODE_MAJOR"; return 0; fi
+  command -v opencode >/dev/null 2>&1 || return 0
+  opencode --version 2>/dev/null | head -1 | sed -n 's/^[^0-9]*\([0-9][0-9]*\)\..*/\1/p'
+  return 0
+}
+
+# Sets OPENCODE_MAJOR (1|2) and OPENCODE_PLUGIN_SET (plugins|plugins-v2); exits on an unknown major.
+resolve_opencode_major() {
+  local raw
+  raw="$(detect_opencode_major)"
+  case "$raw" in
+    "")
+      OPENCODE_MAJOR=1
+      echo "  ⚠️  opencode not found on PATH — installing the OpenCode v1 set (override: OPENCODE_MAJOR=2 ./install.sh)"
+      ;;
+    1|2)
+      OPENCODE_MAJOR="$raw"
+      echo "  OpenCode v$OPENCODE_MAJOR detected"
+      ;;
+    *)
+      echo "ERROR: unsupported OpenCode major version '$raw' — attest supports OpenCode v1 and v2." >&2
+      echo "       Install a supported OpenCode, or force a set with OPENCODE_MAJOR=1 or OPENCODE_MAJOR=2." >&2
+      exit 1
+      ;;
+  esac
+  if [ "$OPENCODE_MAJOR" = "2" ]; then OPENCODE_PLUGIN_SET="plugins-v2"; else OPENCODE_PLUGIN_SET="plugins"; fi
+}
+
+# Test/diagnostic seam: print the resolved plan and exit before touching anything.
+for _arg in "$@"; do
+  if [ "$_arg" = "--print-opencode-plan" ]; then
+    resolve_opencode_major
+    echo "opencode-major=$OPENCODE_MAJOR"
+    echo "plugins=$OPENCODE_PLUGIN_SET"
+    echo "stamp-line-1=$ATTEST_VERSION"
+    echo "stamp-line-2=opencode-major=$OPENCODE_MAJOR"
+    exit 0
+  fi
+done
 SEMGREP_CACHE="$HOME/.semgrep/rules"
 
 # Platform preflight — supported: macOS, Linux, WSL. NOT supported: native Windows.
@@ -511,9 +558,22 @@ mkdir -p "$DEST"
 
 echo "Installing attest to $DEST/"
 echo "Method: $METHOD"
+resolve_opencode_major
 echo ""
 
 DIRS="agents skills commands references exemplars tools hooks plugins"
+
+# OpenCode v2: agents come from the generated, frontmatter-renamed dist (disable->disabled, ...).
+AGENTS_SRC="$SCRIPT_DIR/agents"
+COMPACT_SRC="$SCRIPT_DIR/dist/compact-agents"
+if [ "$OPENCODE_MAJOR" = "2" ]; then
+  node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --target opencode-v2 || { echo "ERROR: could not build the v2 agents" >&2; exit 1; }
+  AGENTS_SRC="$SCRIPT_DIR/dist/agents-v2"
+  COMPACT_SRC="$SCRIPT_DIR/dist/compact-agents-v2"
+  if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
+    node "$SCRIPT_DIR/scripts/build-agents.mjs" --compact --target opencode-v2 || { echo "ERROR: could not build the v2 compact agents" >&2; exit 1; }
+  fi
+fi
 
 for dir in $DIRS; do
   # Skip global-only directories during project-level installs
@@ -527,8 +587,35 @@ for dir in $DIRS; do
   fi
 
   # Clean out existing directory first (fresh install every time)
-  if [ -d "$DEST/$dir" ]; then
+  if [ -d "$DEST/$dir" ] || [ -L "$DEST/$dir" ]; then
     rm -rf "${DEST:?}/$dir"
+  fi
+
+  # OpenCode v2 — tools/ is v1-only (the v1 tool() helper is gone; the same tools are registered by the
+  # v2 expert-hooks plugin via ctx.tool.transform). plugins/ is assembled from plugins-v2/ + plugins/lib.
+  if [ "$OPENCODE_MAJOR" = "2" ] && [ "$dir" = "tools" ]; then
+    echo "  Skipped tools/ (OpenCode v2 registers them through plugins/expert-hooks)"
+    continue
+  fi
+  if [ "$OPENCODE_MAJOR" = "2" ] && [ "$dir" = "plugins" ]; then
+    mkdir -p "$DEST/plugins"
+    pcount=0
+    for pdir in "$SCRIPT_DIR"/plugins-v2/*/; do
+      [ -d "$pdir" ] || continue
+      pname="$(basename "$pdir")"
+      if [ "$METHOD" = "link" ]; then ln -sfn "${pdir%/}" "$DEST/plugins/$pname"; else cp -r "${pdir%/}" "$DEST/plugins/$pname"; fi
+      pcount=$((pcount + 1))
+    done
+    # Shared pure modules (imported by the v2 shells as ../../plugins/lib/*). Not a plugin: no index.ts.
+    if [ "$METHOD" = "link" ]; then ln -sfn "$SCRIPT_DIR/plugins/lib" "$DEST/plugins/lib"; else cp -r "$SCRIPT_DIR/plugins/lib" "$DEST/plugins/lib"; fi
+    echo "  Installed $pcount OpenCode v2 plugin directories + shared lib → $DEST/plugins/"
+    continue
+  fi
+  if [ "$OPENCODE_MAJOR" = "2" ] && [ "$dir" = "agents" ]; then
+    # Generated for v2, so always copied (a link to agents/ would expose the v1-shaped sources).
+    cp -r "$AGENTS_SRC" "$DEST/agents"
+    echo "  Copied agents/ ($(find "$DEST/agents" -name "*.md" | wc -l | tr -d ' ') files, v2 frontmatter) → $DEST/agents/"
+    continue
   fi
 
   if [ "$METHOD" = "link" ]; then
@@ -565,15 +652,15 @@ fi
 
 # --- Compact agent overlay (tier=small installs) ---
 if [ "${COMPACT_AGENTS:-false}" = "true" ]; then
-  if [ -d "$SCRIPT_DIR/dist/compact-agents" ]; then
+  if [ -d "$COMPACT_SRC" ]; then
     overlaid=0
-    for f in "$SCRIPT_DIR"/dist/compact-agents/*.md; do
+    for f in "$COMPACT_SRC"/*.md; do
       cp "$f" "$DEST/agents/$(basename "$f")"
       overlaid=$((overlaid + 1))
     done
     echo "  Overlaid $overlaid compact agent variants (tier=small) → $DEST/agents/"
   else
-    echo "  WARNING: --compact requested but dist/compact-agents/ missing — run: node scripts/build-agents.mjs --compact"
+    echo "  WARNING: --compact requested but ${COMPACT_SRC#$SCRIPT_DIR/}/ missing — run: node scripts/build-agents.mjs --compact"
   fi
 fi
 
@@ -607,8 +694,10 @@ if [ "$MODE" = "global" ]; then
   if [ -f "$SCRIPT_DIR/package.json" ]; then
     EXPERTS_VERSION="$ATTEST_VERSION"
     if [ "$EXPERTS_VERSION" != "unknown" ]; then
-      printf '%s\n' "$EXPERTS_VERSION" > "$DEST/experts-version"
-      echo "  Stamped version: v$EXPERTS_VERSION → $DEST/experts-version"
+      # Two lines: (1) the attest version — resume-anchor reads line 1 ONLY; (2) opencode-major=N (WP-V1),
+      # read by scripts/lib/opencode-cli.mjs so the conductor builds the right `opencode run` argv.
+      printf '%s\nopencode-major=%s\n' "$EXPERTS_VERSION" "$OPENCODE_MAJOR" > "$DEST/experts-version"
+      echo "  Stamped version: v$EXPERTS_VERSION (opencode-major=$OPENCODE_MAJOR) → $DEST/experts-version"
     fi
   fi
 fi
@@ -720,6 +809,13 @@ if [ "$MODE" = "project" ]; then
   CONFIG_FILE="./opencode.json"
 else
   CONFIG_FILE="$GLOBAL_DIR/opencode.json"
+fi
+
+if [ "$OPENCODE_MAJOR" = "2" ]; then
+  # WP-V1 step 6 — NOT done: the MCP/config entries below are still written in the v1 shape (`mcp.<name>`,
+  # `enabled`, `permission`). The exact v2 shapes (`mcp.servers`, `disabled`, `permissions` array,
+  # `compaction.keep.tokens`) are unverified here, so say so instead of guessing.
+  echo "  ⚠️  OpenCode v2: opencode.json is written with v1 keys — migrate it (https://opencode.ai/v2/docs/migrate-v1/) before relying on the MCP servers."
 fi
 
 # Merge Context7 MCP into existing opencode.json (or create if missing)

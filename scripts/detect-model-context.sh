@@ -97,6 +97,9 @@ write_capabilities() {
   # `opencode run --agent`), which removes the manual-paste pause (see EXECUTOR_SELECTION).
   if command -v opencode >/dev/null 2>&1; then
     echo "opencode_cli=true"  >> "$CONTEXT_FILE"
+    # WP-V1: major version of the CLI (OPENCODE_MAJOR env overrides) — callers pick the `opencode run` argv by it.
+    _oc_major="${OPENCODE_MAJOR:-$(opencode --version 2>/dev/null | head -1 | sed -n 's/^[^0-9]*\([0-9][0-9]*\)\..*/\1/p')}"
+    [ -n "$_oc_major" ] && echo "opencode_major=$_oc_major" >> "$CONTEXT_FILE"
   else
     echo "opencode_cli=false" >> "$CONTEXT_FILE"
   fi

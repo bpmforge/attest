@@ -1,11 +1,13 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { appendFileSync, existsSync, mkdirSync, readFileSync, realpathSync } from "node:fs";
 import { logSessionReceipt } from "../scripts/lib/session-receipt.mjs";
-import { configProtectionCheck, gateguardCheck } from "../scripts/lib/hook-guards.mjs";
-import { traceEvent } from "../scripts/lib/trace-order.mjs";
-import { dirname, join } from "node:path";
+import { beforeToolCheck } from "./lib/guards.ts";
+import { createAfterToolHandler } from "./lib/post-edit.ts";
+import { createAssistantMessageHandler } from "./lib/telemetry.ts";
+import { createTurnCounter, parseMaxTurns, turnCapMessage } from "./lib/turn-cap.ts";
+import { parseToolOutputMax } from "./lib/tool-output.ts";
 
-// expert-hooks.ts — opencode plugin
+// expert-hooks.ts — opencode v1 plugin SHELL (WP-V1). The logic lives in plugins/lib/*.ts (pure, no
+// opencode imports) and is shared with plugins-v2/expert-hooks/index.ts. Edit behaviour in the lib.
 //
 // Ports the high-value subset of attest-claude' hooks to opencode's
 // plugin surface. Four phases:
@@ -47,453 +49,40 @@ import { dirname, join } from "node:path";
 //   - test-on-stop.sh      → no clean session.idle "wind down" semantic;
 //                            users invoke /test-expert when ready
 
-// ─── Dangerous bash command blocklist ────────────────────────────────
-const DANGEROUS_BASH: Array<[RegExp, string]> = [
-  [
-    /\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|--recursive\b.*--force|-[a-zA-Z]*f[a-zA-Z]*r)\s+\/\s*$|rm\s+-rf\s+\/\s*$/i,
-    "rm -rf / — would delete the entire filesystem",
-  ],
-  [/\bDROP\s+TABLE\b/i, "DROP TABLE — destructive database operation"],
-  [
-    /\bDELETE\s+FROM\s+\S+\s*(?:;|$)(?!.*\bWHERE\b)/i,
-    "DELETE FROM without WHERE — would delete all rows",
-  ],
-  [
-    /\bgit\s+push\s+.*--force\b|\bgit\s+push\s+-f\b/i,
-    "git push --force — would rewrite remote history",
-  ],
-  [
-    /\bgit\s+reset\s+--hard\b/i,
-    "git reset --hard — would discard uncommitted work",
-  ],
-  [/\bnpm\s+publish\b/i, "npm publish — would publish to the public registry"],
-  [
-    /\bcurl\s+.*\|\s*bash\b|\bwget\s+.*\|\s*bash\b/i,
-    "curl|bash / wget|bash — executing untrusted remote code",
-  ],
-];
+// Turn cap (TOKEN_OPTIMIZATION_PLAN D1) — see plugins/lib/turn-cap.ts. Read once at load, as before.
+const MAX_TURNS = parseMaxTurns(process.env);
+const TOOL_OUTPUT_MAX = parseToolOutputMax(process.env);
+const turns = createTurnCounter(MAX_TURNS);
 
-// ─── Files / paths that must never be written ────────────────────────
-const BLOCKED_FILE_PATTERNS: Array<[RegExp, string]> = [
-  [
-    /\.env(\..+)?$/i,
-    ".env file — use environment variables or a secrets manager",
-  ],
-  [/\/credentials\.json$|\/secrets\.json$/i, "credentials/secrets file"],
-  [/\.(key|pem|p12|pfx)$/i, "private-key file"],
-  [/\/(id_rsa|id_ed25519|id_ecdsa|id_dsa)$/, "SSH private key"],
-];
-
-// ─── Hardcoded-secret scanner patterns ───────────────────────────────
-const SECRET_PATTERNS: Array<[RegExp, string]> = [
-  [
-    /(?:api[_-]?key|apikey|api[_-]?secret)\s*[:=]\s*["'][A-Za-z0-9_\-]{16,}["']/i,
-    "possible hardcoded API key",
-  ],
-  [/\bAKIA[0-9A-Z]{16}\b/, "AWS Access Key ID"],
-  [
-    /(?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?key)\s*[:=]\s*["'][A-Za-z0-9/+=]{40}["']/i,
-    "possible AWS Secret Access Key",
-  ],
-  [
-    /-----BEGIN\s+(?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/,
-    "private key (PEM format)",
-  ],
-  [
-    /(?:password|passwd|pwd)\s*[:=]\s*["'][^"']{4,}["']/i,
-    "possible hardcoded password",
-  ],
-  [
-    /(?:bearer|token|auth[_-]?token|access[_-]?token)\s*[:=]\s*["'][A-Za-z0-9_\-.]{20,}["']/i,
-    "possible hardcoded auth/bearer token",
-  ],
-  [
-    /(?:postgres|mysql|mongodb|redis|amqp)(?:ql)?:\/\/[^:]+:[^@]+@/i,
-    "DB connection string with embedded credentials",
-  ],
-  [
-    /(?:SECRET|TOKEN|PRIVATE[_-]KEY)\s*=\s*["'][A-Za-z0-9_\-/+=]{16,}["']/,
-    "possible hardcoded secret or token",
-  ],
-];
-
-const SKIP_EXTENSIONS = new Set([
-  ".png",
-  ".jpg",
-  ".jpeg",
-  ".gif",
-  ".ico",
-  ".svg",
-  ".webp",
-  ".woff",
-  ".woff2",
-  ".ttf",
-  ".eot",
-  ".zip",
-  ".tar",
-  ".gz",
-  ".bz2",
-  ".lock",
-  ".pyc",
-  ".pyo",
-  ".so",
-  ".dylib",
-  ".dll",
-]);
-
-const WRITE_TOOLS = new Set(["write", "edit", "multiedit"]);
-
-function extension(filePath: string): string {
-  const idx = filePath.lastIndexOf(".");
-  return idx === -1 ? "" : filePath.slice(idx).toLowerCase();
-}
-
-function basename(filePath: string): string {
-  return filePath.slice(filePath.lastIndexOf("/") + 1);
-}
-
-// ─── Turn cap (TOKEN_OPTIMIZATION_PLAN D1) ───────────────────────────
-// CONTEXT_BUDGET.md asks every agent to stop loading when its context fills.
-// The telemetry says it does not: one coding session ran 602 turns against a
-// local model with no prefix cache — 46M input tokens for one ticket, because
-// each turn re-sends the ~40k-token baseline plus everything read so far.
-// EXPERTS_MAX_TURNS=<n> (set per session by the conductor's --max-turns, or
-// exported by an operator) makes the budget mechanical: after n completed
-// assistant turns, every further tool call is refused EXCEPT writes under
-// docs/work/ and docs/reviews/, so the agent can still update its TASKS
-// ledger, write its Completion Manifest ("Partial output — turn budget
-// reached") and stop cleanly. The conductor's existing attempt/resume logic
-// then carries the ledger into a fresh, small-context session.
-const MAX_TURNS = Number(process.env.EXPERTS_MAX_TURNS || 0) || 0;
-const TOOL_OUTPUT_MAX = process.env.EXPERTS_TOOL_OUTPUT_MAX === undefined ? 24000 : Number(process.env.EXPERTS_TOOL_OUTPUT_MAX) || 0;
-const COMPRESSIBLE_TOOLS = new Set(["read", "grep", "glob", "list", "bash", "run"]);
-const turnsBySession = new Map<string, number>();
-const LEDGER_DIR_RE = /(^|\/)docs\/(work|reviews)\//;
-
-function turnCapMessage(session: string, turns: number): string {
-  return (
-    `TURN BUDGET REACHED: this session has completed ${turns} assistant turns (limit ${MAX_TURNS}, EXPERTS_MAX_TURNS). ` +
-    `No further tool calls are allowed except writes under docs/work/ and docs/reviews/. ` +
-    `Do this now, in order: (1) update docs/work/TASKS_*.md so every checkbox reflects what is on disk; ` +
-    `(2) write your Completion Manifest with "Partial output — turn budget reached. Remaining items: [list]"; ` +
-    `(3) print BLOCKED: turn budget reached, and stop. The orchestrator resumes from the ledger in a fresh session.`
-  );
-}
+// Module-level so once-only state is shared across plugin instances, as it always was.
+const onAssistantMessage = createAssistantMessageHandler({ turns, maxTurns: MAX_TURNS, turnCapMessage, logSessionReceipt });
 
 export const ExpertHooks: Plugin = async ({ $ }) => {
   const gated = new Map<string, number>();
-  let traceSeq = 0;
+  const afterTool = createAfterToolHandler({ $, toolOutputMax: TOOL_OUTPUT_MAX });
   return {
     "tool.execute.before": async (input, output) => {
       // opencode passes the call arguments in `output.args` here (input.args exists
       // only in tool.execute.after) — reading input.args made every guard below a no-op.
       const args = (output as any)?.args ?? (input as any).args ?? {};
-
-      // Turn cap — before anything else, so a capped session cannot spend
-      // another 40k-token turn on a read it will not get to act on.
-      if (MAX_TURNS > 0) {
-        const turns = turnsBySession.get(input.sessionID) ?? 0;
-        if (turns >= MAX_TURNS) {
-          const filePath: string = args?.filePath ?? args?.file_path ?? "";
-          const ledgerWrite = WRITE_TOOLS.has(input.tool) && LEDGER_DIR_RE.test(filePath);
-          if (!ledgerWrite) throw new Error(turnCapMessage(input.sessionID, turns));
-        }
-      }
-      // Bash: block dangerous commands
-      if (input.tool === "bash" || input.tool === "run") {
-        const command: string = args?.command ?? "";
-        for (const [pattern, reason] of DANGEROUS_BASH) {
-          if (pattern.test(command)) {
-            throw new Error(
-              `BLOCKED: ${reason}\nCommand: ${command}\n\nIf you truly need this, ask the user to run it manually outside opencode.`,
-            );
-          }
-        }
-      }
-
-      // Write/edit: block .env and credential files
-      if (WRITE_TOOLS.has(input.tool)) {
-        const filePath: string =
-          args?.filePath ?? args?.file_path ?? "";
-        if (!filePath) return;
-
-        // K1/K2 (ECC): config-protection + opt-in fact-forcing gate.
-        const exists = existsSync(filePath);
-        let realPath: string | undefined;
-        try {
-          realPath = exists ? realpathSync(filePath) : undefined;
-        } catch {
-          /* unresolvable: fall back to the given path */
-        }
-        const cfg = configProtectionCheck(filePath, exists, process.env, { realPath });
-        if (cfg) throw new Error(cfg);
-
-        for (const [pattern, reason] of BLOCKED_FILE_PATTERNS) {
-          if (pattern.test(filePath) || pattern.test(basename(filePath))) {
-            throw new Error(
-              `BLOCKED: writing to ${reason} is not allowed.\nPath: ${filePath}\n\nUse environment variables, a secrets manager, or have the user place the file manually.`,
-            );
-          }
-        }
-
-        const gate = gateguardCheck(gated, input.sessionID, filePath, exists, process.env, {
-          log: (rec: object) => {
-            const f = process.env.EXPERTS_GATEGUARD_LOG;
-            if (f) appendFileSync(f, JSON.stringify(rec) + "\n");
-          },
-        });
-        if (gate) throw new Error(gate);
-      }
+      beforeToolCheck({ tool: input.tool, sessionID: input.sessionID, args, gated, turns: turns.get(input.sessionID), maxTurns: MAX_TURNS });
     },
 
-    "tool.execute.after": async (input, output) => {
-      // Tool-result compression (TOKEN_OPTIMIZATION_PLAN D4 / backlog L14).
-      // CONTEXT_BUDGET.md rule 3 asks the model to "compress tool results
-      // immediately"; it cannot — a result is in context the moment it
-      // arrives, and it is re-sent on every later turn. 99.5% of measured
-      // tokens were input, and the growth per turn is mostly tool output. So
-      // the harness bounds it: a read/grep/glob/list/bash result longer than
-      // EXPERTS_TOOL_OUTPUT_MAX chars (default 24000 ≈ 6k tokens) keeps its
-      // head and tail with an explicit omission marker that tells the model
-      // how to get the middle (read with offset/limit, narrow the grep).
-      // 0 disables. Write/edit results are never touched (they are small and
-      // the formatter/lint notes below depend on them).
-      if (TOOL_OUTPUT_MAX > 0 && COMPRESSIBLE_TOOLS.has(input.tool) && typeof output?.output === "string") {
-        const text = output.output;
-        if (text.length > TOOL_OUTPUT_MAX) {
-          const head = Math.floor(TOOL_OUTPUT_MAX * 0.65);
-          const tail = Math.floor(TOOL_OUTPUT_MAX * 0.25);
-          const omitted = text.length - head - tail;
-          const hint =
-            input.tool === "read"
-              ? "re-read this file with offset/limit for the part you need"
-              : input.tool === "grep"
-                ? "narrow the pattern or add a path/glob; or grep -c first"
-                : input.tool === "bash"
-                  ? "re-run piped through head/tail/grep for the lines you need"
-                  : "narrow the query";
-          output.output =
-            `${text.slice(0, head)}\n\n[… ${omitted.toLocaleString()} chars omitted by expert-hooks (EXPERTS_TOOL_OUTPUT_MAX=${TOOL_OUTPUT_MAX}) — ${hint} …]\n\n${text.slice(-tail)}`;
-          output.metadata = { ...(output.metadata ?? {}), truncatedBy: "expert-hooks", originalLength: text.length };
-        }
-      }
-
-      // K4: opt-in per-tool-call trace (EXPERTS_TRACE_LOG=<file>) for rule-compliance grading.
-      const traceLog = process.env.EXPERTS_TRACE_LOG;
-      if (traceLog) {
-        try {
-          appendFileSync(traceLog, JSON.stringify(traceEvent(++traceSeq, input, output)) + "\n");
-        } catch {
-          /* tracing must never break the tool call */
-        }
-      }
-      if (!WRITE_TOOLS.has(input.tool)) return;
-
-      const filePath: string =
-        input.args?.filePath ?? input.args?.file_path ?? "";
-      if (!filePath) return;
-
-      const ext = extension(filePath);
-      if (SKIP_EXTENSIONS.has(ext)) return;
-
-      // Run all post-edit checks in parallel — they're independent and
-      // failures in any one don't affect the others.
-      await Promise.allSettled([
-        formatFile(filePath, ext, $),
-        lintFile(filePath, ext, $),
-        typeCheckFile(filePath, ext, $),
-        secretScan(filePath, ext, $),
-      ]);
-    },
+    "tool.execute.after": async (input, output) => afterTool(input, output),
 
     event: async ({ event }) => {
       if (event.type !== "message.updated") return;
-      const info: any = (event as any).properties?.info;
-      if (!info || info.role !== "assistant") return;
-
-      // Turn counting is independent of telemetry: a budget that switches off
-      // with EXPERTS_TELEMETRY=0 is not a budget.
-      if (MAX_TURNS > 0 && info.time?.completed && info.sessionID && !countedTurns.has(info.id)) {
-        countedTurns.add(info.id);
-        if (countedTurns.size > 5000) countedTurns.clear();
-        const n = (turnsBySession.get(info.sessionID) ?? 0) + 1;
-        turnsBySession.set(info.sessionID, n);
-        if (n === MAX_TURNS) console.warn(`[expert-hooks] ${turnCapMessage(info.sessionID, n)}`);
-      }
-
-      if (process.env.EXPERTS_TELEMETRY === "0") return;
-
-      // G1 — session-model receipt (T30.2): fires once, on the first
-      // assistant message seen for this session. providerID/modelID are
-      // set at message creation, not just completion, so this is the
-      // earliest point a plugin can observe "the model that's actually
-      // running" — the exact fact the opus-4.8 misconfig incident showed
-      // nothing was recording.
-      if (!sessionModelLogged.has(info.sessionID)) {
-        sessionModelLogged.add(info.sessionID);
-        if (sessionModelLogged.size > 5000) sessionModelLogged.clear();
-        logSessionReceipt(info.path?.root ?? process.cwd(), info);
-      }
-
-      // Only completed assistant messages beyond this point — message.updated
-      // streams many partial updates; time.completed marks the final one.
-      if (!info.time?.completed) return;
-      if (loggedMessages.has(info.id)) return;
-      loggedMessages.add(info.id);
-      if (loggedMessages.size > 5000) loggedMessages.clear();
-
-      // Output cap hit (finish=length). Field capture 2026-10-21: a ~600-token
-      // reply was cut at the model's max-output limit and regenerated from the
-      // top eight times, and the TUI showed every copy — read as "the lead is
-      // looping" when it was `limit.output` / max_tokens. Say so where it
-      // happens; telemetry already records the finish reason for the report.
-      // Provider stream failure (TUI capture 2026-10-21, second set): the same
-      // reply arrived four times, each cut at a different point and reworded —
-      // separate generations, i.e. the provider dropped the stream and opencode
-      // retried, keeping every failed attempt's partial text in the message.
-      // Name it where it happens so it is not read as the agent looping.
-      if (info.error || (info.finish && !["stop", "tool-calls", "length"].includes(String(info.finish)))) {
-        console.warn(
-          `[expert-hooks] provider stream did not complete (${info.error?.name ?? `finish=${info.finish}`}${info.error?.message ? `: ${String(info.error.message).slice(0, 160)}` : ""}) on ${info.providerID}/${info.modelID} after ${info.tokens?.output ?? "?"} output tokens. ` +
-            `opencode retries; the partial text shown above is from the failed attempt, not the agent repeating itself. ` +
-            `If this recurs, route this role to a more reliable model in models.json (roles.* / agents.*) or raise the provider's timeout.`,
-        );
-      }
-      if (info.finish === "length") {
-        console.warn(
-          `[expert-hooks] reply hit the model's OUTPUT CAP (finish=length, ${info.tokens?.output ?? "?"} output tokens, ${info.providerID}/${info.modelID}). ` +
-            `The TUI will show it cut off and regenerated. Raise provider.${info.providerID}.models.${info.modelID}.limit.output in opencode.json (or the server's max_tokens), ` +
-            `and keep turn-ending replies short — the handoff reply is five lines (handoff-emit.sh).`,
-        );
-      }
-
-      logTelemetry(info.path?.root ?? process.cwd(), {
-        ts: new Date(info.time.completed).toISOString(),
-        source: "plugin",
-        session: info.sessionID,
-        message: info.id,
-        agent: info.mode ?? null,
-        model: `${info.providerID}/${info.modelID}`,
-        duration_ms: info.time.completed - info.time.created,
-        tokens_in: info.tokens?.input ?? 0,
-        tokens_out: info.tokens?.output ?? 0,
-        tokens_reasoning: info.tokens?.reasoning ?? 0,
-        cache_read: info.tokens?.cache?.read ?? 0,
-        cache_write: info.tokens?.cache?.write ?? 0,
-        cost: info.cost ?? 0,
-        finish: info.finish ?? null,
-        error: info.error?.name ?? null,
-        error_detail: info.error?.message ? String(info.error.message).slice(0, 200) : null,
-      });
+      onAssistantMessage((event as any).properties?.info);
     },
   };
 };
 
-// ─── G1: session-model receipt (T30.2, M30 model-tier guard) ─────────
-// Session-model receipt (T30.2) now lives in scripts/lib/session-receipt.mjs.
+// ─── Why this file exports ONLY its Plugin ───────────────────────────
 // A file in plugins/ must export ONLY its Plugin: OpenCode's loader calls every
 // export as a plugin factory, so the helpers that used to live here were invoked
 // with the loader's own context object — "glob.replace is not a function" — and
 // the ENTIRE plugin (bash blocking, credential-write blocking, post-edit scans,
 // telemetry, receipts) silently failed to load on every session. resume-anchor.ts
 // exports only its Plugin and has never failed; that is the control case.
-const sessionModelLogged = new Set<string>();
-const countedTurns = new Set<string>();
-
-// ─── Telemetry (plan 4.12) ───────────────────────────────────────────
-// Append-only JSONL of actuals. Counts and identifiers only — never
-// message content. Tune CONTEXT_BUDGET tier tables, plan max_tokens_est,
-// and escalation thresholds from observed distributions, not guesses.
-const loggedMessages = new Set<string>();
-
-function logTelemetry(projectRoot: string, row: Record<string, unknown>) {
-  try {
-    const file = join(projectRoot, "docs", "work", "telemetry.jsonl");
-    mkdirSync(dirname(file), { recursive: true });
-    appendFileSync(file, JSON.stringify(row) + "\n");
-  } catch {
-    // Telemetry must never break the session — silent.
-  }
-}
-
-async function formatFile(filePath: string, ext: string, $: any) {
-  try {
-    if (
-      [".ts", ".tsx", ".js", ".jsx", ".json", ".md", ".css", ".html"].includes(
-        ext,
-      )
-    ) {
-      await $`prettier --write ${filePath}`.quiet();
-    } else if (ext === ".py") {
-      await $`black ${filePath}`.quiet();
-      await $`isort ${filePath}`.quiet();
-    } else if (ext === ".go") {
-      await $`gofmt -w ${filePath}`.quiet();
-    } else if (ext === ".rs") {
-      await $`rustfmt ${filePath}`.quiet();
-    }
-  } catch {
-    // Formatter not installed or file unsupported — silent.
-  }
-}
-
-async function lintFile(filePath: string, ext: string, $: any) {
-  try {
-    if ([".ts", ".tsx", ".js", ".jsx"].includes(ext)) {
-      const result = await $`eslint ${filePath} --max-warnings 0`
-        .quiet()
-        .nothrow();
-      if (result.exitCode !== 0 && result.stdout?.length) {
-        console.warn(
-          `[lint] ${filePath}\n${result.stdout.toString().slice(0, 2000)}`,
-        );
-      }
-    } else if (ext === ".py") {
-      const result = await $`ruff check ${filePath}`.quiet().nothrow();
-      if (result.exitCode !== 0 && result.stdout?.length) {
-        console.warn(
-          `[lint] ${filePath}\n${result.stdout.toString().slice(0, 2000)}`,
-        );
-      }
-    }
-  } catch {
-    // Linter not installed — silent.
-  }
-}
-
-async function typeCheckFile(filePath: string, ext: string, $: any) {
-  try {
-    if ([".ts", ".tsx"].includes(ext)) {
-      const result = await $`tsc --noEmit --pretty false ${filePath}`
-        .quiet()
-        .nothrow();
-      if (result.exitCode !== 0 && result.stdout?.length) {
-        const lines = result.stdout
-          .toString()
-          .split("\n")
-          .slice(0, 30)
-          .join("\n");
-        console.warn(`[tsc] ${filePath}\n${lines}`);
-      }
-    }
-  } catch {
-    // tsc not installed — silent.
-  }
-}
-
-async function secretScan(filePath: string, _ext: string, $: any) {
-  try {
-    const content = (await $`cat ${filePath}`.quiet().text()) ?? "";
-    const findings: string[] = [];
-    for (const [pattern, label] of SECRET_PATTERNS) {
-      if (pattern.test(content)) findings.push(label);
-    }
-    if (findings.length) {
-      console.warn(
-        `[secret-scan] ${filePath} — possible secrets: ${findings.join(", ")}\nMove these to environment variables or a secrets manager.`,
-      );
-    }
-  } catch {
-    // File unreadable — silent.
-  }
-}
+// Everything else now lives in plugins/lib/ (a subdirectory — the loader only globs
+// top-level plugins/*.ts) and scripts/lib/.
