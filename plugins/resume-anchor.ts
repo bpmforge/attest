@@ -1,5 +1,5 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import { buildAnchor, compactionContext, enabled } from "./lib/resume-anchor-text.ts";
+import { anchorForRequest, buildAnchor, compactionContext, createAnchorSessions, enabled } from "./lib/resume-anchor-text.ts";
 
 // resume-anchor.ts — opencode v1 plugin SHELL. All logic (and the long field-trace history) lives in
 // plugins/lib/resume-anchor-text.ts; the v2 shell is plugins-v2/resume-anchor/index.ts.
@@ -12,11 +12,13 @@ import { buildAnchor, compactionContext, enabled } from "./lib/resume-anchor-tex
 // A file in plugins/ must export ONLY its Plugin (see the note at the bottom of expert-hooks.ts).
 
 export const ResumeAnchor: Plugin = async () => {
+  // WP-X6: per-session turn / last-full / compaction state (EXPERTS_ANCHOR_EVERY, default 10; 0 or 1 = always full).
+  const sessions = createAnchorSessions();
   return {
-    "experimental.chat.system.transform": async (_input, output) => {
+    "experimental.chat.system.transform": async (input: any, output) => {
       if (!enabled()) return;
       try {
-        const anchor = buildAnchor(process.cwd());
+        const anchor = anchorForRequest(process.cwd(), sessions.next(input?.sessionID), sessions.every);
         if (anchor) output.system.push(anchor);
       } catch {
         // Never break a session over an optional orientation aid.
@@ -24,8 +26,9 @@ export const ResumeAnchor: Plugin = async () => {
     },
 
     // Append to `context`; never set `prompt` — replacing opencode's default summarizer is untested.
-    "experimental.session.compacting": async (_input, output) => {
+    "experimental.session.compacting": async (input: any, output) => {
       if (!enabled()) return;
+      sessions.markCompacted(input?.sessionID);
       try {
         output.context.push(compactionContext(buildAnchor(process.cwd())));
       } catch {
