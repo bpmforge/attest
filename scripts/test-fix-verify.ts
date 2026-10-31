@@ -8,6 +8,9 @@
  */
 
 import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
+import { execFileSync } from "child_process";
 
 export async function testFixVerify(
   root: string,
@@ -250,5 +253,165 @@ export async function testFixVerify(
     }
   } catch (e) {
     fail("fix-verify", `Implementation check failed: ${e}`);
+  }
+
+  // ── WP-A3: delta verify (cited ∪ changed ∪ dirty files; baseline carried forward) ──
+  // Seam: a fake `opengrep` on PATH (SAST_ENGINE=opengrep) that "finds" every
+  // `VULN(<name>)` marker in the files it is given (or the whole tree when given none)
+  // and logs which targets it scanned. Real semgrep-full-audit.sh + fix-verify.mjs run.
+  const tmps: string[] = [];
+  try {
+    const mk = (p: string) => fs.mkdtempSync(path.join(os.tmpdir(), p));
+    const binDir = mk("fv-bin-");
+    const packs = mk("fv-packs-");
+    tmps.push(binDir, packs);
+    fs.writeFileSync(
+      path.join(binDir, "opengrep"),
+      `#!/usr/bin/env node
+const fs=require('fs'),path=require('path');
+const a=process.argv.slice(2);let out=null,pos=[];
+const withVal=new Set(['--config','-o','--sarif-output','--exclude','--baseline-ref']);
+for(let i=1;i<a.length;i++){ if(a[i]==='-o')out=a[i+1]; if(withVal.has(a[i])){i++;continue;} if(a[i].startsWith('-'))continue; pos.push(a[i]); }
+const walk=(d,acc=[])=>{for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['.git','node_modules','docs'].includes(e.name))continue;const f=path.join(d,e.name);e.isDirectory()?walk(f,acc):acc.push(path.relative('.',f));}return acc;};
+const files=pos.length?pos:walk('.');
+if(process.env.FAKE_ENGINE_LOG)fs.appendFileSync(process.env.FAKE_ENGINE_LOG,(pos.length?files.join(','):'ALL')+'\\n');
+const results=[];
+for(const f of files){ if(!fs.existsSync(f))continue; fs.readFileSync(f,'utf8').split('\\n').forEach((l,i)=>{const m=l.match(/VULN\\((\\w+)\\)/); if(m)results.push({check_id:'fake.'+m[1],path:f,start:{line:i+1},extra:{lines:l,severity:'ERROR',message:'fake '+m[1]}});}); }
+if(out){fs.mkdirSync(path.dirname(out),{recursive:true});fs.writeFileSync(out,JSON.stringify({results}));}
+process.exit(results.length?1:0);
+`,
+      { mode: 0o755 },
+    );
+
+    const FV = `${root}/scripts/fix-verify.mjs`;
+    const sh = (cwd: string, cmd: string, args: string[]) =>
+      execFileSync(cmd, args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    const gitc = (cwd: string, ...args: string[]) =>
+      sh(cwd, "git", ["-c", "user.name=t", "-c", "user.email=t@t", ...args]);
+
+    type Fixture = { dir: string; log: string; env: NodeJS.ProcessEnv };
+    const fixture = (): Fixture => {
+      const dir = mk("fv-fixture-");
+      tmps.push(dir);
+      gitc(dir, "init", "-q");
+      const files: Record<string, string> = {
+        "a.js": "const a = 1;\neval(x); // VULN(eval)\n",
+        "b.js": "run(y); // VULN(exec)\n",
+        "c.js": "q(`select ${z}`); // VULN(sql)\n",
+        "d.js": "const d = 4;\n",
+        "e.js": "const e = 5;\n",
+        "f.js": "const f = 6;\n",
+      };
+      for (const [n, c] of Object.entries(files)) fs.writeFileSync(path.join(dir, n), c);
+      gitc(dir, "add", "-A");
+      gitc(dir, "commit", "-q", "-m", "init");
+      const log = `${dir}.engine.log`; // outside the repo so it is not a dirty file
+      tmps.push(log);
+      const env = {
+        ...process.env,
+        PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
+        SAST_ENGINE: "opengrep",
+        RULEPACKS_DIR: packs,
+        FAKE_ENGINE_LOG: log,
+        FIXVERIFY_DIFF_CAP: "",
+      };
+      return { dir, log, env };
+    };
+    const fv = (fx: Fixture, args: string[], extraEnv: NodeJS.ProcessEnv = {}) => {
+      try {
+        return {
+          code: 0,
+          out: execFileSync("node", [FV, ...args], { cwd: fx.dir, env: { ...fx.env, ...extraEnv }, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }),
+        };
+      } catch (e: any) {
+        return { code: e.status ?? 1, out: String(e.stdout ?? "") };
+      }
+    };
+    const readJson = (fx: Fixture, rel: string) => JSON.parse(fs.readFileSync(path.join(fx.dir, rel), "utf8"));
+    const lastScan = (fx: Fixture) => fs.readFileSync(fx.log, "utf8").trim().split("\n").pop() || "";
+    const scannedLine = (out: string) => (out.match(/scanned_files: (\d+|\?) of (\d+|\?)/) || []) as string[];
+
+    const gitOk = (() => { try { sh(root, "git", ["--version"]); return true; } catch { return false; } })();
+    if (!gitOk) {
+      ok("fix-verify delta: skipped (git unavailable)");
+    } else {
+      // Tests A1+A3: fix one finding -> CLOSED; untouched -> OPEN with identical fingerprints; n < total
+      {
+        const fx = fixture();
+        fv(fx, ["snapshot", "semgrep"]);
+        const baseline = readJson(fx, "docs/security/.fixverify-semgrep.json");
+        const baseIds: Record<string, string> = Object.fromEntries(baseline.findings.map((f: any) => [f.rule, f.id]));
+        fs.writeFileSync(path.join(fx.dir, "a.js"), "const a = 1;\n");
+        gitc(fx.dir, "commit", "-q", "-am", "fix eval");
+        const r = fv(fx, ["verify", "semgrep"]);
+        const rep = readJson(fx, "docs/security/fix-verify-semgrep.json");
+        const [, n, total] = scannedLine(r.out);
+        const sameIds = rep.open.length === 2 &&
+          rep.open.every((f: any) => f.id === baseIds[f.rule]) &&
+          rep.closed.length === 1 && rep.closed[0].id === baseIds["fake.eval"] && rep.new.length === 0;
+        if (baseline.head_sha && /CLOSED/.test(r.out) && sameIds && r.code === 1) {
+          ok("fix-verify delta: fixed finding CLOSED, untouched findings OPEN with identical fingerprints");
+        } else {
+          fail("fix-verify delta", `closed/open mismatch: code=${r.code} sha=${baseline.head_sha} open=${rep.open.length} closed=${rep.closed.length}\n${r.out}`);
+        }
+        if (rep.scope === "delta" && Number(n) < Number(total) && n === "3" && total === "6" && !lastScan(fx).includes("d.js")) {
+          ok("fix-verify delta: logs scanned_files 3 of 6 (< total); uncited unchanged files not scanned");
+        } else {
+          fail("fix-verify delta", `expected delta scanned_files 3 of 6, got '${n} of ${total}' scope=${rep.scope} engine=${lastScan(fx)}`);
+        }
+      }
+
+      // Test A2: a fix that introduces a new finding in a changed (dirty) file -> NEW
+      {
+        const fx = fixture();
+        fv(fx, ["snapshot", "semgrep"]);
+        fs.writeFileSync(path.join(fx.dir, "d.js"), "const d = 4;\nrender(h); // VULN(xss)\n"); // uncommitted
+        const r = fv(fx, ["verify", "semgrep"]);
+        const rep = readJson(fx, "docs/security/fix-verify-semgrep.json");
+        if (rep.new.length === 1 && rep.new[0].rule === "fake.xss" && rep.open.length === 3 && rep.closed.length === 0 && rep.scope === "delta") {
+          ok("fix-verify delta: new finding in a dirty changed file -> NEW; carried-forward findings stay OPEN");
+        } else {
+          fail("fix-verify delta", `expected 1 NEW + 3 OPEN in delta scope: ${JSON.stringify({ n: rep.new.length, o: rep.open.length, c: rep.closed.length, s: rep.scope })}\n${r.out}`);
+        }
+      }
+
+      // Test A4: old baseline without head_sha -> full path (still classifies correctly)
+      {
+        const fx = fixture();
+        fv(fx, ["snapshot", "semgrep"]);
+        const bp = path.join(fx.dir, "docs/security/.fixverify-semgrep.json");
+        const b = JSON.parse(fs.readFileSync(bp, "utf8"));
+        delete b.head_sha;
+        fs.writeFileSync(bp, JSON.stringify(b));
+        fs.writeFileSync(path.join(fx.dir, "b.js"), "run(y);\n");
+        const r = fv(fx, ["verify", "semgrep"]);
+        const rep = readJson(fx, "docs/security/fix-verify-semgrep.json");
+        const [, n, total] = scannedLine(r.out);
+        if (rep.scope === "full" && /lacks head_sha/.test(r.out) && n === total && lastScan(fx) === "ALL" && rep.closed.length === 1 && rep.open.length === 2) {
+          ok("fix-verify delta: baseline without head_sha falls back to the full scan and still classifies");
+        } else {
+          fail("fix-verify delta", `expected full fallback: scope=${rep.scope} scanned=${n}/${total} engine=${lastScan(fx)}\n${r.out}`);
+        }
+      }
+
+      // Test A5: --full and FIXVERIFY_DIFF_CAP both force the whole-tree scan
+      {
+        const fx = fixture();
+        fv(fx, ["snapshot", "semgrep"]);
+        const full = fv(fx, ["verify", "semgrep", "--full"]);
+        const fullScan = lastScan(fx);
+        const capped = fv(fx, ["verify", "semgrep"], { FIXVERIFY_DIFF_CAP: "1" });
+        const cappedScan = lastScan(fx);
+        if (/scope: full \(--full\)/.test(full.out) && fullScan === "ALL" && /scope: full \(targets 3 > FIXVERIFY_DIFF_CAP 1\)/.test(capped.out) && cappedScan === "ALL") {
+          ok("fix-verify delta: --full and FIXVERIFY_DIFF_CAP overflow restore the whole-tree scan");
+        } else {
+          fail("fix-verify delta", `--full/cap not honored:\n${full.out}\n${capped.out}`);
+        }
+      }
+    }
+  } catch (e) {
+    fail("fix-verify delta", `delta suite crashed: ${e}`);
+  } finally {
+    for (const t of tmps) fs.rmSync(t, { recursive: true, force: true });
   }
 }
