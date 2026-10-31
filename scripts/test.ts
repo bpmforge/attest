@@ -97,6 +97,7 @@ import {
   testPluginExportContract,
 } from "./test-gate-output-contract.ts";
 import { testConductorSuite } from "./test-conductor-suite.ts";
+import { testCollectIncremental } from "./test-collect-incremental.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
   testRetryBudgets,
@@ -796,6 +797,10 @@ console.log(
   "\n[Pass 53] Conductor E2E — the unattended executor's own suite, wired in",
 );
 testConductorSuite(root, ok, fail);
+
+// WP-A1 — collect.sh ledger + incremental (auto/diff) merge, tmp git fixtures with tool stubs.
+console.log("\n[Pass 54] collect.sh incremental scan ledger");
+await testCollectIncremental(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary
