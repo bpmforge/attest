@@ -27,6 +27,7 @@ Parse the invocation first:
 | `/sdlc improve "backend"` | Backend/API/DB focused — skip Q2 |
 | `/sdlc improve "security"` / `"performance"` | Single-dimension pass — skip Q2 |
 | `/sdlc improve "feature:payments"` | One feature — runs Step 1.75 (app-cartographer) before the audits |
+| `/sdlc improve --full` (combinable with any row above) | Force full audits: ignore the scan ledger and prior reports, set `Scope: full`. Without it, Step 1 defaults to delta audits when a ledger and prior reports exist. |
 
 Output exactly this block, then stop and wait:
 
@@ -284,17 +285,25 @@ Read entry point (server.ts, main.ts, app.py, index.ts)
 ```
 Produce: `docs/improve/SYSTEM_SNAPSHOT.md` — tech stack, size, key modules, UI-bearing YES/NO
 
-**Check for prior improvement runs:**
+**Decide the audit scope (deterministic — never ask the user "re-run fresh or build on existing findings?"):**
 ```
-Glob docs/improve/*.md
+Glob docs/improve/*_AUDIT.md          # plus the prior reports in docs/security/ and docs/reviews/ that the Step 2 table names
 ```
-If prior audit reports exist, note them — ask the user: "I found prior audit reports from [date].
-Should I re-run those audits fresh, or build on existing findings?"
+Apply the first rule that matches:
+
+1. `--full` in the invocation → `Scope: full`.
+2. `docs/work/scan/ledger.json` missing, or no prior audit reports exist → `Scope: full`.
+3. Read the ledger base: `jq -r '(.semgrep.head_sha // ([.[] | objects | .head_sha // empty] | first) // empty)' docs/work/scan/ledger.json` → `<ledger_sha>`. Empty, or `git merge-base --is-ancestor <ledger_sha> HEAD` fails → `Scope: full`.
+4. `git diff --stat <ledger_sha>..HEAD` (and `git status --porcelain`) both empty → **nothing changed**. Say so in one line ("Nothing changed since <sha7>; reusing the prior audit reports"), set `Scope: unchanged since <sha7>`, dispatch NO audits, and continue at Step 3 with the existing reports.
+5. Otherwise → `Scope: delta since <sha7>` (`<sha7>` = first 7 chars of `<ledger_sha>`): each Step 2 audit HANDOFF applies the delta rules (see Step 2).
+
+State the resulting scope to the user in one line (a statement, not a question). The "whole app" scope semantics are unchanged: delta narrows what each specialist re-reads, not which audits run.
 
 ```
 write(filePath="docs/work/sdlc-state.md", content="
 Mode: 4 — Improve
 Step: 1 — Context Check
+Scope: [full | delta since <sha7> | unchanged since <sha7>]
 Last completed: system snapshot / existing docs reviewed
 Awaiting: user confirmation of audit scope
 Next after resume: Step 2 — Run Audits
@@ -376,6 +385,8 @@ Save state before each HANDOFF.
 ONLY on the files listed in `docs/improve/EXPLORE_[feature].md`. If the improvement is
 dimension-scoped ("just frontend", "just backend"), tell specialists to focus on the
 relevant directories only. "Whole app" means no scope restriction.
+
+**Delta rule (when `docs/work/sdlc-state.md` says `Scope: delta since <sha7>`):** add two lines to every audit HANDOFF's CONTEXT: `Prior report: <path of that specialist's prior report>` and `Changed since: <sha7>`. The specialist then follows its shared "Delta review" rules (`agents/shared/blocks/delta-review.md`): read only files changed since that commit plus direct importers, re-cite unchanged findings after a one-line grep check, and open its report with `Scope: incremental — <n> files reviewed, <m> findings carried forward from <prior report path>`. A specialist with no prior report gets no `Prior report:` line and runs full (`Scope: full`). Under `Scope: full` neither line is sent. Keep the `Scope:` line in `docs/work/sdlc-state.md` when you rewrite it before each HANDOFF below. A carried-forward audit counts as covered in Step 3b (`carried-forward` in its backlog row or report header).
 
 ### Execution Mode Selection — Sequential or Parallel
 

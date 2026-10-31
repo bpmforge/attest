@@ -7,6 +7,9 @@
 # (docs/improve/IMPROVEMENT_BACKLOG.md) exists and references every audit —
 # an audit that the backlog never mentions was silently dropped from synthesis.
 #
+# `carried-forward` (delta audits): an audit marked carried-forward in its first 20
+# lines or on its backlog line counts as covered once the backlog references it.
+#
 # Used by run-coverage-loop.sh with the `improve` phase (2-iteration cap).
 
 # shellcheck disable=SC1091
@@ -36,7 +39,16 @@ for audit in "$IMPROVE_DIR"/*_AUDIT.md; do
     gap "empty-audit" "$name exists but is empty — its audit HANDOFF did not complete"
     continue
   fi
-  if grep -qF "$name" "$BACKLOG" 2>/dev/null; then
+  if grep -F "$name" "$BACKLOG" 2>/dev/null | grep -qF "carried-forward" \
+     || head -n 20 "$audit" | grep -qF "carried-forward"; then
+    # Delta mode (/sdlc improve, M-A7): an audit carried forward from a prior run
+    # is covered as long as the backlog still references it.
+    if grep -qF "$name" "$BACKLOG" 2>/dev/null; then
+      pass "carried-forward: $name"
+    else
+      gap "unsynthesized-audit" "$name: carried forward but IMPROVEMENT_BACKLOG.md never references it — findings silently dropped"
+    fi
+  elif grep -qF "$name" "$BACKLOG" 2>/dev/null; then
     pass "synthesized: $name"
   else
     gap "unsynthesized-audit" "$name: audit completed but IMPROVEMENT_BACKLOG.md never references it — findings silently dropped"

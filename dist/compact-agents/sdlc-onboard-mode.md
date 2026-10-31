@@ -51,6 +51,7 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 | `--quick` | Steps 0-7 only | ~15–20 min | Quick orientation — no inventory verification |
 | (default) | Steps 0-7 + Lightweight Inventory | ~30–40 min | Standard onboard. Catches undocumented routes + tables |
 | `--deep` | Steps 0-7 + full Ralph Wiggum loop | ~45–90 min | Contract bids, due diligence, security-sensitive takeovers |
+| `--full` (modifier) | Same steps as the depth it modifies | — | Re-inventory everything even when `docs/onboard/INVENTORY.md` exists; without it an existing inventory is refreshed incrementally (see Incremental Inventory) |
 
 ---
 
@@ -397,9 +398,20 @@ Output the final checklist with line counts. If ANY are missing, go back and cre
 
 ---
 
+## Incremental Inventory (when `docs/onboard/INVENTORY.md` already exists)
+
+Applies to the Lightweight Inventory and to Step D1. Deterministic; never ask the user. `--full` (combinable with default or `--deep`) skips this section and re-inventories everything.
+
+1. Read `Inventory-SHA: <sha>` from the inventory header. Missing → treat as `--full` for this run (and write the line, below). `git merge-base --is-ancestor <sha> HEAD` fails → `--full`. A deep run (`--deep`) over an inventory that carries a `Scope:` line → `--full` (the lightweight inventory lacks SERVICE/FLOW/ENTRY rows).
+2. Touched directories: `git diff --name-only <sha>..HEAD` plus `git status --porcelain`, grouped by top-level directory (`git diff --dirstat=files,0 <sha>..HEAD` shows the same). Empty → nothing changed: keep the inventory as is, mark every row `carried-forward`, update `Inventory-SHA`, and say so in one line.
+3. Otherwise issue the inventory HANDOFF with two extra lines: `Prior inventory: docs/onboard/INVENTORY.md` and `Changed directories: <list>`. The researcher re-inventories ONLY units whose Artifact lies in a changed directory, appends units found there under new IDs (an ID is never reused or renumbered), removes rows whose artifact was deleted, and sets every row in an untouched directory to Status `carried-forward`. It does not walk untouched directories.
+4. Header: the inventory MUST carry `Inventory-SHA: <full HEAD sha at inventory time>` on its own line under the title, next to the `Scope:` line when there is one. Write it on every run, full or incremental, so the next run can be incremental. Put the scope in INVENTORY_NOTES.md as `Scope: full` or `Scope: incremental since <sha7>`.
+
 ## Lightweight Inventory (Default Mode — After Step 7)
 
 Issue ONE HANDOFF to researcher (read-only) to produce `docs/onboard/INVENTORY.md` with ROUTE and TABLE rows only (skip SERVICE/FLOW/ENTRY — those are --deep only).
+
+If `docs/onboard/INVENTORY.md` already exists, follow Incremental Inventory above (unless `--full`) and add its two extra HANDOFF lines.
 
 ```
 ════════════════════════════════════════════════
@@ -414,7 +426,7 @@ WRITE-SCOPE: docs/onboard/
 YOUR TASK: Enumerate every ROUTE (Express/Fastify/Next/FastAPI/Flask/Go handler) and every TABLE (Prisma/SQLAlchemy/TypeORM/Knex/raw SQL CREATE TABLE). One row per unit. Skip SERVICE, FLOW, ENTRY categories.
 
 PRODUCE:
-- docs/onboard/INVENTORY.md — first line under the title MUST be `Scope: ROUTE, TABLE` (validate-inventory.sh honors it; without it the gate re-derives SERVICE rows and fails). Then a table: ID, Category, Description, Artifact, Status (PENDING). Categories: ROUTE, TABLE only.
+- docs/onboard/INVENTORY.md — first line under the title MUST be `Scope: ROUTE, TABLE` (validate-inventory.sh honors it; without it the gate re-derives SERVICE rows and fails). Also an `Inventory-SHA: <full HEAD sha>` line under the title. Then a table: ID, Category, Description, Artifact, Status (PENDING). Categories: ROUTE, TABLE only.
 - docs/onboard/INVENTORY_NOTES.md — discovery method and ambiguities.
 
 Print: "researcher done — lightweight inventory: N routes, M tables"
@@ -435,7 +447,7 @@ Canonical protocol: `~/.config/opencode/agents/shared/RALPH_WIGGUM_LOOP.md`.
 
 **Deep-mode flow:**
 
-**Step D1 — INVENTORY:** HANDOFF to researcher for full 5-category inventory (ROUTE / TABLE / SERVICE / FLOW / ENTRY). Schema: `| ID | Category | Description | Artifact | Status |`. Write to `docs/onboard/INVENTORY.md`, **replacing** any lightweight inventory — and with **no `Scope:` line** (a deep inventory covers all five categories, and a Scope line would switch off the SERVICE re-derivation).
+**Step D1 — INVENTORY:** HANDOFF to researcher for full 5-category inventory (ROUTE / TABLE / SERVICE / FLOW / ENTRY). Schema: `| ID | Category | Description | Artifact | Status |`. Write to `docs/onboard/INVENTORY.md`, **replacing** any lightweight inventory — and with **no `Scope:` line** (a deep inventory covers all five categories, and a Scope line would switch off the SERVICE re-derivation) but with an `Inventory-SHA: <full HEAD sha>` line. If a deep inventory already exists and `--full` is not set, follow Incremental Inventory instead of replacing it.
 
 **Step D2 — DISCOVER (parallel waves):**
 
