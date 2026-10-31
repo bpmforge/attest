@@ -95,3 +95,7 @@ docs/work/.validator-cache/
 # generated per-target agent builds (install.sh / build-agents.mjs --target opencode-v2)
 dist/agents-v2/
 dist/compact-agents-v2/
+
+# integration-review watermark (scripts/conductor/integration-review.mjs) -- per-machine runtime state
+docs/work/.integration-reviewed.json
+docs/work/.integration-prior/

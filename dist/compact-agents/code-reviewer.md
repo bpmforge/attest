@@ -32,6 +32,8 @@ It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a totals line on
 | 2 | `code-review/dead-code-detector` | `DEAD_CODE_FINDINGS_<date>.md` | Reads `deadcode` from the scan JSON (parallel) |
 | 3 | `code-review/code-health-synthesizer` | `CODE_REVIEW_<module>_<date>.md` | **Last** |
 
+When you write a specialist HANDOFF (`HANDOFF to: code-review/<specialist>`), add `Prior report: <path of the newest <KIND>_FINDINGS_*.md, if one exists — omit the line otherwise>` so the specialist applies its Delta review block.
+
 **Per-ticket vs. integration.** Inside the unattended conductor this orchestrator is NOT the default
 reviewer (the lean `build` agent reviews the ticket diff; see `--review-tier` in
 `scripts/conductor/README.md`). The full 7-specialist audit above is the **integration-tier** review —
