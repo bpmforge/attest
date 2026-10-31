@@ -66,6 +66,7 @@ const BLOCKS = [
   { name: 'context-budget', heading: '## Context Budget (MANDATORY for local models)' },
   { name: 'research-tools', heading: '## Research tools (available, optional)' },
   { name: 'code-search', heading: '## Code search (available, optional)' },
+  { name: 'delta-review', heading: '## Delta review (MANDATORY when the HANDOFF names a prior report or the scan JSON has meta.scope=="incremental")' },
 ];
 
 // (file, block) pairs allowed to keep custom text — orchestrator mode files own

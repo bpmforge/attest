@@ -28,14 +28,14 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -210,7 +210,7 @@ This mode exists because the orchestrator (sdlc-lead) is managing the sequence. 
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names
@@ -293,12 +293,17 @@ Per Rule 6 of `agents/shared/BOUNDED_TASK_CONTRACT.md`:
 - [ ] Security section: rate limits, CORS policy, input validation, auth scheme (if SECURITY_CONTROLS.md exists)
 - [ ] No `[TODO]`, `[TBD]`, `PLACEHOLDER` anywhere
 
-**openapi.yaml — required:**
+**openapi.yaml — required (HTTP APIs):**
 - [ ] `openapi: "3.0.3"` header
 - [ ] Every endpoint from API_DESIGN.md has a `paths` entry
 - [ ] `components/schemas` for every request/response object
 - [ ] `components/securitySchemes` matching auth strategy
 - [ ] Run: `swagger-cli validate docs/api/openapi.yaml` — must exit 0
+
+**No HTTP API (MCP server, native messaging, CLI, IPC) — JSON-Schema contract mode instead of openapi.yaml:**
+- [ ] Declare it: a line in `docs/DESIGN_CONTEXT.md` or `docs/API_DESIGN.md` saying "no HTTP API" / "JSON Schema contracts"
+- [ ] API_DESIGN.md lists every tool/message/command in a table with a `Tool` (or Endpoint/Operation/Command/Method/RPC) column, one backticked name per cell
+- [ ] One `docs/api/schemas/*.json` per name, the name as a `.`-separated basename segment (e.g. `tool.get_feedback.input.json`); every file parses as JSON
 
 **Run the coverage validator:**
 ```bash

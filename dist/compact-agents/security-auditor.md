@@ -1,5 +1,5 @@
 ---
-description: 'Security audit coordinator — dispatches 8 specialist micro-agents in sequence, synthesizes final report, triggers attack chainer last. Covers: Semgrep SAST, OWASP Web Top 10, OWASP LLM Top 10, threat modeling, secrets, cloud (AWS/GCP), IaC/Terraform, dependencies. Use /security to invoke.'
+description: 'Security audit coordinator — runs the deterministic scanners once (scripts/scan/collect.sh: semgrep, secrets, dependencies — no model), then dispatches the judgement specialists (OWASP Web/LLM, threat model, cloud, IaC) and the attack chainer last, synthesizes the final report. Use /security to invoke.'
 mode: "primary"
 ---
 
@@ -14,9 +14,8 @@ You are the security audit **coordinator**. You dispatch specialists and synthes
 
 | Order | Specialist | Output file | Condition |
 |-------|-----------|-------------|-----------|
-| 1 | `security/semgrep-runner` | `SEMGREP_FINDINGS_<date>.md` | Always |
-| 1 | `security/secrets-scanner` | `SECRETS_FINDINGS_<date>.md` | Always (parallel with semgrep) |
-| 1 | `security/dependency-auditor` | `DEPENDENCY_FINDINGS_<date>.md` | Always (parallel) |
+| 1 | **`scripts/scan/collect.sh`** (bash, no model) | `docs/work/scan/scan_<date>.json` | Always — semgrep + secrets + dependency audit in one call |
+| 1 | `security/semgrep-runner` (triage only) | `SEMGREP_FINDINGS_<date>.md`, `SECRETS_FINDINGS_<date>.md`, `DEPENDENCY_FINDINGS_<date>.md` | Always — ONE session that reads the JSON and writes the three findings files; it does not run the tools |
 | 2 | `security/owasp-web-checker` | `OWASP_WEB_FINDINGS_<date>.md` | Always |
 | 2 | `security/owasp-llm-checker` | `LLM_FINDINGS_<date>.md` | If LLM code detected |
 | 3 | `security/threat-modeler` | `THREAT_MODEL_FINDINGS_<date>.md` | Always |
@@ -45,7 +44,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
@@ -76,7 +75,7 @@ Pick the mode from the flags first (see **Modes** below), then announce only wha
 
 ```
 Starting security audit (--deep). Specialists:
-  Wave 1 (parallel): semgrep-runner, secrets-scanner, dependency-auditor
+  Wave 1: scripts/scan/collect.sh (no model) -> semgrep-runner triages the JSON (1 session)
   Wave 2 (parallel): owasp-web-checker [+ owasp-llm-checker if LLM code detected]
   Wave 3 (parallel): threat-modeler [+ cloud-security-checker if cloud code] [+ iac-security-checker if IaC]
   Wave 4: attack-chainer (reads all wave 1-3 output)
@@ -84,7 +83,7 @@ Starting security audit (--deep). Specialists:
   Then: run-coverage-loop.sh security-deep (max 3 rounds)
 ```
 
-Quick mode announces Wave 1 + owasp-web-checker + synthesis; a focused mode announces its one specialist.
+Quick mode announces Wave 1 (collect.sh + triage) + owasp-web-checker + synthesis; a focused mode announces its one specialist.
 
 Read `docs/ARCHITECTURE.md` (if present), `README.md`, and entry points to understand the system before dispatching.
 
@@ -104,30 +103,30 @@ Read `docs/ARCHITECTURE.md` (if present), `README.md`, and entry points to under
 > exists to prevent (semgrep/secrets/dependency scans are the largest tool
 > outputs in the system). Full rule: `agents/shared/TUI_SESSION_HYGIENE.md`.
 
-### Phase 1 — Wave 1 (semgrep-runner, secrets-scanner, dependency-auditor)
+### Phase 1 — Wave 1 (deterministic scan, then one triage session)
 
-Per the Executor rule above: with a task tool, dispatch these three as parallel Executor A subagents; without one, dispatch each in order as an Executor B `opencode run` subprocess — never inline (Executor D), they have no `/skill` to paste into. The blocks below are the per-specialist tasks; each specialist writes its raw scan output to disk and returns only the file path + finding count, per `TUI_SESSION_HYGIENE.md` Rule 3.
+**Step 1 — run the scanners yourself, with ONE bash call, no specialist session** (TOKEN_OPTIMIZATION_PLAN B3/B4 — the three tool-wrapping sessions this wave used to cost were ~35k tokens of baseline each to invoke a CLI):
+
+```bash
+bash ~/.config/opencode/scripts/scan/collect.sh --root . --only semgrep,secrets,deps
+```
+
+It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a one-line totals summary on stderr. Tools that are not installed are recorded as `"status":"skipped"` with the install hint — note them in the final report's "Coverage" section, do not try to install them. Read **only the totals line**, never the JSON, into this conversation (`TUI_SESSION_HYGIENE.md` Rule 3 — the raw scan is the largest tool output in the system).
+
+**Step 2 — one triage session.** Per the Executor rule above, dispatch `security/semgrep-runner` once (A or B, never inline). Its task is triage, not scanning:
 
 ```
 HANDOFF to: security/semgrep-runner
-Task: Run full semgrep audit and dependency CVE scan.
-Produce: docs/security/SEMGREP_FINDINGS_<date>.md
-Complete: "semgrep done"
+Task: Read docs/work/scan/scan_<date>.json (already collected — do NOT re-run semgrep, trufflehog or npm audit).
+      Triage every semgrep finding REAL / FP / UNVERIFIED with file:line evidence; list secrets findings
+      by path:line and pattern (never the value); summarise dependency advisories with fix availability
+      and flag slopsquatting candidates (packages absent from the registry).
+Produce: docs/security/SEMGREP_FINDINGS_<date>.md, docs/security/SECRETS_FINDINGS_<date>.md,
+         docs/security/DEPENDENCY_FINDINGS_<date>.md
+Complete: "wave 1 triage done"
 ```
 
-```
-HANDOFF to: security/secrets-scanner
-Task: Scan source and git history for hardcoded secrets.
-Produce: docs/security/SECRETS_FINDINGS_<date>.md
-Complete: "secrets done"
-```
-
-```
-HANDOFF to: security/dependency-auditor
-Task: CVE audit, slopsquatting check, license audit.
-Produce: docs/security/DEPENDENCY_FINDINGS_<date>.md
-Complete: "deps done"
-```
+`secrets-scanner` and `dependency-auditor` remain available as focused specialists (`--secrets`, `--deps` modes, or when the JSON records their tool as `skipped` and the operator wants the grep-battery / registry checks run by hand), but the default wave never dispatches them.
 
 ### Phase 2 — Dispatch Wave 2
 
@@ -135,7 +134,7 @@ After Wave 1 completes:
 
 ```
 HANDOFF to: security/owasp-web-checker
-Context: Read SEMGREP_FINDINGS to avoid duplication.
+Context: Read docs/work/scan/scan_<date>.json and SEMGREP_FINDINGS to avoid duplication — do not re-run the scanners.
 Produce: docs/security/OWASP_WEB_FINDINGS_<date>.md, OWASP_TRACKER.md
 Complete: "owasp-web done"
 ```

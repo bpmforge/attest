@@ -37,14 +37,22 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
+
+## Delta review (MANDATORY when the HANDOFF names a prior report or the scan JSON has meta.scope=="incremental")
+
+1. Read scope = `meta.changed_files` (or `git diff --name-only <base>...HEAD`) ∪ direct importers (≤1 hop). No whole-tree glob/grep.
+2. Prior findings outside scope: one `grep -n` on the cited line, then re-cite unchanged; line gone → CLOSED, never silently dropped, never re-cited ungrepped.
+3. In-scope files: full methodology, those files only.
+4. Report header: `Scope: incremental — <n> files reviewed, <m> findings carried forward from <prior report path>`; no prior report → `Scope: full`.
+5. owasp-web-checker only: skip a category when no changed file matches its surface AND prior tracker row is DONE ≥ 7; write it through with `carried-forward` in evidence.
 
 ## Context Budget (MANDATORY for local models)
 
@@ -189,7 +197,7 @@ This mode exists because the orchestrator (sdlc-lead) is managing the sequence. 
 
 ## Strict Scope Rules (Bounded Task Mode)
 
-The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names

@@ -30,7 +30,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
@@ -60,7 +60,7 @@ Read `agents/shared/SCOPE_BOUNDARY.md` for the full rule and the exact block to 
 
 ## Loop prevention (MANDATORY)
 
-Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → stop on quality, not call count: criterion met or confidence ≥ 8, 3 calls with nothing new, or a repeat URL/file → stop. When in doubt, write a partial result to disk and surface to the user. Full rules: `agents/shared/LOOP_PREVENTION.md`.
+Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
 
 ## Research tools (available, optional)
 
@@ -202,7 +202,7 @@ The code-review specialists catch problems after the fact. Your job is to not in
 
 ## Anti-Slop Rules (Enforced on Every File You Write)
 
-**Full canonical list:** `agents/shared/ANTI_SLOP_RULES.md` — **read it during Phase 1.** It now covers 30 rules (R-01 through R-30) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28), prose padding (R-29), library-shaped reimplementation (R-30).
+**Full canonical list:** `agents/shared/cards/ANTI_SLOP_CARD.md` (2KB, one line per rule) — **read the card during Phase 1**; the 27KB long form `agents/shared/ANTI_SLOP_RULES.md` has examples and scoring and is on demand only. It now covers 30 rules (R-01 through R-30) including 2025-2026 additions: slopsquatting (R-21), architectural privilege escalation (R-22), credential leakage (R-23), docstring inflation (R-24), phantom imports (R-25), disconnected pipelines (R-26), unimplemented stubs (R-27), LLM output without validation (R-28), prose padding (R-29), library-shaped reimplementation (R-30).
 - For Rust/TypeScript/Python/Go, when a compiler/lint error tempts a shortcut (`unsafe`, `.unwrap()`, `#[allow]`, `as any`), read the matching section of `references/language-review-checklists.md` first — never silence the check to make it pass.
 
 Below is the actionable summary of R-01 through R-20; the full definitions, scoring thresholds, and R-21 through R-30 are in that file.
@@ -479,7 +479,7 @@ Then print the exact completion phrase specified in the task. Then stop.
 
 ### Strict Scope Rules (Bounded Task Mode)
 
-The six canonical rules live in `~/.config/opencode/agents/shared/BOUNDED_TASK_CONTRACT.md`. Read that file and follow it. Summary:
+The six canonical rules are on the card `~/.config/opencode/agents/shared/cards/BOUNDED_TASK_CARD.md` (1.5KB) — read the card, not the 23KB long form `agents/shared/BOUNDED_TASK_CONTRACT.md` (on demand only). Summary:
 
 1. **Write-scope isolation** — edit files only inside the HANDOFF's assigned directory (plus `docs/work/**`, `docs/reviews/**`)
 2. **No extra files** — produce only what PRODUCE names
