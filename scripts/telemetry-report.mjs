@@ -15,8 +15,14 @@
 //   evals     — per-agent-check pass/fail/duration
 //   validator — per-validator gaps/exit
 //   stall     — sessions aborted by the harness stall guard (WP-X1) -> `## Stalls` section
+//
+// Not telemetry rows, read from disk when present (WP-A8) -> `## Scan & review scope` section:
+//   docs/work/scan/*.json (collect.sh meta.scope / changed_files / carried_forward),
+//   docs/reviews/INTEGRATION_SUMMARY_*.md (Scope: full|delta, reviewers reused),
+//   docs/work/.integration-reviewed.json (per-reviewer watermark, `reused`).
+// Manual run: node scripts/telemetry-report.mjs | grep -A12 'Scan & review scope'  (section is absent when no data).
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 
 const argv = process.argv.slice(2);
 const JSON_OUT = argv.includes('--json');
@@ -142,6 +148,37 @@ if (stallRows.length) {
   };
 }
 
+// ── scan & review scope (WP-A8): how much of the tree each scan/review actually covered ─────────────
+// Sources are plain files, not telemetry rows; every read is best-effort and a missing dir/file is silent.
+const safeJson = (f) => { try { return JSON.parse(readFileSync(f, 'utf8')); } catch { return null; } };
+const listDir = (d) => { try { return readdirSync(d).sort(); } catch { return []; } };
+const count = (arr, key) => arr.reduce((m, r) => ((m[key(r)] = (m[key(r)] || 0) + 1), m), {});
+const scanRuns = listDir('docs/work/scan').filter((f) => f.endsWith('.json')).flatMap((f) => {
+  const m = safeJson(`docs/work/scan/${f}`)?.meta;
+  if (!m || typeof m !== 'object' || !m.scope) return []; // ledger.json and foreign files carry no meta.scope
+  const len = (v) => (Array.isArray(v) ? v.length : Number.isFinite(Number(v)) ? Number(v) : 0);
+  return [{ file: f, scope: String(m.scope), changed_files: len(m.changed_files), carried_forward: len(m.carried_forward) }];
+});
+const summaries = listDir('docs/reviews').filter((f) => /^INTEGRATION_SUMMARY_.*\.md$/.test(f)).map((f) => {
+  let txt = ''; try { txt = readFileSync(`docs/reviews/${f}`, 'utf8'); } catch { /* unreadable: counted as unknown */ }
+  const sc = /^\W*Scope\W*:?\W*(full|delta)\b/im.exec(txt)?.[1]?.toLowerCase() ?? 'unknown';
+  const ru = /reviewers reused:\s*([^)\n]+)/i.exec(txt)?.[1]?.trim();
+  return { file: f, scope: sc, reused: !ru || /^none$/i.test(ru) ? 0 : ru.split(',').filter((x) => x.trim()).length };
+});
+const wmRaw = safeJson('docs/work/.integration-reviewed.json');
+const watermark = wmRaw && typeof wmRaw === 'object'
+  ? Object.entries(wmRaw).flatMap(([branch, rv]) => Object.entries(rv && typeof rv === 'object' ? rv : {}).map(([reviewer, e]) => ({ branch, reviewer, reused: !!e?.reused })))
+  : [];
+if (scanRuns.length || summaries.length || watermark.length) {
+  report.sections.scan_review_scope = {
+    scans: { total: scanRuns.length, by_scope: count(scanRuns, (r) => r.scope),
+      changed_files: scanRuns.reduce((a, r) => a + r.changed_files, 0), carried_forward: scanRuns.reduce((a, r) => a + r.carried_forward, 0) },
+    integration_summaries: { total: summaries.length, by_scope: count(summaries, (r) => r.scope), reviewers_reused: summaries.reduce((a, r) => a + r.reused, 0) },
+    watermark: { reviewers_tracked: watermark.length, reused_at_last_run: watermark.filter((w) => w.reused).length },
+    scan_files: scanRuns, summary_files: summaries,
+  };
+}
+
 if (JSON_OUT) {
   console.log(JSON.stringify(report, null, 2));
 } else {
@@ -160,6 +197,15 @@ if (JSON_OUT) {
     console.log('## Stalls');
     console.log(`sessions aborted: ${report.stall_summary.sessions_aborted} | tokens_in at abort: ${report.stall_summary.tokens_in_at_abort} | turns saved (est, vs a ${602}-turn runaway): ${report.stall_summary.turns_saved_est} | tokens saved (est): ${report.stall_summary.tokens_saved_est}`);
     console.table(report.sections.stalls);
+  }
+  const srs = report.sections.scan_review_scope;
+  if (srs) {
+    console.log('## Scan & review scope');
+    const fmt = (o) => Object.entries(o).map(([k, v]) => `${k}=${v}`).join(' ') || 'none';
+    if (srs.scans.total) console.log(`scans (docs/work/scan): ${srs.scans.total} | ${fmt(srs.scans.by_scope)} | changed_files=${srs.scans.changed_files} carried_forward=${srs.scans.carried_forward}`);
+    if (srs.integration_summaries.total) console.log(`integration reviews (INTEGRATION_SUMMARY): ${srs.integration_summaries.total} | ${fmt(srs.integration_summaries.by_scope)} | reviewers reused=${srs.integration_summaries.reviewers_reused}`);
+    if (srs.watermark.reviewers_tracked) console.log(`watermark (.integration-reviewed.json): reviewers tracked=${srs.watermark.reviewers_tracked} | reused at last run=${srs.watermark.reused_at_last_run}`);
+    if (srs.scan_files.length) console.table(srs.scan_files);
   }
   console.log('Use: p95 tokens_out per agent → CONTEXT_BUDGET/plan max_tokens_est; p95 duration → run-plan TIMEOUTS; retry/escalation rates → escalation ladder thresholds.');
 }
