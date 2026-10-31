@@ -412,6 +412,110 @@ export function buildAnchor(root: string): string | null {
     : anchor;
 }
 
+// ── WP-X6: anchor cadence ────────────────────────────────────────────────────
+// The full anchor (up to MAX_ANCHOR_CHARS) used to ride on EVERY request. Now: full on turn 1, on
+// the first turn after a compaction, and every Nth turn; otherwise a <=200-char pointer.
+// "Turn" = one request through the system-transform hook (1-based, per sessionID, kept by the shell).
+// EXPERTS_ANCHOR_EVERY: unset/garbage -> 10; N>=1 -> every N; 1 and 0 both mean "always full"
+// (today's behaviour, back-compat); the pointer is never used for 0 or 1.
+export const DEFAULT_ANCHOR_EVERY = 10;
+export const MAX_POINTER_CHARS = 200;
+
+export function parseAnchorEvery(env: Record<string, string | undefined>): number {
+  const raw = env.EXPERTS_ANCHOR_EVERY;
+  if (raw === undefined || raw.trim() === "") return DEFAULT_ANCHOR_EVERY;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : DEFAULT_ANCHOR_EVERY;
+}
+
+/**
+ * Pure cadence rule. `turn` is 1-based; `lastFullTurn` is 0 when none was injected yet.
+ * Full when: every<=1 (0 = always full, 1 = every turn), turn 1 / nothing injected yet, a compaction
+ * happened since the last full, or turn - lastFullTurn >= every (so a post-compaction full resets
+ * the cadence: next full is `every` turns after it).
+ */
+export function shouldInjectFull(o: {
+  turn: number;
+  lastFullTurn: number;
+  compactedSinceLastFull: boolean;
+  every?: number;
+}): boolean {
+  const every = o.every ?? parseAnchorEvery(process.env);
+  if (every <= 1) return true;
+  if (o.turn <= 1 || o.lastFullTurn <= 0) return true;
+  if (o.compactedSinceLastFull) return true;
+  return o.turn - o.lastFullTurn >= every;
+}
+export const anchorCadence = { shouldInjectFull, parseAnchorEvery };
+
+/** The <=200-char stand-in injected on non-full turns; null when the project has no SDLC state. */
+export function buildPointer(root: string, every: number = parseAnchorEvery(process.env)): string | null {
+  let ledger = "";
+  try {
+    let newest = 0;
+    const dir = join(root, "docs", "work");
+    for (const f of readdirSync(dir)) {
+      if (!/^TASKS_.*\.md$/.test(f)) continue;
+      const m = statSync(join(dir, f)).mtimeMs;
+      if (m >= newest) {
+        newest = m;
+        ledger = `docs/work/${f}`;
+      }
+    }
+  } catch {
+    /* no ledger */
+  }
+  let handoff = "";
+  try {
+    const h = selectHandoffs(root).primary;
+    if (h) handoff = h.path.slice(root.length + 1);
+  } catch {
+    /* none */
+  }
+  if (!ledger && !handoff) return null;
+  const tail = ` · THE LOOP applies (full anchor every ${every} turns)`;
+  const bits: string[] = [];
+  if (ledger) bits.push(`Task ledger: ${ledger}`);
+  if (handoff) bits.push(`HANDOFF: ${handoff}`);
+  let out = bits.join(" · ") + tail;
+  if (out.length > MAX_POINTER_CHARS) out = out.slice(0, MAX_POINTER_CHARS - 1) + "…";
+  return out;
+}
+
+/** Per-session turn / last-full / compaction state, kept by each shell (same pattern as the turn cap). */
+export function createAnchorSessions(every: number = parseAnchorEvery(process.env)) {
+  const st = new Map<string, { turn: number; lastFull: number; compacted: boolean }>();
+  return {
+    /** Register one request for the session; returns whether it gets the full anchor. */
+    next(sessionID?: string): boolean {
+      const k = sessionID ?? "_";
+      const s = st.get(k) ?? { turn: 0, lastFull: 0, compacted: false };
+      s.turn++;
+      const full = shouldInjectFull({ turn: s.turn, lastFullTurn: s.lastFull, compactedSinceLastFull: s.compacted, every });
+      if (full) {
+        s.lastFull = s.turn;
+        s.compacted = false;
+      }
+      st.set(k, s);
+      return full;
+    },
+    /** A compaction ran: the next request gets the full anchor. No sessionID -> flag every known session. */
+    markCompacted(sessionID?: string): void {
+      if (sessionID) {
+        const s = st.get(sessionID) ?? { turn: 0, lastFull: 0, compacted: false };
+        s.compacted = true;
+        st.set(sessionID, s);
+      } else for (const s of st.values()) s.compacted = true;
+    },
+    every,
+  };
+}
+
+/** What the shells inject for one request: full anchor, pointer, or null. */
+export function anchorForRequest(root: string, full: boolean, every: number): string | null {
+  return full ? buildAnchor(root) : buildPointer(root, every) ?? buildAnchor(root);
+}
+
 /** Text appended to the summarizer's context at compaction (best-effort half; never replaces the default prompt). */
 export function compactionContext(anchor: string | null): string {
   return (

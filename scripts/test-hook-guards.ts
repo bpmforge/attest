@@ -279,6 +279,39 @@ async function testPluginLib(
     check("lib anchor: never tail-truncated — the directive tail is intact and there is no ellipsis cap", !!anchor && !anchor.endsWith("…") && anchor.endsWith("a confirm-request, or a which-step question.") && anchor.length <= 3600);
     check("lib anchor: compaction context ends with the on-disk anchor, and works without one", compaction.includes("RESUME NOW") && compaction.endsWith(anchor ?? "?") && !(await load("plugins/lib/resume-anchor-text.ts")).compactionContext(null).includes("Current on-disk state"));
 
+    // WP-X6 anchor cadence: full on turn 1, first turn after a compaction, then every Nth turn (gap from last full); pointer otherwise
+    {
+      const at = await load("plugins/lib/resume-anchor-text.ts", "?x6-" + Date.now());
+      const isFull = (t: string | null) => !!t && t.startsWith("## RESUME ANCHOR");
+      const run = (every: number, compactAfter: number[] = []) => {
+        const ss = at.createAnchorSessions(every);
+        const fulls: number[] = [];
+        const outs: (string | null)[] = [];
+        for (let t = 1; t <= 50; t++) {
+          const o = at.anchorForRequest(proj, ss.next("ses"), ss.every);
+          outs.push(o);
+          if (isFull(o)) fulls.push(t);
+          if (compactAfter.includes(t)) ss.markCompacted("ses");
+        }
+        return { fulls, outs };
+      };
+      const a = run(10);
+      check("lib anchor cadence: 50 turns, every 10 -> full exactly on turns 1,11,21,31,41 (turn 1, then each 10 turns after the last full)", a.fulls.join(",") === "1,11,21,31,41");
+      const ptr = a.outs[1] ?? "";
+      check("lib anchor cadence: other turns get the <=200-char pointer naming ledger + HANDOFF + THE LOOP", a.outs.every((o, i) => a.fulls.includes(i + 1) || (!!o && o === ptr)) && ptr.length <= 200 && ptr === "Task ledger: docs/work/TASKS_x.md · HANDOFF: docs/work/HANDOFF_x.md · THE LOOP applies (full anchor every 10 turns)");
+      check("lib anchor cadence: every full injection keeps the never-tail-truncated directive", a.fulls.every((t) => { const o = a.outs[t - 1]!; return o.endsWith("a confirm-request, or a which-step question.") && o.length <= 3600; }));
+      const c = run(10, [23]);
+      check("lib anchor cadence: compaction at turn 23 forces full at 24 and resets the cadence (next fulls 34, 44)", c.fulls.join(",") === "1,11,21,24,34,44");
+      check("lib anchor cadence: EVERY=1 -> 50 full; EVERY=0 -> always full (documented back-compat)", run(1).fulls.length === 50 && run(0).fulls.length === 50);
+      check("lib anchor cadence: parseAnchorEvery — unset/garbage/negative -> 10, '0' -> 0, '5' -> 5", at.parseAnchorEvery({}) === 10 && at.parseAnchorEvery({ EXPERTS_ANCHOR_EVERY: "x" }) === 10 && at.parseAnchorEvery({ EXPERTS_ANCHOR_EVERY: "-3" }) === 10 && at.parseAnchorEvery({ EXPERTS_ANCHOR_EVERY: "0" }) === 0 && at.parseAnchorEvery({ EXPERTS_ANCHOR_EVERY: "5" }) === 5);
+      check("lib anchor cadence: pure shouldInjectFull rule", at.shouldInjectFull({ turn: 1, lastFullTurn: 0, compactedSinceLastFull: false, every: 10 }) && !at.shouldInjectFull({ turn: 10, lastFullTurn: 1, compactedSinceLastFull: false, every: 10 }) && at.shouldInjectFull({ turn: 11, lastFullTurn: 1, compactedSinceLastFull: false, every: 10 }) && at.shouldInjectFull({ turn: 5, lastFullTurn: 1, compactedSinceLastFull: true, every: 10 }));
+      const ss2 = at.createAnchorSessions(10);
+      ss2.next("A"); ss2.next("B");
+      ss2.markCompacted("A");
+      check("lib anchor cadence: state is per sessionID (compaction of A does not force B full)", ss2.next("A") === true && ss2.next("B") === false);
+      check("lib anchor cadence: no SDLC state -> no pointer either", at.buildPointer(path.join(tmp, "empty"), 10) === null);
+    }
+
     // shell shim ($-compatible, used by the v2 shell when ctx has no `$`)
     const { shellShim } = await load("plugins/lib/shell-shim.ts");
     const echoed = await shellShim`echo ${"a b"}`.quiet().text();
