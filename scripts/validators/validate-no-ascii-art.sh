@@ -28,9 +28,11 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 validator_init "validate-no-ascii-art"
 
 ROOT="$(detect_project_root "${1:-}")"
+validator_scope_init
 
 # -- Targets -----------------------------------------------------------------
 # Default: every markdown file under docs/ EXCEPT the audit file (which
@@ -43,6 +45,18 @@ else
   while IFS= read -r f; do
     TARGETS+=( "$f" )
   done < <(find "$ROOT/docs" -type f -name '*.md' 2>/dev/null | grep -v 'AUDIT_' | grep -v '/docs/work/' || true)
+fi
+
+# --since / VALIDATE_SINCE: keep only changed markdown targets.
+if [[ "$VALIDATOR_SCOPED" -eq 1 && "${#TARGETS[@]}" -gt 0 ]]; then
+  _scoped=()
+  while IFS= read -r f; do [[ -n "$f" ]] && _scoped+=( "$f" ); done < <(printf '%s\n' "${TARGETS[@]}" | validator_filter_scope)
+  TARGETS=( ${_scoped[@]+"${_scoped[@]}"} )
+  validator_scope_json ${TARGETS[@]+"${TARGETS[@]#"$ROOT/"}"}
+  if [[ "${#TARGETS[@]}" -eq 0 ]]; then
+    pass "no markdown files changed since ${VALIDATE_SINCE} -- nothing to scan"
+    validator_exit
+  fi
 fi
 
 if [[ "${#TARGETS[@]}" -eq 0 ]]; then

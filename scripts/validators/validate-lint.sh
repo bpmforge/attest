@@ -15,9 +15,11 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib_sdlc_config.sh"
 
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 validator_init "validate-lint"
 
 ROOT="$(detect_project_root "${1:-}")"
+validator_scope_init
 STACK=$(detect_stack "$ROOT")
 
 if [[ "$STACK" == "unknown" ]]; then
@@ -51,6 +53,36 @@ run_step() {
     return 1
   fi
 }
+
+# --since / VALIDATE_SINCE: lint only the changed lintable files. The command can
+# opt in with a {files} token; common "<linter> ... ." commands (eslint, ruff
+# check, biome check/lint) get their trailing "." swapped for the file list.
+# Anything else (npm run lint, ...) runs unchanged and receives the list in
+# $VALIDATE_CHANGED_FILES. A typecheck is whole-program, so it runs whenever any
+# lintable file changed and is skipped when none did (its result cannot move).
+SCOPED_FILES=()
+if [[ "$VALIDATOR_SCOPED" -eq 1 ]]; then
+  while IFS= read -r f; do
+    [[ -n "$f" && -f "$ROOT/$f" ]] && SCOPED_FILES+=("$f")
+  done < <(grep -E '\.(ts|tsx|js|jsx|mjs|cjs|py|rs|go)$' "$VALIDATOR_CHANGED_FILE" || true)
+  validator_scope_json ${SCOPED_FILES[@]+"${SCOPED_FILES[@]}"}
+  if [[ "${#SCOPED_FILES[@]}" -eq 0 ]]; then
+    pass "no lintable files changed since ${VALIDATE_SINCE} -- lint + typecheck skipped"
+    validator_exit
+  fi
+  _quoted=""
+  for f in "${SCOPED_FILES[@]}"; do _quoted="$_quoted $(printf '%q' "$f")"; done
+  _quoted="${_quoted# }"
+  export VALIDATE_CHANGED_FILES
+  VALIDATE_CHANGED_FILES="$(printf '%s\n' "${SCOPED_FILES[@]}")"
+  _lint_re='^(npx[[:space:]]+)?(eslint|ruff[[:space:]]+check|biome[[:space:]]+(check|lint))[[:space:]].*[[:space:]]\.$'
+  if [[ "$LINT_CMD" == *"{files}"* ]]; then
+    LINT_CMD="${LINT_CMD//\{files\}/$_quoted}"
+  elif [[ "$LINT_CMD" =~ $_lint_re ]]; then
+    LINT_CMD="${LINT_CMD% .} $_quoted"
+  fi
+  TYPECHECK_CMD="${TYPECHECK_CMD//\{files\}/$_quoted}"
+fi
 
 note "stack=$STACK lint='$LINT_CMD' typecheck='$TYPECHECK_CMD'"
 

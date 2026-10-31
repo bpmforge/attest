@@ -50,6 +50,36 @@ Stdout JSON schema:
 ./validate-phase-gate.sh phase-5        # Release gate
 ```
 
+## Incremental scans and the result cache (M-A6)
+
+Opt-in per validator via `validator_parse_flags` in `_lib.sh`:
+
+- `--since <ref>` / `VALIDATE_SINCE=<ref>` -- per-file validators (`validate-lint`,
+  `validate-code-health`, `validate-mermaid`, `validate-doc-render-health`,
+  `validate-no-ascii-art`) walk only files changed since `<ref>` (merge-base
+  semantics, plus dirty and untracked files). No flag = whole tree, unchanged.
+  The envelope gains `"scope":{"since":...,"files":[...]}` listing what was
+  examined. `validator_changed_files` returns 0 (output may be empty = nothing
+  changed) when scoped and 3 when there is no usable scope (= all files).
+  `validate-lint` substitutes the file list for a `{files}` token or a trailing
+  `.` on `eslint`/`ruff check`/`biome check|lint`; other commands run unchanged
+  and read `$VALIDATE_CHANGED_FILES`. It skips lint + typecheck when no lintable
+  file changed.
+- Whole-tree validators (`validate-dead-code`, `validate-deps`,
+  `validate-module-boundaries`, `validate-module-boundaries-transitive`,
+  `validate-circular-deps`, and `validate-mermaid`) are wrapped in a result cache
+  under `docs/work/.validator-cache/` (git-ignored). Key = sha256 of `HEAD^{tree}`
+  + hash of every dirty/untracked file + the validator script + `_lib.sh` + args.
+  A hit prints `cached: true (key ...)` on stderr and replays the stored stdout
+  and exit code. `--no-cache` / `VALIDATE_NO_CACHE=1` bypasses. Skipped when
+  `$ROOT` is not a git top level. Validator outputs (`docs/reviews/RUNTIME_*`,
+  `docs/work/telemetry.jsonl`, `docs/work/gates/`, coverage-loop files) are not
+  counted as dirty inputs. `validate-deps` also keys on the UTC date, since the
+  advisory database moves without the tree.
+- `run-coverage-loop.sh` exports `VALIDATE_SINCE=$(git merge-base main HEAD)` for
+  `feature`/`improve`; `run-handoff-gates.sh --runtime` passes
+  `--since "$TRACKER_SINCE"` to `validate-lint.sh`.
+
 ## Platform support
 
 - macOS (bash 3.2.57+)

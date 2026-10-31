@@ -275,6 +275,11 @@ if [[ "$RUNTIME" == "true" ]]; then
     if [[ "$rv" == "validate-file-size.sh" && -n "$TRACKER_SINCE" ]]; then
       rv_args+=(--changed-since "$TRACKER_SINCE")
     fi
+    # lint walks only the files this run touched (same branch point); a
+    # returning ticket is not re-linted against files it never opened.
+    if [[ "$rv" == "validate-lint.sh" && -n "$TRACKER_SINCE" ]]; then
+      rv_args+=(--since "$TRACKER_SINCE")
+    fi
     if bash "$rv_script" "${rv_args[@]}" > /dev/null 2>&1; then
       pass "runtime gate clean ($rv)"
     else

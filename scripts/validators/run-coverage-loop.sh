@@ -90,6 +90,22 @@ if [[ "$ITER" -eq 1 ]]; then
 EOF
 fi
 
+# Incremental scope (M-A6): for feature/improve phases, per-file validators walk
+# only what this branch changed (merge-base with main). Only when inside a git
+# repo that has a main branch; an explicit VALIDATE_SINCE from the caller wins.
+# The whole-tree validators are covered by the result cache instead, so
+# iterations 2 and 3 re-run only validators whose inputs changed.
+case "$PHASE" in
+  feature|improve)
+    if [[ -z "${VALIDATE_SINCE:-}" ]] \
+       && git -C "$ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
+       && git -C "$ROOT" rev-parse --verify --quiet main >/dev/null 2>&1; then
+      VALIDATE_SINCE="$(git -C "$ROOT" merge-base main HEAD 2>/dev/null || true)"
+      [[ -n "$VALIDATE_SINCE" ]] && export VALIDATE_SINCE
+    fi
+    ;;
+esac
+
 # Run the validator and capture JSON
 JSON_LOG=$(mktemp -t "coverage.XXXXXX")
 trap 'rm -f "$JSON_LOG"' EXIT

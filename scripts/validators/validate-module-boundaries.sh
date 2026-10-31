@@ -24,9 +24,10 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-validator_init "validate-module-boundaries"
-
+validator_parse_flags "$@"; set -- ${VALIDATOR_ARGS[@]+"${VALIDATOR_ARGS[@]}"}
 ROOT="$(detect_project_root "${1:-}")"
+validator_cache_run "${BASH_SOURCE[0]}" "$ROOT"
+validator_init "validate-module-boundaries"
 MD="$ROOT/docs/MODULE_DESIGN.md"
 
 # -- 1. MODULE_DESIGN.md must exist ------------------------------------------

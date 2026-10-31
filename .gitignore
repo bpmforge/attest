@@ -88,3 +88,6 @@ docs/work/realworld-runs/
 docs/work/scan/
 # Eval-task fixture data (radio.log is task input, not a log file)
 !evals/edit-tasks/**/*.log
+
+# validator result cache (scripts/validators/_lib.sh) -- regenerated, never committed
+docs/work/.validator-cache/
