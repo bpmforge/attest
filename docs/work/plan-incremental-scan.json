@@ -7,8 +7,8 @@
       "kind": "module",
       "title": "WP-V1: attest runs on OpenCode v1 and v2 (plugins, tools, agent frontmatter, install detection, run argv helper)",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-v1",
       "write_scope": [
         "install.sh",
@@ -39,7 +39,23 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-V1-opencode-v1-v2.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T20:27:48.915Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main c774ec1 (no-ff); manifest docs/reviews/MANIFEST_M-V1-opencode-v1-v2.md; suite 1216 pass / 2 pre-existing fails"
+        },
+        {
+          "ts": "2026-10-31T20:27:48.915Z",
+          "actor": "claude-session",
+          "from": "done",
+          "to": "done",
+          "note": "VERIFY ON MAC list in manifest still open (opencode run flags, plugins-v2 type-check, /guide smoke); step 6 (v2 opencode.json keys) unmet"
+        }
+      ]
     },
     {
       "id": "M-X1-stall-guard",
@@ -47,7 +63,7 @@
       "title": "WP-X1: harness-level repeat-output stall guard (37% of historical input tokens were stalled turns)",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x1",
       "write_scope": [
         "plugins/lib/stall-guard.ts",
@@ -76,8 +92,8 @@
       "kind": "module",
       "title": "WP-A1: collect.sh ledger + --mode auto|full|diff + merge of carried-forward findings",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a1",
       "write_scope": [
         "scripts/scan/**",
@@ -96,7 +112,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A1-collect-ledger.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T20:27:48.915Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main bb2bded (no-ff); manifest docs/reviews/MANIFEST_M-A1-collect-ledger.md; suite 1216 pass / 2 pre-existing fails"
+        }
+      ]
     },
     {
       "id": "M-A2-coordinators-auto",
@@ -104,7 +129,7 @@
       "title": "WP-A2: /security and /review-code call collect.sh in auto mode, gain --full, report scope",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a2",
       "write_scope": [
         "agents/security-auditor.md",
@@ -131,8 +156,8 @@
       "kind": "module",
       "title": "WP-A3: fix-verify.mjs verify re-scans only cited + changed files",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a3",
       "write_scope": [
         "scripts/fix-verify.mjs",
@@ -147,7 +172,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A3-fix-verify-delta.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T20:27:48.915Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 9807ada (no-ff); manifest docs/reviews/MANIFEST_M-A3-fix-verify-delta.md; suite 1216 pass / 2 pre-existing fails"
+        }
+      ]
     },
     {
       "id": "M-A4-delta-review-block",
@@ -155,7 +189,7 @@
       "title": "WP-A4: DELTA_REVIEW shared block — model specialists review the delta and carry findings forward",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a4",
       "write_scope": [
         "agents/shared/blocks/delta-review.md",
@@ -223,8 +257,8 @@
       "kind": "module",
       "title": "WP-A6: validators — changed-only where honest, tree-hash cache where not; coverage loop stops re-walking",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a6",
       "write_scope": [
         "scripts/validators/**",
@@ -242,7 +276,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A6-validators-incremental.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T20:27:48.915Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main c1c5d1a (no-ff); manifest docs/reviews/MANIFEST_M-A6-validators-incremental.md; suite 1216 pass / 2 pre-existing fails"
+        }
+      ]
     },
     {
       "id": "M-A7-improve-onboard-ledger",
@@ -280,7 +323,7 @@
       "title": "WP-X2: prefix-cache probe in doctor.sh + conductor gate G7 for local models",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x2",
       "write_scope": [
         "scripts/doctor.sh",
@@ -337,7 +380,7 @@
       "title": "WP-X6: resume anchor full text only on turn 1, post-compaction and every 10th turn",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x6",
       "write_scope": [
         "plugins/lib/resume-anchor-text.ts",
