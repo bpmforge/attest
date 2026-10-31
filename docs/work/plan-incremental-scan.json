@@ -496,8 +496,8 @@
       "kind": "module",
       "title": "WP-A8: docs, CHANGELOG, telemetry scope breakdown",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a8",
       "write_scope": [
         "docs/work/TOKEN_OPTIMIZATION_PLAN.md",
@@ -518,7 +518,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-A8-docs-telemetry.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T21:54:38.537Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 40950e8; CHANGELOG entry as [3.15.0] — Unreleased (3.14.x already shipped); suite 1274/2"
+        }
+      ]
     }
   ],
   "nodes": []
