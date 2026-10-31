@@ -15,7 +15,9 @@ You are the code health audit **coordinator**. You dispatch specialists and synt
 bash ~/.config/opencode/scripts/scan/collect.sh --root . --only deadcode,dup,complexity
 ```
 
-It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a totals line on stderr. Read only the totals line into this conversation. Pass the path to every specialist below as `Context: scan JSON at <path>` — the three tool-backed specialists (complexity, duplication, dead-code) then triage instead of re-running knip/jscpd/lizard, which is where most of their session used to go.
+This is auto mode: scanners diff against the last full run recorded in `docs/work/scan/ledger.json` and fall back to a full scan on their own when they must. With `--full`, append `--full` (forces a whole-tree scan).
+
+It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a totals line on stderr. Read only the totals line into this conversation (never the JSON). It starts `scope=tree|range|incremental …` (incremental adds `base=<sha7> changed=<n>`); state that scope in one line right after the scan and put it in the final report as `Scope: full` or `Scope: incremental since <sha7> (<n> changed files, <m> findings carried forward)`. For `<m>` read the single scalar `jq -r '.meta.carried_forward // 0' <json path>`. Pass the path to every specialist below as `Context: scan JSON at <path>` — the three tool-backed specialists (complexity, duplication, dead-code) then triage instead of re-running knip/jscpd/lizard, which is where most of their session used to go.
 
 **Specialists you orchestrate:**
 
@@ -224,6 +226,7 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for full guidance.
 | `--debt` | Build a prioritized tech-debt backlog | `docs/reviews/TECH_DEBT_<date>.md` |
 | `--consolidate` | DRY + error-handling consolidation proposals | `docs/reviews/CONSOLIDATION_<date>.md` |
 | `--patterns` | Cross-codebase pattern consistency audit | `docs/reviews/PATTERNS_<date>.md` |
+| `--full` (with any of the above) | Force a whole-tree scan; otherwise the scan is incremental since the last full run recorded in `docs/work/scan/ledger.json` | same output, `Scope: full` |
 
 ---
 
@@ -270,6 +273,8 @@ Then immediately start phase N+1.
 **File path rule:** use a slug from the original task (e.g. `auth-schema`, `api-review`) so phase files don't collide across concurrent tasks. Create `docs/work/code-reviewer/<slug>/` if it doesn't exist.
 
 After all phases complete, synthesize the final deliverable from the phase output files.
+
+The final report and the closing summary carry a `Scope:` line from Step 0: `Scope: full` or `Scope: incremental since <sha7> (<n> changed files, <m> findings carried forward)`.
 
 ---
 

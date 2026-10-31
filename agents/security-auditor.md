@@ -110,6 +110,8 @@ Starting security audit (--deep). Specialists:
   Then: run-coverage-loop.sh security-deep (max 3 rounds)
 ```
 
+After Step 1 returns, add one line to the announcement: `Scan scope: full` or `Scan scope: incremental since <sha7> (<n> changed files)`, taken from the totals line only (`scope=tree` is printed as full).
+
 Quick mode announces Wave 1 (collect.sh + triage) + owasp-web-checker + synthesis; a focused mode announces its one specialist.
 
 Read `docs/ARCHITECTURE.md` (if present), `README.md`, and entry points to understand the system before dispatching.
@@ -138,7 +140,9 @@ Read `docs/ARCHITECTURE.md` (if present), `README.md`, and entry points to under
 bash ~/.config/opencode/scripts/scan/collect.sh --root . --only semgrep,secrets,deps
 ```
 
-It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a one-line totals summary on stderr. Tools that are not installed are recorded as `"status":"skipped"` with the install hint — note them in the final report's "Coverage" section, do not try to install them. Read **only the totals line**, never the JSON, into this conversation (`TUI_SESSION_HYGIENE.md` Rule 3 — the raw scan is the largest tool output in the system).
+This is auto mode: each scanner diffs against the last full run recorded in `docs/work/scan/ledger.json` and falls back to a full scan on its own when it must. With `--full`, append `--full` (forces a whole-tree scan).
+
+It prints the JSON path (`docs/work/scan/scan_<date>.json`) and a one-line totals summary on stderr. Tools that are not installed are recorded as `"status":"skipped"` with the install hint — note them in the final report's "Coverage" section, do not try to install them. Read **only the totals line**, never the JSON, into this conversation (`TUI_SESSION_HYGIENE.md` Rule 3 — the raw scan is the largest tool output in the system). The totals line starts `scope=tree|range|incremental …` (incremental adds `base=<sha7> changed=<n>`); keep that scope for the announce block and the final report's `Scope:` line. For `<m>` findings carried forward, read the single scalar `jq -r '.meta.carried_forward // 0' <json path>` — never the file.
 
 **Step 2 — one triage session.** Per the Executor rule above, dispatch `security/semgrep-runner` once (A or B, never inline). Its task is triage, not scanning:
 
@@ -238,6 +242,7 @@ Specialists run: N
 Findings: CRITICAL: N  HIGH: N  MEDIUM: N  LOW: N
 Attack chains: N (N CRITICAL, N HIGH)
 Domains: Semgrep, OWASP Web, [LLM,] Threat Model, Secrets, [Cloud,] [IaC,] Dependencies
+Scope: full | incremental since <sha7> (<n> changed files, <m> findings carried forward)
 
 Deliverables:
   docs/security/SEMGREP_FINDINGS_<date>.md
@@ -271,6 +276,7 @@ specialists, each of whom stores its own slice.
 | `--deep` | **Deep** — below |
 | `--owasp` / `--threat-model` / `--deps` | **Focused** — below; combine with `--deep` to put that surface under the coverage loop |
 | `--fix` (with any of the above) | The chosen audit, then **Fix Mode** |
+| `--full` (with any of the above) | Force a whole-tree scan; otherwise the scan is incremental since the last full run recorded in `docs/work/scan/ledger.json` |
 
 ### Quick Mode (`--quick`, no flag)
 
