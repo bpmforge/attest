@@ -69,7 +69,8 @@ for _arg in "$@"; do
     echo "plugins=$OPENCODE_PLUGIN_SET"
     echo "stamp-line-1=$ATTEST_VERSION"
     echo "stamp-line-2=opencode-major=$OPENCODE_MAJOR"
-    _variant=core
+    _variant=full
+    for _a in "$@"; do case "$_a" in --core-agents) _variant=core ;; esac; done
     for _a in "$@"; do case "$_a" in --full-agents|--link) _variant=full ;; esac; done
     echo "stamp-line-3=agents-variant=$_variant"
     exit 0
@@ -388,14 +389,16 @@ INSTALL_CODE_SEARCH=true
 INSTALL_GAME=true   # game-dev expert cluster (agents/game/* + game skill) — optional; default on for upgrade compatibility
 
 DO_UPDATE=false
-FULL_AGENTS=false   # --full-agents: install unsplit agent sources instead of the core/full split (WP-X5)
+FULL_AGENTS=true    # default until the split is verified on a real OpenCode (WP-X5 VERIFY ON MAC): unsplit sources
+CORE_AGENTS=false   # --core-agents: install the core/full split (core set + agents/shared/full/ on demand)
 
 for arg in "$@"; do
   case $arg in
     --update)               DO_UPDATE=true ;;
     --project)              MODE="project" ;;
     --compact)               COMPACT_AGENTS=true ;;
-    --full-agents)           FULL_AGENTS=true ;;
+    --full-agents)           FULL_AGENTS=true; CORE_AGENTS=false ;;
+    --core-agents)           CORE_AGENTS=true; FULL_AGENTS=false ;;
     --tools)                 INSTALL_TOOLS=true ;;
     --link)                 METHOD="link" ;;
     --uninstall)            MODE="uninstall" ;;
@@ -427,8 +430,9 @@ for arg in "$@"; do
       echo "                                     BM25 keyword fallback if absent"
       echo "  ./install.sh --no-game             Skip the game-dev expert cluster (agents/game/*, 9 agents + game skill)"
       echo "  ./install.sh --compact             Overlay compact agent variants (tier=small / 32k local models)"
-      echo "  ./install.sh --full-agents         Install the UNSPLIT agent sources (escape hatch). Default: the core set (<= ~8-12 KB per"
-      echo "                                     agent) with full methodology in agents/shared/full/ on demand (--link also installs unsplit)"
+      echo "  ./install.sh --core-agents         Install the core/full split: core agents (~8-15 KB) + full methodology in"
+      echo "                                     agents/shared/full/ on demand (WP-X5). Opt-in until verified on a real OpenCode."
+      echo "  ./install.sh --full-agents         Install the UNSPLIT agent sources (current default; --link always does)"
       echo "  ./install.sh --tools               Also install missing code-analysis tools (knip, vulture, ...)"
       echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
       echo "  ./install.sh --uninstall           Remove installed files"
@@ -578,8 +582,8 @@ DIRS="agents skills commands references exemplars tools hooks plugins"
 AGENTS_SRC="$SCRIPT_DIR/agents"
 FULL_SRC=""
 COMPACT_SRC="$SCRIPT_DIR/dist/compact-agents"
-AGENT_VARIANT="core"
-if [ "${FULL_AGENTS:-false}" = "true" ] || [ "$METHOD" = "link" ]; then AGENT_VARIANT="full"; fi
+AGENT_VARIANT="full"
+if [ "${CORE_AGENTS:-false}" = "true" ] && [ "$METHOD" != "link" ]; then AGENT_VARIANT="core"; fi
 if [ "$OPENCODE_MAJOR" = "2" ]; then
   if [ "$AGENT_VARIANT" = "full" ]; then
     node "$SCRIPT_DIR/scripts/build-agents.mjs" --build --no-split --target opencode-v2 || { echo "ERROR: could not build the v2 agents" >&2; exit 1; }
