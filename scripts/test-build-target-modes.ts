@@ -109,7 +109,7 @@ function testAgentTargets(root: string, ok: OK, fail: FAIL): void {
     fs.mkdirSync(path.join(fixtureRoot, "scripts"), { recursive: true });
     fs.mkdirSync(path.join(fixtureRoot, "agents", "shared", "blocks"), { recursive: true });
     fs.copyFileSync(script, path.join(fixtureRoot, "scripts/build-agents.mjs"));
-    for (const b of ["handoff-intake", "loop-prevention", "context-budget", "research-tools", "code-search"])
+    for (const b of ["handoff-intake", "loop-prevention", "context-budget", "research-tools", "code-search", "delta-review"])
       for (const v of ["", ".compact"]) fs.writeFileSync(path.join(fixtureRoot, `agents/shared/blocks/${b}${v}.md`), `---\ndisable: true\n---\n\n## x\n`);
     fs.writeFileSync(path.join(fixtureRoot, "agents/a.md"), "---\ndescription: An agent\nmode: subagent\nprompt: p\nmaxSteps: 7\npermission:\n  bash: deny\n  prompt: keep-nested\n---\nBody mentions\ndisable: true\n");
     fs.writeFileSync(path.join(fixtureRoot, "agents/shared/REF.md"), "---\ndisable: true\ndescription: Reference doc\n---\n# ref\n");
