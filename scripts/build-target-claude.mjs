@@ -43,7 +43,7 @@ export const COPY_GLOBS = [
   // directory is self-contained — every import inside it is a lib/ sibling.
   ['scripts/lib', '.mjs'],
 ];
-export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/stack-coherence.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
+export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/run-until-done.sh', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/stack-coherence.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
 
 // Whole-file overrides: runtime-flavored docs maintained per-target in
 // build/overrides/claude/<relpath>. No transforms applied to these.
@@ -152,6 +152,8 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 // simplify, steward) plus game-asset-pipeline were ported to attest-claude
 // for the v2 release; parity is now exact. Add entries here ONLY with a
 // tracked follow-up ticket.
+// v3.x: emptied again — wave, goal and autopilot ported to attest-claude/skills/
+// per the recipe below (hand-authored; recipe retained for future gaps).
 // P-A5/P-A6 (Group P, IMPROVEMENT_BACKLOG.md): `wave` and `goal` shipped on
 // the opencode side first; porting them into attest-claude/skills/ is the
 // tracked follow-up on those same tickets. Remove each id here when its
@@ -179,7 +181,7 @@ export const SKILL_PARITY_EXCEPTIONS = new Set([
 //   4. Remove 'wave' and 'goal' from this set IN THE SAME CHANGE that lands
 //      step 1 (test-skills-parity.ts asserts live missingInClaude equals
 //      this set exactly — removing early or late goes red either way).
-export const KNOWN_MISSING_IN_CLAUDE = new Set(['wave', 'goal', 'autopilot']);
+export const KNOWN_MISSING_IN_CLAUDE = new Set([]);
 
 function parseSkillFrontmatter(skillMdPath) {
   const text = readFileSync(skillMdPath, 'utf8');
