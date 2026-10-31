@@ -468,8 +468,8 @@
       "kind": "module",
       "title": "WP-X5: TOKEN_OPTIMIZATION_PLAN C4/C5 — core/full agent split and compact default, emitted per OpenCode target",
       "lane": "attest",
-      "owner": null,
-      "status": "ready",
+      "owner": "claude-session",
+      "status": "done",
       "interface": "docs/work/TOKEN_OPTIMIZATION_PLAN.md#C4",
       "write_scope": [
         "agents/**",
@@ -489,7 +489,16 @@
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-X5-core-full-split.md",
-      "nodes": []
+      "nodes": [],
+      "history": [
+        {
+          "ts": "2026-10-31T22:15:41.857Z",
+          "actor": "claude-session",
+          "from": "ready",
+          "to": "done",
+          "note": "merged to main 739e6e1 with the split OPT-IN (install.sh --core-agents); 30 agents split, median core 11.0KB (target <12KB met) but 29 exceed the 8KB cap (exception list in manifest); VERIFY ON MAC before flipping the default: agents/shared/full/ hidden from discovery, on-demand read permitted; then the conductor follow-up in the manifest (agents-variant in the prompt-size log)"
+        }
+      ]
     },
     {
       "id": "M-A8-docs-telemetry",
