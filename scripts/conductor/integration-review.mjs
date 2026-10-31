@@ -30,6 +30,7 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
+import { detectOpencodeMajor, opencodeRunArgs } from '../lib/opencode-cli.mjs';
 import { readVerdict } from '../lib/runtime-verdict.mjs';
 import { loadModelsConfig, resolveRole } from '../lib/model-tiers.mjs';
 
@@ -48,6 +49,7 @@ const NO_SCAN = args.includes('--no-scan');
 const PARALLEL = String(opt('parallel', 'auto'));
 const SESSION_MIN = Number(opt('session-minutes', 45)) || 45;
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode';
+const OPENCODE_MAJOR = detectOpencodeMajor({ bin: OPENCODE_BIN, spawn: false }); // env override or install stamp; null => v1 argv
 const MODELS_JSON = resolve(String(opt('models',
   existsSync(resolve(ROOT, 'models.json')) ? resolve(ROOT, 'models.json') : resolve(REPO_SCRIPTS, '..', 'models.json'))));
 const MODELS = existsSync(MODELS_JSON) ? loadModelsConfig(MODELS_JSON) : null;
@@ -156,8 +158,7 @@ Do NOT edit the implementation. Do NOT run git write commands. You are reviewing
   const runOne = ({ r, agent, doc, prompt }) => new Promise((done) => {
     log('integration.review.start', { reviewer: r, agent, model: REVIEWER_MODEL, doc });
     if (DRY) return done({ r, doc, present: false, approved: false, dry: true });
-    const runArgs = ['run', prompt, '--dir', ROOT, '--agent', agent];
-    if (REVIEWER_MODEL) runArgs.push('--model', String(REVIEWER_MODEL));
+    const runArgs = opencodeRunArgs(OPENCODE_MAJOR, { prompt, dir: ROOT, agent, model: REVIEWER_MODEL });
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: ROOT, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
     });

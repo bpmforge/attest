@@ -8,6 +8,12 @@ grep output gets mangled. These custom tools replace or supplement the built-ins
 
 They auto-load from `~/.config/opencode/tools/` without any config changes needed.
 
+**Layout (WP-V1).** Each `tools/<name>.ts` is now a thin OpenCode **v1** shell: it wraps `plugins/lib/tools/<name>.ts`
+(framework-neutral `{ name, description, inputSchema (JSON Schema), execute }`) with `tool()` and the zod `args`.
+Put behaviour in the lib file. Under OpenCode v2 there is no `tool()`: `install.sh` skips `tools/` and the v2
+`expert-hooks` plugin registers every lib tool through `ctx.tool.transform`. A new tool needs its lib file, its v1
+shell, and an entry in `plugins/lib/tools/index.ts`.
+
 ---
 
 ## Tool Reference

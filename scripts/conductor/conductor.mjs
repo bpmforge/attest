@@ -68,6 +68,7 @@ import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
+import { detectOpencodeMajor, opencodeRunArgs } from '../lib/opencode-cli.mjs';
 import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
 import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
 import { containSessionGroup, isTimeout, CAN_CONTAIN_DESCENDANTS } from '../lib/session-containment.mjs';
@@ -340,6 +341,8 @@ const REVIEW_AGENTS = {
   test: 'test-engineer',
 };
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode'; // overridable so tests/CI can stub it
+// spawn:false — never run the (possibly stubbed) binary just to read its version; env override or install stamp only. null => v1 argv.
+const OPENCODE_MAJOR = detectOpencodeMajor({ bin: OPENCODE_BIN, spawn: false });
 
 // Security review Finding 3 (docs/reviews/SECURITY_jira-board-driver_2026-07-31.md): spawnSync
 // with no `env` inherits the FULL parent environment, including JIRA_API_TOKEN if the operator
@@ -758,9 +761,7 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
     // bought false confidence that approvals were granted. Unattended runs get
     // their permissions from opencode config (the agent's `permission` block),
     // not from a flag; see the startup preflight below.
-    const runArgs = ['run', prompt, '--dir', wt];
-    if (agent) runArgs.push('--agent', String(agent));
-    if (model) runArgs.push('--model', String(model));
+    const runArgs = opencodeRunArgs(OPENCODE_MAJOR, { prompt, dir: wt, agent, model });
     const res = spawnSync(OPENCODE_BIN, runArgs, {
       cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
       env: sessionEnv(),

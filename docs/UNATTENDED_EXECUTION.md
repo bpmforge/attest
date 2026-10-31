@@ -97,6 +97,14 @@ downgrade them for an unattended run — G4b exists because
 the agent's own model, so both roles quietly become one and the review is
 theatre.
 
+**`opencode run` argv.** The conductor and `integration-review.mjs` never hand-assemble the
+command line: they call `opencodeRunArgs(major, {prompt, agent, model, dir})` from
+`scripts/lib/opencode-cli.mjs`. The major comes from the `OPENCODE_MAJOR` env override or from
+line 2 of the install stamp (`experts-version`: `opencode-major=N`); with neither it is treated
+as v1. v1 argv is `run <prompt> --dir <dir> --agent <agent> [--model <m>]`. v2 goes through one
+`V2_FLAGS` table that is **assumed** equal to v1 until step 0 of WP-V1 (`opencode run --help` on a
+real v2 install) confirms it. If a flag was renamed, that table is the only line to change.
+
 ---
 
 ## The three rounds, per ticket — and the once-per-branch audit
