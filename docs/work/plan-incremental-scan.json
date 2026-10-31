@@ -1,0 +1,419 @@
+{
+  "goal": "Incremental scanning + token/time savings for attest — every WP in docs/work/INCREMENTAL_SCAN_PLAN.md as a conductor ticket. Run: node scripts/conductor/conductor.mjs --root . --plan docs/work/plan-incremental-scan.json",
+  "plan_doc": "docs/work/INCREMENTAL_SCAN_PLAN.md",
+  "modules": [
+    {
+      "id": "M-V1-opencode-v1-v2",
+      "kind": "module",
+      "title": "WP-V1: attest runs on OpenCode v1 and v2 (plugins, tools, agent frontmatter, install detection, run argv helper)",
+      "lane": "attest",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-v1",
+      "write_scope": [
+        "install.sh",
+        "scripts/doctor.sh",
+        "scripts/detect-model-context.sh",
+        "plugins/**",
+        "plugins-v2/**",
+        "tools/**",
+        "scripts/build-agents.mjs",
+        "scripts/lib/opencode-cli.mjs",
+        "scripts/conductor/conductor.mjs",
+        "scripts/conductor/integration-review.mjs",
+        "scripts/test-hook-guards.ts",
+        "scripts/test-install-version.ts",
+        "scripts/test-build-target-modes.ts",
+        "docs/UNATTENDED_EXECUTION.md",
+        "README.md",
+        "agents/shared/*.md"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "Step 0 recorded in the manifest: verified `opencode run` flags and usage.cached_tokens behaviour on an installed OpenCode v2 (version string quoted)",
+        "install.sh/doctor.sh detect OPENCODE_MAJOR, stamp it in experts-version, install exactly one plugin set (plugins/ for v1, plugins-v2/<name>/ directories using Plugin.define for v2)",
+        "Shared pure logic lives in plugins/lib/* (turn cap, tool-output truncation, resume-anchor text) and both shells are thin; tools/*.ts bodies moved to plugins/lib/tools/* and registered via tool() (v1) or ctx.tool.transform (v2)",
+        "build-agents.mjs --target opencode-v1|opencode-v2 emits frontmatter per target (disable->disabled, prompt->system, permission->permissions, maxSteps->steps); reference docs become disabled: true under v2",
+        "conductor.mjs and integration-review.mjs build opencode argv through scripts/lib/opencode-cli.mjs using the verified flags",
+        "npm test green; npm run agents:check green for both targets; scripts/test-install-version.ts covers both majors"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-V1-opencode-v1-v2.md",
+      "nodes": []
+    },
+    {
+      "id": "M-X1-stall-guard",
+      "kind": "module",
+      "title": "WP-X1: harness-level repeat-output stall guard (37% of historical input tokens were stalled turns)",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x1",
+      "write_scope": [
+        "plugins/lib/stall-guard.ts",
+        "plugins/expert-hooks.ts",
+        "plugins-v2/expert-hooks/**",
+        "scripts/test-hook-guards.ts",
+        "scripts/telemetry-report.mjs",
+        "docs/work/TOKEN_OPTIMIZATION_PLAN.md"
+      ],
+      "depends_on": [
+        "M-V1-opencode-v1-v2"
+      ],
+      "acceptance": [
+        "plugins/lib/stall-guard.ts: 4 identical or <=20-token consecutive outputs with no write -> one STALL DETECTED directive; 6 -> abort session, telemetry row source:stall, prints BLOCKED: repeat-output stall; env EXPERTS_STALL_WARN/ABORT, 0 disables",
+        "EXPERTS_MAX_TURNS defaults to 150 when unset and not under the conductor",
+        "Fixture built from session ses_0610c84ddffedep2fRsJnm41Ax rows in docs/work/telemetry.jsonl aborts at turn <= 81; a varying-output fixture never triggers",
+        "telemetry-report.mjs prints a stalls section (count, tokens_in wasted)",
+        "Wired in both plugin shells; npm test green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-X1-stall-guard.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A1-collect-ledger",
+      "kind": "module",
+      "title": "WP-A1: collect.sh ledger + --mode auto|full|diff + merge of carried-forward findings",
+      "lane": "attest",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a1",
+      "write_scope": [
+        "scripts/scan/**",
+        "scripts/test-collect-incremental.ts",
+        "scripts/test.ts",
+        ".gitignore"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "collect.sh accepts --mode auto|full|diff, --full, --ledger <path> (default docs/work/scan/ledger.json, git-ignored), --expand-importers on|off (default off)",
+        "auto: ledger entry is an ancestor of HEAD and tool_version/rules_hash unchanged -> diff over git diff --name-only --diff-filter=ACMRD <ledger_sha> HEAD plus dirty files, cap SCAN_DIFF_CAP=400 else full; no ledger -> full",
+        "deps skipped (status cached) when lockfile hash unchanged; deadcode/dup skipped when tree hash unchanged and tree clean; --full always runs everything",
+        "diff mode merges prior JSON: drop prior findings for changed/deleted paths, append new; meta.scope=incremental, meta.base_full_sha, meta.changed_files, meta.carried_forward; totals line prints scope=incremental base=<sha7> changed=<n>",
+        "Every 20th chained increment forces full; ledger updated after every successful run",
+        "scripts/test-collect-incremental.ts (tmp git fixture) proves untouched-file findings identical between full and incremental; changing .semgrep/ forces full; existing --base/--head behaviour unchanged (test-conductor-suite green)"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A1-collect-ledger.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A2-coordinators-auto",
+      "kind": "module",
+      "title": "WP-A2: /security and /review-code call collect.sh in auto mode, gain --full, report scope",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a2",
+      "write_scope": [
+        "agents/security-auditor.md",
+        "agents/code-reviewer.md",
+        "skills/security/SKILL.md",
+        "skills/review-code/SKILL.md",
+        "README.md",
+        "dist/**"
+      ],
+      "depends_on": [
+        "M-A1-collect-ledger"
+      ],
+      "acceptance": [
+        "security-auditor.md Step 1 and code-reviewer.md Step 0 invoke collect.sh without a forced full-tree scan; both document a --full flag that passes collect.sh --full",
+        "Announce block and final report Coverage section state Scope: full | incremental since <sha7> (<n> changed, <m> carried forward)",
+        "npm run agents:check green; npm run build:claude:check green after regeneration"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A2-coordinators-auto.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A3-fix-verify-delta",
+      "kind": "module",
+      "title": "WP-A3: fix-verify.mjs verify re-scans only cited + changed files",
+      "lane": "attest",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a3",
+      "write_scope": [
+        "scripts/fix-verify.mjs",
+        "scripts/semgrep-full-audit.sh",
+        "scripts/test-fix-verify.ts"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "snapshot records head_sha; verify target set = files cited in baseline findings ∪ git diff --name-only <head_sha>..HEAD ∪ dirty files; other files' baseline findings are copied forward",
+        "semgrep-full-audit.sh accepts --paths <file-list>; --full restores whole-tree; auto goes full above FIXVERIFY_DIFF_CAP=300 or when baseline lacks head_sha",
+        "test-fix-verify.ts: fixed finding -> CLOSED, untouched -> OPEN with identical fingerprints, regression in changed file -> NEW; log shows scanned_files < total"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A3-fix-verify-delta.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A4-delta-review-block",
+      "kind": "module",
+      "title": "WP-A4: DELTA_REVIEW shared block — model specialists review the delta and carry findings forward",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a4",
+      "write_scope": [
+        "agents/shared/blocks/delta-review.md",
+        "agents/shared/blocks/delta-review.compact.md",
+        "agents/security/owasp-web-checker.md",
+        "agents/security/threat-modeler.md",
+        "agents/code-review/error-handling-auditor.md",
+        "agents/code-review/type-safety-checker.md",
+        "agents/code-review/pattern-consistency-checker.md",
+        "agents/code-review/anti-slop-auditor.md",
+        "agents/performance-engineer.md",
+        "agents/ux-engineer.md",
+        "scripts/build-agents.mjs",
+        "scripts/conductor/integration-review.mjs",
+        "scripts/validators/validate-owasp.sh",
+        "dist/**"
+      ],
+      "depends_on": [
+        "M-A1-collect-ledger"
+      ],
+      "acceptance": [
+        "agents/shared/blocks/delta-review.md (<=1.5KB) with the 5-rule contract from the plan; included by the 8 named agents through the existing block mechanism",
+        "Report header Scope: incremental — <n> files reviewed, <m> findings carried forward from <path>, or Scope: full",
+        "owasp-web-checker skips a category when no changed file matches its surface and the prior tracker row is DONE with confidence >= 7, writing carried-forward in evidence; validate-owasp.sh accepts it",
+        "integration-review.mjs prompt passes Prior report: <path> when one exists",
+        "npm run agents:check green; telemetry for a second /security on an unchanged tree shows >= 60% fewer input tokens (both numbers in the manifest)"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A4-delta-review-block.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A5-integration-watermark",
+      "kind": "module",
+      "title": "WP-A5: integration-review.mjs watermark + --since auto|full|<sha> + validators before model sessions (B5)",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a5",
+      "write_scope": [
+        "scripts/conductor/integration-review.mjs",
+        "scripts/conductor/README.md",
+        "scripts/lib/runtime-verdict.mjs",
+        "scripts/test-integration-review.ts",
+        "scripts/validators/validate-release-readiness.sh",
+        "agents/sdlc-feature-mode.md"
+      ],
+      "depends_on": [
+        "M-A1-collect-ledger",
+        "M-A4-delta-review-block"
+      ],
+      "acceptance": [
+        "docs/work/.integration-reviewed.json watermark per branch+reviewer written after each reviewer finishes",
+        "--since auto uses watermark...HEAD when the watermark is an ancestor of HEAD, passes --base/--head to collect.sh and Prior report to the prompt; empty delta reuses the prior verdict without spawning; --full clears the watermark",
+        "validate-code-health.sh, validate-dead-code.sh, validate-deps.sh run once before model sessions and their exit codes appear in INTEGRATION_SUMMARY_*.md",
+        "validate-release-readiness.sh fails when the latest summary says Scope: delta",
+        "scripts/test-integration-review.ts covers full -> delta -> full; conductor tests green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A5-integration-watermark.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A6-validators-incremental",
+      "kind": "module",
+      "title": "WP-A6: validators — changed-only where honest, tree-hash cache where not; coverage loop stops re-walking",
+      "lane": "attest",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a6",
+      "write_scope": [
+        "scripts/validators/**",
+        "scripts/test-validators-incremental.ts",
+        ".gitignore",
+        "scripts/test-*.ts"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "_lib.sh gains validator_changed_files (--since / VALIDATE_SINCE) and validator_cache_key/cached_result/store_result under docs/work/.validator-cache/ (git-ignored); --no-cache bypass",
+        "validate-lint, validate-code-health, validate-mermaid, validate-doc-render-health, validate-no-ascii-art honour --since; validate-dead-code, validate-deps, validate-module-boundaries, validate-module-boundaries-transitive, validate-circular-deps use the cache",
+        "run-coverage-loop.sh exports VALIDATE_SINCE for feature/improve; run-handoff-gates.sh --runtime passes --since to validate-lint.sh",
+        "3 consecutive validate-mermaid runs on unchanged docs -> exactly 1 real mmdc invocation",
+        "validate-phase-gate.sh feature iteration 2 on an unchanged tree is >= 50% faster than iteration 1 (both timings in the manifest); all scripts/test-*.ts green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A6-validators-incremental.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A7-improve-onboard-ledger",
+      "kind": "module",
+      "title": "WP-A7: /sdlc improve and /sdlc onboard default to delta audits from the ledger",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a7",
+      "write_scope": [
+        "agents/sdlc-improve-mode.md",
+        "agents/sdlc-onboard-mode.md",
+        "agents/app-cartographer.md",
+        "skills/onboard-inventory/SKILL.md",
+        "scripts/validators/validate-improve-coverage.sh",
+        "dist/**"
+      ],
+      "depends_on": [
+        "M-A1-collect-ledger",
+        "M-A4-delta-review-block"
+      ],
+      "acceptance": [
+        "Step 0 recorded: whether onboard re-walks the tree when docs/onboard/INVENTORY.md exists",
+        "Improve mode no longer asks re-run-or-build-on; it defaults to delta when ledger + prior reports exist and the diff is non-empty, states the scope in docs/work/sdlc-state.md, --full overrides",
+        "Onboard re-inventories only changed directories and marks unchanged rows carried-forward; validate-improve-coverage.sh accepts carried-forward",
+        "npm run agents:check green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A7-improve-onboard-ledger.md",
+      "nodes": []
+    },
+    {
+      "id": "M-X2-cache-gate",
+      "kind": "module",
+      "title": "WP-X2: prefix-cache probe in doctor.sh + conductor gate G7 for local models",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x2",
+      "write_scope": [
+        "scripts/doctor.sh",
+        "scripts/probe-prefix-cache.mjs",
+        "scripts/conductor/conductor.mjs",
+        "scripts/test-conductor-suite.ts",
+        "docs/LOCAL_LLM_GUIDE.md"
+      ],
+      "depends_on": [
+        "M-V1-opencode-v1-v2"
+      ],
+      "acceptance": [
+        "doctor.sh runs probe-prefix-cache.mjs against every local endpoint in models.json and prints the VERDICT",
+        "conductor gate G7 refuses a local coder/reviewer whose probe verdict is OFF; --cache-gate warn downgrades; covered in test-conductor-suite.ts with a stubbed probe",
+        "cache_read logged from cached_tokens when the server reports it"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-X2-cache-gate.md",
+      "nodes": []
+    },
+    {
+      "id": "M-X3-compaction-trigger",
+      "kind": "module",
+      "title": "WP-X3: proactive compaction trigger at 60% of context window",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x3",
+      "write_scope": [
+        "plugins/lib/compaction-trigger.ts",
+        "plugins/expert-hooks.ts",
+        "plugins/resume-anchor.ts",
+        "plugins-v2/**",
+        "models.json",
+        "scripts/sync-model-limits.mjs",
+        "scripts/test-hook-guards.ts"
+      ],
+      "depends_on": [
+        "M-V1-opencode-v1-v2",
+        "M-X1-stall-guard"
+      ],
+      "acceptance": [
+        "When tokens_in > EXPERTS_COMPACT_AT (default 0.6 x context_window from models.json) the post-compaction directive is injected and compaction requested, at most once per 10 turns, in both shells",
+        "Fixture with rising tokens_in triggers exactly once at the threshold",
+        "Before/after in_p95 for local coding-agent sessions recorded in the manifest"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-X3-compaction-trigger.md",
+      "nodes": []
+    },
+    {
+      "id": "M-X6-anchor-cadence",
+      "kind": "module",
+      "title": "WP-X6: resume anchor full text only on turn 1, post-compaction and every 10th turn",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-x6",
+      "write_scope": [
+        "plugins/lib/resume-anchor-text.ts",
+        "plugins/resume-anchor.ts",
+        "plugins-v2/resume-anchor/**",
+        "scripts/test-resume-anchor*.ts",
+        "scripts/test-hook-guards.ts"
+      ],
+      "depends_on": [
+        "M-V1-opencode-v1-v2"
+      ],
+      "acceptance": [
+        "Full anchor on turn 1, first turn after compaction, and every EXPERTS_ANCHOR_EVERY (default 10) turns; otherwise a <=200-char pointer naming the task ledger and HANDOFF",
+        "50-turn fixture -> 5-6 full anchors; never-tail-truncated assertion kept; existing anchor tests green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-X6-anchor-cadence.md",
+      "nodes": []
+    },
+    {
+      "id": "M-X5-core-full-split",
+      "kind": "module",
+      "title": "WP-X5: TOKEN_OPTIMIZATION_PLAN C4/C5 — core/full agent split and compact default, emitted per OpenCode target",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/TOKEN_OPTIMIZATION_PLAN.md#C4",
+      "write_scope": [
+        "agents/**",
+        "scripts/build-agents.mjs",
+        "install.sh",
+        "dist/**"
+      ],
+      "depends_on": [
+        "M-V1-opencode-v1-v2",
+        "M-A4-delta-review-block",
+        "M-A7-improve-onboard-ledger"
+      ],
+      "acceptance": [
+        "Every agent has a core (<=8KB: identity, output contract, write-scope, completion phrase, cards) and agent.full loaded only in direct/interactive mode, as specified in TOKEN_OPTIMIZATION_PLAN rows C4/C5",
+        "Conductor sessions start from the compact/core set by default",
+        "Median first-message baseline < 12k tokens measured in telemetry (number in manifest); npm run agents:check green for both targets"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-X5-core-full-split.md",
+      "nodes": []
+    },
+    {
+      "id": "M-A8-docs-telemetry",
+      "kind": "module",
+      "title": "WP-A8: docs, CHANGELOG, telemetry scope breakdown",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/INCREMENTAL_SCAN_PLAN.md#wp-a8",
+      "write_scope": [
+        "docs/work/TOKEN_OPTIMIZATION_PLAN.md",
+        "docs/SDLC_GUIDE.md",
+        "CHANGELOG.md",
+        "scripts/telemetry-report.mjs"
+      ],
+      "depends_on": [
+        "M-A2-coordinators-auto",
+        "M-A3-fix-verify-delta",
+        "M-A5-integration-watermark",
+        "M-A6-validators-incremental",
+        "M-X1-stall-guard"
+      ],
+      "acceptance": [
+        "TOKEN_OPTIMIZATION_PLAN.md gains section F (incremental scanning) and D1b (stall guard) with measured before/after numbers",
+        "telemetry-report.mjs prints scan-scope and review-scope breakdowns; CHANGELOG entry; npm test green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-A8-docs-telemetry.md",
+      "nodes": []
+    }
+  ],
+  "nodes": []
+}

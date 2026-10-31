@@ -1,25 +1,41 @@
 {
   "tiers": {
     "local": {
-      "match": ["lmstudio/*", "lmstudio-remote/*"],
+      "match": [
+        "lmstudio/*",
+        "lmstudio-remote/*"
+      ],
       "gate": "none"
     },
     "cheap": {
-      "match": ["google/gemini-*-flash*", "*haiku*"],
+      "match": [
+        "google/gemini-*-flash*",
+        "*haiku*"
+      ],
       "gate": "none"
     },
     "frontier": {
-      "match": ["*opus*", "*fable*", "*gpt-5*", "*gemini-*-pro*"],
+      "match": [
+        "*opus*",
+        "*fable*",
+        "*gpt-5*",
+        "*gemini-*-pro*",
+        "*opus-5*",
+        "*sonnet-5*"
+      ],
       "gate": "escalation-token"
     }
   },
   "models": {
-    "lmstudio/qwen3.6-35b-a3b": { "max_output_real": 10000 }
+    "lmstudio/qwen3.6-35b-a3b": {
+      "max_output_real": 10000
+    }
   },
   "roles": {
-    "coder": "github-copilot/claude-haiku-4.5",
-    "reviewer": "github-copilot/claude-sonnet-5",
-    "challenger": "github-copilot/gpt-5.4",
-    "advisor": "github-copilot/claude-sonnet-5"
-  }
+    "coder": "github-copilot/claude-sonnet-5.5",
+    "reviewer": "github-copilot/claude-opus-5.5",
+    "challenger": "openai/gpt-5.5",
+    "advisor": "github-copilot/claude-opus-5.5"
+  },
+  "_roles_note": "Updated 2026-10-31: Haiku is no longer a coding model; coder=Sonnet 5.5, reviewer/advisor=Opus 5.5, challenger=GPT-5.5. If G4b reports an unresolvable id, the provider spells it differently — fix the string here (run once with --model-gate warn to list what resolves)."
 }
