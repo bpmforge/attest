@@ -12,6 +12,8 @@
 #   ./semgrep-full-audit.sh --fast         Fast tier
 #   ./semgrep-full-audit.sh --autofix      Deep audit with AUTOFIX (opt-in, LOW/MEDIUM only)
 #   ./semgrep-full-audit.sh --baseline REF Only report findings new since REF (git ref)
+#   ./semgrep-full-audit.sh --paths FILE   Scan only the files listed in FILE (one path per
+#                                          line, relative to cwd); used by fix-verify delta mode
 #   ./semgrep-full-audit.sh --dev-registry INTERNAL DEV ONLY — also load Semgrep
 #                                          registry packs + AGPL community caches.
 #                                          NEVER use for client audits / SaaS scans.
@@ -36,25 +38,37 @@ AUTOFIX=false
 AUTOFIX_DRYRUN=false
 OFFLINE=false
 BASELINE=""
+PATHS_FILE=""
+SCAN_TARGETS=()
 # Registry + community (AGPL) rules are DEV-ONLY and off by default. The default
 # client-safe path uses our own bpm-rulepacks + local custom rules. Opt in with
 # --dev-registry (internal use only — never for client audits / SaaS scans).
 DEV_REGISTRY=false
 
-for arg in "$@"; do
-  case $arg in
+while [ $# -gt 0 ]; do
+  case $1 in
     --fast)            MODE="fast" ;;
     --autofix)         AUTOFIX=true ;;
     --autofix-dryrun)  AUTOFIX_DRYRUN=true ;;
     --offline)         OFFLINE=true ;;
     --dev-registry)    DEV_REGISTRY=true ;;
-    --baseline)        shift; BASELINE="${1:-}"; break ;;
+    --baseline)        shift; BASELINE="${1:-}" ;;
+    --paths)           shift; PATHS_FILE="${1:-}" ;;
     --help|-h)
-      sed -n '3,21p' "$0" | sed 's/^# //'
+      sed -n '3,23p' "$0" | sed 's/^# //'
       exit 0
       ;;
   esac
+  shift || true
 done
+
+if [ -n "$PATHS_FILE" ]; then
+  [ -f "$PATHS_FILE" ] || { echo "❌ --paths file not found: $PATHS_FILE"; exit 2; }
+  while IFS= read -r p || [ -n "$p" ]; do
+    [ -n "$p" ] && SCAN_TARGETS+=("$p")
+  done < "$PATHS_FILE"
+  [ ${#SCAN_TARGETS[@]} -gt 0 ] || { echo "❌ --paths file is empty: $PATHS_FILE"; exit 2; }
+fi
 
 # ── Preflight: resolve SAST engine (Opengrep preferred, Semgrep fallback) ──
 # Opengrep (LGPL fork) is preferred because the Semgrep-maintained registry
@@ -735,6 +749,7 @@ fi
 echo "  Output:    $JSON_OUT"
 echo "  SARIF:     $SARIF_OUT"
 [ -n "$BASELINE" ] && echo "  Baseline:  $BASELINE"
+[ ${#SCAN_TARGETS[@]} -gt 0 ] && echo "  Paths:     ${#SCAN_TARGETS[@]} file(s) from $PATHS_FILE"
 if [ ${#SKIPPED_PACKS[@]} -gt 0 ]; then
   echo "  Skipped (unavailable): ${SKIPPED_PACKS[*]}"
 fi
@@ -744,7 +759,7 @@ echo ""
 # Run semgrep — all probed configs are known to work, no || true needed.
 # If semgrep returns exit 1 (findings exist) or 0 (no findings), both are fine.
 # Exit 7 (config error) should not happen here since configs were pre-probed.
-"$ENGINE" scan "${CONFIGS[@]}" "${FLAGS[@]}" 2>&1 | tee "$LOG_OUT"
+"$ENGINE" scan "${CONFIGS[@]}" "${FLAGS[@]}" ${SCAN_TARGETS[@]+"${SCAN_TARGETS[@]}"} 2>&1 | tee "$LOG_OUT"
 EXIT_CODE=${PIPESTATUS[0]}
 
 echo ""
