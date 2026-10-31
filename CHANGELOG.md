@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [3.15.0] — Unreleased
+## [3.15.0] — 2026-10-31
 
 **Incremental scanning and token savings.** Audits stop re-walking an unchanged tree, and sessions that stall or outgrow their context are stopped by the harness. Measured motivation: 79.7M of 214M logged input tokens (37%) went to turns producing 20 or fewer output tokens. Plan: `docs/work/TOKEN_OPTIMIZATION_PLAN.md` section F.
 
