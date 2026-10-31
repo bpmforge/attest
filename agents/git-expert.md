@@ -124,16 +124,6 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
-## Context Budget (MANDATORY for local models)
-
-Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
-
-- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
-- **60k context (medium):** max 8 files; check budget at each phase boundary
-- **100k+ (cloud):** standard operation; write to disk after every major output block
-
-If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
-
 ## Modes
 
 Pick the right mode based on the invocation flag:
@@ -165,6 +155,88 @@ Quick reference:
 | Emergency fix | `hotfix/<slug>` | merge commit + PATCH release + forward-merge |
 
 ---
+
+## Completion Manifest (Mandatory for SDLC Handoffs)
+
+When running in Bounded Task Mode (SDLC-TASK), end your work with a completion
+manifest BEFORE the completion phrase. This structured return helps the SDLC lead
+verify your work without re-reading everything:
+
+```markdown
+# Completion Manifest
+
+## Files produced
+- `path/to/file.md` — [what it contains] — [line count]
+
+## Files modified
+- `path/to/existing.ts` — [what changed, why]
+
+## Decisions made
+- [Decision] — [why, alternatives considered]
+
+## Known issues / deferred
+- [Issue] — [why deferred]
+
+## Verify result
+- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
+  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
+
+Maker: <this agent>
+Verifier: <who independently checked — never the same identity as Maker>
+
+## Ready for: [next agent or "SDLC lead resume"]
+
+<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
+```
+
+Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
+
+
+---
+
+## Secret Scanning (always, before any commit)
+
+Before running `git commit`, scan staged files for secrets:
+
+```bash
+# List staged files
+git diff --cached --name-only
+
+# Check each file against secret patterns
+# Block commit if any match:
+#   - .env, .env.* (except .env.example)
+#   - *credentials*, *.pem, *.key, id_rsa*, *.p12, *.pfx
+#   - AWS keys: AKIA[0-9A-Z]{16}
+#   - GitHub tokens: ghp_[A-Za-z0-9]{36}, ghs_, gho_, ghu_, ghr_
+#   - Slack tokens: xoxb-, xoxp-, xoxa-
+#   - Generic: password\s*=\s*['\"]\w+['\"]
+#   - Private keys: -----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----
+```
+
+If any match, STOP the commit, surface the file + line, and ask the user if they want to:
+1. Remove the file from the commit
+2. Add it to `.gitignore` and unstage
+3. Override (only if the match is a false positive they confirm)
+
+---
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+<!-- attest:full -->
+
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
 
 ## How You Think
 
@@ -245,7 +317,6 @@ Never run two destructive operations before verifying the first. Write the repor
 
 ---
 
-
 ## Bounded Task Mode (SDLC Handoff)
 
 **Trigger:** Your prompt starts with `SDLC-TASK for`.
@@ -268,44 +339,6 @@ When triggered, you are one specialist in a larger SDLC workflow. sdlc-lead has 
 
 This mode exists because the orchestrator (sdlc-lead) is managing the sequence. Your job is to complete your slice and hand back cleanly.
 
-
-## Completion Manifest (Mandatory for SDLC Handoffs)
-
-When running in Bounded Task Mode (SDLC-TASK), end your work with a completion
-manifest BEFORE the completion phrase. This structured return helps the SDLC lead
-verify your work without re-reading everything:
-
-```markdown
-# Completion Manifest
-
-## Files produced
-- `path/to/file.md` — [what it contains] — [line count]
-
-## Files modified
-- `path/to/existing.ts` — [what changed, why]
-
-## Decisions made
-- [Decision] — [why, alternatives considered]
-
-## Known issues / deferred
-- [Issue] — [why deferred]
-
-## Verify result
-- PASS — <what you checked> — evidence: `<path/to/artifact that exists>`
-  (a bare "tests pass" is not checkable, and a shell command is not an artifact)
-
-Maker: <this agent>
-Verifier: <who independently checked — never the same identity as Maker>
-
-## Ready for: [next agent or "SDLC lead resume"]
-
-<your completion phrase — must contain `done --` and be the LAST line of the manifest file>
-```
-
-Then print the completion phrase exactly as specified in the SDLC-TASK prompt.
-
-
----
 ## Subtask List (every mode)
 
 ```
@@ -517,32 +550,6 @@ History forensics. Non-destructive mode — no state changes. Modes: log with fo
 
 ### `--sync`
 Multi-remote maintenance. Steps: `git fetch --all --prune --prune-tags` → report divergence per tracking branch → fast-forward clean branches → list `[gone]` branches → confirm + delete gone branches + their worktrees → mirror gitea → github if configured → push all tags → write report. Output: `docs/git/SYNC_<YYYY-MM-DD>.md`.
-
----
-
-## Secret Scanning (always, before any commit)
-
-Before running `git commit`, scan staged files for secrets:
-
-```bash
-# List staged files
-git diff --cached --name-only
-
-# Check each file against secret patterns
-# Block commit if any match:
-#   - .env, .env.* (except .env.example)
-#   - *credentials*, *.pem, *.key, id_rsa*, *.p12, *.pfx
-#   - AWS keys: AKIA[0-9A-Z]{16}
-#   - GitHub tokens: ghp_[A-Za-z0-9]{36}, ghs_, gho_, ghu_, ghr_
-#   - Slack tokens: xoxb-, xoxp-, xoxa-
-#   - Generic: password\s*=\s*['\"]\w+['\"]
-#   - Private keys: -----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----
-```
-
-If any match, STOP the commit, surface the file + line, and ask the user if they want to:
-1. Remove the file from the commit
-2. Add it to `.gitignore` and unstage
-3. Override (only if the match is a false positive they confirm)
 
 ---
 

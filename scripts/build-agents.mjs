@@ -9,7 +9,20 @@
 //   --fix      rewrite drifted sections to the canonical text
 //   --compact  emit dist/compact-agents/<agent>.md with boilerplate sections
 //              replaced by the .compact.md variants (for tier=small installs)
-//   --build    (v2 only) emit EVERY agents/**/*.md, frontmatter-transformed, to dist/agents-v2/
+//   --build    emit the INSTALL SET for the target: every agents/**/*.md to dist/agents/ (v1) or
+//              dist/agents-v2/ (v2, frontmatter-transformed). Agents carrying the core/full marker are
+//              emitted as CORE ONLY (+ a pointer line) and their remainder goes to
+//              dist/full-agents[-v2]/<name>.full.md (disable: true, never an agent; install.sh puts them
+//              at <install>/agents/shared/full/ — the dir that already holds non-agent reference docs). --no-split emits the
+//              unsplit sources instead (install.sh --full-agents).
+//   --report-sizes  per-agent source/core/full/compact sizes and the median core size (WP-X5 / C4)
+//
+// Core/full split (WP-X5, TOKEN_OPTIMIZATION_PLAN C4/C5): an agent source marks the boundary with the
+// HTML comment `<!-- attest:full -->` on its own line. Above it: identity, HANDOFF intake, Input
+// Contract, write-scope, PRODUCE/output contract, completion phrase, loop-prevention, Delta review —
+// everything a bounded HANDOFF session needs. Below it: long-form methodology and examples. The core is
+// capped at `CORE_MAX` bytes (listed exceptions in CORE_EXCEPTIONS, each with a TODO). Sources stay
+// whole files — --check/--fix still see every block section on both sides of the marker.
 //
 // Target (WP-V1): --target opencode-v1|opencode-v2 (default opencode-v1, env ATTEST_TARGET).
 // Sources stay V1-shaped. For opencode-v2 the frontmatter is rewritten per the v1->v2 migration
@@ -22,14 +35,14 @@
 // Section matching is by exact heading; agents without a given heading are
 // untouched. Edit blocks/, run --fix, commit — never edit the sections inline.
 
-import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { join, basename } from 'node:path';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const AGENTS_DIR = join(ROOT, 'agents');
 const BLOCKS_DIR = join(AGENTS_DIR, 'shared', 'blocks');
 const TARGETS = ['opencode-v1', 'opencode-v2'];
-const MODES = ['--check', '--fix', '--compact', '--build'];
+const MODES = ['--check', '--fix', '--compact', '--build', '--report-sizes'];
 const argv = process.argv.slice(2);
 const tIdx = argv.indexOf('--target');
 const TARGET = (tIdx !== -1 ? argv[tIdx + 1] : process.env.ATTEST_TARGET) || 'opencode-v1';
@@ -40,6 +53,82 @@ if (!TARGETS.includes(TARGET)) {
 const V2 = TARGET === 'opencode-v2';
 const COMPACT_DIR = join(ROOT, 'dist', V2 ? 'compact-agents-v2' : 'compact-agents');
 const V2_DIR = join(ROOT, 'dist', 'agents-v2');
+const OUT_DIR = V2 ? V2_DIR : join(ROOT, 'dist', 'agents');
+// Full-methodology files are emitted OUTSIDE the agent tree (install.sh copies them to <install>/agents/shared/full/),
+// so dist/agents*/ holds exactly what registers as agents/reference docs and nothing is counted twice.
+const FULL_DIR = join(ROOT, 'dist', V2 ? 'full-agents-v2' : 'full-agents');
+const NO_SPLIT = argv.includes('--no-split');
+
+// ── core/full split ─────────────────────────────────────────────────────────
+const MARKER = '<!-- attest:full -->';
+const CORE_MAX = 8192; // bytes, including the pointer line
+// Agents whose CORE cannot yet fit CORE_MAX: name -> { max, todo }. max is the measured size rounded up to
+// 256; --check fails if a core grows past it, and notes (does not fail) an entry that now fits CORE_MAX.
+// The mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, context budget 0.6 KB, delta review
+// 1.1 KB) are shared text that alone takes ~5-7 KB — the TODO for most is "shrink the shared blocks to
+// card pointers" (a separate ticket: it changes canonical block text for all agents).
+// <core-exceptions:begin> (regenerate: node scripts/build-agents.mjs --report-sizes --emit-exceptions)
+const CORE_EXCEPTIONS = {
+  'a11y-compliance.md': { max: 9216, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'agent-ui-engineer.md': { max: 14080, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'analytics-architect.md': { max: 8448, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'api-designer.md': { max: 12800, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'architecture-designer.md': { max: 8960, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'dead-code-detector.md': { max: 12288, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'pattern-consistency-checker.md': { max: 10496, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'code-reviewer.md': { max: 16640, todo: 'TODO(C4): orchestrator — delegation, approval-gate and HANDOFF-authoring sections must stay in core; move protocol detail to cards/full' },
+  'coding-agent.md': { max: 14848, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'container-ops.md': { max: 13056, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'data-steward.md': { max: 8704, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'db-architect.md': { max: 12032, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'design-iterator.md': { max: 11264, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'frontend-design.md': { max: 12544, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'gauntlet-lead.md': { max: 10496, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'git-expert.md': { max: 12800, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'graphics-engineer.md': { max: 14336, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'interaction-engineer.md': { max: 14080, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'performance-engineer.md': { max: 15360, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'reliability-engineer.md': { max: 9216, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'researcher.md': { max: 11520, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'sdlc-lead.md': { max: 32256, todo: 'TODO(C4): orchestrator — delegation, approval-gate and HANDOFF-authoring sections must stay in core; move protocol detail to cards/full' },
+  'component-mapper.md': { max: 10752, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'entry-point-tracer.md': { max: 12032, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'security-auditor.md': { max: 8704, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'sre-engineer.md': { max: 12544, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'test-engineer.md': { max: 12800, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'ui-verifier.md': { max: 13568, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+  'ux-engineer.md': { max: 15104, todo: 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers' },
+};
+// <core-exceptions:end>
+const pointerFor = (name) =>
+  `Full methodology: read ~/.config/opencode/agents/shared/full/${name}.full.md on demand (direct/interactive mode, or when a HANDOFF step needs it)`;
+const nameOf = (file) => basename(file).replace(/\.md$/, '');
+const bytes = (t) => Buffer.byteLength(t);
+
+// Split an agent source at the marker. Returns null when there is none.
+function splitAtMarker(text) {
+  const needle = '\n' + MARKER + '\n';
+  const idx = text.indexOf(needle);
+  if (idx === -1) return null;
+  return {
+    core: text.slice(0, idx).trimEnd() + '\n',
+    rest: text.slice(idx + needle.length).replace(/^\n+/, ''),
+    count: text.split(MARKER).length - 1,
+  };
+}
+const coreWithPointer = (name, core) => core.trimEnd() + '\n\n' + pointerFor(name) + '\n';
+function fullDoc(name, rest) {
+  return `---
+description: 'Full methodology for ${name} — reference text, not an agent. The core file points here; read on demand.'
+disable: true
+mode: "all"
+---
+
+# ${name} — full methodology
+
+${rest.trimEnd()}
+`;
+}
 
 // v1 -> v2 frontmatter key renames (top-level keys only; nested/indented lines are untouched).
 const V2_RENAMES = { disable: 'disabled', prompt: 'system', permission: 'permissions', maxSteps: 'steps' };
@@ -79,13 +168,9 @@ const VARIANT_OK = new Set([
 ]);
 
 const mode = argv.find((a) => MODES.includes(a)) ?? '--check';
-if (argv.some((a) => a.startsWith('--') && a !== '--target' && !MODES.includes(a))) {
-  console.error('usage: build-agents.mjs --check | --fix | --compact | --build [--target opencode-v1|opencode-v2]');
+if (argv.some((a) => a.startsWith('--') && a !== '--target' && a !== '--no-split' && a !== '--emit-exceptions' && !MODES.includes(a))) {
+  console.error('usage: build-agents.mjs --check | --fix | --compact | --build | --report-sizes [--target opencode-v1|opencode-v2] [--no-split]');
   process.exit(2);
-}
-if (mode === '--build' && !V2) {
-  console.log('--build is only needed for opencode-v2 (v1 installs agents/ as-is) — nothing to do');
-  process.exit(0);
 }
 
 // Block files carry disable frontmatter so runtimes don't register them as
@@ -107,7 +192,7 @@ function replaceSection(text, heading, body) {
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
-    if (lines[i].startsWith('## ')) { end = i; break; }
+    if (lines[i].startsWith('## ') || lines[i] === MARKER) { end = i; break; }
   }
   // preserve exactly one blank line before the next section
   const replacement = body.trimEnd().split('\n');
@@ -120,7 +205,7 @@ function currentSection(text, heading) {
   if (start === -1) return null;
   let end = lines.length;
   for (let i = start + 1; i < lines.length; i++) {
-    if (lines[i].startsWith('## ')) { end = i; break; }
+    if (lines[i].startsWith('## ') || lines[i] === MARKER) { end = i; break; }
   }
   return lines.slice(start, end).join('\n').trimEnd() + '\n';
 }
@@ -162,9 +247,28 @@ const agentFiles = mode === '--compact' ? primaryAgentFiles : collectAgents(AGEN
 
 let drifted = [];
 let compacted = 0;
+const problems = [];
+const notes = [];
+
+// compact variant of an agent source (null when no managed block is present). Built from the CORE of a
+// split agent; blocks that live below the marker come back as their compact variants (a few hundred bytes).
+function compactOf(text) {
+  const sp = splitAtMarker(text);
+  let out = sp ? sp.core : text;
+  let touched = false;
+  for (const { name, heading } of BLOCKS) {
+    const next = replaceSection(out, heading, loadBlock(name, true));
+    if (next) { out = next; touched = true; }
+  }
+  if (sp) {
+    for (const { name, heading } of BLOCKS) {
+      if (currentSection(sp.rest, heading) !== null) { out = out.trimEnd() + '\n\n' + loadBlock(name, true); touched = true; }
+    }
+  }
+  return touched ? out : null;
+}
 
 // v2 emit / validation over every markdown file under agents/ (includes shared/ reference docs).
-let v2Built = 0;
 const v2Problems = [];
 if (V2 && (mode === '--build' || mode === '--check')) {
   for (const file of collectAllMd(AGENTS_DIR)) {
@@ -173,40 +277,77 @@ if (V2 && (mode === '--build' || mode === '--check')) {
     const srcDisable = /^disable:/m.test(src.split('\n---')[0] ?? '');
     if (v1KeysIn(out).length) v2Problems.push(`${rel(file)}: v1-only key left after transform: ${v1KeysIn(out).join(', ')}`);
     if (srcDisable && !/^disabled:/m.test(out.split('\n---')[0])) v2Problems.push(`${rel(file)}: disable: did not become disabled:`);
-    if (mode === '--build') {
-      const dest = join(V2_DIR, file.slice(AGENTS_DIR.length + 1));
-      mkdirSync(join(dest, '..'), { recursive: true });
-      writeFileSync(dest, out);
-      v2Built++;
-    }
   }
   if (v2Problems.length) {
     console.log(`V2 FRONTMATTER PROBLEMS (${v2Problems.length}):`);
     for (const d of v2Problems) console.log('  ' + d);
     process.exit(1);
   }
-  if (mode === '--build') {
-    console.log(`v2 agents written: ${v2Built} → dist/agents-v2/`);
-    process.exit(0);
+}
+
+// Emit the install set (core only for split agents) for the current target.
+if (mode === '--build') {
+  rmSync(OUT_DIR, { recursive: true, force: true });
+  rmSync(FULL_DIR, { recursive: true, force: true });
+  const emit = (dest, text) => {
+    mkdirSync(join(dest, '..'), { recursive: true });
+    writeFileSync(dest, V2 ? toV2Frontmatter(text) : text);
+  };
+  let cores = 0;
+  let plain = 0;
+  const problems = [];
+  for (const file of collectAllMd(AGENTS_DIR)) {
+    const src = readFileSync(file, 'utf8');
+    const name = nameOf(file);
+    const sp = NO_SPLIT ? null : splitAtMarker(src);
+    if (sp) {
+      const core = coreWithPointer(name, sp.core);
+      const max = CORE_EXCEPTIONS[basename(file)]?.max ?? CORE_MAX;
+      if (bytes(core) > max) problems.push(`${rel(file)}: core ${bytes(core)} B > ${max} B`);
+      emit(join(OUT_DIR, rel(file)), core);
+      emit(join(FULL_DIR, `${name}.full.md`), fullDoc(name, sp.rest));
+      cores++;
+    } else {
+      emit(join(OUT_DIR, rel(file)), src);
+      plain++;
+    }
   }
+  if (problems.length) {
+    console.log(`CORE SIZE PROBLEMS (${problems.length}):`);
+    for (const p of problems) console.log('  ' + p);
+    process.exit(1);
+  }
+  console.log(`${V2 ? 'v2' : 'v1'} install set written → dist/${V2 ? 'agents-v2' : 'agents'}/ (+ dist/${V2 ? 'full-agents-v2' : 'full-agents'}/): ${cores} split (core + full), ${plain} unsplit${NO_SPLIT ? ' (--no-split)' : ''}`);
+  process.exit(0);
 }
 
 for (const file of agentFiles) {
   let text = readFileSync(file, 'utf8');
 
   if (mode === '--compact') {
-    let out = text;
-    let touched = false;
-    for (const { name, heading } of BLOCKS) {
-      const next = replaceSection(out, heading, loadBlock(name, true));
-      if (next) { out = next; touched = true; }
-    }
-    if (touched) {
+    const out = compactOf(text);
+    if (out !== null) {
       mkdirSync(COMPACT_DIR, { recursive: true });
       writeFileSync(join(COMPACT_DIR, basename(file)), V2 ? toV2Frontmatter(out) : out);
       compacted++;
     }
     continue;
+  }
+
+  if (mode === '--report-sizes') continue;
+
+  // core/full marker sanity (every mode that reads sources).
+  if (text.includes(MARKER)) {
+    const sp = splitAtMarker(text);
+    if (!sp || sp.count !== 1) problems.push(`${rel(file)}: marker must appear exactly once on its own line`);
+    else {
+      const core = coreWithPointer(nameOf(file), sp.core);
+      const max = CORE_EXCEPTIONS[basename(file)]?.max ?? CORE_MAX;
+      if (!text.startsWith('---\n')) problems.push(`${rel(file)}: split agent needs frontmatter`);
+      if (!sp.rest.trim()) problems.push(`${rel(file)}: nothing below the marker`);
+      if (bytes(core) > max) problems.push(`${rel(file)}: core ${bytes(core)} B exceeds ${max} B — move long-form text below the marker`);
+      if (CORE_EXCEPTIONS[basename(file)] && bytes(core) <= CORE_MAX) notes.push(`${basename(file)} now fits ${CORE_MAX} B — drop it from CORE_EXCEPTIONS`);
+    }
   }
 
   for (const { name, heading } of BLOCKS) {
@@ -223,6 +364,53 @@ for (const file of agentFiles) {
     }
   }
 }
+
+if (mode === '--report-sizes') {
+  const median = (a) => { const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); };
+  const rows = [];
+  for (const file of agentFiles) {
+    const text = readFileSync(file, 'utf8');
+    if (/^disable:/m.test(text.split('\n---')[0] ?? '')) continue; // reference docs
+    const sp = splitAtMarker(text);
+    const cmp = compactOf(text);
+    rows.push({
+      name: rel(file), source: bytes(text),
+      core: sp ? bytes(coreWithPointer(nameOf(file), sp.core)) : bytes(text),
+      full: sp ? bytes(fullDoc(nameOf(file), sp.rest)) : 0,
+      compact: cmp === null || !primaryAgentFiles.includes(file) ? null : bytes(cmp),
+      split: !!sp,
+    });
+  }
+  rows.sort((a, b) => b.source - a.source);
+  if (argv.includes('--emit-exceptions')) {
+    const todoFor = (r) => (r.core > 16384
+      ? 'TODO(C4): orchestrator — delegation, approval-gate and HANDOFF-authoring sections must stay in core; move protocol detail to cards/full'
+      : 'TODO(C4): shared mandatory blocks (HANDOFF intake 4 KB, loop prevention 1.1 KB, bounded-task + completion sections) alone approach the cap; shrink them to card pointers');
+    const ex = rows.filter((r) => r.split && r.core > CORE_MAX).sort((a, b) => a.name.localeCompare(b.name));
+    console.log('const CORE_EXCEPTIONS = {');
+    for (const r of ex) console.log(`  '${basename(r.name)}': { max: ${Math.ceil(r.core / 256) * 256}, todo: '${todoFor(r)}' },`);
+    console.log('};');
+    process.exit(0);
+  }
+  const pad = (v, n) => String(v ?? '-').padStart(n);
+  console.log('agent'.padEnd(46) + pad('source', 8) + pad('core', 8) + pad('full', 8) + pad('compact', 9));
+  for (const r of rows) console.log(r.name.padEnd(46) + pad(r.source, 8) + pad(r.core, 8) + pad(r.full || '-', 8) + pad(r.compact, 9));
+  const sum = (k) => rows.reduce((t, r) => t + (r[k] ?? 0), 0);
+  console.log('');
+  console.log(`agents: ${rows.length} (${rows.filter((r) => r.split).length} split, ${rows.filter((r) => !r.split).length} unsplit)`);
+  console.log(`median source: ${median(rows.map((r) => r.source))} B   median core: ${median(rows.map((r) => r.core))} B   (target < 12288)`);
+  console.log(`total source: ${sum('source')} B   total core: ${sum('core')} B   total full: ${sum('full')} B`);
+  const over = rows.filter((r) => r.split && r.core > CORE_MAX);
+  console.log(`split agents over ${CORE_MAX} B: ${over.length}${over.length ? ' — ' + over.map((r) => r.name).join(', ') : ''}`);
+  process.exit(0);
+}
+
+if (problems.length) {
+  console.log(`SPLIT PROBLEMS (${problems.length}):`);
+  for (const p of problems) console.log('  ' + p);
+  process.exit(1);
+}
+for (const n of notes) console.log('note: ' + n);
 
 if (mode === '--compact') {
   console.log(`compact variants written: ${compacted} → dist/${V2 ? 'compact-agents-v2' : 'compact-agents'}/`);
