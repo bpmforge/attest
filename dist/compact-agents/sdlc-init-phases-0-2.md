@@ -10,7 +10,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = write the HANDOFF for X to `docs/work/HANDOFF_X.md` (`════` delimiter format), save state to `docs/work/sdlc-state.md`, run `bash ~/.config/opencode/scripts/handoff-emit.sh X` (it prints the pointer — never type it, never echo the body), wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
@@ -32,7 +32,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.

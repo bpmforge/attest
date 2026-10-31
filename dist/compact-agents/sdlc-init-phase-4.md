@@ -32,7 +32,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
@@ -82,7 +82,7 @@ REVIEW ROUNDS (three-level model — P-A1/P-A2):
   Level 1 per module: deterministic gates only (scope + manifest + verify + validators; no expert).
   Level 2 per WAVE: ONE expert pass over the aggregate diff — code-reviewer always;
   security/perf/ux when the wave diff carries their surface; per-module experts only for
-  high-risk modules. Sessions concurrent, emitted in ONE message. Verdicts advisory (P-A8).
+  high-risk modules. Sessions concurrent, pointers printed by `handoff-emit.sh` in ONE message. Verdicts advisory (P-A8).
   Level 3: merge train in dependency order after the wave pass is green.
 
 Which execution mode per wave? [S = sequential / P = parallel]

@@ -91,8 +91,10 @@ while IFS= read -r cat; do
     gap "low-confidence" "$cat confidence is ${confidence}/10 (requires ≥7)"
   fi
 
-  # Status check -- require a DONE marker or ✅
-  if ! [[ "$row" =~ (DONE|✅|completed|COMPLETE) ]]; then
+  # Status check -- require a DONE marker or ✅. A row written through by a
+  # delta review (DELTA_REVIEW rule 5) says `carried-forward` in the evidence
+  # column; that counts as DONE, but the confidence >= 7 check above still applies.
+  if ! [[ "$row" =~ (DONE|✅|completed|COMPLETE|carried-forward) ]]; then
     gap "not-done" "$cat row does not show DONE/✅ status"
   fi
 done < <(printf '%s\n' "${OWASP_CATEGORIES[@]}")

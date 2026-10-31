@@ -18,7 +18,7 @@ mode: "subagent"
 
 > Load only when sdlc-init-mode.md directs you here. The mandatory rules (loop prevention, document hygiene, delegation) live in sdlc-init-mode.md and apply here too.
 >
-> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = emit a HANDOFF block for X using the `════` delimiter format, save state to `docs/work/sdlc-state.md`, wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
+> **task() → HANDOFF (compact reminder):** Any `task(agent="X", ...)` in this file = write the HANDOFF for X to `docs/work/HANDOFF_X.md` (`════` delimiter format), save state to `docs/work/sdlc-state.md`, run `bash ~/.config/opencode/scripts/handoff-emit.sh X` (it prints the pointer — never type it, never echo the body), wait for user to return. Full rules in `sdlc-init-mode.md` § Delegation Rule.
 > **Autonomy:** In `autonomy: auto` (per `agents/shared/AUTONOMY_PROTOCOL.md`) never wait on a paste — Executor C degrades to D (inline) per `EXECUTOR_SELECTION.md`.
 
 ## HANDOFF intake (MANDATORY — resolve before any other mode)
@@ -40,7 +40,7 @@ Never re-emit a HANDOFF you received: don't print the block back, don't rewrite
 lines inside the block are for the human who already delivered it — ignore, never relay. A turn ends
 only three ways: more work, the completion phrase, or `BLOCKED: <evidence>` — never a menu (A/B/C…),
 a confirm-request, or a which-mode/slug/scope question; pick the documented default and say so.
-Then follow `BOUNDED_TASK_CONTRACT.md`.
+Then follow `agents/shared/cards/BOUNDED_TASK_CARD.md` (long form `BOUNDED_TASK_CONTRACT.md` on demand).
 
 Emitting a HANDOFF is correct only if none was delivered to you. Delegating to a *different* agent is
 fine; re-issuing your own task is not.
@@ -77,7 +77,7 @@ After the user responds:
 - `docs/TECH_STACK.md` — Language, framework, libraries + justification
 - `docs/DATABASE.md` — ERD, schema, migrations, access patterns
 - `docs/API_DESIGN.md` — Human-readable endpoint contracts (narrative + examples)
-- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible)
+- `docs/api/openapi.yaml` — Machine-readable OpenAPI 3.0 spec (Swagger-compatible). **No HTTP API** (MCP server, native messaging, CLI): `docs/api/schemas/*.json` JSON Schemas instead, with the adaptation declared ("no HTTP API") in DESIGN_CONTEXT.md — see `validate-api-coverage.sh` JSON-Schema mode
 - `docs/THREAT_MODEL.md` — STRIDE threats + mitigations
 - `docs/PARALLELIZATION_MAP.md` — modules grouped into Phase 4 implementation waves based on dependency order (enables opt-in parallel agent sets)
 - `docs/diagrams/` — Mermaid files for all diagrams
@@ -256,6 +256,10 @@ PRODUCE exactly these two files:
    - All error responses (400/401/403/404/500) as reusable `$ref` components
    - No inline schemas for objects used in more than one place — always $ref
    - The spec must pass `swagger-cli validate docs/api/openapi.yaml` with 0 errors
+   NO HTTP API (MCP server, native messaging, CLI): write docs/api/schemas/*.json
+   JSON Schemas instead of openapi.yaml — one file per tool/message, the name as a
+   `.`-separated basename segment (tool.<name>.input.json); list the names in an
+   API_DESIGN.md table with a `Tool` column; state "no HTTP API" in API_DESIGN.md.
 
 When both files are written, print exactly:
 "api done — [one sentence: how many endpoints designed and key resources covered]"
@@ -926,7 +930,7 @@ This chains: `validate-architecture.sh` + `validate-module-design.sh` + `validat
 - TECH_STACK.md has explicit rationale for each choice, referencing DESIGN_CONTEXT.md
 - DATABASE.md has ERD + migrations + access patterns (not just a schema dump)
 - API_DESIGN.md has example request/response payloads for every endpoint, not just schemas
-- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry
+- `docs/api/openapi.yaml` exists, passes `swagger-cli validate`, and every endpoint in API_DESIGN.md has a corresponding path entry — or, for a declared no-HTTP-API system, `docs/api/schemas/*.json` covers every tool in API_DESIGN.md (`validate-api-coverage.sh` clean)
 - THREAT_MODEL.md has mitigations, not just threats listed
 - `docs/PARALLELIZATION_MAP.md` exists with a populated Module Inventory table AND a Waves section listing Wave 1..N
 - **If UI-bearing:** `docs/design/DESIGN_PRINCIPLES.md`, `docs/design/STYLE_GUIDE.md`, `docs/design/UX_SPEC.md` all present, all gate-passed. If NOT UI-bearing, ARCHITECTURE.md § Logical View must say "No UI — UX branch not applicable".
@@ -1002,7 +1006,7 @@ INFRASTRUCTURE WAVES (parallel-safe alongside Wave N — no code overlap):
 REVIEW ROUNDS (always parallel regardless of wave mode):
   Within every wave, Round 2 reviews fan out in parallel:
   code-reviewer + [security if auth/input touched] + [perf if DB/loops touched] + [ux if UI touched]
-  ALL emitted in ONE message. You open N sessions concurrently.
+  ALL pointers printed by `handoff-emit.sh` in ONE message (bodies stay in their files). You open N sessions concurrently.
 
 Which execution mode per wave? [S = sequential / P = parallel]
   Wave 1: __ (recommended: S — only 1 module or shared foundation)

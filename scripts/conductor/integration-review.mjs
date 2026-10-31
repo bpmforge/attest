@@ -26,7 +26,7 @@
 //       2 usage/config · 3 nothing to review (empty diff).
 
 import { spawnSync, execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
@@ -123,9 +123,27 @@ function main() {
     if (NAMES.startsWith('feature:')) { const slug = NAMES.slice(8); return `docs/reviews/${kind === 'UX' ? 'UX_REVIEW' : kind}_${slug}_${date}.md`; }
     return `docs/reviews/INTEGRATION_${kind === 'UX' ? 'UX' : kind}_${range}_${date}.md`;
   };
+  // Newest prior review doc for the same reviewer + naming scheme (any date), so the
+  // agent can carry findings forward per its DELTA_REVIEW block.
+  const priorDocFor = (r, cur) => {
+    const m = cur.match(/^(.*\/)(.+)_(\d{4}-\d{2}-\d{2})\.md$/);
+    if (!m) return null;
+    const [, dir, stem] = m;
+    try {
+      // The integration scheme embeds the sha range in the name; a prior report covers an earlier range, so wildcard it.
+      const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const pat = esc(stem.replace(range, '\u0000')).replace('\u0000', '[0-9a-f]+\\.\\.[0-9a-f]+');
+      const re = new RegExp(`^${pat}_(\\d{4}-\\d{2}-\\d{2})\\.md$`);
+      const hits = readdirSync(resolve(ROOT, dir)).map((f) => ({ f, m: f.match(re) })).filter((x) => x.m)
+        .sort((x, y) => (y.m[1] + y.f).localeCompare(x.m[1] + x.f));
+      return hits.length ? dir + hits[0].f : null;
+    } catch { return null; }
+  };
   const prompts = reviewers.map((r) => {
     const agent = REVIEW_AGENTS[r];
     const doc = docFor(r);
+    const priorDoc = priorDocFor(r, doc);
+    const priorPath = priorDoc && priorDoc !== doc ? priorDoc : null;
     try { rmSync(resolve(ROOT, doc), { force: true }); } catch { /* fresh */ }
     const prompt = `SDLC-TASK for ${agent}:
 
@@ -140,6 +158,8 @@ ${scanJson ? `
 Deterministic scanner output is ALREADY collected at \`${scanJson.replace(ROOT + '/', '')}\` (semgrep, secrets,
 dependency audit, dead code, complexity). Read it — do not re-run those tools; spend your judgement on
 what the tools cannot see, and on triaging what they found.` : ''}
+${priorPath ? `
+Prior report: ${priorPath}` : ''}
 
 WRITE-SCOPE (exclusive):
 - ${doc}
