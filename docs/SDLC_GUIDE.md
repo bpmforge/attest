@@ -182,7 +182,7 @@ Write-scope isolation is enforced in every parallel-wave HANDOFF: each agent's a
 - `/dba` — Database migrations
 - `/containers` — Container setup
 - `/devops` — CI/CD pipeline
-- `/security`, `/review-code` — **integration-tier** audits: run once per branch before the PR to `main` (and at release), not per ticket. Per ticket, the conductor runs the deterministic scan (`scripts/scan/collect.sh`) and one lean diff review; see [UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md).
+- `/security`, `/review-code` — **integration-tier** audits: run once per branch before the PR to `main` (and at release), not per ticket. Per ticket, the conductor runs the deterministic scan (`scripts/scan/collect.sh`) and one lean diff review; see [UNATTENDED_EXECUTION.md](UNATTENDED_EXECUTION.md). The per-branch audits are **incremental by default**: `collect.sh` keeps a git-ignored ledger (`docs/work/scan/ledger.json`), re-scans only what changed since the last run and carries the other findings forward, and the coordinators and `integration-review.mjs` review the delta against the prior report (a watermark in `docs/work/.integration-reviewed.json`). Every report states its `Scope:` (full, or incremental/delta since a sha). Pass `--full` (`/security --full`, `/review-code --full`, `integration-review.mjs --since full`) to force a whole-tree pass. **Release requires a full-scope integration review:** `validate-release-readiness.sh` rejects a newest integration summary or final review that is `Scope: delta`.
 
 **Tech stack constraint:** `docs/TECH_STACK.md` defines allowed libraries and frameworks. The coding-agent enforces this — it flags any deviation rather than silently introducing new technology.
 

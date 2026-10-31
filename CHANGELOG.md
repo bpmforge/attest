@@ -2,6 +2,33 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.15.0] — Unreleased
+
+**Incremental scanning and token savings.** Audits stop re-walking an unchanged tree, and sessions that stall or outgrow their context are stopped by the harness. Measured motivation: 79.7M of 214M logged input tokens (37%) went to turns producing 20 or fewer output tokens. Plan: `docs/work/TOKEN_OPTIMIZATION_PLAN.md` section F.
+
+### Added
+- **Incremental `/security` and `/review-code`.** `scripts/scan/collect.sh` keeps a git-ignored ledger (`docs/work/scan/ledger.json`) and, by default (`--mode auto`), re-scans only files changed since the last run and carries other findings forward; it falls back to a full scan when the tool or rules changed, the ledger sha is not an ancestor, more than 400 files changed, or every 20th increment. `--full` forces a whole-tree scan on `/security`, `/review-code` and `collect.sh`. Reports print `Scope: full | incremental since <sha7> (<n> changed files, <m> findings carried forward)`.
+- **Fix-verify delta.** `fix-verify.mjs verify` scans only cited, changed and dirty files and carries the rest of the baseline forward unchanged (`scanned_files: 3 of 6` in the log); `--full` and `FIXVERIFY_DIFF_CAP` (default 300) control it. `semgrep-full-audit.sh` gains `--paths <file>`.
+- **Validator result cache and `--since`.** Whole-tree validators (dead-code, deps, module-boundaries, circular-deps, mermaid) replay a cached result when the tree and inputs are unchanged (`cached: true`; `--no-cache` bypasses); per-file validators accept `--since <ref>` / `VALIDATE_SINCE`. The coverage loop no longer re-walks the tree on iterations 2 and 3: a cacheable chain on an unchanged tree measured 5.21 s then 2.62 s.
+- **Integration review watermark.** `integration-review.mjs` records `docs/work/.integration-reviewed.json` and takes `--since auto|full|<sha>` (default auto): each reviewer runs on the delta, or is reused when nothing in its domain changed. Validators run before any model session and their exit codes are linked from the summary.
+- **Release rule.** The integration summary states `Scope: full` or `Scope: delta`; `validate-release-readiness.sh` (condition 13) refuses a release while the newest summary or final review is delta scope. Re-run with `--since full` before releasing.
+- **`DELTA REVIEW` shared block** in the eight specialist agents and both coordinators: review only the diff since the prior report, carry findings forward only after re-checking the cited line, mark vanished lines CLOSED. `validate-owasp.sh` accepts `carried-forward`.
+- **`/sdlc improve` and `/sdlc onboard` use the ledger** instead of asking: improve records `Scope: delta since <sha7>`, `unchanged` or `full` in `docs/work/sdlc-state.md`; onboard re-inventories only changed directories (`--full` forces a re-walk). `validate-improve-coverage.sh` accepts `carried-forward` audits.
+- **Stall guard.** The plugin warns after 4 consecutive identical or near-empty assistant turns and aborts the session after 6 (`BLOCKED: repeat-output stall`), logging a `source:"stall"` row; `EXPERTS_STALL_WARN` / `EXPERTS_STALL_ABORT` override (`0` disables). `telemetry-report.mjs` prints `## Stalls`.
+- **Resume-anchor cadence.** The full anchor is injected on turn 1, after a compaction and every `EXPERTS_ANCHOR_EVERY` (default 10) requests; other turns get a short pointer. `0` or `1` restores always-full.
+- **Compaction trigger.** The plugin requests a compaction when input tokens reach `EXPERTS_COMPACT_AT` or 0.6 of the model's `models.json` `context_window` (minimum gap 10 turns). `sync-model-limits.mjs --write-models` records `context_window`; with no value for a model the trigger stays off.
+- **OpenCode v1 and v2 support.** `install.sh` and `doctor.sh` detect the major version and install the matching plugin set (`plugins/` or `plugins-v2/`); `build-agents.mjs --target opencode-v1|opencode-v2`; one `scripts/lib/opencode-cli.mjs` argv table. **VERIFY-ON-MAC caveat:** v2 was built without an OpenCode v2 binary: its flags, plugin payloads, config keys (`install.sh` still writes v1 keys and warns) and `cached_tokens` reporting are unverified assumptions, and the v2 plugin shells are parse-checked only.
+- **`models.json` roles** updated for the conductor: coder `github-copilot/claude-sonnet-5.5`, reviewer `github-copilot/claude-opus-5.5`, challenger `openai/gpt-5.5`, advisor `github-copilot/claude-opus-5.5`; Sonnet 5.5 is kept out of the escalation-gated frontier tier so the coder never needs an escalation token.
+- `telemetry-report.mjs` prints a `## Scan & review scope` section: scans by scope (full, incremental), changed and carried-forward counts, integration reviews by scope and reused reviewers. It is silent when none of that data exists.
+
+### Changed
+- **`EXPERTS_MAX_TURNS` now defaults to 150** when unset (explicit `0` turns the cap off). The conductor sets its own value; `--max-turns 0` there now falls under the 150 default.
+- `collect.sh` stderr totals line is prefixed `scope=` (`scope=incremental base=<sha7> changed=<n> ...`).
+
+### Fixed
+- `collect.sh`: a scanner that exited 0 with empty output left an empty JSON file and shifted the `jq -s` slice indices, mislabelling later scanners.
+- `semgrep-full-audit.sh`: `--baseline REF` did not consume its value and stopped flag parsing early.
+
 ## [3.13.3] — 2026-10-12
 
 ### Added
