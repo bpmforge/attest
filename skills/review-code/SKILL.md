@@ -12,6 +12,7 @@ Load and follow the instructions in the `code-reviewer` agent.
 - `/review-code --debt` — Tech-debt catalog sorted by leverage
 - `/review-code --consolidate` — DRY + error-handling consolidation proposals (silent-failure hunter, extract-method suggestions, references Consolidation Catalog)
 - `/review-code --patterns` — Cross-codebase pattern consistency audit (drift from established idioms)
+- `/review-code --full` — force a whole-tree scan; otherwise the scan is incremental since the last full run recorded in `docs/work/scan/ledger.json`. The report states `Scope: full` or `Scope: incremental since <sha7> (<n> changed files, <m> findings carried forward)`. Combines with any other flag.
 - `/review-code src/auth/` — Review a specific directory
 
 **The 9 dimensions scored on every `--review`:**
