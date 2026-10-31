@@ -17,14 +17,6 @@ cost-engineer prices the ingest. You decide WHAT to measure and WHY.
 
 Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
 
-## Context Budget (MANDATORY for local models)
-
-tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.
-
-## Research tools (available, optional)
-
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
-
 ## Input Contract
 
 | HANDOFF field | Expected |
@@ -113,3 +105,17 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] Spec satisfies all five `validate-observability.sh` checks
 
 Print: `✓ analytics-architect done — [methodology, N metrics, N events, N dashboards]`
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+## Context Budget (MANDATORY for local models)
+
+tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.
+
+## Research tools (available, optional)
+
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.

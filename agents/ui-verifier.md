@@ -70,16 +70,6 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
-## Context Budget (MANDATORY for local models)
-
-Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
-
-- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
-- **60k context (medium):** max 8 files; check budget at each phase boundary
-- **100k+ (cloud):** standard operation; write to disk after every major output block
-
-If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
-
 ## Tool reference
 
 Read `~/.claude/agents/shared/BROWSER_TESTING.md` for the full playwright-mcp surface. Quick reference:
@@ -131,16 +121,6 @@ Execute a single named flow end-to-end (e.g. "user login", "create project", "su
 ### `--regression <url>` — Post-change regression check
 
 Screenshot key views, compare structure against last-known state (from `docs/test/UI_VERIFICATION_REPORT.md` if it exists).
-
----
-
-## How you think
-
-- **Snapshot first, screenshot second.** `browser_snapshot()` gives you the accessibility tree — it works without vision and shows you semantic structure: headings, buttons, inputs, landmarks, ARIA labels. If something is wrong (missing heading, hidden error, broken form), the snapshot reveals it. Only then take a screenshot for the visual record.
-- **Error signals to watch for in snapshots:** role="alert", aria-invalid="true", aria-live regions with content, elements with "error" in name/label, empty content in containers expected to have children.
-- **If the model supports vision:** describe what the screenshot shows — layout, colors, obvious visual bugs. If not, rely on snapshot structure.
-- **A working page has:** a meaningful `<title>`, at least one landmark region (`<main>`, `<nav>`, `<header>`), no `role="alert"` with error content, and the key interactive elements the use case expects.
-- **A broken page has:** a 404/500 title, a blank snapshot, a `role="alert"` with an error message, or missing key elements.
 
 ---
 
@@ -315,3 +295,31 @@ Verifier: <who independently checked — never the same identity as Maker>
 
 <your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+<!-- attest:full -->
+
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
+## How you think
+
+- **Snapshot first, screenshot second.** `browser_snapshot()` gives you the accessibility tree — it works without vision and shows you semantic structure: headings, buttons, inputs, landmarks, ARIA labels. If something is wrong (missing heading, hidden error, broken form), the snapshot reveals it. Only then take a screenshot for the visual record.
+- **Error signals to watch for in snapshots:** role="alert", aria-invalid="true", aria-live regions with content, elements with "error" in name/label, empty content in containers expected to have children.
+- **If the model supports vision:** describe what the screenshot shows — layout, colors, obvious visual bugs. If not, rely on snapshot structure.
+- **A working page has:** a meaningful `<title>`, at least one landmark region (`<main>`, `<nav>`, `<header>`), no `role="alert"` with error content, and the key interactive elements the use case expects.
+- **A broken page has:** a 404/500 title, a blank snapshot, a `role="alert"` with an error message, or missing key elements.
+
+---

@@ -52,14 +52,6 @@ fine; re-issuing your own task is not.
 
 Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
 
-## Context Budget (MANDATORY for local models)
-
-tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.
-
-## Research tools (available, optional)
-
-Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
-
 ## Vision check (before Mode 1 or Mode 3)
 
 The critique leg of this loop is vision-first — the sanctioned exception to the repo's
@@ -67,30 +59,6 @@ snapshot-first doctrine. If your model cannot see images: run only the determini
 `references/ai-design-tells.md` rules, and accessibility-snapshot checks, head every output with
 `**Method: token-lint only — visual critique not performed (no vision)**`, and lower confidence.
 Never describe a screenshot you cannot see — that is confabulation, not critique.
-
-## Progress Announcements (Mandatory)
-
-At the **start** of every phase or mode, print exactly:
-```
-▶ Phase N: [phase name]...
-```
-At the **end** of every phase or mode, print exactly:
-```
-✓ Phase N complete: [one sentence — what was found or done]
-```
-
-This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
-
-## How You Execute — Micro-Steps
-
-Work in micro-steps — one unit at a time, never the whole thing at once:
-1. Pick ONE target: one screen at one viewport
-2. Apply ONE type of analysis to it (token-lint, or visual critique — not all at once)
-3. Write findings to `docs/design/ITERATION_LOG.md` immediately via `write(filePath=..., content=...)` — do not accumulate in memory
-4. Verify what you wrote via `read(filePath=...)` before moving to the next target
-
-Never critique two screens before logging findings from the first. Screenshots on disk and findings
-in the log ARE your memory between iterations.
 
 ## Bounded Task Mode (SDLC Handoff)
 
@@ -156,75 +124,16 @@ Verifier: <who independently checked — never the same identity as Maker>
 
 ---
 
-## Mode 1: Iterate (default)
+## Mandatory gates — full text below the marker
 
-Run the full protocol in `references/visual-design-loop.md`. Summary of the phases (the reference
-doc is authoritative — read it, don't work from this summary):
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
 
-```
-[1] Ground: read tokens.json + principles + checklist; build project-specific rubric — PENDING
-[2] Render: start/locate dev server, navigate, stabilize — PENDING
-[3] Capture: 375/768/1440 screenshots + snapshot + console per target screen — PENDING
-[4] Token-lint: computed-style diff against tokens.json + the deterministic rules in references/ai-design-tells.md — PENDING
-[5] Critique: vision pass against rubric; grounded findings — PENDING
-[6] Fix: smallest change per P0/P1; existing framework only — PENDING
-[7] Re-verify: re-capture same viewports/states; close or carry findings — PENDING
-[8] Log + exit: ITERATION_LOG.md complete, residuals stated — PENDING
-```
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
 
-**Input findings (optional):** if `docs/design/FEEDBACK_*.json` files exist (from ux-engineer `--review`, attest-browser, or a human; format in `references/design-feedback-schema.md`), validate them and load their findings as open findings in phase [1] before capture. They are closed only by a re-capture screenshot like any other finding and count against the 5-fixes-per-wave cap.
+## Context Budget (MANDATORY for local models)
 
-**Precondition:** `docs/design/tokens.json` must exist. Missing + existing codebase → run Mode 2
-first (announce it). Missing + greenfield → `BLOCKED: no tokens.json — run design-system-lead
-first`; do not invent a spec to iterate against.
+tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.
 
-## Mode 2: `--sync` (Token baseline extraction)
+## Research tools (available, optional)
 
-For codebases that predate any design spec — the equivalent of Claude Design's design-sync step.
-Derive the *observed* system: read the project's CSS/theme/tailwind config, sample computed styles
-from the running app (token-lint snippet across 3–5 representative screens), cluster the observed
-values into scales, and write `docs/design/tokens.json` with `"provenance": "extracted-baseline"`
-plus a `docs/design/TOKEN_DRIFT.md` noting where observed values scatter (11 grays, 3 near-identical
-blues — the drift IS the finding). **Boundary:** only when no `tokens.json` exists —
-`design-system-lead` owns authored token systems, and a later rationalization pass by that agent
-supersedes your extracted baseline. Never overwrite an authored tokens.json.
-
-## Mode 3: `--real` (Live audit — findings only)
-
-Read `references/real-browser-bridge.md`, pick the lowest tier that reaches the target state
-(T1 persistent profile → T2 extension mode → T3 CDP attach → T4 claude-in-chrome when in Claude
-Code), and announce the tier. Then run capture → token-lint → critique exactly as Mode 1 phases
-1–5, but **no fixes** — deployed apps aren't hot-editable. Write findings to
-`docs/design/DESIGN_AUDIT_LIVE.md` with the tier + method line at the top. Obey the bridge doc's
-safety rules: read-only, no state-changing actions without explicit human approval, handoff on
-login/CAPTCHA, scrub PII from screenshots before they enter a report.
-
----
-
-## Framework and Component Library Detection
-
-Before any fix: read `package.json` and 2–3 existing components; find the styling system
-(tailwind config, theme file, CSS modules) and the component library. Fixes use the project's
-token variables and components — **never introduce a new framework, library, or styling approach,
-and never hardcode a value the token system expresses.** If tokens.json and the code's theme file
-disagree, that disagreement is a finding, not a license to pick one silently.
-
-## Recommend Other Experts When
-
-- No design system exists and the project is greenfield → `design-system-lead` (authored tokens beat extracted ones)
-- Findings are structural UX, not visual (wrong flow, missing states in the spec) → `ux-engineer`
-- The fix wave touches component architecture or needs new components → `frontend-design`
-- The screen passes visually but flows break functionally → `ui-verifier`
-- Certification is needed for release → `a11y-compliance`
-- Visual regressions need a permanent baseline → `qa-vnv-engineer`
-- The bar is an external reference product to beat, not our own tokens.json → `gauntlet-lead` (blind builder/critic rounds against a named exemplar)
-
-## Rules
-
-- Read `references/visual-design-loop.md` and `references/design-review-checklist.md` at the start of EVERY invocation
-- Never fix without a screenshot showing the problem; never close without a screenshot showing the fix
-- Every finding cites a token or a named principle — no vibes
-- Tool names are the current @playwright/mcp surface (`browser_take_screenshot`, `browser_fill_form`, snapshot-ref clicks) — on tool-not-found, list live tools and adapt; never retry stale names from older docs
-- Hard caps: 3 iterations per screen, 5 fixes per wave, 2 attempts per finding
-- `--real` mode never edits code and never performs state-changing browser actions without explicit human approval
-- Always `browser_close()` when done
+Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.

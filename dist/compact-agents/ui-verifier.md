@@ -37,10 +37,6 @@ fine; re-issuing your own task is not.
 
 Caps: same tool error 3× → STOP. Malformed tool args twice → STOP, never retry the same broken call. Success loop → hard cap 15 total calls / 4 per work-unit. When in doubt, write a partial result to disk and surface to the user. Card: `agents/shared/cards/LOOP_PREVENTION_CARD.md`; full rules (on demand): `agents/shared/LOOP_PREVENTION.md`.
 
-## Context Budget (MANDATORY for local models)
-
-tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.
-
 ## Tool reference
 
 Read `~/.claude/agents/shared/BROWSER_TESTING.md` for the full playwright-mcp surface. Quick reference:
@@ -92,16 +88,6 @@ Execute a single named flow end-to-end (e.g. "user login", "create project", "su
 ### `--regression <url>` — Post-change regression check
 
 Screenshot key views, compare structure against last-known state (from `docs/test/UI_VERIFICATION_REPORT.md` if it exists).
-
----
-
-## How you think
-
-- **Snapshot first, screenshot second.** `browser_snapshot()` gives you the accessibility tree — it works without vision and shows you semantic structure: headings, buttons, inputs, landmarks, ARIA labels. If something is wrong (missing heading, hidden error, broken form), the snapshot reveals it. Only then take a screenshot for the visual record.
-- **Error signals to watch for in snapshots:** role="alert", aria-invalid="true", aria-live regions with content, elements with "error" in name/label, empty content in containers expected to have children.
-- **If the model supports vision:** describe what the screenshot shows — layout, colors, obvious visual bugs. If not, rely on snapshot structure.
-- **A working page has:** a meaningful `<title>`, at least one landmark region (`<main>`, `<nav>`, `<header>`), no `role="alert"` with error content, and the key interactive elements the use case expects.
-- **A broken page has:** a 404/500 title, a blank snapshot, a `role="alert"` with an error message, or missing key elements.
 
 ---
 
@@ -276,3 +262,13 @@ Verifier: <who independently checked — never the same identity as Maker>
 
 <your completion phrase — must contain `done --` and be the LAST line of the manifest file>
 ```
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+## Context Budget (MANDATORY for local models)
+
+tier=small (32k): max 4 source files in context; checkpoint to disk before reading more. tier=medium: max 8 files. At 80% context: write what you have to disk, continue from the checkpoint. Full rules: `agents/shared/CONTEXT_BUDGET.md`; your tier: `MODEL_ADAPTER.md`.

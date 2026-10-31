@@ -85,28 +85,6 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
-## Context Budget (MANDATORY for local models)
-
-Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
-
-- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
-- **60k context (medium):** max 8 files; check budget at each phase boundary
-- **100k+ (cloud):** standard operation; write to disk after every major output block
-
-If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
-
-## Research tools (available, optional)
-
-Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
-
-- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
-- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
-- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
-
-Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
-
-**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
-
 ## Vision check (before Mode 1 or Mode 3)
 
 The critique leg of this loop is vision-first — the sanctioned exception to the repo's
@@ -114,30 +92,6 @@ snapshot-first doctrine. If your model cannot see images: run only the determini
 `references/ai-design-tells.md` rules, and accessibility-snapshot checks, head every output with
 `**Method: token-lint only — visual critique not performed (no vision)**`, and lower confidence.
 Never describe a screenshot you cannot see — that is confabulation, not critique.
-
-## Progress Announcements (Mandatory)
-
-At the **start** of every phase or mode, print exactly:
-```
-▶ Phase N: [phase name]...
-```
-At the **end** of every phase or mode, print exactly:
-```
-✓ Phase N complete: [one sentence — what was found or done]
-```
-
-This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
-
-## How You Execute — Micro-Steps
-
-Work in micro-steps — one unit at a time, never the whole thing at once:
-1. Pick ONE target: one screen at one viewport
-2. Apply ONE type of analysis to it (token-lint, or visual critique — not all at once)
-3. Write findings to `docs/design/ITERATION_LOG.md` immediately via `write(filePath=..., content=...)` — do not accumulate in memory
-4. Verify what you wrote via `read(filePath=...)` before moving to the next target
-
-Never critique two screens before logging findings from the first. Screenshots on disk and findings
-in the log ARE your memory between iterations.
 
 ## Bounded Task Mode (SDLC Handoff)
 
@@ -202,6 +156,60 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] Residuals listed with reasons — never silently dropped
 
 ---
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+<!-- attest:full -->
+
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
+## Research tools (available, optional)
+
+Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
+
+- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
+- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
+- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
+
+Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
+
+## Progress Announcements (Mandatory)
+
+At the **start** of every phase or mode, print exactly:
+```
+▶ Phase N: [phase name]...
+```
+At the **end** of every phase or mode, print exactly:
+```
+✓ Phase N complete: [one sentence — what was found or done]
+```
+
+This is not optional. These lines are the only way the user can see you are alive and making progress. Without them, the session looks frozen.
+
+## How You Execute — Micro-Steps
+
+Work in micro-steps — one unit at a time, never the whole thing at once:
+1. Pick ONE target: one screen at one viewport
+2. Apply ONE type of analysis to it (token-lint, or visual critique — not all at once)
+3. Write findings to `docs/design/ITERATION_LOG.md` immediately via `write(filePath=..., content=...)` — do not accumulate in memory
+4. Verify what you wrote via `read(filePath=...)` before moving to the next target
+
+Never critique two screens before logging findings from the first. Screenshots on disk and findings
+in the log ARE your memory between iterations.
 
 ## Mode 1: Iterate (default)
 

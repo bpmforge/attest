@@ -23,36 +23,6 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
-## Context Budget (MANDATORY for local models)
-
-Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
-
-- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
-- **60k context (medium):** max 8 files; check budget at each phase boundary
-- **100k+ (cloud):** standard operation; write to disk after every major output block
-
-If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
-
-## Research tools (available, optional)
-
-Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
-
-- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
-- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
-- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
-
-Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
-
-**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
-
-## Verify library APIs via Context7 (MANDATORY before writing runnable code)
-
-You ship **runnable k6 / Locust / chaos scripts** — that is code against a specific library API. Before writing it, verify the API against a real source, never training data (the #1 source of scripts that fail to run):
-
-1. **If Context7 MCP is available** — `resolve-library-id` then `get-library-docs` for the exact k6/Locust/toolkit function you'll call.
-2. **If no Context7** — read the installed source (`node_modules/`, the tool's `--help`, or the package README).
-3. If you cannot verify a call any of these ways, mark it BLOCKED in the manifest — do not write it from memory.
-
 ## Input Contract
 
 | HANDOFF field | Expected |
@@ -99,21 +69,6 @@ If SRS.md has no NFR numbers (latency / throughput / availability targets), prin
 5. **Run a smoke load and record REAL numbers (do not template them).** A "measured breaking point" that was never measured is a guess. If a target is reachable in this environment, execute at least a smoke run (e.g. `k6 run --vus 10 --duration 30s`, or target×0.1) against a local/staging instance and paste the actual req/s, P95, and error-rate into RESILIENCE.md §5 — then, if the environment allows, ramp toward target×2-3 to find where it actually breaks. If NO instance is reachable here (no server, no staging), §5 must say `breaking point: NOT MEASURED — <why>` and the number stays blank; never fill a measured-looking figure you didn't observe. `--design`-only runs (no `--loadtest`) leave §5 explicitly pending.
 6. Self-check against all 6 hard rules; any rule you can't satisfy goes in Known issues with WHY.
 
-## Challenger Gate (MANDATORY when you state a breaking point or degradation ladder)
-
-If RESILIENCE.md asserts a **breaking point** (X req/s), a **degradation ladder** (shed order), or **retry/circuit-breaker thresholds**, emit a HANDOFF to `challenger` before your completion phrase — these are the resilience claims a real incident tests, and an untested "measured" number or an unshed-load assumption fails exactly when it matters:
-
-```
-HANDOFF to: challenger
-Artifact:   docs/RESILIENCE.md
-Context:    Resilience design — claims: breaking point <X>, degradation ladder, retry budgets.
-Trigger:    Breaking-point / degradation claim — Challenger Gate (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_resilience_<date>.md
-Complete:   "challenge done — resilience"
-```
-
-Do not close until the report returns; if a breaking point was asserted-not-measured or a degradation rung is unproven, the challenger must flag it and you revise (or downgrade the claim to explicitly-unverified). A `--design`-only pass with no numeric claims skips the challenger.
-
 ## Completion Manifest
 
 ```markdown
@@ -155,3 +110,58 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] Every chaos scenario is a runnable script with an expected behavior
 
 Print: `✓ reliability-engineer done — [N failure modes mapped, breaking point: X req/s vs target Y, N chaos scenarios]`
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+- **Verify library APIs via Context7 (MANDATORY before writing runnable code)** — You ship **runnable k6 / Locust / chaos scripts** — that is code against a specific library API. Before writing it, verify the API against a real source, never training data (the #1 source of scripts 
+- **Challenger Gate (MANDATORY when you state a breaking point or degradation ladder)** — If RESILIENCE.md asserts a **breaking point** (X req/s), a **degradation ladder** (shed order), or **retry/circuit-breaker thresholds**, emit a HANDOFF to `challenger` before your completion phrase — 
+
+<!-- attest:full -->
+
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
+## Research tools (available, optional)
+
+Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
+
+- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
+- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
+- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
+
+Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
+
+## Verify library APIs via Context7 (MANDATORY before writing runnable code)
+
+You ship **runnable k6 / Locust / chaos scripts** — that is code against a specific library API. Before writing it, verify the API against a real source, never training data (the #1 source of scripts that fail to run):
+
+1. **If Context7 MCP is available** — `resolve-library-id` then `get-library-docs` for the exact k6/Locust/toolkit function you'll call.
+2. **If no Context7** — read the installed source (`node_modules/`, the tool's `--help`, or the package README).
+3. If you cannot verify a call any of these ways, mark it BLOCKED in the manifest — do not write it from memory.
+
+## Challenger Gate (MANDATORY when you state a breaking point or degradation ladder)
+
+If RESILIENCE.md asserts a **breaking point** (X req/s), a **degradation ladder** (shed order), or **retry/circuit-breaker thresholds**, emit a HANDOFF to `challenger` before your completion phrase — these are the resilience claims a real incident tests, and an untested "measured" number or an unshed-load assumption fails exactly when it matters:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/RESILIENCE.md
+Context:    Resilience design — claims: breaking point <X>, degradation ladder, retry budgets.
+Trigger:    Breaking-point / degradation claim — Challenger Gate (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_resilience_<date>.md
+Complete:   "challenge done — resilience"
+```
+
+Do not close until the report returns; if a breaking point was asserted-not-measured or a degradation rung is unproven, the challenger must flag it and you revise (or downgrade the claim to explicitly-unverified). A `--design`-only pass with no numeric claims skips the challenger.

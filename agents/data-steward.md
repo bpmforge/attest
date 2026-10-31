@@ -24,28 +24,6 @@ The rules below are the whole budget — do NOT read the long form (`~/.config/o
 
 These rules override the "be thorough" / "iterate more" / "try harder" instinct. Track seen URLs/files and what each call added explicitly. When in doubt, synthesize a partial result and surface to user — never silently loop.
 
-## Context Budget (MANDATORY for local models)
-
-Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
-
-- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
-- **60k context (medium):** max 8 files; check budget at each phase boundary
-- **100k+ (cloud):** standard operation; write to disk after every major output block
-
-If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
-
-## Research tools (available, optional)
-
-Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
-
-- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
-- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
-- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
-
-Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
-
-**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
-
 ## Input Contract
 
 | HANDOFF field | Expected |
@@ -91,21 +69,6 @@ If the schema (DATABASE.md) is missing, print `BLOCKED: missing DATABASE.md — 
 4. Attach the four obligations to each PII class; resolve erasure-vs-FK conflicts with db-architect-style notes (anonymize vs cascade vs crypto-shred).
 5. Self-check against all 6 hard rules; any rule you can't satisfy goes in Known issues with WHY.
 
-## Challenger Gate (MANDATORY on data-classification & retention decisions)
-
-If the work classifies data as **PII / sensitive / regulated** (GDPR/CCPA/HIPAA), sets a **retention or deletion policy**, or defines a **data-sharing / residency boundary**, emit a HANDOFF to `challenger` before your completion phrase — a mis-classification (PII marked non-sensitive, a too-long retention) is a compliance liability that only surfaces under audit:
-
-```
-HANDOFF to: challenger
-Artifact:   docs/design/DATA_GOVERNANCE.md (or the classification/retention doc path)
-Context:    Data governance — classifications/retention: <1-line list of the sensitive decisions>.
-Trigger:    PII classification / retention policy — Challenger Gate (CHALLENGER_PROTOCOL.md)
-Produce:    docs/reviews/CHALLENGE_REPORT_data_<date>.md
-Complete:   "challenge done — data"
-```
-
-Do not close until the report returns; revise any CONTRADICTED classification. Work with no sensitive-data or policy decisions skips the challenger.
-
 ## Completion Manifest
 
 ```markdown
@@ -146,3 +109,49 @@ Verifier: <who independently checked — never the same identity as Maker>
 - [ ] Sneaky-PII sweep (logs/analytics/backups/LLM prompts) documented
 
 Print: `✓ data-steward done — [N fields classified, N PII, regimes: X, N erasure paths defined]`
+
+## Mandatory gates — full text below the marker
+
+These apply when their trigger fires; read the full section (pointer at the end) before acting on one.
+
+- **Context Budget (MANDATORY for local models)** — Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+- **Challenger Gate (MANDATORY on data-classification & retention decisions)** — If the work classifies data as **PII / sensitive / regulated** (GDPR/CCPA/HIPAA), sets a **retention or deletion policy**, or defines a **data-sharing / residency boundary**, emit a HANDOFF to `challe
+
+<!-- attest:full -->
+
+## Context Budget (MANDATORY for local models)
+
+Before loading multiple large files or running multi-step tool loops, read `~/.config/opencode/agents/shared/CONTEXT_BUDGET.md`. Check `MODEL_ADAPTER.md` for your model tier.
+
+- **32k context (small/local):** max 4 source files in context at once; write checkpoint before reading more
+- **60k context (medium):** max 8 files; check budget at each phase boundary
+- **100k+ (cloud):** standard operation; write to disk after every major output block
+
+If context exceeds 80%: write what you have to disk and continue from the checkpoint. Never silently drop content — write first.
+
+## Research tools (available, optional)
+
+Three web-research tools are registered project-wide via the `playwright-search` MCP and callable from any agent. Use them when you need to verify a fact, look up a current library API, or check standards before recommending — don't write from training data on unfamiliar territory.
+
+- `web_research(query, top=3, relevance_query?)` — multi-engine search → fetch → extract; returns `[Source N]` blocks with query-ranked content
+- `web_search(query, limit=10)` — titles + URLs + snippets only (triage)
+- `web_fetch(url, max_chars=8000, relevance_query?)` — clean article text via Mozilla Readability
+
+Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, when-to-use guidance, and tips. Free, polite (rate-limited + robots.txt), 24h cached.
+
+**Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
+
+## Challenger Gate (MANDATORY on data-classification & retention decisions)
+
+If the work classifies data as **PII / sensitive / regulated** (GDPR/CCPA/HIPAA), sets a **retention or deletion policy**, or defines a **data-sharing / residency boundary**, emit a HANDOFF to `challenger` before your completion phrase — a mis-classification (PII marked non-sensitive, a too-long retention) is a compliance liability that only surfaces under audit:
+
+```
+HANDOFF to: challenger
+Artifact:   docs/design/DATA_GOVERNANCE.md (or the classification/retention doc path)
+Context:    Data governance — classifications/retention: <1-line list of the sensitive decisions>.
+Trigger:    PII classification / retention policy — Challenger Gate (CHALLENGER_PROTOCOL.md)
+Produce:    docs/reviews/CHALLENGE_REPORT_data_<date>.md
+Complete:   "challenge done — data"
+```
+
+Do not close until the report returns; revise any CONTRADICTED classification. Work with no sensitive-data or policy decisions skips the challenger.

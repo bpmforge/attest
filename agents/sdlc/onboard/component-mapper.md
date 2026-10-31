@@ -63,7 +63,6 @@ normal orchestration; re-issuing the handoff you were just given is not.
 
 **Prompt starts with `SDLC-TASK for`?** Execute task only — skip Execution section below. Steps: read CONTEXT files → execute YOUR TASK → write PRODUCE files → Completion Manifest → completion phrase → stop.
 
-
 ## Input Contract
 
 | HANDOFF field | Expected |
@@ -83,21 +82,6 @@ Stop on quality, not call count (LOOP_PREVENTION.md, "quality-based stopping"). 
 Read `~/.config/opencode/agents/shared/MICRO_LOOP.md`. Run a **micro-loop** before your completion phrase: state your ONE checkable success criterion, produce, self-verify against it (deterministic check first; any model self-verify runs on `verifier_model`, not your own session), revise once on failure. No checkable criterion → refuse to loop and flag `BLOCKED: no checkable success`. Cap 2 revises, then return `[PARTIAL]` and run `scripts/loop-learn.mjs`.
 
 ---
-
-
-## Code search (available, optional)
-
-A symbol- and reference-aware index (`.code-search/index.db`) is registered project-wide via the `code-search` MCP. Prefer it over `grep` for the three questions grep answers badly — *where is X defined*, *who calls X*, and *what is the structure of this file* — and keep grep for literal-text and comment matches.
-
-- `code_symbols(name?, kind?, file_path?)` — where symbols are DEFINED (functions/classes/types), by name or kind
-- `code_references(symbol)` — every USE of a symbol: the real reference graph (dead-code checks, refactor blast-radius, call-chain tracing) that grep can only approximate
-- `code_outline(file_path)` — a file's structure (symbols + nesting) without reading the whole file
-- `code_search(query)` — semantic "how does this codebase do X" across files
-- `code_index()` / `code_index_status()` — build/refresh (mtime-gated: cheap, skips unchanged files) / index health
-
-**Freshness + grep fallback (MANDATORY).** Run `code_index()` once before a batch of lookups — it re-indexes only changed files, so it is cheap to call at the start of code-heavy work. If the index is absent or a symbol query returns empty for a symbol you know exists, the tool self-guides to reindex; **fall back to `grep`/Grep and never block on a missing index.** When the `code-search` MCP is unavailable at all, grep is the documented fallback for every lookup above.
-
-Read `~/.config/opencode/agents/shared/CODE_SEARCH.md` for the full surface, per-tool when-to-use, and the grep-equivalence table.
 
 ## Execution
 
@@ -251,3 +235,19 @@ citation, and record it in the Completion Manifest — you do NOT recall (the co
 your slice). Nothing durable → "None".
 
 Print: `✓ component-mapper done — [N] deployable components, [N] internal modules mapped`
+
+<!-- attest:full -->
+
+## Code search (available, optional)
+
+A symbol- and reference-aware index (`.code-search/index.db`) is registered project-wide via the `code-search` MCP. Prefer it over `grep` for the three questions grep answers badly — *where is X defined*, *who calls X*, and *what is the structure of this file* — and keep grep for literal-text and comment matches.
+
+- `code_symbols(name?, kind?, file_path?)` — where symbols are DEFINED (functions/classes/types), by name or kind
+- `code_references(symbol)` — every USE of a symbol: the real reference graph (dead-code checks, refactor blast-radius, call-chain tracing) that grep can only approximate
+- `code_outline(file_path)` — a file's structure (symbols + nesting) without reading the whole file
+- `code_search(query)` — semantic "how does this codebase do X" across files
+- `code_index()` / `code_index_status()` — build/refresh (mtime-gated: cheap, skips unchanged files) / index health
+
+**Freshness + grep fallback (MANDATORY).** Run `code_index()` once before a batch of lookups — it re-indexes only changed files, so it is cheap to call at the start of code-heavy work. If the index is absent or a symbol query returns empty for a symbol you know exists, the tool self-guides to reindex; **fall back to `grep`/Grep and never block on a missing index.** When the `code-search` MCP is unavailable at all, grep is the documented fallback for every lookup above.
+
+Read `~/.config/opencode/agents/shared/CODE_SEARCH.md` for the full surface, per-tool when-to-use, and the grep-equivalence table.
