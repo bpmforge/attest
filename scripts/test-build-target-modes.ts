@@ -131,8 +131,11 @@ function testAgentTargets(root: string, ok: OK, fail: FAIL): void {
   const probe = spawnSync("node", ["-e", `
     const fs=require('fs'),p=require('path');
     const walk=d=>fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p.join(d,e.name)):e.name.endsWith('.md')?[p.join(d,e.name)]:[]);
-    const n=walk('agents').filter(f=>/^disable:/m.test(fs.readFileSync(f,'utf8').split('\\n---')[0])).length;
-    console.log(n);`], { cwd: root, encoding: "utf8" });
+    const fm=f=>fs.readFileSync(f,'utf8').split('\\n---')[0];
+    const n=walk('agents').filter(f=>/^disable:/m.test(fm(f))).length;
+    // reference docs WITHOUT disable: (v1 sources, untouched) that the v2 emit must still disable: frontmatter under shared/ or metadata.type: protocol
+    const extra=walk('agents').filter(f=>{const h=fm(f);return h.startsWith('---\\n')&&!/^disable:/m.test(h)&&(f.split(p.sep).includes('shared')||/^\\s+type:\\s*protocol\\s*$/m.test(h));}).length;
+    console.log(n+' '+extra);`], { cwd: root, encoding: "utf8" });
   const real = fs.mkdtempSync(path.join(os.tmpdir(), "agents-v2-real-"));
   try {
     // Build the real tree into a scratch repo layout by symlinking agents/ (read-only use).
@@ -145,7 +148,8 @@ function testAgentTargets(root: string, ok: OK, fail: FAIL): void {
     const head = (f: string) => fs.readFileSync(f, "utf8").split("\n---")[0];
     const disabledN = outs.filter((f) => /^disabled:/m.test(head(f))).length;
     const leftover = outs.filter((f) => /^(disable|prompt|permission|maxSteps):/m.test(head(f)));
-    check(`real tree under v2: ${probe.stdout.trim()} source docs with disable: -> ${disabledN} disabled:, 0 v1 keys left`, b.status === 0 && disabledN === Number(probe.stdout.trim()) && disabledN > 0 && leftover.length === 0, `${b.stderr}${leftover.slice(0, 3).join(",")}`);
+    const [srcDisable, injected] = probe.stdout.trim().split(" ").map(Number);
+    check(`real tree under v2: ${srcDisable} source docs with disable: + ${injected} protocol docs without it (verified on opencode 2.2.5: they registered as agents) -> ${disabledN} disabled:, 0 v1 keys left`, b.status === 0 && disabledN === srcDisable + injected && injected > 0 && disabledN > 0 && leftover.length === 0, `${b.stderr}${leftover.slice(0, 3).join(",")}`);
   } finally {
     fs.rmSync(real, { recursive: true, force: true });
   }
