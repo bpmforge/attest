@@ -95,7 +95,12 @@ CFG="$DIR/opencode.json"
 if [ -f "$CFG" ]; then
   ok "opencode.json present"
   if command -v jq >/dev/null 2>&1; then
-    jq -e '.mcp.context7' "$CFG" >/dev/null 2>&1 && ok "context7 MCP configured" || warn "context7 MCP not configured (library docs lookup degraded)"
+    if [ "$OC_MAJOR" = "2" ]; then
+      jq -e '.mcp.servers.context7' "$CFG" >/dev/null 2>&1 && ok "context7 MCP configured (v2: mcp.servers)" || warn "context7 MCP not configured under mcp.servers (library docs lookup degraded) — re-run ./install.sh"
+      jq -e '(.mcp // {}) | to_entries | map(select(.key != "servers" and .key != "timeout" and (.value | type) == "object" and (.value | has("type")))) | length > 0' "$CFG" >/dev/null 2>&1 && warn "v1-shaped mcp.<name> entries found in a v2 config (OpenCode v2 ignores or rejects them) — re-run ./install.sh to rewrite them under mcp.servers"
+    else
+      jq -e '.mcp.context7' "$CFG" >/dev/null 2>&1 && ok "context7 MCP configured" || warn "context7 MCP not configured (library docs lookup degraded)"
+    fi
     # Output caps below ~4k tokens truncate any substantial reply; opencode
     # re-asks and the model regenerates from the top, so the TUI shows the same
     # message repeated (field capture 2026-10-21, eight copies). Name the model.
@@ -113,14 +118,16 @@ if [ -f "$CFG" ]; then
         | jq -r '(.sections.stream_health // [])[] | select(.failure_rate > 0.1 and .messages >= 10) | "\(.model) (\(.failed)/\(.messages) dropped)"' 2>/dev/null | tr '\n' ' ')
       [ -n "$flaky" ] && warn "unreliable model stream(s) in this project's telemetry: $flaky — replies will appear repeated in the TUI; route sdlc-lead/reviewer roles to a steadier model in models.json" || ok "no model stream above 10% failure in docs/work/telemetry.jsonl"
     fi
-    if jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
+    if [ "$OC_MAJOR" = "2" ]; then
+      if jq -e '(.permissions // []) | any(.action == "external_directory" and .effect == "allow")' "$CFG" >/dev/null 2>&1; then
+        ok "external_directory allow rule present in permissions[] (protocol reads work in opencode run)"
+      else
+        bad "no {action: external_directory, effect: allow} rule in permissions[] — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
+      fi
+    elif jq -e '.permission.external_directory' "$CFG" >/dev/null 2>&1; then
       ok "external_directory permission configured (protocol reads work in opencode run)"
     else
-      if [ "$OC_MAJOR" = "2" ]; then
-        warn "v1-style .permission.external_directory not found — expected under v2 (key renamed to permissions); verify non-interactive runs can read shared protocols"
-      else
-        bad "external_directory permission MISSING — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
-      fi
+      bad "external_directory permission MISSING — non-interactive runs cannot read shared protocols. Re-run ./install.sh"
     fi
   else
     grep -q "external_directory" "$CFG" && ok "external_directory permission appears configured" || bad "external_directory permission missing — re-run ./install.sh (with jq installed)"

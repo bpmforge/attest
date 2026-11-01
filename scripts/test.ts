@@ -37,6 +37,7 @@ import { testBootstrapChecklistRegressions } from "./test-bootstrap-checklist-re
 import { testOnboardGate } from "./test-onboard-gate.ts";
 import { testInstallVersion } from "./test-install-version.ts";
 import { testHookGuards } from "./test-hook-guards.ts";
+import { testPluginsV2Types } from "./test-plugins-v2-types.ts";
 import { testLoopAntiTamper } from "./test-loop-antitamper.ts";
 import { testTraceOrder } from "./test-trace-order.ts";
 import { testEditTasks } from "./test-edit-tasks.ts";
@@ -762,6 +763,9 @@ testInstallVersion(root, ok, fail);
 // Group K (ECC): config-protection + opt-in gateguard.
 console.log("\n[Pass 58] Hook guards — config-protection + gateguard");
 await testHookGuards(root, ok, fail);
+
+console.log("\n[Pass 58b] OpenCode v2 plugin shells — strict types vs @opencode/plugin 2.2.5 + fake-ctx behaviour");
+await testPluginsV2Types(root, ok, fail);
 
 // Group K3 (ECC loop-design-check): loop skills forbid moving the goalposts.
 console.log("\n[Pass 59] Loop anti-tamper — goal/autopilot/wave Boundaries");

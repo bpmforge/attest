@@ -242,8 +242,10 @@ async function testPluginLib(
     fs.rmSync(ctmp, { recursive: true, force: true });
   }
   const wireSrc = (f: string) => fs.readFileSync(path.join(root, f), "utf8");
-  check("compaction trigger is wired in both expert-hooks shells (message handler + session.compacted) and v1 binds client.session.summarize",
-    ["plugins/expert-hooks.ts", "plugins-v2/expert-hooks/index.ts"].every((f) => /createCompactionHandler/.test(wireSrc(f)) && /session\.compacted/.test(wireSrc(f)) && /compaction\.onAssistantMessage/.test(wireSrc(f))) && /session\.summarize/.test(wireSrc("plugins/expert-hooks.ts")) && /compaction\.keep\.tokens/.test(wireSrc("plugins-v2/expert-hooks/index.ts")));
+  check("compaction trigger is wired in both expert-hooks shells (message handler + compaction event); v1 binds client.session.summarize, v2 binds ctx.session.compact",
+    ["plugins/expert-hooks.ts", "plugins-v2/expert-hooks/index.ts"].every((f) => /createCompactionHandler/.test(wireSrc(f)) && /compaction\.onAssistantMessage/.test(wireSrc(f))) &&
+    /session\.compacted/.test(wireSrc("plugins/expert-hooks.ts")) && /session\.summarize/.test(wireSrc("plugins/expert-hooks.ts")) &&
+    /session\.compaction\.ended/.test(wireSrc("plugins-v2/expert-hooks/index.ts")) && /ctx\.session\.compact\(/.test(wireSrc("plugins-v2/expert-hooks/index.ts")) && /compaction\.keep\.tokens/.test(wireSrc("plugins-v2/expert-hooks/index.ts")));
 
   // tool-output truncation: head / tail / omission marker
   const big = "H".repeat(650) + "M".repeat(98_000) + "T".repeat(350);
@@ -393,14 +395,14 @@ async function testPluginLib(
     const src = fs.readFileSync(path.join(root, f), "utf8");
     let parsed = true;
     try {
-      // The v2 package is not installed, so these cannot be imported or type-checked here; stripping types proves they parse.
+      // Type-checking against the real v2 package is scripts/test-plugins-v2-types.ts; stripping types here proves they parse under node.
       (nodeModule as any).stripTypeScriptTypes(src);
     } catch (e: any) { parsed = false; fail(`${f} is valid TypeScript`, String(e.message).slice(0, 200)); }
     if (parsed) check(`${f} parses and default-exports Plugin.define({ id, setup })`, /import \{ Plugin \} from "@opencode\/plugin"/.test(src) && /export default Plugin\.define\(\{\s*id: "attest\./.test(src) && /async setup\(ctx/.test(src));
   }
-  check("v2 expert-hooks wires tool hooks, session prompt hook, event subscription and tool.transform",
-    ["ctx.tool.hook(\"execute.before\"", "ctx.tool.hook(\"execute.after\"", "ctx.session.hook(\"prompt\"", "ctx.event.subscribe(", "ctx.tool.transform("].every((n) => fs.readFileSync(path.join(root, "plugins-v2/expert-hooks/index.ts"), "utf8").includes(n)));
-  check("v2 resume-anchor wires session context + compaction hooks", ["ctx.session.hook(\"context\"", "ctx.session.hook(\"compaction\""].every((n) => fs.readFileSync(path.join(root, "plugins-v2/resume-anchor/index.ts"), "utf8").includes(n)));
+  check("v2 expert-hooks wires tool hooks, event subscription and tool.transform",
+    ["ctx.tool.hook(\"execute.before\"", "ctx.tool.hook(\"execute.after\"", "ctx.event.subscribe(", "ctx.tool.transform("].every((n) => fs.readFileSync(path.join(root, "plugins-v2/expert-hooks/index.ts"), "utf8").includes(n)));
+  check("v2 resume-anchor wires session context + generate + compaction hooks", ["ctx.session.hook(\"context\"", "ctx.session.hook(\"generate\"", "ctx.session.hook(\"compaction\""].every((n) => fs.readFileSync(path.join(root, "plugins-v2/resume-anchor/index.ts"), "utf8").includes(n)));
   const libFiles = (function walk(d: string): string[] { return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])); })(path.join(root, "plugins/lib"));
   const leaks = libFiles.filter((f) => /@opencode(-ai)?\//.test(fs.readFileSync(f, "utf8").replace(/^\s*\/\/.*$/gm, "")));
   check("plugins/lib imports nothing from opencode (pure, shared by both majors)", leaks.length === 0);

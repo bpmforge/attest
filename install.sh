@@ -855,12 +855,28 @@ else
   CONFIG_FILE="$GLOBAL_DIR/opencode.json"
 fi
 
-if [ "$OPENCODE_MAJOR" = "2" ]; then
-  # WP-V1 step 6 — NOT done: the MCP/config entries below are still written in the v1 shape (`mcp.<name>`,
-  # `enabled`, `permission`). The exact v2 shapes (`mcp.servers`, `disabled`, `permissions` array,
-  # `compaction.keep.tokens`) are unverified here, so say so instead of guessing.
-  echo "  ⚠️  OpenCode v2: opencode.json is written with v1 keys — migrate it (https://opencode.ai/v2/docs/migrate-v1/) before relying on the MCP servers."
-fi
+# OpenCode v2 reads a different opencode.json shape (verified against @opencode/schema 2.2.5): `mcp.servers.<name>` with
+# `disabled` (not `enabled`), and a `permissions` ARRAY of {action, resource, effect} (not the v1 `permission` map).
+# The writers below keep emitting the v1 shape (so a v1 install is byte-identical); on v2, normalize_config_v2 rewrites
+# the file afterwards with scripts/lib/opencode-config-v2.jq — idempotent, user keys preserved, and the freshly written
+# v1-shaped entry wins so MCP path refreshes still land. Optional: ATTEST_COMPACTION_KEEP_TOKENS=<n> adds
+# `compaction.keep.tokens` (native v2 compaction knob; per-model, so no default is invented).
+normalize_config_v2() {
+  [ "$OPENCODE_MAJOR" = "2" ] || return 0
+  [ -f "$CONFIG_FILE" ] || return 0
+  if ! command -v jq &>/dev/null; then
+    echo "  ⚠️  OpenCode v2: jq missing — $CONFIG_FILE keeps v1 keys; install jq and re-run ./install.sh"
+    return 0
+  fi
+  local keep="null"
+  case "${ATTEST_COMPACTION_KEEP_TOKENS:-}" in ''|*[!0-9]*) ;; *) keep="$ATTEST_COMPACTION_KEEP_TOKENS" ;; esac
+  if jq --argjson keep "$keep" -f "$SCRIPT_DIR/scripts/lib/opencode-config-v2.jq" "$CONFIG_FILE" > "${CONFIG_FILE}.tmp"; then
+    mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
+  else
+    rm -f "${CONFIG_FILE}.tmp"
+    echo "  ⚠️  OpenCode v2: could not rewrite $CONFIG_FILE to v2 keys — see scripts/lib/opencode-config-v2.jq"
+  fi
+}
 
 # Merge Context7 MCP into existing opencode.json (or create if missing)
 if [ -f "$CONFIG_FILE" ]; then
@@ -927,6 +943,9 @@ elif [ -f "$CONFIG_FILE" ]; then
     echo '    "permission": { "external_directory": { "'"$PERM_PATTERN"'": "allow" } }'
   fi
 fi
+
+normalize_config_v2
+[ "$OPENCODE_MAJOR" = "2" ] && echo "  OpenCode v2: $CONFIG_FILE written with v2 keys (mcp.servers, permissions array)"
 
 echo ""
 
@@ -1571,6 +1590,9 @@ if [ "$INSTALL_PLAYWRIGHT_MCP" = true ]; then
 else
   echo "  Skipping playwright-mcp (--no-playwright-mcp set)"
 fi
+
+# OpenCode v2: the MCP registrations above were written v1-shaped; rewrite them (idempotent) to mcp.servers / permissions.
+normalize_config_v2
 
 echo ""
 # An install that built every MCP and registered none of them is not complete.

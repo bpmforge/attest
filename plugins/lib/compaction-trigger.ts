@@ -25,10 +25,12 @@
 //              experimental.session.compacting (resume-anchor.ts) still contributes the pointers. `experimental.session.compacting`
 //              itself is a compacting-TIME hook and cannot request one. If the call is missing or rejects, the directive
 //              message falls back to asking the model to run /compact.
-//   v2 shell — same request through `ctx.client?.session?.summarize` / `ctx.session?.summarize` when present (ASSUMPTION,
-//              unverified), else directive-only. Preferred v2 knob is native: opencode.json `compaction.keep.tokens`
-//              (docs/UNATTENDED_EXECUTION.md); this trigger stays as the fallback.
-// A `session.compacted` event (v1; assumed in v2) tells the trigger a compaction happened: noteCompaction() resets the gap.
+//   v2 shell — VERIFIED (@opencode/plugin 2.2.5): ctx has no `client`; the request is `ctx.session.compact({ sessionID })`
+//              (SessionCompactInput = { sessionID, id?, delivery?: 'steer'|'queue' }); a rejection degrades to the directive.
+//              Preferred v2 knob is native: opencode.json `compaction.keep.tokens` (docs/UNATTENDED_EXECUTION.md);
+//              this trigger stays as the fallback.
+// A compaction event tells the trigger a compaction happened: noteCompaction() resets the gap. v1: `session.compacted`;
+// v2 (verified): `session.compaction.ended` { sessionID, reason: 'auto'|'manual', text }.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { logTelemetry } from "./telemetry.ts";
