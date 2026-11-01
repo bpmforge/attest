@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [3.15.1] — Unreleased
+## [3.15.1] — 2026-11-01
 
 ### Fixed
 - **OpenCode v2 contracts verified against `@opencode/plugin` 2.2.5** (and a real `opencode` 2.2.5 binary); every `ASSUMPTION` in the v2 shells is replaced by the verified fact. `plugins-v2/expert-hooks` and `plugins-v2/resume-anchor` are rewritten: one-event hooks (`execute.before` / `execute.after`, no `(input, output)`), tool-result truncation on `result.content`, an event feed from `session.step.started|ended|failed` and `session.text.ended` (carrying `tokens.cache.read`, so telemetry rows now report cached tokens), compaction requested through `ctx.session.compact`, the resume anchor injected as a `SystemPart` on `context` / `generate` / `compaction`, and the project root taken from `ctx.location.directory`. `session.usage.updated` is ephemeral with no message id and `session.message.content.updated` is replay-only, so neither can drive the turn cap, stall guard or telemetry.
