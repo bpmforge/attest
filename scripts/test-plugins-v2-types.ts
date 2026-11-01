@@ -95,9 +95,12 @@ export async function testPluginsV2Types(root: string, ok: Ok, fail: Fail): Prom
     const added: any[] = [];
     transformCb!({ add: (t: any) => added.push(t) });
     check("ctx.tool.transform registers all 17 shared tools with JSON-schema input", added.length === 17 && added.every((t) => t.name && t.input?.type === "object" && typeof t.execute === "function"), `n=${added.length}`);
+    check("every plugin tool is registered direct (options.codemode:false) — v2 hides tools without it behind Code Mode", added.every((t) => t.options?.codemode === false));
+    check("mutating/command tools declare a host permission action (bash/run -> shell, write/append/update -> edit)", added.find((t) => t.name === "bash")?.options.permission === "shell" && added.find((t) => t.name === "run")?.options.permission === "shell" && added.find((t) => t.name === "write")?.options.permission === "edit" && added.find((t) => t.name === "append")?.options.permission === "edit");
     const wr = added.find((t) => t.name === "write");
     const f = path.join(tmp, "sub", "w.txt");
-    const wres = await wr.execute({ filePath: f, content: "hi" }, { signal: new AbortController().signal, progress: async () => {} });
+    const progressed: any[] = [];
+    const wres = await wr.execute({ filePath: f, content: "hi" }, { signal: new AbortController().signal, progress: async (m: any) => { progressed.push(m); } });
     check("a registered tool runs and returns Tool.Result { content: string }", typeof wres.content === "string" && fs.readFileSync(f, "utf8") === "hi", JSON.stringify(wres));
 
     // guards (throw)
@@ -109,10 +112,21 @@ export async function testPluginsV2Types(root: string, ok: Ok, fail: Fail): Prom
     try { await before("write", { filePath: path.join(tmp, ".env"), content: "A=1" }); } catch (e) { blocked = String((e as Error).message); }
     check("execute.before blocks a write to .env", /BLOCKED|\.env/.test(blocked), blocked);
 
+    // v2 built-ins: tool `shell` (not bash) and argument `path` (not filePath) — verified on the real binary
+    blocked = "";
+    try { await before("shell", { command: "git push --force origin main" }); } catch (e) { blocked = String((e as Error).message); }
+    check("execute.before treats the v2 built-in `shell` tool like bash (dangerous command blocked)", /BLOCKED/.test(blocked), blocked);
+    blocked = "";
+    try { await before("edit", { path: path.join(tmp, ".env"), oldString: "a", newString: "b" }); } catch (e) { blocked = String((e as Error).message); }
+    check("execute.before reads the v2 `path` argument (write to .env via edit blocked)", /BLOCKED|\.env/.test(blocked), blocked);
+
     // truncation
     const ev: any = { tool: "read", sessionID: "s1", agent: "a", messageID: "m", id: "c", input: { filePath: "/x" }, status: "completed", result: { content: "y".repeat(4000) } };
     await toolHooks["execute.after"](ev);
     check("execute.after truncates string result.content and annotates metadata", ev.result.content.length < 1500 && ev.result.content.includes("omitted by expert-hooks") && ev.result.metadata.truncatedBy === "expert-hooks");
+    const evShell: any = { tool: "shell", sessionID: "s1", agent: "a", messageID: "m", id: "c", input: { command: "ls" }, status: "completed", result: { content: [{ type: "text", text: "q".repeat(4000) }] } };
+    await toolHooks["execute.after"](evShell);
+    check("execute.after truncates text-part content of the v2 `shell` tool", Array.isArray(evShell.result.content) && evShell.result.content[0].text.includes("omitted by expert-hooks"));
     const ev3: any = { tool: "read", sessionID: "s1", agent: "a", messageID: "m", id: "c", input: {}, status: "error", error: { message: "nope" } };
     await toolHooks["execute.after"](ev3);
     check("execute.after leaves a failed call alone", ev3.error.message === "nope");

@@ -27,13 +27,14 @@ import { createStallGuard, stallAbortDecision } from "../../plugins/lib/stall-gu
 import { createCompactionHandler, createCompactionTrigger, createThresholdResolver } from "../../plugins/lib/compaction-trigger.ts";
 import { WRITE_TOOLS, createTurnCounter, parseMaxTurns, turnCapMessage } from "../../plugins/lib/turn-cap.ts";
 import { parseToolOutputMax, toolResultText, truncateToolResultContent } from "../../plugins/lib/tool-output.ts";
+import { canonicalArgs, canonicalTool, v2ToolOptions } from "../../plugins/lib/v2-tools.ts";
 import { createStepAdapter, type V2StepEnded, type V2StepFailed, type V2StepStarted } from "../../plugins/lib/v2-events.ts";
 
 const MAX_TURNS = parseMaxTurns(process.env);
 const TOOL_OUTPUT_MAX = parseToolOutputMax(process.env);
 
-/** Tool-call arguments as the shared guards expect them (`filePath` / `file_path` / `command`). */
-const argsOf = (input: unknown): Record<string, any> => (input && typeof input === "object" ? (input as Record<string, any>) : {});
+// v2 built-ins are `shell` (v1: bash) and take `path` (v1: filePath); plugins/lib/v2-tools.ts maps both so every shared guard,
+// the turn-cap ledger exemption, truncation and the post-edit checks see the names and arguments they were written against.
 
 export default Plugin.define({
   id: "attest.expert-hooks",
@@ -60,19 +61,21 @@ export default Plugin.define({
 
     // v1 tool.execute.before -> execute.before. Guards throw (the root export has no Tool.Error to construct).
     const beforeReg = await ctx.tool.hook("execute.before", (ev) => {
-      const args = argsOf(ev.input);
+      const tool = canonicalTool(ev.tool);
+      const args = canonicalArgs(ev.input);
       const filePath = args.filePath ?? args.file_path ?? "";
-      const stallMsg = stallAbortDecision({ aborted: stall.isAborted(ev.sessionID), turns: stall.turns(ev.sessionID), tool: ev.tool, filePath });
+      const stallMsg = stallAbortDecision({ aborted: stall.isAborted(ev.sessionID), turns: stall.turns(ev.sessionID), tool, filePath });
       if (stallMsg) throw new Error(stallMsg);
-      beforeToolCheck({ tool: ev.tool, sessionID: ev.sessionID, args, gated, turns: turns.get(ev.sessionID), maxTurns: MAX_TURNS });
+      beforeToolCheck({ tool, sessionID: ev.sessionID, args, gated, turns: turns.get(ev.sessionID), maxTurns: MAX_TURNS });
     });
 
     // v1 tool.execute.after -> execute.after. Truncate the model-visible `result.content` (completed calls only).
     const afterReg = await ctx.tool.hook("execute.after", async (ev) => {
-      if (WRITE_TOOLS.has(ev.tool) && ev.status === "completed") stall.noteWrite(ev.sessionID);
-      const args = argsOf(ev.input);
+      const tool = canonicalTool(ev.tool);
+      if (WRITE_TOOLS.has(tool) && ev.status === "completed") stall.noteWrite(ev.sessionID);
+      const args = canonicalArgs(ev.input);
       if (ev.status === "completed") {
-        const cut = truncateToolResultContent(ev.tool, ev.result.content, TOOL_OUTPUT_MAX);
+        const cut = truncateToolResultContent(tool, ev.result.content, TOOL_OUTPUT_MAX);
         if (cut) {
           ev.result = {
             ...ev.result,
@@ -83,7 +86,7 @@ export default Plugin.define({
       }
       // Trace + post-edit checks (format/lint/tsc/secret-scan) only for completed calls; a failed write changed nothing.
       if (ev.status !== "completed") return;
-      await afterTool({ tool: ev.tool, sessionID: ev.sessionID, callID: ev.id, args }, { output: toolResultText(ev.result) });
+      await afterTool({ tool, sessionID: ev.sessionID, callID: ev.id, args }, { output: toolResultText(ev.result) });
     });
 
     // v1 `event` hook -> a detached subscription loop. The stall guard's text and the telemetry/turn/compaction numbers come
@@ -132,16 +135,24 @@ export default Plugin.define({
     })();
 
     // v1 tool() helper is gone: register every shared tool in ONE transform. The callback is replayed, so it is synchronous and
-    // side-effect free. The shared tools read `context.directory` (the v1 ToolContext field); v2's Tool.Context has none, so
-    // it is supplied from ctx.location. Results are wrapped as Tool.Result `{ content }`.
+    // side-effect free. The shared tools read `context.directory` and call `context.metadata(...)` (v1 ToolContext); v2's
+    // Tool.Context has neither, so they are supplied from ctx.location and toolCtx.progress. Results are wrapped as
+    // Tool.Result `{ content }`. `options` (verified on the real binary): without `codemode: false` a plugin tool is hidden behind
+    // Code Mode and the model cannot call it by name; `permission` makes the host assert that action before the tool runs.
     const toolReg = await ctx.tool.transform((editor) => {
       for (const t of allTools) {
         editor.add({
           name: t.name,
           description: t.description,
           input: t.inputSchema,
+          options: v2ToolOptions(t.name),
           execute: async (input, toolCtx) => {
-            const out = await t.execute(input, { ...toolCtx, directory: root(), worktree: String(ctx.location.project.directory) });
+            const out = await t.execute(input, {
+              ...toolCtx,
+              directory: root(),
+              worktree: String(ctx.location.project.directory),
+              metadata: (m: Record<string, unknown>) => void toolCtx.progress(m).catch(() => undefined),
+            });
             return { content: typeof out === "string" ? out : JSON.stringify(out ?? "") };
           },
         });

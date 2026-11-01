@@ -142,6 +142,17 @@ function toV2Frontmatter(text) {
   }).join('\n');
   return fm + text.slice(end);
 }
+// Verified on a real opencode 2.2.5 (`opencode debug agents`): every .md under the agents dir is registered as an agent unless it
+// says `disabled: true`. Four protocol docs (agents/shared/ GATE_SCORING / PHASE_ROUTING / PRODUCT_SHAPE and agents/sdlc/PARALLEL_WAVE_PROTOCOL) carry
+// name/description/metadata frontmatter but no `disable:`, so they came out as bogus primary agents. The v1 sources stay untouched
+// (they are copied verbatim into attest-claude); the v2 EMIT marks any frontmatter-bearing doc under shared/ or with `metadata.type: protocol` disabled.
+function v2ReferenceDisabled(dest, text) {
+  if (!text.startsWith('---\n')) return text;
+  const end = text.indexOf('\n---', 4);
+  if (end === -1 || /^disabled:/m.test(text.slice(0, end))) return text;
+  if (!dest.split('/').includes('shared') && !/^\s+type:\s*protocol\s*$/m.test(text.slice(0, end))) return text;
+  return text.slice(0, end) + '\ndisabled: true' + text.slice(end);
+}
 // A v2 file must not mix: any leftover v1-only key means the transform missed it.
 const v1KeysIn = (text) => {
   if (!text.startsWith('---\n')) return [];
@@ -291,7 +302,7 @@ if (mode === '--build') {
   rmSync(FULL_DIR, { recursive: true, force: true });
   const emit = (dest, text) => {
     mkdirSync(join(dest, '..'), { recursive: true });
-    writeFileSync(dest, V2 ? toV2Frontmatter(text) : text);
+    writeFileSync(dest, V2 ? v2ReferenceDisabled(dest, toV2Frontmatter(text)) : text);
   };
   let cores = 0;
   let plain = 0;
