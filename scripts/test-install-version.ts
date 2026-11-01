@@ -115,9 +115,12 @@ function testOpencodeMajors(
     const v1 = ["run", "do it", "--dir", "/w", "--agent", "coder", "--model", "p/m"];
     check("opencode-cli: v1 argv is exactly today's (`run <prompt> --dir --agent [--model]`)", JSON.stringify(cli.opencodeRunArgs(1, a)) === JSON.stringify(v1) && JSON.stringify(cli.opencodeRunArgs(null, a)) === JSON.stringify(v1));
     check("opencode-cli: --agent/--model omitted when unset", JSON.stringify(cli.opencodeRunArgs(1, { prompt: "p", dir: "/w" })) === JSON.stringify(["run", "p", "--dir", "/w"]));
-    check("opencode-cli: v2 argv routes through the single V2_FLAGS table (assumed == v1 until verified)", JSON.stringify(cli.opencodeRunArgs(2, a)) === JSON.stringify(["run", "do it", cli.V2_FLAGS.dir, "/w", cli.V2_FLAGS.agent, "coder", cli.V2_FLAGS.model, "p/m"]));
+    const v2 = cli.opencodeRunSpec(2, a);
+    check("opencode-cli: v2 argv has NO --dir (verified 2.2.5): `run <prompt> --agent --model`, cwd = dir", JSON.stringify(v2.args) === JSON.stringify(["run", "do it", "--agent", "coder", "--model", "p/m"]) && v2.cwd === "/w" && !v2.args.includes("--dir"));
+    check("opencode-cli: v2 unattended adds --auto (v2 only); v1 unattended argv is unchanged", JSON.stringify(cli.opencodeRunSpec(2, { ...a, unattended: true }).args) === JSON.stringify(["run", "do it", "--agent", "coder", "--model", "p/m", "--auto"]) && JSON.stringify(cli.opencodeRunArgs(1, { ...a, unattended: true })) === JSON.stringify(v1));
+    check("opencode-cli: v1 spec has cwd undefined; no --format json is ever added", cli.opencodeRunSpec(1, a).cwd === undefined && !cli.opencodeRunSpec(2, { ...a, unattended: true }).args.includes("--format"));
     const src = (f: string) => fs.readFileSync(path.join(root, f), "utf8");
-    check("conductor + integration-review build `opencode run` argv ONLY via opencodeRunArgs()", /opencodeRunArgs\(OPENCODE_MAJOR/.test(src("scripts/conductor/conductor.mjs")) && /opencodeRunArgs\(OPENCODE_MAJOR/.test(src("scripts/conductor/integration-review.mjs")) && !/\['run', prompt/.test(src("scripts/conductor/conductor.mjs") + src("scripts/conductor/integration-review.mjs")));
+    check("conductor + integration-review build `opencode run` argv ONLY via opencodeRunSpec() and spawn with its cwd", /opencodeRunSpec\(OPENCODE_MAJOR[^)]*unattended: true/.test(src("scripts/conductor/conductor.mjs")) && /opencodeRunSpec\(OPENCODE_MAJOR[^)]*unattended: true/.test(src("scripts/conductor/integration-review.mjs")) && /cwd: spec\.cwd/.test(src("scripts/conductor/conductor.mjs") + src("scripts/conductor/integration-review.mjs")) && !/\['run', prompt/.test(src("scripts/conductor/conductor.mjs") + src("scripts/conductor/integration-review.mjs")));
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });
   }

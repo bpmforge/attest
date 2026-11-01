@@ -68,7 +68,7 @@ import { resolve, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
-import { detectOpencodeMajor, opencodeRunArgs } from '../lib/opencode-cli.mjs';
+import { detectOpencodeMajor, opencodeRunSpec } from '../lib/opencode-cli.mjs';
 import { isGroundedFailure, extractFailureReason, readVerdict } from '../lib/runtime-verdict.mjs';
 import { exhaustionReason, latestAttemptGaps, reviewFailureFeedback } from '../lib/attempt-outcome.mjs';
 import { containSessionGroup, isTimeout, CAN_CONTAIN_DESCENDANTS } from '../lib/session-containment.mjs';
@@ -756,14 +756,14 @@ async function runSession(prompt, wt, { agent = CODER_AGENT, model = CODER_MODEL
   for (let attempt = 1; ; attempt++) {
     log('session.start', { msg: `attempt ${attempt}`, wt, role, agent, model });
     if (DRY) return { out: '[dry-run] no session executed', code: 0 };
-    // NOTE: no `--auto` here. It is a TUI-only flag — `opencode run` accepts it
-    // silently and does nothing with it (verified 2026-07-30), so passing it
-    // bought false confidence that approvals were granted. Unattended runs get
-    // their permissions from opencode config (the agent's `permission` block),
-    // not from a flag; see the startup preflight below.
-    const runArgs = opencodeRunArgs(OPENCODE_MAJOR, { prompt, dir: wt, agent, model });
-    const res = spawnSync(OPENCODE_BIN, runArgs, {
-      cwd: wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
+    // v1: NO `--auto` — it is a TUI-only flag there; `opencode run` accepted it silently and did nothing
+    // (verified 2026-07-30). v1 unattended runs get permissions from opencode config (the agent's `permission`
+    // block); see the startup preflight below. v2 (verified 2.2.5): `opencode run --auto` is real and needed —
+    // v2 asks for permissions by default — so opencodeRunSpec adds it for v2 only. v2 also has no `--dir`:
+    // the spec's cwd is the worktree.
+    const spec = opencodeRunSpec(OPENCODE_MAJOR, { prompt, dir: wt, agent, model, unattended: true });
+    const res = spawnSync(OPENCODE_BIN, spec.args, {
+      cwd: spec.cwd ?? wt, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
       env: sessionEnv(),
       // Own process group, so a timeout can be contained as a TREE rather than
       // as one pid. See containSessionGroup().

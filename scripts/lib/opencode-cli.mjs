@@ -12,12 +12,14 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
- * ASSUMPTION — UNVERIFIED (WP-V1 step 0): the v2 `opencode run` flags are taken to
- * be the same as v1. The migration guide does not confirm them.
- * >>> verify on a real v2 install (WP-V1 step 0): `opencode run --help` <<<
- * If a flag was renamed, change it HERE and nowhere else.
+ * VERIFIED against OpenCode v2.2.5 (`opencode run --help`, 2026-11-01):
+ *   opencode run [flags] [<message...>]
+ *   --model/-m provider/model#variant, --agent <name>, --format default|json, --session/-s, --continue/-c,
+ *   --fork, --file/-f, --title, --thinking, --auto ("Auto-approve permissions that are not explicitly denied").
+ * There is NO `--dir` in v2: the project is the PROCESS CWD, so v2 callers must spawn with `cwd: spec.cwd`.
+ * If a flag is renamed again, change it HERE and nowhere else.
  */
-export const V2_FLAGS = { agent: '--agent', model: '--model', dir: '--dir' };
+export const V2_FLAGS = { agent: '--agent', model: '--model', auto: '--auto' };
 
 // v1: today's exact argv, unchanged.
 export const V1_FLAGS = { agent: '--agent', model: '--model', dir: '--dir' };
@@ -63,12 +65,31 @@ export function detectOpencodeMajor({ bin = 'opencode', spawn = true, env = proc
   return stampedOpencodeMajor(cfgDir);
 }
 
-/** argv for a non-interactive `opencode run`. v1: `run <prompt> --dir <d> --agent <a> [--model <m>]`. */
-export function opencodeRunArgs(major, { prompt, agent, model, dir } = {}) {
-  const f = major === 2 ? V2_FLAGS : V1_FLAGS;
+/**
+ * The ONE place an `opencode run` invocation is described: `{ args, cwd }`.
+ *  - v1 (and unknown/null major): `run <prompt> --dir <d> --agent <a> [--model <m>]`, cwd undefined (argv byte-identical to before).
+ *  - v2: `run <prompt> [--agent <a>] [--model <m>] [--auto]`, cwd = dir (v2 has no --dir; the process cwd IS the project).
+ * `unattended` adds `--auto` on v2 ONLY: v2 asks for permissions interactively by default, and a conductor /
+ * integration-review session has nobody to answer, so it would stall. `--auto` approves everything not explicitly
+ * denied by config, so deny rules in the agent/permission config still hold. (v1 had no such flag worth passing.)
+ * No `--format json`: callers read stdout as plain text (conductor greps it for limit errors; reviewers write a doc).
+ */
+export function opencodeRunSpec(major, { prompt, agent, model, dir, unattended = false } = {}) {
+  if (major === 2) {
+    const args = ['run', prompt];
+    if (agent) args.push(V2_FLAGS.agent, String(agent));
+    if (model) args.push(V2_FLAGS.model, String(model));
+    if (unattended) args.push(V2_FLAGS.auto);
+    return { args, cwd: dir ? String(dir) : undefined };
+  }
   const args = ['run', prompt];
-  if (dir) args.push(f.dir, String(dir));
-  if (agent) args.push(f.agent, String(agent));
-  if (model) args.push(f.model, String(model));
-  return args;
+  if (dir) args.push(V1_FLAGS.dir, String(dir));
+  if (agent) args.push(V1_FLAGS.agent, String(agent));
+  if (model) args.push(V1_FLAGS.model, String(model));
+  return { args, cwd: undefined };
+}
+
+/** argv only (see opencodeRunSpec). */
+export function opencodeRunArgs(major, opts = {}) {
+  return opencodeRunSpec(major, opts).args;
 }
