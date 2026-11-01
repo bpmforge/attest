@@ -28,5 +28,10 @@
     "evals:status": "node scripts/eval-status.mjs",
     "evals:compare:selftest": "node scripts/eval-compare.mjs --self-test",
     "telemetry:report": "node scripts/telemetry-report.mjs"
+  },
+  "devDependencies": {
+    "@opencode/plugin": "2.2.5",
+    "@types/node": "26.6.6",
+    "typescript": "5.9.3"
   }
 }

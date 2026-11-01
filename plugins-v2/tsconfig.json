@@ -1,0 +1,16 @@
+{
+  "//": "Type-checks the OpenCode v2 plugin shells against the REAL @opencode/plugin 2.2.5 types (scripts/test-plugins-v2-types.ts). Strict; do not loosen.",
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true,
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../plugins/lib/**/*.ts"]
+}
