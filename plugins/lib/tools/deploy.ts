@@ -19,7 +19,7 @@ const def = {
         const buildArgs = ["build", "-t", fullTag, args.path]
         
         if (args.env.length > 0) {
-          args.env.forEach((e) => buildArgs.push("--build-arg", e))
+          args.env.forEach((e: string) => buildArgs.push("--build-arg", e))
         }
         
         output += await runContainerCommand(toolName, buildArgs)
@@ -40,7 +40,7 @@ const def = {
           deployArgs.push("-d")
         }
         
-        args.env.forEach((e) => deployArgs.push("-e", e))
+        args.env.forEach((e: string) => deployArgs.push("-e", e))
         
         deployArgs.push("--name", args.image)
         deployArgs.push(fullTag)

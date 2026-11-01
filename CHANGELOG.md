@@ -2,6 +2,23 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.15.1] — Unreleased
+
+### Fixed
+- **OpenCode v2 contracts verified against `@opencode/plugin` 2.2.5** (and a real `opencode` 2.2.5 binary); every `ASSUMPTION` in the v2 shells is replaced by the verified fact. `plugins-v2/expert-hooks` and `plugins-v2/resume-anchor` are rewritten: one-event hooks (`execute.before` / `execute.after`, no `(input, output)`), tool-result truncation on `result.content`, an event feed from `session.step.started|ended|failed` and `session.text.ended` (carrying `tokens.cache.read`, so telemetry rows now report cached tokens), compaction requested through `ctx.session.compact`, the resume anchor injected as a `SystemPart` on `context` / `generate` / `compaction`, and the project root taken from `ctx.location.directory`. `session.usage.updated` is ephemeral with no message id and `session.message.content.updated` is replay-only, so neither can drive the turn cap, stall guard or telemetry.
+- **v2 tools were invisible and unguarded.** A tool added through `ctx.tool.transform` without `options.codemode: false` is hidden behind Code Mode, so the model could not call any of the 17 tools; they now register direct, with a host `permission` action (`shell` / `edit` / `read`). v2's built-in shell tool is `shell` (not `bash`) and its file argument is `path` (not `filePath`), so the dangerous-command, `.env`, config-protection and ledger-write guards never matched; both are now mapped (`plugins/lib/v2-tools.ts`).
+- **`opencode run` on v2 has no `--dir`**; `opencodeRunSpec()` returns `{ args, cwd }` and the conductor / integration review spawn with that `cwd`. Unattended v2 sessions add `--auto` (v2 asks for permissions by default). v1 argv is byte-identical.
+- **v2 agent set:** four protocol docs (`agents/shared/{GATE_SCORING,PHASE_ROUTING,PRODUCT_SHAPE}_PROTOCOL.md`, `agents/sdlc/PARALLEL_WAVE_PROTOCOL.md`) were registered as bogus primary agents because they carry no `disable:`; the v2 build now emits them `disabled: true`.
+- **v2 `opencode.json`:** `install.sh` rewrites the MCP and permission entries it writes to the v2 shape (`mcp.servers` with `disabled`, `permissions[]` with `shell` / `edit` / `subagent` actions; `compaction.keep.tokens` when `ATTEST_COMPACTION_KEEP_TOKENS` is set) via `scripts/lib/opencode-config-v2.jq`, and no longer warns that it is unverified; `doctor.sh` checks the v2 shapes.
+
+### Added
+- `scripts/test-plugins-v2-types.ts`: strict `tsc --noEmit` over `plugins-v2/**` and `plugins/lib/**` against the real v2 types (`plugins-v2/tsconfig.json`), plus fake-context behaviour tests for both shells. `@opencode/plugin` 2.2.5, `typescript` and `@types/node` are dev dependencies.
+- `plugins/lib/v2-events.ts` (v2 step events to the shared handlers' assistant-message shape) and `plugins/lib/v2-tools.ts`.
+
+### Changed
+- Implicit-`any` callbacks in `plugins/lib/tools/*` are typed (the v1 shells compile as before).
+- Still to verify on a Mac: a real-model smoke on each major and the LM Studio prefix-cache probe (`scripts/probe-prefix-cache.mjs`).
+
 ## [3.15.0] — 2026-10-31
 
 **Incremental scanning and token savings.** Audits stop re-walking an unchanged tree, and sessions that stall or outgrow their context are stopped by the harness. Measured motivation: 79.7M of 214M logged input tokens (37%) went to turns producing 20 or fewer output tokens. Plan: `docs/work/TOKEN_OPTIMIZATION_PLAN.md` section F.

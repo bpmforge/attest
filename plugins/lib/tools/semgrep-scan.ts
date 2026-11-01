@@ -48,7 +48,7 @@ const def = {
 
   async execute(args: any, context: any) {
     const paths = args.paths
-      ? args.paths.split(",").map((p) => p.trim())
+      ? args.paths.split(",").map((p: string) => p.trim())
       : [context.directory];
     const config = args.config ? `--config ${args.config}` : "";
 
@@ -80,11 +80,11 @@ const def = {
       let output = "";
       let errorOutput = "";
 
-      proc.stdout.on("data", (data) => {
+      proc.stdout.on("data", (data: Buffer | string) => {
         output += data.toString();
       });
 
-      proc.stderr.on("data", (data) => {
+      proc.stderr.on("data", (data: Buffer | string) => {
         errorOutput += data.toString();
       });
 
@@ -93,7 +93,7 @@ const def = {
         reject(new Error(`Command timed out after ${args.timeout}s`));
       }, args.timeout * 1000);
 
-      proc.on("close", (code) => {
+      proc.on("close", (code: number | null) => {
         clearTimeout(timer);
         if (code === 0 || code === 1) {
           // Semgrep returns 1 when findings found
@@ -105,7 +105,7 @@ const def = {
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on("error", (err: Error) => {
         clearTimeout(timer);
         reject(err);
       });

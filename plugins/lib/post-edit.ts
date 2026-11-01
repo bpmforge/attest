@@ -95,12 +95,18 @@ export async function secretScan(filePath: string, _ext: string, $: any) {
  * After-tool handler shared by both shells. `input` = {tool, sessionID, args}; `output` is mutated
  * (output.output truncated, output.metadata annotated) exactly as the v1 hook always did.
  */
-export function createAfterToolHandler(o: { $: any; toolOutputMax: number; env?: Record<string, string | undefined> }) {
+export function createAfterToolHandler(o: {
+  $: any;
+  toolOutputMax: number;
+  env?: Record<string, string | undefined>;
+  /** false = the shell already truncated (v2 truncates `result.content` itself); only trace + post-edit checks run. Default true. */
+  truncate?: boolean;
+}) {
   let traceSeq = 0;
   const env = o.env ?? process.env;
   return async function afterTool(input: any, output: any): Promise<void> {
     // Tool-result compression (TOKEN_OPTIMIZATION_PLAN D4 / backlog L14).
-    const cut = truncateToolOutput(input.tool, output?.output, o.toolOutputMax);
+    const cut = o.truncate === false ? null : truncateToolOutput(input.tool, output?.output, o.toolOutputMax);
     if (cut) {
       output.output = cut.text;
       output.metadata = { ...(output.metadata ?? {}), truncatedBy: "expert-hooks", originalLength: cut.originalLength };

@@ -98,12 +98,22 @@ the agent's own model, so both roles quietly become one and the review is
 theatre.
 
 **`opencode run` argv.** The conductor and `integration-review.mjs` never hand-assemble the
-command line: they call `opencodeRunArgs(major, {prompt, agent, model, dir})` from
-`scripts/lib/opencode-cli.mjs`. The major comes from the `OPENCODE_MAJOR` env override or from
-line 2 of the install stamp (`experts-version`: `opencode-major=N`); with neither it is treated
-as v1. v1 argv is `run <prompt> --dir <dir> --agent <agent> [--model <m>]`. v2 goes through one
-`V2_FLAGS` table that is **assumed** equal to v1 until step 0 of WP-V1 (`opencode run --help` on a
-real v2 install) confirms it. If a flag was renamed, that table is the only line to change.
+command line: they call `opencodeRunSpec(major, {prompt, agent, model, dir, unattended})` from
+`scripts/lib/opencode-cli.mjs`, which returns `{ args, cwd }`. The major comes from the `OPENCODE_MAJOR`
+env override or from line 2 of the install stamp (`experts-version`: `opencode-major=N`); with neither
+it is treated as v1.
+
+- **v1:** `run <prompt> --dir <dir> --agent <agent> [--model <m>]` (unchanged).
+- **v2 (verified against OpenCode 2.2.5 `opencode run --help`):** `run <prompt> --agent <agent> [--model <m>] --auto`.
+  **There is no `--dir` in v2** — the project is the process working directory, so the caller spawns with
+  `cwd: spec.cwd` (the worktree, or the repo root for integration review). `--model` is `provider/model#variant`.
+  **`--auto` is added for these unattended sessions:** v2 asks for permissions by default and nobody is there to answer,
+  so a session would stall on its first `shell`/`edit` ask. `--auto` approves only what config does not explicitly
+  deny, so `deny` rules in `permissions` still hold. (In v1 `--auto` is a TUI-only flag that `run` ignores, so the v1 argv is
+  unchanged.) `--format json` is not added: both callers read stdout as plain text.
+- **v2 compaction:** the native knobs are `compaction.buffer` (room kept free below the context window, `"20%"` compacts at
+  80% full) and `compaction.keep.tokens` in `opencode.json`; `install.sh` writes `keep.tokens` only when
+  `ATTEST_COMPACTION_KEEP_TOKENS=<n>` is set (it is per-model). The plugin's `EXPERTS_COMPACT_AT` trigger remains the fallback.
 
 ---
 

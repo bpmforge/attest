@@ -21,11 +21,11 @@ const def = {
       let output = "";
       let errorOutput = "";
 
-      proc.stdout.on("data", (data) => {
+      proc.stdout.on("data", (data: Buffer | string) => {
         output += data.toString();
       });
 
-      proc.stderr.on("data", (data) => {
+      proc.stderr.on("data", (data: Buffer | string) => {
         errorOutput += data.toString();
       });
 
@@ -34,7 +34,7 @@ const def = {
         reject(new Error(`Command timed out after ${args.timeout}s`));
       }, args.timeout * 1000);
 
-      proc.on("close", (code) => {
+      proc.on("close", (code: number | null) => {
         clearTimeout(timer);
         if (code === 0) {
           resolve(output || "All tests passed");
@@ -45,7 +45,7 @@ const def = {
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on("error", (err: Error) => {
         clearTimeout(timer);
         reject(err);
       });

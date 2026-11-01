@@ -53,7 +53,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { triggeredReviewers } from '../lib/review-triggers.mjs';
-import { detectOpencodeMajor, opencodeRunArgs } from '../lib/opencode-cli.mjs';
+import { detectOpencodeMajor, opencodeRunSpec } from '../lib/opencode-cli.mjs';
 import { readVerdict } from '../lib/runtime-verdict.mjs';
 import { loadModelsConfig, resolveRole } from '../lib/model-tiers.mjs';
 
@@ -329,9 +329,10 @@ Do NOT edit the implementation. Do NOT run git write commands. You are reviewing
   const runOne = ({ r, agent, doc, prompt, p }) => new Promise((done) => {
     log('integration.review.start', { reviewer: r, agent, model: REVIEWER_MODEL, doc, scope: p.mode });
     if (DRY) return done({ r, doc, present: false, approved: false, dry: true, mode: p.mode });
-    const runArgs = opencodeRunArgs(OPENCODE_MAJOR, { prompt, dir: ROOT, agent, model: REVIEWER_MODEL });
-    const res = spawnSync(OPENCODE_BIN, runArgs, {
-      cwd: ROOT, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
+    // v2: no --dir (cwd is the project) and --auto because reviewers run unattended (see opencode-cli.mjs).
+    const spec = opencodeRunSpec(OPENCODE_MAJOR, { prompt, dir: ROOT, agent, model: REVIEWER_MODEL, unattended: true });
+    const res = spawnSync(OPENCODE_BIN, spec.args, {
+      cwd: spec.cwd ?? ROOT, encoding: 'utf8', timeout: SESSION_MIN * 60_000, maxBuffer: 64 * 1024 * 1024,
     });
     const abs = resolve(ROOT, doc);
     const body = existsSync(abs) ? readFileSync(abs, 'utf8') : '';

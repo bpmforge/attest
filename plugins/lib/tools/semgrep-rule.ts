@@ -33,7 +33,7 @@ const def = {
     let cmd = `${engine} -e "${args.expression}" --lang=${args.language}`;
 
     if (args.paths) {
-      const paths = args.paths.split(",").map((p) => p.trim());
+      const paths = args.paths.split(",").map((p: string) => p.trim());
       cmd = `${cmd} ${paths.join(" ")}`;
     }
 
@@ -47,11 +47,11 @@ const def = {
       let output = "";
       let errorOutput = "";
 
-      proc.stdout.on("data", (data) => {
+      proc.stdout.on("data", (data: Buffer | string) => {
         output += data.toString();
       });
 
-      proc.stderr.on("data", (data) => {
+      proc.stderr.on("data", (data: Buffer | string) => {
         errorOutput += data.toString();
       });
 
@@ -60,7 +60,7 @@ const def = {
         reject(new Error(`Command timed out after ${args.timeout}s`));
       }, args.timeout * 1000);
 
-      proc.on("close", (code) => {
+      proc.on("close", (code: number | null) => {
         clearTimeout(timer);
         if (code === 0 || code === 1) {
           resolve(output || errorOutput || "No matches found");
@@ -71,7 +71,7 @@ const def = {
         }
       });
 
-      proc.on("error", (err) => {
+      proc.on("error", (err: Error) => {
         clearTimeout(timer);
         reject(err);
       });

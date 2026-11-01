@@ -31,3 +31,40 @@ export function truncateToolOutput(tool: string, text: unknown, max: number): { 
     originalLength: text.length,
   };
 }
+
+/**
+ * v2 `execute.after` (VERIFIED against the OpenCode v2 plugin package 2.2.5 types): the model-visible text is `result.content`,
+ * `string | ReadonlyArray<Content>` (Content = {type:'text',text} | {type:'file',uri,mime}), NOT `output.output`.
+ * Truncates a string content, or the concatenated text parts of an array (file parts are kept, after the text).
+ * Returns the replacement content + original length, or null when within budget / not compressible.
+ */
+export function truncateToolResultContent(
+  tool: string,
+  content: unknown,
+  max: number,
+): { content: string | Array<{ type: string; [k: string]: unknown }>; originalLength: number } | null {
+  if (typeof content === "string") {
+    const cut = truncateToolOutput(tool, content, max);
+    return cut ? { content: cut.text, originalLength: cut.originalLength } : null;
+  }
+  if (!Array.isArray(content)) return null;
+  const parts = content as Array<{ type: string; text?: string; [k: string]: unknown }>;
+  const texts = parts.filter((p) => p?.type === "text" && typeof p.text === "string");
+  if (!texts.length) return null;
+  const joined = texts.map((p) => p.text).join("\n");
+  const cut = truncateToolOutput(tool, joined, max);
+  if (!cut) return null;
+  const rest = parts.filter((p) => !(p?.type === "text" && typeof p.text === "string"));
+  return { content: [{ type: "text", text: cut.text }, ...rest], originalLength: cut.originalLength };
+}
+
+/** Plain text of a v2 Tool.Result (`content` string / text parts, else a string `output`) for tracing. */
+export function toolResultText(result: { content?: unknown; output?: unknown } | undefined): string | undefined {
+  const c = result?.content;
+  if (typeof c === "string") return c;
+  if (Array.isArray(c)) {
+    const t = c.filter((p: any) => p?.type === "text" && typeof p.text === "string").map((p: any) => p.text);
+    if (t.length) return t.join("\n");
+  }
+  return typeof result?.output === "string" ? result.output : undefined;
+}
