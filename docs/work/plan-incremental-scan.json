@@ -537,6 +537,158 @@
           "note": "merged to main 40950e8; CHANGELOG entry as [3.15.0] — Unreleased (3.14.x already shipped); suite 1274/2"
         }
       ]
+    },
+    {
+      "id": "M-T1-test-impact-map",
+      "kind": "module",
+      "title": "WP-T1: impact map + test ledger (scripts/test/map.mjs, ledger.mjs)",
+      "lane": "attest",
+      "owner": null,
+      "status": "ready",
+      "interface": "docs/work/TEST_IMPACT_PLAN.md",
+      "write_scope": [
+        "scripts/test/**",
+        "scripts/test-test-impact.ts",
+        "scripts/test.ts",
+        ".gitignore"
+      ],
+      "depends_on": [],
+      "acceptance": [
+        "scripts/test/map.mjs builds docs/work/test/map.json: per test file covers[] from static import resolution (TS/JS incl. path aliases, Python, Go, Rust), kind (unit|integration|e2e|smoke), uc[] from the UC-ID convention validate-tests-mapping.sh uses; uses the code-search index when present, regex fallback otherwise",
+        "Refresh is incremental (sha per test file) — unchanged test files are not re-parsed; --full rebuilds",
+        "scripts/test/ledger.mjs: last green full run {tree, sha, date, runners}, per-file last result + last_run, impact chain count; docs/work/test/ is git-ignored",
+        "scripts/test-test-impact.ts: fixture repos for node (vitest + jest), python, go, rust prove covers[] for a shared utility includes every transitive importer; registered in scripts/test.ts; npm test green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-T1-test-impact-map.md",
+      "nodes": []
+    },
+    {
+      "id": "M-T2-test-select",
+      "kind": "module",
+      "title": "WP-T2: selector with runner-native selection and the always/rolling/global-input policy",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/TEST_IMPACT_PLAN.md",
+      "write_scope": [
+        "scripts/test/**",
+        "scripts/test-test-impact.ts",
+        "scripts/validators/_lib_sdlc_config.sh",
+        "docs/SDLC_GUIDE.md"
+      ],
+      "depends_on": [
+        "M-T1-test-impact-map"
+      ],
+      "acceptance": [
+        "scripts/test/select.mjs --base/--head or ledger-derived range -> {scope, reason, tests[], skipped}; runner-native: vitest --changed/related, jest --changedSince/--findRelatedTests, playwright --only-changed, go list -deps reverse closure, cargo metadata crate closure, pytest-testmon when installed; map fallback otherwise",
+        "Union with test.always globs (default: tests mapped to P0 use cases), last-run failures/skips, covers intersecting the change, files not run for test.rolling_days (default 7)",
+        "Forced full: no/non-ancestor ledger, more than test.max_changed (400) files, any test.global_inputs change (lockfiles, manifests, runner configs, conftest, fixture/setup dirs, CI, .sdlc/sdlc.json), every 20th impact run, --full",
+        "_lib_sdlc_config.sh reads the test.* keys with defaults; selector tests cover each rule; npm test green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-T2-test-select.md",
+      "nodes": []
+    },
+    {
+      "id": "M-T3-validate-tests-scope",
+      "kind": "module",
+      "title": "WP-T3: validate-tests.sh --scope auto|impact|full and the callers (handoff gates, phase gate, coverage loop, conductor Round 3, integration review, release gate)",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/TEST_IMPACT_PLAN.md",
+      "write_scope": [
+        "scripts/validators/validate-tests.sh",
+        "scripts/validators/run-handoff-gates.sh",
+        "scripts/validators/validate-phase-gate.sh",
+        "scripts/validators/run-coverage-loop.sh",
+        "scripts/validators/validate-release-readiness.sh",
+        "scripts/validators/README.md",
+        "scripts/conductor/conductor.mjs",
+        "scripts/conductor/integration-review.mjs",
+        "scripts/conductor/README.md",
+        "scripts/test-validators-incremental.ts",
+        "scripts/test-conductor-suite.ts",
+        "scripts/test-integration-review.ts",
+        "docs/UNATTENDED_EXECUTION.md"
+      ],
+      "depends_on": [
+        "M-T2-test-select"
+      ],
+      "acceptance": [
+        "validate-tests.sh --scope auto|impact|full (default auto) runs only the selected files per runner (vitest/jest/playwright file args, go/cargo package args, pytest file args), keeps RUNTIME_tests_<date>.md and the JSON results contract, prints Scope: impact — <n> of <total> (<unaffected>, <always>, <rolling>); last full <date> @ <sha7>; a green --scope full updates the ledger",
+        "run-handoff-gates.sh --runtime runs validate-tests.sh at impact scope; validate-phase-gate.sh and run-coverage-loop.sh pass the scope through (iterations 2-3 impact)",
+        "conductor Round 3 default impact; --test-scope full flag; integration-review.mjs and validate-release-readiness.sh force full and refuse a release whose last full run is older than HEAD",
+        "Tests: a one-file change on the node fixture runs < 25% of its test files with the touching tests included; a lockfile change runs full; existing validator/conductor/integration suites green"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-T3-validate-tests-scope.md",
+      "nodes": []
+    },
+    {
+      "id": "M-T4-test-impact-agents",
+      "kind": "module",
+      "title": "WP-T4: agents write tests per changed function, declare covers, backlog Test: rows; fix-backlog validator reads the ledger",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/TEST_IMPACT_PLAN.md",
+      "write_scope": [
+        "agents/shared/blocks/test-impact.md",
+        "agents/shared/blocks/test-impact.compact.md",
+        "agents/test-engineer.md",
+        "agents/coding-agent.md",
+        "agents/sdlc-feature-mode.md",
+        "agents/sdlc-improve-mode.md",
+        "scripts/build-agents.mjs",
+        "scripts/validators/validate-fix-backlog-closed.sh",
+        "scripts/test-build-target-modes.ts",
+        "dist/**",
+        "skills/test-expert/SKILL.md"
+      ],
+      "depends_on": [
+        "M-T3-validate-tests-scope"
+      ],
+      "acceptance": [
+        "agents/shared/blocks/test-impact.md (<=1.5KB) registered in BLOCKS and included by test-engineer, coding-agent, sdlc-feature-mode, sdlc-improve-mode: the changed function is the unit; new tests declare covers (scripts/test/map.mjs --declare <test> <sources...>); the report lists changed functions covered / already covered (cite the test) / left",
+        "FIX_BACKLOG rows that need a test carry Test: <file>::<name> (new|existing); validate-fix-backlog-closed.sh closes a row only when that test passed in the ledger latest run",
+        "sdlc-feature-mode step-3 gate reads: impact selection + P0 always-set must pass; full at the integration review",
+        "npm run agents:check green for opencode-v1 and opencode-v2; agents:compact regenerated; test-build-target-modes fixture lists the new block"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-T4-test-impact-agents.md",
+      "nodes": []
+    },
+    {
+      "id": "M-T5-test-impact-targets",
+      "kind": "module",
+      "title": "WP-T5: Claude target + docs + telemetry for test scope",
+      "lane": "attest",
+      "owner": null,
+      "status": "blocked",
+      "interface": "docs/work/TEST_IMPACT_PLAN.md",
+      "write_scope": [
+        "scripts/build-target-claude.mjs",
+        "plugins/lib/telemetry.ts",
+        "scripts/telemetry-report.mjs",
+        "docs/SDLC_GUIDE.md",
+        "docs/UNATTENDED_EXECUTION.md",
+        "docs/work/TOKEN_OPTIMIZATION_PLAN.md",
+        "CHANGELOG.md",
+        "scripts/test-build-target-modes.ts"
+      ],
+      "depends_on": [
+        "M-T4-test-impact-agents"
+      ],
+      "acceptance": [
+        "build-target-claude.mjs COPY_FILES includes scripts/test/**; build:claude:check green against ../attest-claude after regeneration; the test-impact block appears in the generated agents",
+        "validate-tests.sh appends a telemetry row {source:tests, scope, selected, total, ms}; telemetry-report.mjs prints a Tests section (scope split, time saved vs last full)",
+        "SDLC_GUIDE, UNATTENDED_EXECUTION, TOKEN_OPTIMIZATION_PLAN section G and CHANGELOG [Unreleased] updated"
+      ],
+      "verify": "scripts/validators/run-handoff-gates.sh",
+      "manifest": "docs/reviews/MANIFEST_M-T5-test-impact-targets.md",
+      "nodes": []
     }
   ],
   "nodes": []
