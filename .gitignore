@@ -86,6 +86,10 @@ docs/work/realworld-runs/
 
 # scanner output (scripts/scan/collect.sh) — regenerated, never committed
 docs/work/scan/
+
+# test-impact map + ledger (scripts/test/map.mjs, ledger.mjs) — regenerated, never committed
+docs/work/test/
+
 # Eval-task fixture data (radio.log is task input, not a log file)
 !evals/edit-tasks/**/*.log
 
