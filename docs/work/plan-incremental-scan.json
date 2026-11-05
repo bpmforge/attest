@@ -596,7 +596,7 @@
       "title": "WP-T3: validate-tests.sh --scope auto|impact|full and the callers (handoff gates, phase gate, coverage loop, conductor Round 3, integration review, release gate)",
       "lane": "attest",
       "owner": null,
-      "status": "ready",
+      "status": "done",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "scripts/validators/validate-tests.sh",
@@ -632,7 +632,7 @@
       "title": "WP-T4: agents write tests per changed function, declare covers, backlog Test: rows; fix-backlog validator reads the ledger",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "agents/shared/blocks/test-impact.md",
@@ -645,7 +645,10 @@
         "scripts/validators/validate-fix-backlog-closed.sh",
         "scripts/test-build-target-modes.ts",
         "dist/**",
-        "skills/test-expert/SKILL.md"
+        "skills/test-expert/SKILL.md",
+        "scripts/test/**",
+        "scripts/test-test-impact.ts",
+        ".sdlc/**"
       ],
       "depends_on": [
         "M-T3-validate-tests-scope"
@@ -654,7 +657,8 @@
         "agents/shared/blocks/test-impact.md (<=1.5KB) registered in BLOCKS and included by test-engineer, coding-agent, sdlc-feature-mode, sdlc-improve-mode: the changed function is the unit; new tests declare covers (scripts/test/map.mjs --declare <test> <sources...>); the report lists changed functions covered / already covered (cite the test) / left",
         "FIX_BACKLOG rows that need a test carry Test: <file>::<name> (new|existing); validate-fix-backlog-closed.sh closes a row only when that test passed in the ledger latest run",
         "sdlc-feature-mode step-3 gate reads: impact selection + P0 always-set must pass; full at the integration review",
-        "npm run agents:check green for opencode-v1 and opencode-v2; agents:compact regenerated; test-build-target-modes fixture lists the new block"
+        "npm run agents:check green for opencode-v1 and opencode-v2; agents:compact regenerated; test-build-target-modes fixture lists the new block",
+        "Declared covers persist in a committed file (.sdlc/test-covers.json) merged by map.mjs build/refresh; repo-path string literals inside a test file count as covers (spawn-based harnesses select their targets)"
       ],
       "verify": "scripts/validators/run-handoff-gates.sh",
       "manifest": "docs/reviews/MANIFEST_M-T4-test-impact-agents.md",
