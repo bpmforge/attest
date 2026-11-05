@@ -100,6 +100,7 @@ import {
 } from "./test-gate-output-contract.ts";
 import { testConductorSuite } from "./test-conductor-suite.ts";
 import { testCollectIncremental } from "./test-collect-incremental.ts";
+import { testTestImpact } from "./test-test-impact.ts";
 import { testIntegrationReview } from "./test-integration-review.ts";
 import { testLocalOnlyGit } from "./test-local-only-git.ts";
 import {
@@ -815,6 +816,10 @@ await testCollectIncremental(root, ok, fail);
 // WP-A5 — integration-review watermark + delta re-review, release refuses Scope: delta.
 console.log("\n[Pass 55] integration review watermark and delta scope");
 await testIntegrationReview(root, ok, fail);
+
+// WP-T1/T2 — test impact map, ledger and selector (scripts/test/*.mjs), tmp git fixtures per stack.
+console.log("\n[Pass 56] test impact map, ledger and selector");
+await testTestImpact(root, ok, fail);
 
 // ---------------------------------------------------------------------------
 // Summary

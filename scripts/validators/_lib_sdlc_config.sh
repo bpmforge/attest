@@ -91,6 +91,44 @@ resolve_command() {
   fi
 }
 
+# sdlc_test_key <key> <default>  -- reads a test-impact key from .sdlc/sdlc.json and echoes it
+# (or <default> when the file or key is absent -- same absent-file behaviour as resolve_command).
+# <key> is always | rolling_days | max_changed | global_inputs (a leading "test." is accepted).
+# `test` is already the test COMMAND (a string), so the canonical spelling is a flat dotted key:
+#   "test.always": ["smoke/**", "**/auth*.test.*"], "test.rolling_days": 7,
+#   "test.max_changed": 400, "test.global_inputs": ["db/schema.sql"]
+# (a nested {"test": {"always": ...}} object is also read). Arrays are echoed as compact JSON.
+# Defaults are the callers' business: always unset = tests mapped to P0 use cases; rolling_days 7;
+# max_changed 400; global_inputs none (scripts/test/select.mjs applies the same defaults).
+sdlc_test_key() {
+  local key="${1#test.}"
+  local default="${2-}"
+  local root="${SDLC_ROOT:-${ROOT:-$PWD}}"
+  local cfg="$root/.sdlc/sdlc.json"
+  local val=""
+  if [[ -f "$cfg" ]]; then
+    if command -v jq >/dev/null 2>&1; then
+      val=$(jq -c --arg k "$key" '(.["test." + $k] // (if (.test | type) == "object" then .test[$k] else null end)) // empty
+        | if type == "string" then . else tojson end' "$cfg" 2>/dev/null || true)
+      # strings come back JSON-quoted through tojson only for non-strings; unquote plain strings
+      [[ "$val" == \"*\" ]] && val=$(jq -r . <<<"$val" 2>/dev/null || printf '%s' "$val")
+    elif command -v python3 >/dev/null 2>&1; then
+      val=$(python3 -c "
+import json, sys
+try:
+    c = json.load(open(sys.argv[1])); k = sys.argv[2]
+    v = c.get('test.' + k)
+    if v is None and isinstance(c.get('test'), dict): v = c['test'].get(k)
+    if v is None: sys.exit(0)
+    print(v if isinstance(v, str) else json.dumps(v, separators=(',', ':')))
+except Exception:
+    pass
+" "$cfg" "$key" 2>/dev/null || true)
+    fi
+  fi
+  if [[ -n "$val" && "$val" != "null" ]]; then printf '%s' "$val"; else printf '%s' "$default"; fi
+}
+
 # default_build <stack>
 default_build() {
   case "$1" in
