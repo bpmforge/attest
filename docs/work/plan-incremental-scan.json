@@ -544,7 +544,7 @@
       "title": "WP-T1: impact map + test ledger (scripts/test/map.mjs, ledger.mjs)",
       "lane": "attest",
       "owner": null,
-      "status": "ready",
+      "status": "done",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "scripts/test/**",
@@ -569,7 +569,7 @@
       "title": "WP-T2: selector with runner-native selection and the always/rolling/global-input policy",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "done",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "scripts/test/**",
@@ -596,7 +596,7 @@
       "title": "WP-T3: validate-tests.sh --scope auto|impact|full and the callers (handoff gates, phase gate, coverage loop, conductor Round 3, integration review, release gate)",
       "lane": "attest",
       "owner": null,
-      "status": "blocked",
+      "status": "ready",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "scripts/validators/validate-tests.sh",
