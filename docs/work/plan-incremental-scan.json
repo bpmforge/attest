@@ -670,7 +670,7 @@
       "title": "WP-T5: Claude target + docs + telemetry for test scope",
       "lane": "attest",
       "owner": null,
-      "status": "ready",
+      "status": "done",
       "interface": "docs/work/TEST_IMPACT_PLAN.md",
       "write_scope": [
         "scripts/build-target-claude.mjs",

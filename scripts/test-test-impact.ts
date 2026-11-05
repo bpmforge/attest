@@ -434,6 +434,65 @@ export async function testTestImpact(
     put(rs, "core/Cargo.toml", `${fs.readFileSync(path.join(rs, "core/Cargo.toml"), "utf8")}# x\n`);
     check(select(rs).out?.reason === "global-input:core/Cargo.toml", "test-select: rust — Cargo.toml change forces full");
 
+    // ---- WP-T6: validate-tests.sh telemetry rows + telemetry-report "Tests" section
+    const tl = mkfx("tel", {
+      "package.json": JSON.stringify({ name: "tel", type: "module", scripts: { test: "node --test" } }),
+      "src/a.mjs": "export const a = () => 1;\n", "src/b.mjs": "export const b = () => 2;\n",
+      "tests/a.test.mjs": "import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { a } from '../src/a.mjs';\ntest('a', () => assert.equal(a(), 1));\n",
+      "tests/b.test.mjs": "import { test } from 'node:test';\nimport assert from 'node:assert';\nimport { b } from '../src/b.mjs';\ntest('b', () => assert.equal(b(), 2));\n",
+    });
+    put(tl, ".gitignore", "node_modules/\ndocs/work/\ntest-results.json\n");
+    commit(tl, "ignore work dir");
+    const vt = path.join(root, "scripts/validators/validate-tests.sh");
+    const runVt = (a: string[], e: NodeJS.ProcessEnv = {}) => spawnSync("bash", [vt, tl, ...a], { env: { ...env, ...e }, encoding: "utf8", timeout: 120_000 });
+    const telRows = (): Obj[] => { try { return fs.readFileSync(path.join(tl, "docs/work/telemetry.jsonl"), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)); } catch { return []; } };
+    const rFull = runVt(["--scope", "full"]);
+    const rows1 = telRows().filter((r) => r.source === "tests");
+    check(rFull.status === 0 && rows1.length === 1 && rows1[0].scope === "full" && rows1[0].total === 2 && rows1[0].selected === 2 && Number.isInteger(rows1[0].ms) && rows1[0].ms >= 0 && /requested/.test(rows1[0].reason) && /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$/.test(rows1[0].ts) && Object.keys(rows1[0]).join() === "ts,source,scope,selected,total,ms,reason",
+      "test-telemetry: a full validate-tests run appends {ts, source:tests, scope:full, selected=total, ms, reason}", `${JSON.stringify(rows1)} ${rFull.stderr.slice(-300)}`);
+    put(tl, "src/a.mjs", "export const a = () => 1; // changed\n");
+    const rImp = runVt(["--scope", "impact"]);
+    const rows2 = telRows().filter((r) => r.source === "tests");
+    check(rImp.status === 0 && rows2.length === 2 && rows2[1].scope === "impact" && rows2[1].selected === 1 && rows2[1].total === 2,
+      "test-telemetry: an impact run records scope impact with selected < total", `${JSON.stringify(rows2)} ${rImp.stderr.slice(-300)}`);
+    put(tl, "tests/a.test.mjs", "import { test } from 'node:test';\ntest('a', () => { throw new Error('red'); });\n");
+    const rRed = runVt(["--scope", "impact"]);
+    check(rRed.status !== 0 && telRows().filter((r) => r.source === "tests").length === 3, "test-telemetry: a red run still records its row (the EXIT trap, not the happy path)", rRed.stderr.slice(-300));
+    const rOff = runVt(["--scope", "impact"], { EXPERTS_TELEMETRY: "0" });
+    check(telRows().filter((r) => r.source === "tests").length === 3 && rOff.stdout.length > 0, "test-telemetry: EXPERTS_TELEMETRY=0 writes no tests row");
+
+    const rep = path.join(root, "scripts/telemetry-report.mjs");
+    const tj = path.join(tmp, "tel-report.jsonl");
+    const mk = (scope: string, selected: number, total: number, ms: number, reason: string) => JSON.stringify({ ts: "2026-11-04T10:00:00Z", source: "tests", scope, selected, total, ms, reason });
+    fs.writeFileSync(tj, [mk("full", 100, 100, 100000, "no-ledger"), mk("full", 100, 100, 80000, "requested (--scope full)"), mk("impact", 10, 100, 10000, "impact"), mk("impact", 30, 100, 40000, "impact"), "not json", JSON.stringify({ source: "validator", validator: "x", gaps: 0, exit: 0 })].join("\n") + "\n");
+    const rj = spawnSync(process.execPath, [rep, tj, "--json"], { cwd: tmp, encoding: "utf8" });
+    let tsec: Obj = {};
+    try { tsec = JSON.parse(rj.stdout).sections.tests; } catch { /* reported below */ }
+    const imp = (tsec.by_scope ?? []).find((x: Obj) => x.scope === "impact") ?? {};
+    const ful = (tsec.by_scope ?? []).find((x: Obj) => x.scope === "full") ?? {};
+    check(tsec.runs === 4 && imp.runs === 2 && imp.selected === 40 && imp.total === 200 && imp.selected_ratio === 0.2 && imp.ms_mean === 25000 && ful.runs === 2 && ful.selected_ratio === 1 && tsec.mean_full_ms === 90000,
+      "telemetry-report: tests rows give runs by scope, selected/total ratio, wall time per scope, mean full run", JSON.stringify(tsec));
+    check(tsec.saved_ms_est === (90000 - 10000) + (90000 - 40000), "telemetry-report: time saved = sum over impact runs of (mean full run - run time)", String(tsec.saved_ms_est));
+    const rt = spawnSync(process.execPath, [rep, tj], { cwd: tmp, encoding: "utf8" });
+    check(/## Tests/.test(rt.stdout) && /estimated time saved by impact runs: 130\.0s/.test(rt.stdout) && /mean full run: 90\.0s/.test(rt.stdout) && /selected\/total/.test(rt.stdout),
+      "telemetry-report: text output has a Tests section with the saved-time estimate", rt.stdout.slice(0, 600));
+    fs.writeFileSync(tj, `${mk("impact", 1, 50, 2000, "impact")}\n`);
+    const ro = spawnSync(process.execPath, [rep, tj], { cwd: tmp, encoding: "utf8" });
+    check(/no full run logged/.test(ro.stdout) && JSON.parse(spawnSync(process.execPath, [rep, tj, "--json"], { cwd: tmp, encoding: "utf8" }).stdout).sections.tests.saved_ms_est === null,
+      "telemetry-report: impact-only data says time saved is not estimable (no invented baseline)", ro.stdout.slice(0, 400));
+    fs.writeFileSync(tj, JSON.stringify({ source: "validator", validator: "x", gaps: 0, exit: 0 }) + "\n");
+    check(!/## Tests/.test(spawnSync(process.execPath, [rep, tj], { cwd: tmp, encoding: "utf8" }).stdout), "telemetry-report: no tests rows, no Tests section");
+
+    // ---- installed copies are symlinks (attest-claude install.sh): main() must still run through one
+    const linkDir = path.join(tmp, "linked-test-tools");
+    fs.mkdirSync(linkDir, { recursive: true });
+    for (const f of fs.readdirSync(tdir).filter((n) => n.endsWith(".mjs"))) fs.symlinkSync(path.join(tdir, f), path.join(linkDir, f));
+    const viaLink = spawnSync(process.execPath, [path.join(linkDir, "select.mjs"), "--root", tl, "--full"], { env, encoding: "utf8", timeout: 90_000 });
+    let linkOut: Obj = {};
+    try { linkOut = JSON.parse(viaLink.stdout); } catch { /* reported below */ }
+    check(viaLink.status === 0 && linkOut.scope === "full" && Array.isArray(linkOut.selected),
+      "test-tools: select.mjs run through a symlink (installed copy) still executes main()", `${viaLink.status} ${viaLink.stdout.slice(0, 200)} ${viaLink.stderr.slice(0, 200)}`);
+
     // ---- the repo itself: docs/work/test/ is git-ignored
     check(spawnSync("git", ["check-ignore", "-q", "docs/work/test/map.json"], { cwd: root }).status === 0 && spawnSync("git", ["check-ignore", "-q", "docs/work/test/ledger.json"], { cwd: root }).status === 0, "test-impact: docs/work/test/ (map + ledger) is git-ignored in the repo");
   } catch (e) {

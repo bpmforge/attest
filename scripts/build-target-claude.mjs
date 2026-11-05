@@ -42,6 +42,12 @@ export const COPY_GLOBS = [
   // without these the skill's instruction resolves to a module-not-found. The
   // directory is self-contained — every import inside it is a lib/ sibling.
   ['scripts/lib', '.mjs'],
+  // Test-impact selection (TEST_IMPACT_PLAN.md): validate-tests.sh resolves
+  // `$(dirname "$0")/../test` and the agents call
+  // `node ~/.config/opencode/scripts/test/map.mjs declare ...` (PATHS rewrites that
+  // to ~/.claude/scripts/test/map.mjs; install.sh links this directory).
+  // Self-contained: every import inside it is a sibling.
+  ['scripts/test', '.mjs'],
 ];
 export const COPY_FILES = ['scripts/build-agents.mjs', 'scripts/run-plan.mjs', 'scripts/run-until-done.sh', 'scripts/fix-verify.mjs', 'scripts/mermaid-fix.mjs', 'scripts/telemetry-report.mjs', 'scripts/loop-learn.mjs', 'scripts/api-surface.mjs', 'scripts/stack-coherence.mjs', 'scripts/gen-status-report.mjs', 'scripts/verify-receipt.mjs', 'scripts/delegation-gate.mjs', 'scripts/delegation-metrics.mjs', 'scripts/review-packet.mjs'];
 

@@ -70,7 +70,24 @@ ROOT="$(detect_project_root "$ROOT_ARG")"
 TEST_TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../test" 2>/dev/null && pwd || true)"
 WORK="$(mktemp -d -t vtests.XXXXXX)"
 LOG=""
-trap 'rm -rf "$WORK"; rm -f "$GAP_FILE" "${LOG:-}"' EXIT
+# Telemetry (TEST_IMPACT_PLAN.md T6): one row per run once the scope is decided -- counts only, never output.
+# {ts, source:"tests", scope, selected, total, ms, reason} appended to <root>/docs/work/telemetry.jsonl
+# (same file and conventions as the validator rows in _lib.sh; EXPERTS_TELEMETRY=0 disables; never breaks the gate).
+TEL_ON="no"; TEL_N=0; TEL_TOTAL=0; TEL_REASON=""
+now_ms() { node -e 'process.stdout.write(String(Date.now()))' 2>/dev/null || printf '%s000' "$(date +%s)"; }
+TEL_T0="$(now_ms)"
+emit_tests_telemetry() {
+  [[ "$TEL_ON" == "yes" && "${EXPERTS_TELEMETRY:-1}" != "0" ]] || return 0
+  {
+    local ms=$(( $(now_ms) - TEL_T0 )) reason
+    reason="$(printf '%s' "$TEL_REASON" | tr -d '"\\' | tr -c '[:print:]' ' ' | cut -c1-120)"
+    mkdir -p "$ROOT/docs/work" &&
+    printf '{"ts":"%s","source":"tests","scope":"%s","selected":%d,"total":%d,"ms":%d,"reason":"%s"}\n' \
+      "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$SCOPE_EFF" "$TEL_N" "$TEL_TOTAL" "$ms" "$reason" \
+      >> "$ROOT/docs/work/telemetry.jsonl"
+  } 2>/dev/null || true
+}
+trap 'emit_tests_telemetry; rm -rf "$WORK"; rm -f "$GAP_FILE" "${LOG:-}"' EXIT
 STAMP="$WORK/run-start"; : > "$STAMP"
 
 SCOPE_EFF="full"      # what actually runs: impact | full
@@ -109,6 +126,7 @@ resolve_scope() {
       lf.date ? String(lf.date).slice(0, 10) : "none", lf.sha ? String(lf.sha).slice(0, 7) : "none", other ? "yes" : "no"].join("\t") + "\n");
   ' "$SEL_JSON")
   OTHER_RUNNERS="$other"
+  TEL_N="$n"; TEL_TOTAL="$total"; TEL_REASON="${force_reason:-$reason}"
   if [[ "$scope" == "impact" ]]; then
     SCOPE_EFF="impact"
     SCOPE_LINE="Scope: impact — ${n} of ${total} (${unaff} unaffected, ${always} always, ${rolling} rolling); last full ${lfdate} @ ${lfsha}"
@@ -328,6 +346,12 @@ fi
 
 resolve_scope
 printf '%s\n' "$SCOPE_LINE" >&2
+TEL_ON="yes"
+# a full run executes every test: selected = total (the selector reports its own pick, not what a full run ran)
+if [[ "$SCOPE_EFF" == "full" ]]; then
+  TEL_N="$TEL_TOTAL"
+  [[ -n "$TEL_REASON" ]] || TEL_REASON="${SCOPE_LINE#Scope: full — }"
+fi
 
 # Ledger: per-file results of this run (scripts/test/ledger.mjs). Failure to record never fails the run.
 record_ledger() { # <impact|full> <results.json>

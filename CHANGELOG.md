@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Test-impact selection (T1–T5).** Per ticket, run only the tests a change can break instead of the whole suite. `scripts/test/map.mjs` keeps a git-ignored impact map (`docs/work/test/map.json`: test file to the repo files it transitively imports, TS/JS, Python, Go, Rust; `.sdlc/test-covers.json` carries declared covers); `ledger.mjs` records the last green full run; `select.mjs` picks impact selection (vitest / jest / playwright / go / cargo / pytest-testmon native selectors ∪ the map ∪ the always, failed and rolling sets) and forces full when there is no usable ledger, a global input changed, too many files changed, 20 impact runs chained, or `--full`. `validate-tests.sh --scope auto|impact|full` (env `TEST_SCOPE`) and conductor `--test-scope` use it and print a `Scope:` line; the integration review always runs full and release needs a green full run on the release commit (`no-full-test-run` / `full-test-run-stale`). A shared `test-impact` block (test-engineer, coding-agent, sdlc-feature-mode, sdlc-improve-mode) makes the changed function the unit of test work, declares covers and adds `Test: <file>::<name>` rows that `validate-fix-backlog-closed.sh` closes only against the ledger. `build:claude` copies `scripts/test/**` to attest-claude, whose `install.sh` links it and whose `doctor.sh` checks it.
+- **Test telemetry (T6).** `validate-tests.sh` appends `{ts, source:"tests", scope, selected, total, ms, reason}` to `docs/work/telemetry.jsonl` (disable with `EXPERTS_TELEMETRY=0`); `telemetry-report.mjs` prints a `## Tests` section: runs by scope, selected/total, wall time per scope, and the estimated time saved against the mean full run.
+
+### Fixed
+- **`validate-tests.sh` aborted on a red suite.** Under `set -e` a failing test command ended the script before the gap, RUNTIME report, JSON envelope and ledger code ran; errexit is now off around the run in the impact, Playwright and generic paths.
+- **`scripts/test/*.mjs` did nothing when run through a symlink** (exit 0, no output), which is how attest-claude installs them; the entry-point check now compares real paths (`isMain` in `common.mjs`).
+
 ## [3.15.1] — 2026-11-01
 
 ### Fixed

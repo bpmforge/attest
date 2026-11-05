@@ -14,6 +14,8 @@
 //   run-plan  — per-node status/attempts/duration (estimates marked _est)
 //   evals     — per-agent-check pass/fail/duration
 //   validator — per-validator gaps/exit
+//   tests     — one row per validate-tests.sh run {scope: impact|full, selected, total, ms, reason}
+//               (WP-T6, TEST_IMPACT_PLAN.md) -> `## Tests` section
 //   stall     — sessions aborted by the harness stall guard (WP-X1) -> `## Stalls` section
 //
 // Not telemetry rows, read from disk when present (WP-A8) -> `## Scan & review scope` section:
@@ -125,6 +127,34 @@ if (valRows.length) {
   })).sort((a, b) => b.runs - a.runs);
 }
 
+// ── tests rows (WP-T6): impact vs full test runs ─────────────────────────
+// Rows: {source:"tests", scope, selected, total, ms, reason}. "Time saved" is an estimate: for every impact run,
+// the mean wall time of the full runs in the window minus that run's own wall time (floored at 0). Absent when no
+// full run was logged — there is nothing to compare against.
+const testRows = rows.filter((r) => r.source === 'tests');
+if (testRows.length) {
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const byScope = groupBy(testRows, (r) => (r.scope === 'impact' ? 'impact' : 'full'));
+  const fullRuns = byScope.full ?? [];
+  const meanFullMs = fullRuns.length ? Math.round(fullRuns.reduce((a, r) => a + num(r.ms), 0) / fullRuns.length) : null;
+  const perScope = ['impact', 'full'].filter((k) => byScope[k]?.length).map((k) => {
+    const g = byScope[k];
+    const sel = g.reduce((a, r) => a + num(r.selected), 0);
+    const tot = g.reduce((a, r) => a + num(r.total), 0);
+    const ms = stats(g.map((r) => num(r.ms)));
+    return {
+      scope: k, runs: g.length, selected: sel, total: tot,
+      selected_ratio: tot ? Number((sel / tot).toFixed(3)) : null,
+      ms_mean: Math.round(ms.sum / g.length), ms_p50: ms.p50, ms_p95: ms.p95, ms_total: ms.sum,
+    };
+  });
+  const impact = byScope.impact ?? [];
+  const savedMs = meanFullMs === null ? null : impact.reduce((a, r) => a + Math.max(0, meanFullMs - num(r.ms)), 0);
+  const escalations = Object.entries(groupBy(fullRuns.filter((r) => r.reason), (r) => String(r.reason).split(/[:(]/)[0].trim().slice(0, 40)))
+    .map(([reason, g]) => ({ reason, runs: g.length })).sort((a, b) => b.runs - a.runs).slice(0, 5);
+  report.sections.tests = { runs: testRows.length, by_scope: perScope, mean_full_ms: meanFullMs, saved_ms_est: savedMs, full_reasons: escalations };
+}
+
 // ── stall rows (WP-X1): sessions the harness stall guard aborted ─────────
 // Rows: {source:"stall", session, turns, tokens_in_wasted, reason}. "Turns saved" is an estimate: the turns an
 // un-guarded session would have kept spending, taken from the observed degenerate-run length (602-turn incident)
@@ -193,6 +223,17 @@ if (JSON_OUT) {
   table('run-plan nodes', report.sections.nodes);
   table('Eval agent checks', report.sections.evals);
   table('Validators', report.sections.validators);
+  const tr = report.sections.tests;
+  if (tr) {
+    console.log('## Tests');
+    const secs = (ms) => `${(ms / 1000).toFixed(1)}s`;
+    console.log(`runs: ${tr.runs} | ${tr.by_scope.map((x) => `${x.scope}=${x.runs}`).join(' ')}`
+      + (tr.mean_full_ms === null ? ' | no full run logged: time saved not estimable'
+        : ` | mean full run: ${secs(tr.mean_full_ms)} | estimated time saved by impact runs: ${secs(tr.saved_ms_est)}`));
+    console.table(tr.by_scope.map((x) => ({ scope: x.scope, runs: x.runs, 'selected/total': `${x.selected}/${x.total}`,
+      ratio: x.selected_ratio ?? '-', mean_s: secs(x.ms_mean), p95_s: secs(x.ms_p95), total_s: secs(x.ms_total) })));
+    if (tr.full_reasons.length) console.log(`full runs by reason: ${tr.full_reasons.map((x) => `${x.reason}=${x.runs}`).join(', ')}`);
+  }
   if (report.stall_summary) {
     console.log('## Stalls');
     console.log(`sessions aborted: ${report.stall_summary.sessions_aborted} | tokens_in at abort: ${report.stall_summary.tokens_in_at_abort} | turns saved (est, vs a ${602}-turn runaway): ${report.stall_summary.turns_saved_est} | tokens saved (est): ${report.stall_summary.tokens_saved_est}`);

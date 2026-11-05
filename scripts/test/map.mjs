@@ -19,8 +19,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, posix, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { MAP_REL, COVERS_REL, listFiles, parseArgs, readJson, sha256, writeJsonAtomic } from './common.mjs';
+import { MAP_REL, COVERS_REL, listFiles, parseArgs, readJson, sha256, writeJsonAtomic, isMain } from './common.mjs';
 import { langOf, makeResolver, parseSource } from './resolve.mjs';
 
 const pdn = (f) => (posix.dirname(f) === '.' ? '' : posix.dirname(f));
@@ -293,4 +292,4 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (isMain(import.meta.url)) main(process.argv.slice(2));

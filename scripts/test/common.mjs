@@ -5,8 +5,9 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join, posix, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 export const EXCLUDE_DIRS = new Set([
   'node_modules', 'vendor', '.git', 'dist', 'build', 'target', '.venv', 'venv', '__pycache__',
@@ -157,4 +158,11 @@ export function parseArgs(argv, { bool = [], multi = [] } = {}) {
     if (multi.includes(k)) (o[k] ??= []).push(v); else o[k] = v;
   }
   return o;
+}
+
+/** True when `moduleUrl` is the script node was started with. Compares real paths: the installed copies are
+ *  symlinks (~/.claude/scripts/test/select.mjs -> the checkout), and a plain argv[1] === import.meta.url check
+ *  silently skips main() for them (exit 0, no output). */
+export function isMain(moduleUrl) {
+  try { return !!process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(moduleUrl)); } catch { return false; }
 }

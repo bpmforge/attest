@@ -154,6 +154,12 @@ always runs `validate-tests.sh --scope full` (a green one refreshes the ledger),
 fails with `no-full-test-run` / `full-test-run-stale` unless the ledger's last full-run sha is
 HEAD, and the phase-5 gate always runs the full suite.
 
+`--test-scope` is passed to every ticket's Round 3 (`impact` and `auto` both let the selector escalate;
+`full` skips selection). A red impact run fails only the selected files: nothing is re-run, and the
+failing file stays in the *failed* set so the next impact run selects it again. Each run appends a
+`source:"tests"` row to `docs/work/telemetry.jsonl`; `node scripts/telemetry-report.mjs` shows the
+scope split and the estimated time saved.
+
 **Reviewers are triggered by the diff** (`--review-tier`, default `ticket`):
 
 | Reviewer | `ticket` tier (per ticket) fires when | `integration` tier (per branch) |

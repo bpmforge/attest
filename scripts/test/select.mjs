@@ -33,8 +33,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join, posix, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { LEDGER_REL, MAP_REL, dirtyFiles, git, globMatcher, listFiles, parseArgs, readJson, readTestConfig } from './common.mjs';
+import { LEDGER_REL, MAP_REL, dirtyFiles, git, globMatcher, listFiles, parseArgs, readJson, readTestConfig, isMain } from './common.mjs';
 import { MAX_CHAIN, failing, isAncestor, readLedger, rolling } from './ledger.mjs';
 import { refreshMap } from './map.mjs';
 
@@ -289,4 +288,4 @@ function main(argv) {
   } else process.stdout.write(`${JSON.stringify(res, null, 1)}\n`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (isMain(import.meta.url)) main(process.argv.slice(2));

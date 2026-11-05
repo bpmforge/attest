@@ -14,8 +14,7 @@
 
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-import { LEDGER_REL, MAP_REL, dirtyFiles, git, headSha, parseArgs, readJson, treeHash, writeJsonAtomic } from './common.mjs';
+import { LEDGER_REL, MAP_REL, dirtyFiles, git, headSha, parseArgs, readJson, treeHash, writeJsonAtomic, isMain } from './common.mjs';
 
 export const MAX_CHAIN = Number(process.env.TEST_MAX_CHAIN ?? 20);
 
@@ -116,4 +115,4 @@ function main(argv) {
   }
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main(process.argv.slice(2));
+if (isMain(import.meta.url)) main(process.argv.slice(2));
