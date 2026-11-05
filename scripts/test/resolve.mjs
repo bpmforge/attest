@@ -106,6 +106,19 @@ function parseRs(text) {
 const rawStrings = (lang, raw) => raw.map((r) => (typeof r === 'string' ? r : r.m ?? r.p ?? r.n ?? '')).filter(Boolean)
   .map((s) => (lang === 'rs' ? s.split('::')[0] : s));
 
+// String literals that look like repo paths ('scripts/x.mjs', `scripts/test/`): spawn-based harnesses name their
+// targets this way. Candidates only; map.mjs keeps the ones that resolve to an existing file or directory.
+export function pathLiterals(text) {
+  const out = new Set();
+  for (const m of text.matchAll(/(["'`])([^"'`\\\n$]{3,200})\1/g)) {
+    const v = m[2].trim();
+    if (!/^[\w@.\-/]+$/.test(v) || !(v.includes('/') || /\.\w+$/.test(v)) || /^\.+\/?$/.test(v)) continue;
+    out.add(v);
+    if (out.size >= 300) break;
+  }
+  return [...out].sort();
+}
+
 export function parseSource(lang, text) {
   const base = lang === 'js' ? parseJs(text) : lang === 'py' ? parsePy(text) : lang === 'go' ? parseGo(text) : parseRs(text);
   const uc = new Set();
@@ -115,6 +128,7 @@ export function parseSource(lang, text) {
   }
   return {
     ...base,
+    lits: pathLiterals(text),
     uc: [...uc].sort(),
     integ: rawStrings(lang, base.raw).some((s) => INTEG_MOD.test(s)) || INTEG_TXT.test(text),
   };

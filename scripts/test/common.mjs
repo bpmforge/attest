@@ -15,6 +15,7 @@ export const EXCLUDE_DIRS = new Set([
 ]);
 
 export const MAP_REL = 'docs/work/test/map.json';
+export const COVERS_REL = '.sdlc/test-covers.json';
 export const LEDGER_REL = 'docs/work/test/ledger.json';
 export const WORK_DIR_REL = 'docs/work/test/';
 

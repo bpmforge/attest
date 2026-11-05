@@ -9,17 +9,18 @@
 //
 // Usage:
 //   map.mjs build|refresh [--root .] [--full] [--out docs/work/test/map.json] [--index auto|off]
-//   map.mjs declare <test> <src...> [--root .]     (agents record covers when they write a test)
+//   map.mjs declare <test> <src...> [--root .]     (agents record covers when they write a test; persisted in
+//                                                   the committed .sdlc/test-covers.json and merged by every build/refresh)
 //   map.mjs show <test> [--root .]
 //
 // build and refresh are the same operation: incremental (mtime+size, then sha256, per file; only changed
-// files are re-parsed); --full discards the cache. The optional code-search index (.code-search/index.db)
+// files are re-parsed); string literals naming repo files/dirs inside a test count as covers; --full discards the cache. The optional code-search index (.code-search/index.db)
 // contributes extra import edges when it has a recognizable import table; regex resolution always runs.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { basename, join, posix, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { MAP_REL, listFiles, parseArgs, readJson, sha256, writeJsonAtomic } from './common.mjs';
+import { MAP_REL, COVERS_REL, listFiles, parseArgs, readJson, sha256, writeJsonAtomic } from './common.mjs';
 import { langOf, makeResolver, parseSource } from './resolve.mjs';
 
 const pdn = (f) => (posix.dirname(f) === '.' ? '' : posix.dirname(f));
@@ -98,10 +99,10 @@ export function refreshMap(rootIn, opts = {}) {
     const st = statSync(join(root, rel));
     const mt = `${st.mtimeMs}:${st.size}`;
     const pg = prevGraph[rel];
-    if (pg && pg.mt === mt) { graph[rel] = pg; stats.reused++; continue; }
+    if (pg && pg.mt === mt && pg.p && 'lits' in pg.p) { graph[rel] = pg; stats.reused++; continue; }
     const buf = readFileSync(join(root, rel));
     const sha = sha256(buf);
-    if (pg && pg.sha === sha) { graph[rel] = { ...pg, mt }; stats.reused++; continue; }
+    if (pg && pg.sha === sha && pg.p && 'lits' in pg.p) { graph[rel] = { ...pg, mt }; stats.reused++; continue; }
     graph[rel] = { sha, mt, p: parseSource(langOf(rel), buf.toString('utf8')) };
     stats.parsed++; stats.parsedFiles.push(rel);
   }
@@ -136,7 +137,8 @@ export function refreshMap(rootIn, opts = {}) {
   const discover = (rel, p) => {
     const lang = langOf(rel); const b = basename(rel); const d = pdn(rel);
     if (lang === 'js') {
-      const named = /\.(test|spec)\.[cm]?[jt]sx?$/.test(b);
+      // `test-<chapter>.ts` (hyphen prefix) is the script-style chapter convention some harnesses use
+      const named = /\.(test|spec)\.[cm]?[jt]sx?$/.test(b) || /^test-[\w.-]+\.[cm]?[jt]s$/.test(b);
       const inDir = /(^|\/)__tests__\//.test(rel) && !/(^|\/)__tests__\/(?:.*\/)?(fixtures?|helpers?|mocks?|__mocks__|__fixtures__|utils?|support)\//.test(rel) && !b.startsWith('_');
       if (!named && !inDir) return null;
       const spec = /\.spec\./.test(b);
@@ -174,11 +176,32 @@ export function refreshMap(rootIn, opts = {}) {
   };
 
   const prio = readUcPriority(root, files);
+  const committed = readCovers(root);
+  const dirFiles = (d) => files.filter((f) => f.startsWith(`${d}/`));
+  // repo files/dirs named by string literals in a test (spawned scripts, fixtures); dirs expand to non-test files
+  const literalTargets = (rel, p) => {
+    const hit = new Set();
+    for (const raw of p.lits ?? []) {
+      const lit = posix.normalize(raw.replace(/^\.\//, '')).replace(/\/+$/, '');
+      for (const cand of new Set([lit, pjoin(pdn(rel), lit)])) {
+        if (!cand || cand.startsWith('..') || cand === rel) continue;
+        if (fileSet.has(cand)) { hit.add(cand); break; }
+        const under = dirFiles(cand);
+        if (under.length) {
+          let n = 0;
+          for (const f of under) { if (f !== rel && !discover(f, graph[f]?.p)) { hit.add(f); if (++n >= 500) break; } }
+          break;
+        }
+      }
+    }
+    return [...hit];
+  };
   const tests = {};
   for (const [rel, g] of Object.entries(graph)) {
     const disc = discover(rel, g.p); if (!disc) continue;
     // transitive closure over import edges (+ conftest.py ancestors for pytest)
-    const seeds = [...(edgeOf.get(rel) ?? [])];
+    const lt = literalTargets(rel, g.p);
+    const seeds = [...(edgeOf.get(rel) ?? []), ...lt];
     if (disc.runner === 'pytest') for (const d of dirsUp(pdn(rel))) { const c = pjoin(d, 'conftest.py'); if (fileSet.has(c)) seeds.push(c); }
     const seen = new Set(); const stack = seeds;
     while (stack.length) {
@@ -187,7 +210,7 @@ export function refreshMap(rootIn, opts = {}) {
     }
     if (!disc.unit) seen.delete(rel); else seen.add(rel);
     const pt = prev?.tests?.[rel] ?? prevMap?.tests?.[rel];
-    const declared = pt?.declared ?? [];
+    const declared = [...new Set([...(pt?.declared ?? []), ...(committed[rel] ?? [])])].sort();
     for (const dcl of declared) seen.add(dcl);
     const ucs = new Set(g.p.uc ?? []);
     for (const m of rel.matchAll(/uc-(\d+)/gi)) ucs.add(`UC-${m[1]}`);
@@ -206,6 +229,10 @@ export function refreshMap(rootIn, opts = {}) {
     if (!tests[rel] && pt.declared_only && fileSet.has(rel)) tests[rel] = pt;
   }
 
+  for (const [rel, srcs] of Object.entries(committed)) {
+    if (!tests[rel] && fileSet.has(rel)) tests[rel] = { runner: 'unknown', project: '', kind: 'unit', uc: [], covers: [...srcs].sort(), sha: null, declared: [...srcs].sort(), declared_only: true };
+  }
+
   const stacks = [...new Set(Object.values(tests).map((t) => t.runner))].sort();
   const body = {
     version: 1,
@@ -219,7 +246,20 @@ export function refreshMap(rootIn, opts = {}) {
   return { map: changed ? body : prevMap, out: outRel, stats, wrote: changed, full: !!opts.full || !prev };
 }
 
+/** .sdlc/test-covers.json: { "<test file>": ["src", ...] } -- committed, so declarations survive clones. */
+export function readCovers(root) {
+  const j = readJson(resolve(root, COVERS_REL), null);
+  const out = {};
+  if (j && typeof j === 'object') for (const [k, v] of Object.entries(j)) if (Array.isArray(v)) out[k] = [...new Set(v.map(String))].sort();
+  return out;
+}
+
 export function declare(root, test, srcs, opts = {}) {
+  const relTest = test.replace(/^\.\//, '');
+  const cov = readCovers(root);
+  cov[relTest] = [...new Set([...(cov[relTest] ?? []), ...srcs.map((s) => s.replace(/^\.\//, ''))])].sort();
+  const sorted = Object.fromEntries(Object.keys(cov).sort().map((k) => [k, cov[k]]));
+  writeJsonAtomic(resolve(root, COVERS_REL), sorted);
   const r = refreshMap(root, opts);
   const outAbs = resolve(root, r.out);
   const m = readJson(outAbs);

@@ -141,9 +141,46 @@ export async function testTestImpact(
     check(readMap(nv).tests["tests/c.test.ts"].covers.includes("src/w.ts"), "test-impact: declared covers survive a refresh");
     check(node("map.mjs", ["declare", "--root", nv, "tests/c.test.ts"]).status === 2, "test-impact: declare without sources is a usage error");
     // remove the declaration again so the selection assertions below are exact
-    const mm = readMap(nv); delete mm.tests["tests/c.test.ts"].declared; fs.writeFileSync(path.join(nv, "docs/work/test/map.json"), JSON.stringify(mm));
+    // declarations are committed: .sdlc/test-covers.json, sorted and stable, and a fresh clone's build merges them
+    const covFile = path.join(nv, ".sdlc/test-covers.json");
+    node("map.mjs", ["declare", "--root", nv, "tests/a.test.ts", "src/other.ts", "src/b.ts"]);
+    node("map.mjs", ["declare", "--root", nv, "tests/a.test.ts", "src/b.ts"]);
+    const covJson = JSON.parse(fs.readFileSync(covFile, "utf8"));
+    check(JSON.stringify(covJson) === JSON.stringify({ "tests/a.test.ts": ["src/b.ts", "src/other.ts"], "tests/c.test.ts": ["src/w.ts"] }), "test-impact: declare writes the committed .sdlc/test-covers.json (sorted, de-duplicated, stable)", JSON.stringify(covJson));
+    commit(nv, "declare covers");
+    const clone = path.join(tmp, "nv-clone");
+    gitIn(tmp, "clone", "-q", nv, clone);
+    const rc = refresh(clone);
+    const mc = readMap(clone);
+    check(rc.status === 0 && covers(mc, "tests/c.test.ts").includes("src/w.ts") && covers(mc, "tests/a.test.ts").includes("src/other.ts") && mc.tests["tests/c.test.ts"].declared?.[0] === "src/w.ts", "test-impact: a fresh build of a clone (no map.json) picks the committed declarations up and keeps `declared`", rc.err + JSON.stringify(covers(mc, "tests/c.test.ts")));
+    // drop the declarations again so the selection assertions below are exact
+    fs.rmSync(covFile);
+    const mm = readMap(nv); delete mm.tests["tests/c.test.ts"].declared; delete mm.tests["tests/a.test.ts"].declared; fs.writeFileSync(path.join(nv, "docs/work/test/map.json"), JSON.stringify(mm));
     refresh(nv, "--full");
-    check(!readMap(nv).tests["tests/c.test.ts"].covers.includes("src/w.ts"), "test-impact: --full keeps only static covers once the declaration is dropped");
+    check(!readMap(nv).tests["tests/c.test.ts"].covers.includes("src/w.ts") && !covers(readMap(nv), "tests/a.test.ts").includes("src/other.ts"), "test-impact: --full keeps only static covers once the declaration is dropped");
+    gitIn(nv, "reset", "-q", "--hard", "HEAD~1");
+    refresh(nv, "--full");
+
+    // ---- spawn-based harness: string literals naming repo files / dirs are covers
+    const spw = mkfx("sp", {
+      "package.json": '{"name":"sp","private":true}\n',
+      "scripts/x.mjs": "import { h } from './lib/h.mjs';\nconsole.log(h);\n",
+      "scripts/lib/h.mjs": "export const h = 1;\n",
+      "scripts/tools/a.mjs": "export const a = 1;\n",
+      "scripts/tools/b.sh": "echo b\n",
+      "scripts/other.mjs": "export const o = 1;\n",
+      "scripts/harness.test.mjs": "import { spawnSync } from 'node:child_process';\nspawnSync('node', ['scripts/x.mjs']);\nspawnSync('bash', [`scripts/tools/`]);\nspawnSync('node', ['scripts/nope.mjs', 'not/a/path.txt']);\n",
+    });
+    refresh(spw);
+    const msp = readMap(spw).tests["scripts/harness.test.mjs"];
+    check(msp && ["scripts/x.mjs", "scripts/lib/h.mjs", "scripts/tools/a.mjs", "scripts/tools/b.sh"].every((f) => msp.covers.includes(f)) && !msp.covers.includes("scripts/other.mjs") && !msp.covers.includes("scripts/harness.test.mjs"), "test-impact: repo-path string literals (file, dir, import closure of the file) become covers; unrelated files and missing paths do not", JSON.stringify(msp?.covers));
+    recordFull(spw);
+    put(spw, "scripts/x.mjs", "console.log('changed');\n");
+    check(same(select(spw).out?.selected ?? [], ["scripts/harness.test.mjs"]), "test-select: a harness that spawns `node scripts/x.mjs` is selected when x.mjs changes", select(spw).raw);
+    gitIn(spw, "checkout", "-q", "--", "scripts/x.mjs");
+    put(spw, "scripts/other.mjs", "export const o = 2;\n");
+    check((select(spw).out?.selected ?? []).length === 0, "test-select: an unrelated script change selects nothing", select(spw).raw);
+    gitIn(spw, "checkout", "-q", "--", "scripts/other.mjs");
 
     // ---- selector: ledger-driven
     const s0 = select(nv);
