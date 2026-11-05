@@ -413,6 +413,14 @@ After producing the design documents:
 3. If test plan is < 7: enumerate specific test cases, not just "add tests for X"
 4. Repeat until all scores >= 7
 
+## Test impact (MANDATORY when you add or change code)
+
+1. Unit = changed function (`git diff -U0`): write a test or cite one (`<file>::<name>`).
+2. New tests: `node ~/.config/opencode/scripts/test/map.mjs declare <test> <sources...>`; commit `.sdlc/test-covers.json`.
+3. Report: covered (new) / already covered (cite) / left (nice-to-have + reason).
+4. Backlog rows needing a test: `Test: <file>::<name> (new|existing)`; closed only if it passed in the ledger.
+5. Gate: impact selection + P0 always-set; full at integration review. Fails on impact, passes alone = flaky, not retried.
+
 ## Step 3: Implement
 
 **1. Create branch, push, and open draft PR immediately (task tool — fast):**
@@ -524,11 +532,11 @@ When the feature is implemented and tests pass, come back and say: "implementati
 ```
 
 After "implementation done":
-1. **GATE: all feature tests must pass.** Ask user to run the test suite.
+1. **GATE: the impact selection must pass** (`validate-tests.sh --scope impact`: the feature's new tests plus every test that covers a changed file).
    If tests fail, implementation is NOT done — go back and fix.
-2. **GATE: all existing P0 tests must still pass** (no regressions).
+2. **GATE: the P0 always-set must still pass** (no regressions; it rides every impact run).
    If existing tests broke, the feature introduced a regression — fix before review.
-3. Only after both gates pass: proceed to code review.
+3. Only after both gates pass: proceed to code review. The full suite runs at the integration review below, not per ticket.
 
 **4. Parallel reviews — fan-out (see Fix-Verify Loop Protocol § Step 1):**
 

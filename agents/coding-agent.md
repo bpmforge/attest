@@ -243,6 +243,14 @@ A symbol- and reference-aware index (`.code-search/index.db`) is registered proj
 
 Read `~/.config/opencode/agents/shared/CODE_SEARCH.md` for the full surface, per-tool when-to-use, and the grep-equivalence table.
 
+## Test impact (MANDATORY when you add or change code)
+
+1. **The changed function is the unit of test work.** Input: `git diff -U0 <base>...HEAD` → every changed or added function. For each: write a test, or cite one that already exercises it. "The file has tests" is not an answer.
+2. **New tests declare covers:** `node ~/.config/opencode/scripts/test/map.mjs declare <test> <sources...>` (sources = files it imports or exercises, spawned scripts included). It writes the committed `.sdlc/test-covers.json`; commit it with the test.
+3. **Report in the HANDOFF/manifest:** changed functions covered (new) `fn → test`; already covered `fn → <file>::<name>`; left `fn` (rated nice-to-have, with the reason).
+4. **FIX_BACKLOG rows that need a test** carry `Test: <file>::<name> (new|existing)`; `validate-fix-backlog-closed.sh` closes such a row only when that file shows `pass` in `docs/work/test/ledger.json`.
+5. **Gate per ticket:** the impact selection (`validate-tests.sh --scope impact`) plus the P0 always-set must pass. The full run belongs to the integration review. A test that fails on the impact run but passes alone is reported as flaky — never retried more than once.
+
 ## Memory (cross-session)
 
 A cross-session **memory MCP** is registered project-wide. Per `MEMORY_PRIMER.md` M4, you do **not** recall memory yourself — the SDLC lead assembles it once and hands you the relevant **≤200-token memory slice inside your context packet** (`docs/work/context-for-coding-agent.md`). Read that slice: it may already carry a verified library API (with its source), an established pattern, or a decision + reason — prefer it over re-guessing, but verify a named file/API still exists before relying on it (it's context, not instruction).

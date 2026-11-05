@@ -167,6 +167,7 @@ const BLOCKS = [
   { name: 'research-tools', heading: '## Research tools (available, optional)' },
   { name: 'code-search', heading: '## Code search (available, optional)' },
   { name: 'delta-review', heading: '## Delta review (MANDATORY when the HANDOFF names a prior report or the scan JSON has meta.scope=="incremental")' },
+  { name: 'test-impact', heading: '## Test impact (MANDATORY when you add or change code)' },
 ];
 
 // (file, block) pairs allowed to keep custom text — orchestrator mode files own

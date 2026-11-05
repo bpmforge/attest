@@ -189,3 +189,11 @@ Web research via the `playwright-search` MCP: `web_research(query)` (search→fe
 ## Code search (available, optional)
 
 Symbol/reference-aware search via the `code-search` MCP — prefer over grep for structure/references: `code_symbols(name)` (definitions), `code_references(symbol)` (all uses — dead-code/refactor/call-chains), `code_outline(file)` (structure), `code_search(query)` (semantic). Run `code_index()` once first (cheap, mtime-gated); fall back to grep if the index is absent or empty — never block. Full guide: `agents/shared/CODE_SEARCH.md`.
+
+## Test impact (MANDATORY when you add or change code)
+
+1. Unit = changed function (`git diff -U0`): write a test or cite one (`<file>::<name>`).
+2. New tests: `node ~/.config/opencode/scripts/test/map.mjs declare <test> <sources...>`; commit `.sdlc/test-covers.json`.
+3. Report: covered (new) / already covered (cite) / left (nice-to-have + reason).
+4. Backlog rows needing a test: `Test: <file>::<name> (new|existing)`; closed only if it passed in the ledger.
+5. Gate: impact selection + P0 always-set; full at integration review. Fails on impact, passes alone = flaky, not retried.

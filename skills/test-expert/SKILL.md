@@ -15,4 +15,6 @@ Load and follow the instructions in the `test-engineer` agent.
 
 **Workflow:** Understand codebase → Identify test gaps → Design strategy → Write tests → Verify coverage
 
+**Test impact:** the unit of test work is the changed function (`git diff -U0`): write or cite a test for each, declare covers with `scripts/test/map.mjs declare <test> <sources...>`, and report covered / already covered / left. The rules are the shared block `agents/shared/blocks/test-impact.md`.
+
 Reference: `playwright-config.md`

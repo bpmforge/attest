@@ -282,6 +282,38 @@ export async function testAwkWordBoundary(
         );
       fs.rmSync(dir, { recursive: true, force: true });
     }
+
+    // -- Test-carrying rows: closed only when the ledger shows the named test file passing.
+    {
+      const row = (status: string, test: string) =>
+        [
+          "# Fix Backlog",
+          "",
+          "| ID | Severity | Status | Test |",
+          "|----|----------|--------|------|",
+          `| F-7 | MEDIUM | ${status} | Test: \`${test}\` (new) |`,
+          "",
+        ].join("\n");
+      const ledger = (result: string) =>
+        JSON.stringify({ version: 1, files: { "tests/a.test.ts": { result, last_run: "abc" } } });
+      const cases: Array<{ label: string; files: Record<string, string>; code: number; has?: string; not?: string }> = [
+        { label: "closed row + ledger pass -> accepted", files: { "docs/reviews/FIX_BACKLOG_t.md": row("FIXED", "tests/a.test.ts::does x"), "docs/work/test/ledger.json": ledger("pass") }, code: 0 },
+        { label: "closed row + ledger fail -> test-not-passed", files: { "docs/reviews/FIX_BACKLOG_t.md": row("VERIFIED", "tests/a.test.ts::does x"), "docs/work/test/ledger.json": ledger("fail") }, code: 1, has: "test-not-passed" },
+        { label: "closed row + test file absent from ledger -> test-not-passed", files: { "docs/reviews/FIX_BACKLOG_t.md": row("FIXED", "tests/other.test.ts::y"), "docs/work/test/ledger.json": ledger("pass") }, code: 1, has: "test-not-passed" },
+        { label: "closed row + no ledger -> test-ledger-missing naming the row", files: { "docs/reviews/FIX_BACKLOG_t.md": row("FIXED", "tests/a.test.ts::does x") }, code: 1, has: "test-ledger-missing" },
+        { label: "open row with Test: is not judged by the ledger", files: { "docs/reviews/FIX_BACKLOG_t.md": row("OPEN", "tests/a.test.ts::does x") }, code: 0, not: "test-" },
+        { label: "closed row without Test: keeps the old behaviour (no ledger needed)", files: { "docs/reviews/FIX_BACKLOG_t.md": "| F-8 | HIGH | FIXED |\n" }, code: 0 },
+      ];
+      for (const c of cases) {
+        const dir = makeFixtureDir();
+        writeFiles(dir, c.files);
+        const r = runOnStockBash(fixBacklogScript, [dir]);
+        const good = r.exitCode === c.code && (!c.has || r.stdout.includes(c.has)) && (!c.not || !r.stdout.includes(c.not)) && (c.code === 0 || r.stdout.includes("F-7"));
+        if (good) ok(`fix-backlog-closed Test: row — ${c.label}`);
+        else fail(`fix-backlog-closed Test: row — ${c.label}`, `exit=${r.exitCode} stdout=${r.stdout.slice(0, 300)}`);
+        fs.rmSync(dir, { recursive: true, force: true });
+      }
+    }
     {
       // Negative: HIGH_RISK_NOTE / HIGHLIGHTED are substrings of HIGH, not
       // the whole word, and must not trip the CRITICAL/HIGH severity check.

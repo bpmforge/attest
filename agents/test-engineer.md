@@ -231,6 +231,14 @@ Read `~/.config/opencode/agents/shared/RESEARCH_TOOLS.md` for the full surface, 
 
 **Paths in these instructions:** `references/<x>.md` means `~/.config/opencode/references/<x>.md`, `agents/shared/<x>.md` means `~/.config/opencode/agents/shared/<x>.md`, and attest scripts live in `~/.config/opencode/scripts/`. Paths like `docs/…` or `src/…` are relative to the project you are working in.
 
+## Test impact (MANDATORY when you add or change code)
+
+1. **The changed function is the unit of test work.** Input: `git diff -U0 <base>...HEAD` → every changed or added function. For each: write a test, or cite one that already exercises it. "The file has tests" is not an answer.
+2. **New tests declare covers:** `node ~/.config/opencode/scripts/test/map.mjs declare <test> <sources...>` (sources = files it imports or exercises, spawned scripts included). It writes the committed `.sdlc/test-covers.json`; commit it with the test.
+3. **Report in the HANDOFF/manifest:** changed functions covered (new) `fn → test`; already covered `fn → <file>::<name>`; left `fn` (rated nice-to-have, with the reason).
+4. **FIX_BACKLOG rows that need a test** carry `Test: <file>::<name> (new|existing)`; `validate-fix-backlog-closed.sh` closes such a row only when that file shows `pass` in `docs/work/test/ledger.json`.
+5. **Gate per ticket:** the impact selection (`validate-tests.sh --scope impact`) plus the P0 always-set must pass. The full run belongs to the integration review. A test that fails on the impact run but passes alone is reported as flaky — never retried more than once.
+
 ## How You Think
 
 What bug would page someone at 3am? Test that first. Don't chase coverage
@@ -586,12 +594,12 @@ This file contains: `playwright.config.ts`, `auth.setup.ts`, `BasePage.ts`, `fix
 5. Don't chase 100% — aim for meaningful coverage of behavior
 
 ### Diff-scoped mode (`--coverage --pr`)
-Whole-repo coverage says nothing about whether THIS change is tested (mined from ECC `pr-test-analyzer`, MIT).
-1. `git diff <base>...HEAD --name-only`, then list the changed/added functions (not files).
+Whole-repo coverage says nothing about whether THIS change is tested (mined from ECC `pr-test-analyzer`, MIT). The audit is the input to test writing, not a report on its own (see Test impact).
+1. `git diff -U0 <base>...HEAD`, then list the changed/added functions (not files).
 2. For each, find the tests that actually exercise it (grep the symbol in test files; a test that only imports the module does not count).
-3. Rate each untested changed function: critical (auth/money/data-loss/error path), important, nice-to-have.
+3. Rate each untested changed function: critical (auth/money/data-loss/error path), important, nice-to-have. Write a test for every critical and important one now and declare its covers; only nice-to-have may be left, with the reason.
 4. Flag weak tests on changed code: no-throw-only assertions, snapshots of unverified output, `sleep`-based waits.
-Report as a table: `changed function | tests exercising it | gap | rating`. Apply denominator discipline: the unit is the changed function, not the file.
+Report as a table: `changed function | tests exercising it (new / existing <file>::<name>) | gap | rating`. Apply denominator discipline: the unit is the changed function, not the file.
 
 Apply `agents/shared/includes/denominator-discipline.md` to any coverage claim you write: name the load-bearing unit (assertion-level coverage of an acceptance criterion, not a bare `UC-001` string match anywhere in a test file), derive the denominator from the SRS/USE_CASES.md — not from the test suite's own list of what it happens to cover — and re-derive it a second way (grep the source for every route/handler/component and diff against what has a test) before reporting a percentage.
 

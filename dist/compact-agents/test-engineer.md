@@ -181,3 +181,11 @@ tier=small (32k): max 4 source files in context; checkpoint to disk before readi
 ## Research tools (available, optional)
 
 Web research via the `playwright-search` MCP: `web_research(query)` (search→fetch→extract), `web_search(query)` (triage), `web_fetch(url)` (clean article text). Verify unfamiliar APIs/standards before recommending — never write from training data. Full guide: `agents/shared/RESEARCH_TOOLS.md`. Paths: `references/<x>.md` = `~/.config/opencode/references/<x>.md`; `agents/shared/` = `~/.config/opencode/agents/shared/`; scripts = `~/.config/opencode/scripts/`; `docs/…` is project-relative.
+
+## Test impact (MANDATORY when you add or change code)
+
+1. Unit = changed function (`git diff -U0`): write a test or cite one (`<file>::<name>`).
+2. New tests: `node ~/.config/opencode/scripts/test/map.mjs declare <test> <sources...>`; commit `.sdlc/test-covers.json`.
+3. Report: covered (new) / already covered (cite) / left (nice-to-have + reason).
+4. Backlog rows needing a test: `Test: <file>::<name> (new|existing)`; closed only if it passed in the ledger.
+5. Gate: impact selection + P0 always-set; full at integration review. Fails on impact, passes alone = flaky, not retried.

@@ -10,6 +10,11 @@
 # Open statuses that fail the gate:
 #   OPEN, PENDING, IN-PROGRESS, REOPENED, NEW
 #
+# Test-carrying rows (any severity): a row closed as VERIFIED/FIXED/RESOLVED/CLOSED that carries
+# `Test: <file>::<name> (new|existing)` is accepted only when docs/work/test/ledger.json lists <file> with
+# result "pass" (files{<test>:{result,...}}, written by validate-tests.sh). Ledger missing -> gap naming the
+# row. Rows without a Test: field keep the behaviour above.
+#
 
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
@@ -102,6 +107,27 @@ for backlog in "${BACKLOGS[@]}"; do
       }
     }
   ' "$backlog")
+done
+
+LEDGER="$ROOT/docs/work/test/ledger.json"
+CLOSED_PATTERNS='\b(VERIFIED|FIXED|RESOLVED|CLOSED)\b'
+TESTREF_RX='Test:[[:space:]]*`?([^[:space:]`|]+)::'
+for backlog in "${BACKLOGS[@]}"; do
+  while IFS= read -r line; do
+    [[ "$line" =~ $TESTREF_RX ]] || continue
+    echo "$line" | grep -qE "$CLOSED_PATTERNS" || continue
+    echo "$line" | grep -qE "$OPEN_PATTERNS" && continue
+    tfile="${BASH_REMATCH[1]}"
+    tfile="${tfile#./}"
+    if [[ ! -f "$LEDGER" ]]; then
+      gap "test-ledger-missing" "$(basename "$backlog"): row closed with Test: $tfile but docs/work/test/ledger.json does not exist (run validate-tests.sh first): $line"
+      continue
+    fi
+    res="$(node -e 'try{const l=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(String(l.files?.[process.argv[2]]?.result??"absent"))}catch{process.stdout.write("unreadable")}' "$LEDGER" "$tfile" 2>/dev/null)"
+    if [[ "$res" != "pass" ]]; then
+      gap "test-not-passed" "$(basename "$backlog"): row closed with Test: $tfile but the ledger shows ${res:-absent} for it: $line"
+    fi
+  done < "$backlog"
 done
 
 if [[ "$GAP_COUNT" -eq 0 ]]; then
