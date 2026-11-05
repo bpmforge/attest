@@ -17,10 +17,16 @@
 #  13. Latest INTEGRATION_SUMMARY_*.md is APPROVED, fresh (Head-SHA covers HEAD) — backlog L8 —
 #      and FULL scope: a summary (or *_FINAL_* review doc) saying `Scope: delta` is a delta
 #      review, a weaker guarantee than full re-approval, so release refuses it (WP-A5, claim C4)
+#  14. A green FULL test run on the release commit: the test ledger's last full-run sha
+#      (docs/work/test/ledger.json, written by `validate-tests.sh --scope full`) must be HEAD.
+#      Impact-scoped runs never satisfy a release (TEST_IMPACT_PLAN.md §2.4). Skipped when the
+#      project has no test runner manifest.
 #
 
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
+# shellcheck disable=SC1091
+source "$(dirname "${BASH_SOURCE[0]}")/_lib_sdlc_config.sh"
 
 validator_init "validate-release-readiness"
 
@@ -309,6 +315,33 @@ else
     else
       pass "INTEGRATION_SUMMARY is fresh (no non-document changes since ${integ_head:0:12})"
     fi
+  fi
+fi
+
+# -- 14. A green FULL test run on the release commit (TEST_IMPACT_PLAN §2.4) ---------
+# Per-HANDOFF / per-ticket / coverage-loop gates run impact-scoped tests; a release never rides
+# on those. The test ledger records the last green FULL run's sha (validate-tests.sh --scope full
+# writes it); the release commit must be exactly that commit. The phase-5 gate runs
+# validate-tests.sh with --scope full, which is what satisfies this.
+if [[ "$(detect_stack "$ROOT")" == "unknown" ]]; then
+  note "no test runner manifest — full-test-run check skipped"
+else
+  full_sha=""
+  if [[ -f "$ROOT/docs/work/test/ledger.json" ]] && command -v node >/dev/null 2>&1; then
+    full_sha=$(node -e 'try{const l=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));process.stdout.write(l&&l.full&&l.full.sha?String(l.full.sha):"")}catch{}' "$ROOT/docs/work/test/ledger.json" 2>/dev/null || true)
+  fi
+  head_sha=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
+  if [[ -z "$head_sha" ]]; then
+    gap "full-test-run-unverifiable" "cannot resolve HEAD (not a git repository) — a release needs a green full test run on the release commit"
+  elif [[ -z "$full_sha" ]]; then
+    gap "no-full-test-run" "no green full test run on record (docs/work/test/ledger.json) — run on the release commit: bash scripts/validators/validate-tests.sh --scope full"
+  elif [[ "$full_sha" == "$head_sha" ]]; then
+    pass "green full test run on the release commit (${head_sha:0:7})"
+  elif git -C "$ROOT" merge-base --is-ancestor "$full_sha" "$head_sha" 2>/dev/null; then
+    behind=$(git -C "$ROOT" rev-list --count "${full_sha}..${head_sha}" 2>/dev/null || echo "?")
+    gap "full-test-run-stale" "last green full test run was at ${full_sha:0:7}, HEAD is ${head_sha:0:7} (${behind} commit(s) later) — a release needs a green full run on the release commit: bash scripts/validators/validate-tests.sh --scope full"
+  else
+    gap "full-test-run-not-ancestor" "last green full test run (${full_sha:0:7}) is not an ancestor of HEAD (${head_sha:0:7}) — re-run on the release commit: bash scripts/validators/validate-tests.sh --scope full"
   fi
 fi
 

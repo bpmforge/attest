@@ -141,6 +141,19 @@ This is the two-tier design from `docs/work/TOKEN_OPTIMIZATION_PLAN.md`: the
 per-ticket gate is cheap and mostly deterministic; the broad audits run once
 over the tree that is actually being merged.
 
+**Test scope** (`docs/work/TEST_IMPACT_PLAN.md`). Round 3 runs `validate-tests.sh --scope impact`
+by default: only the test files the ticket's change can break (impact map + runner-native
+selection + always/failed/rolling sets), recorded in `docs/work/test/ledger.json`. The `Scope:`
+line in `RUNTIME_<id>.md` says what ran, e.g. `Scope: impact — 3 of 120 (117 unaffected, 2 always,
+1 rolling); last full 2026-11-03 @ 8e1c2f0`, or `Scope: full — global-input:package-lock.json`
+when the selector escalated (no green full run on record, a lockfile / manifest / runner-config /
+fixtures change, > 400 changed files, every 20th impact run). `--test-scope full|auto|impact`
+on the conductor overrides it for the whole run. The once-per-branch `integration-review.mjs`
+always runs `validate-tests.sh --scope full` (a green one refreshes the ledger), and
+**release needs a green full run on the release commit**: `validate-release-readiness.sh`
+fails with `no-full-test-run` / `full-test-run-stale` unless the ledger's last full-run sha is
+HEAD, and the phase-5 gate always runs the full suite.
+
 **Reviewers are triggered by the diff** (`--review-tier`, default `ticket`):
 
 | Reviewer | `ticket` tier (per ticket) fires when | `integration` tier (per branch) |

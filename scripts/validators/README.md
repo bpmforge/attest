@@ -80,6 +80,42 @@ Opt-in per validator via `validator_parse_flags` in `_lib.sh`:
   `feature`/`improve`; `run-handoff-gates.sh --runtime` passes
   `--since "$TRACKER_SINCE"` to `validate-lint.sh`.
 
+## Test scope: `validate-tests.sh --scope auto|impact|full` (WP-T3)
+
+`validate-tests.sh [root] [--scope auto|impact|full]` (default `auto`, or `$TEST_SCOPE`) runs
+only the test files a change can break, using `scripts/test/` (impact map, selector, ledger;
+`docs/work/TEST_IMPACT_PLAN.md`). It refreshes the map, asks `select.mjs --json`, and runs each
+detected runner with just its selection: vitest / jest / playwright / node file arguments, go
+package arguments, cargo `-p <crate>` (one run per crate), pytest file arguments (plus
+`--testmon` when pytest-testmon is installed). `auto` and `impact` take the same decision
+(impact unless the selector says full); `full` runs the project's own test command.
+
+- One line on stderr and at the top of `RUNTIME_tests_<date>.md`:
+  `Scope: impact — <n> of <total> (<unaffected> unaffected, <always> always, <rolling> rolling); last full <date> @ <sha7>`
+  or `Scope: full — <reason>` (`requested (--scope full)`, `no-ledger`, `global-input:<file>`,
+  `chain>=20`, `custom-test-command ...`, ...). The verdict line, pass/fail counts, the JSON
+  envelope on stdout and `test-results.json` (what ran, for `validate-tests-mapping.sh`) are unchanged.
+- Safety wins over the request: no/stale ledger, a global input changed (lockfile, manifest,
+  runner config, fixtures/setup dirs, CI, `.sdlc/sdlc.json`), > `test.max_changed` changed files,
+  every 20th impact run, or a custom `"test"` command in `.sdlc/sdlc.json` all run full.
+- Every run records per-file results in `docs/work/test/ledger.json` (vitest/jest/playwright
+  JSON reports, `pytest -rA`, `go test -json` per package, cargo per crate; otherwise the
+  selected files get the run's overall result). Impact runs advance the chain; a **green full**
+  run (requested or escalated) writes the baseline (`sha`, `date`) and resets it. A red selected
+  test is reported (`tests-failed`) and recorded; nothing is re-run automatically, and the next
+  run re-selects it.
+- A full run covers every runner the map knows: when a Playwright config exists and the map also
+  holds other tests, the Playwright half is followed by the project's test command.
+- Callers: `run-handoff-gates.sh --runtime [--test-scope impact|auto|full]` (default `impact`; the
+  existing `--scope` there is the git-writes scope dir); `validate-phase-gate.sh <phase> [root]
+  [--test-scope ...]`; `run-coverage-loop.sh <phase> [root] [--test-scope ...]` (iteration 1 keeps
+  the phase gate's default, iterations 2-3 default to `impact`). **phase-5 is always full**, and
+  `validate-release-readiness.sh` refuses (gaps `no-full-test-run` / `full-test-run-stale` /
+  `full-test-run-not-ancestor`) unless the ledger's last green full-run sha **is HEAD**: a release
+  needs a green `validate-tests.sh --scope full` on the release commit. Projects with no test
+  runner manifest skip the check. Conductor Round 3: `--test-scope`; `integration-review.mjs`
+  always runs `validate-tests.sh --scope full`.
+
 ## Platform support
 
 - macOS (bash 3.2.57+)

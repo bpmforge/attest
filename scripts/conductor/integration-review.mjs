@@ -42,8 +42,9 @@
 // says `Scope: delta` — release never rides on a chain of deltas.
 //
 // B5 (token plan): validate-code-health / validate-dead-code / validate-deps run
-// once BEFORE the model sessions; their exit codes are linked in the summary as
-// a `| Validator | Exit |` table. They never gate the verdict on their own.
+// once BEFORE the model sessions, followed by `validate-tests.sh --scope full` (the
+// whole suite, never an impact run; it refreshes the test ledger the release gate reads); 
+// their exit codes are linked in the summary as a `| Validator | Exit |` table. They never gate the verdict on their own.
 //
 // Exit: 0 all approved · 1 a verdict blocks (or a reviewer wrote nothing) ·
 //       2 usage/config · 3 nothing to review (empty diff).
@@ -75,6 +76,9 @@ const BRANCH_OPT = opt('branch', null);
 const NO_VALIDATORS = args.includes('--no-validators');
 const WATERMARK_REL = 'docs/work/.integration-reviewed.json';
 const VALIDATORS = ['validate-code-health.sh', 'validate-dead-code.sh', 'validate-deps.sh'];
+// The once-per-branch tier always runs the whole suite (TEST_IMPACT_PLAN.md §2.4): never an impact run.
+// A green full run also refreshes the test ledger that validate-release-readiness.sh reads.
+const TESTS_VALIDATOR = ['validate-tests.sh', '--scope', 'full'];
 const SESSION_MIN = Number(opt('session-minutes', 45)) || 45;
 const OPENCODE_BIN = process.env.OPENCODE_BIN || 'opencode';
 const OPENCODE_MAJOR = detectOpencodeMajor({ bin: OPENCODE_BIN, spawn: false }); // env override or install stamp; null => v1 argv
@@ -218,15 +222,17 @@ function main() {
   // 4. B5: whole-tree validators, once, before any model session. Informational — they link, they do not gate.
   const validators = [];
   if (!NO_VALIDATORS && spawned.length) {
-    for (const v of VALIDATORS) {
-      const path = resolve(REPO_SCRIPTS, 'validators', v);
+    for (const spec of [...VALIDATORS.map((x) => [x]), TESTS_VALIDATOR]) {
+      const [name, ...extra] = spec;
+      const v = [name, ...extra].join(' ');
+      const path = resolve(REPO_SCRIPTS, 'validators', name);
       if (!existsSync(path)) { validators.push({ v, exit: 'missing' }); continue; }
-      const r = spawnSync('bash', [path, ROOT], {
-        cwd: ROOT, encoding: 'utf8', env: { ...process.env, PROJECT_ROOT: ROOT }, maxBuffer: 64 * 1024 * 1024, timeout: 10 * 60_000,
+      const r = spawnSync('bash', [path, ROOT, ...extra], {
+        cwd: ROOT, encoding: 'utf8', env: { ...process.env, PROJECT_ROOT: ROOT }, maxBuffer: 64 * 1024 * 1024, timeout: name === 'validate-tests.sh' ? 60 * 60_000 : 10 * 60_000,
       });
       validators.push({ v, exit: r.status ?? (r.signal ? `signal ${r.signal}` : 'error') });
     }
-    log('integration.validators', { msg: validators.map((x) => `${x.v}=${x.exit}`).join(' ') });
+    log('integration.validators', { msg: validators.map((x) => `${x.v}=${x.exit}`).join(' '), tests_cmd: `bash validators/${TESTS_VALIDATOR.join(' ')} <root>` });
   }
 
   // 5. One session per auditor, concurrently unless the model is local.

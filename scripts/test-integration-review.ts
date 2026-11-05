@@ -8,6 +8,10 @@
  * validate-release-readiness.sh refuses it. Fixtures are tmp git repos (deleted
  * afterwards) with a fake `opencode` on OPENCODE_BIN that writes a review doc
  * ending `VERDICT: APPROVED` and appends one line per spawned session.
+ *
+ * WP-T3 (TEST_IMPACT_PLAN.md): the integration review runs `validate-tests.sh --scope full`
+ * (even when TEST_SCOPE=impact is in the environment), and validate-release-readiness.sh
+ * refuses a release whose test ledger has no green full run on HEAD.
  */
 
 import * as fs from "fs";
@@ -190,6 +194,36 @@ printf '# review\\n\\nVERDICT: APPROVED\\n' > "$doc"
     const lastStartIdx = logText.map((x) => x.kind).lastIndexOf("integration.review.start");
     check(lastValIdx >= 0 && lastValIdx < lastStartIdx, "integration-review: validators run before the model sessions start");
 
+    // ---- 7b. the tests step is always `--scope full` (WP-T3) -----------------------
+    // A node fixture with a stub vitest: a full run calls it with no file args and writes the ledger baseline;
+    // an impact run would pass file args (or none selected). TEST_SCOPE=impact in the env must not win.
+    const vitestLog = path.join(tmp, "vitest-integ.log");
+    write("package.json", '{"name":"fx","private":true,"scripts":{"test":"vitest run"},"devDependencies":{"vitest":"^2"}}\n');
+    write("vitest.config.ts", "export default {};\n");
+    write("tests/a.test.ts", "import { test } from 'vitest';\nimport { a } from '../src/a';\ntest('a', () => a);\n");
+    write(".gitignore", "node_modules/\ndocs/work/test/\ndocs/work/*.jsonl\n");
+    fs.mkdirSync(path.join(fx, "node_modules/.bin"), { recursive: true });
+    fs.writeFileSync(path.join(fx, "node_modules/.bin/vitest"), `#!/usr/bin/env bash\necho "$*" >> "${vitestLog}"\nexit 0\n`, { mode: 0o755 });
+    git("add", "package.json", "vitest.config.ts", "tests/a.test.ts", ".gitignore");
+    git("commit", "-q", "-m", "add tests");
+    const head4 = git("rev-parse", "HEAD");
+    const savedEnv = env.TEST_SCOPE;
+    env.TEST_SCOPE = "impact";
+    const withTests = run("--no-scan", "--since", "full");
+    if (savedEnv === undefined) delete env.TEST_SCOPE; else env.TEST_SCOPE = savedEnv;
+    const tRow = withTests.rows.find((x) => x.kind === "integration.validators");
+    const vitestCalls = fs.existsSync(vitestLog) ? fs.readFileSync(vitestLog, "utf8").split("\n").filter((l) => l && !l.startsWith("list")) : [];
+    let tl: any = null;
+    try { tl = JSON.parse(fs.readFileSync(path.join(fx, "docs/work/test/ledger.json"), "utf8")); } catch { /* reported below */ }
+    check(
+      !!tRow && /validate-tests\.sh --scope full=0/.test(tRow.msg) && /--scope full/.test(tRow.tests_cmd),
+      "integration-review: runs `validate-tests.sh --scope full` with the other validators (logged)", JSON.stringify(tRow) + withTests.stderr,
+    );
+    check(
+      vitestCalls.length === 1 && vitestCalls[0] === "run" && tl?.full?.sha === head4 && tl?.chain === 0,
+      "integration-review: the tests step ran the whole suite (no file args, even with TEST_SCOPE=impact) and wrote the ledger full record", `${JSON.stringify(vitestCalls)} ${JSON.stringify(tl)?.slice(0, 200)}`,
+    );
+
     // ---- 8. validate-release-readiness.sh refuses Scope: delta -------------------
     const rel = (scopeLine: string) => {
       const proj = fs.mkdtempSync(path.join(tmp, "rel-"));
@@ -212,6 +246,43 @@ printf '# review\\n\\nVERDICT: APPROVED\\n' > "$doc"
     const fullOut = rel("Scope: full");
     check(!/integration-review-delta-scope/.test(fullOut) && /INTEGRATION_SUMMARY scope is full/.test(fullOut),
       "validate-release-readiness.sh: the `Scope: full` summary passes the scope check", fullOut.slice(-600));
+
+    // ---- 9. validate-release-readiness.sh: a release needs a green FULL test run on HEAD (WP-T3) ----
+    const relTests = (mode: "none" | "head" | "behind" | "foreign" | "no-stack") => {
+      const proj = fs.mkdtempSync(path.join(tmp, "reltest-"));
+      const g = (...a: string[]) => spawnSync("git", ["-c", "commit.gpgsign=false", ...a], { cwd: proj, env, encoding: "utf8" });
+      g("init", "-q", "-b", "main");
+      fs.mkdirSync(path.join(proj, "docs/reviews"), { recursive: true });
+      if (mode !== "no-stack") fs.writeFileSync(path.join(proj, "package.json"), '{"name":"r","version":"1.0.0"}\n');
+      fs.writeFileSync(path.join(proj, "README.md"), "x\n");
+      g("add", "-A"); g("commit", "-q", "-m", "c1");
+      const first = g("rev-parse", "HEAD").stdout.trim();
+      fs.writeFileSync(path.join(proj, "src.ts"), "export {};\n");
+      g("add", "-A"); g("commit", "-q", "-m", "c2");
+      const headSha = g("rev-parse", "HEAD").stdout.trim();
+      const sha = mode === "head" ? headSha : mode === "behind" ? first : "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef";
+      if (mode !== "none" && mode !== "no-stack") {
+        fs.mkdirSync(path.join(proj, "docs/work/test"), { recursive: true });
+        fs.writeFileSync(path.join(proj, "docs/work/test/ledger.json"), JSON.stringify({ version: 1, full: { tree: null, sha, date: new Date().toISOString(), runners: {} }, chain: 3, files: {}, dirty_files: [] }));
+      }
+      const r = spawnSync("bash", [releaseVal, proj], { cwd: proj, env: { ...env, PROJECT_ROOT: proj }, encoding: "utf8", timeout: 60_000 });
+      return { out: `${r.stdout}\n${r.stderr}`, code: r.status, head: headSha, first };
+    };
+    const rNone = relTests("none");
+    check(/no-full-test-run/.test(rNone.out) && rNone.code === 1,
+      "validate-release-readiness.sh: refuses (non-zero, `no-full-test-run`) when the test ledger has no full-run record", rNone.out.slice(-500));
+    const rBehind = relTests("behind");
+    check(/full-test-run-stale/.test(rBehind.out) && new RegExp(`last green full test run was at ${rBehind.first.slice(0, 7)}, HEAD is ${rBehind.head.slice(0, 7)} \\(1 commit`).test(rBehind.out) && /validate-tests\.sh --scope full/.test(rBehind.out) && rBehind.code === 1,
+      "validate-release-readiness.sh: refuses when the ledger's full-run sha is behind HEAD, naming both shas and the fix", rBehind.out.slice(-600));
+    const rForeign = relTests("foreign");
+    check(/full-test-run-not-ancestor/.test(rForeign.out) && rForeign.code === 1,
+      "validate-release-readiness.sh: refuses when the ledger's full-run sha is not an ancestor of HEAD", rForeign.out.slice(-500));
+    const rHead = relTests("head");
+    check(!/no-full-test-run|full-test-run-stale|full-test-run-not-ancestor/.test(rHead.out) && new RegExp(`green full test run on the release commit \\(${rHead.head.slice(0, 7)}\\)`).test(rHead.out),
+      "validate-release-readiness.sh: passes the test-run check when the ledger's full-run sha equals HEAD", rHead.out.slice(-500));
+    const rNoStack = relTests("no-stack");
+    check(!/"category":"(no-)?full-test-run/.test(rNoStack.out) && /full-test-run check skipped/.test(rNoStack.out),
+      "validate-release-readiness.sh: a project with no test runner manifest skips the full-test-run check", rNoStack.out.slice(-300));
   } catch (e) {
     fail("integration-review: fixture ran", String((e as Error)?.stack || e));
   } finally {

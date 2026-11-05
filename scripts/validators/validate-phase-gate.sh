@@ -4,7 +4,11 @@
 # the current SDLC phase and aggregates their results.
 #
 # Usage:
-#   validate-phase-gate.sh <phase> [project-root]
+#   validate-phase-gate.sh <phase> [project-root] [--test-scope auto|impact|full]
+#
+# --test-scope is passed to validate-tests.sh as --scope (default: its own default, auto,
+# or $TEST_SCOPE). phase-5 (release) always runs the full suite, whatever is asked: a
+# release needs a green full run on the release commit (see validate-release-readiness.sh).
 #
 # Phases:
 #   phase-0        -- Ideation (VISION, COMPETITIVE_ANALYSIS)
@@ -34,12 +38,31 @@ source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
 validator_init "validate-phase-gate"
 
-PHASE="${1:-}"
-PROJECT_ROOT_ARG="${2:-}"
+PHASE=""
+PROJECT_ROOT_ARG=""
+TEST_SCOPE_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --test-scope)
+      [[ $# -ge 2 ]] || fatal "--test-scope needs a value (auto|impact|full)"
+      TEST_SCOPE_ARG="$2"; shift 2 ;;
+    --test-scope=*)
+      TEST_SCOPE_ARG="${1#--test-scope=}"; shift ;;
+    *)
+      if [[ -z "$PHASE" ]]; then PHASE="$1"
+      elif [[ -z "$PROJECT_ROOT_ARG" ]]; then PROJECT_ROOT_ARG="$1"
+      fi
+      shift ;;
+  esac
+done
+case "${TEST_SCOPE_ARG:-auto}" in
+  auto|impact|full) ;;
+  *) fatal "invalid --test-scope '$TEST_SCOPE_ARG' (expected auto|impact|full)" ;;
+esac
 ROOT="$(detect_project_root "$PROJECT_ROOT_ARG")"
 
 if [[ -z "$PHASE" ]]; then
-  fatal "missing phase argument. Usage: validate-phase-gate.sh <phase> [project-root]"
+  fatal "missing phase argument. Usage: validate-phase-gate.sh <phase> [project-root] [--test-scope auto|impact|full]"
 fi
 
 VALIDATORS_DIR="$(dirname "${BASH_SOURCE[0]}")"
@@ -419,7 +442,14 @@ for v in "${GATE_VALIDATORS[@]:-}"; do
   printf '\n%s-- running %s --%s\n' "$_BOLD" "$v" "$_RESET" >&2
   _stderr_tmp="$(mktemp)"
   set +e
-  json=$(bash "$script" "$ROOT" 2>"$_stderr_tmp")
+  _v_args=("$ROOT")
+  if [[ "$v" == "validate-tests.sh" ]]; then
+    # release phase: always the whole suite; other phases: the caller's --test-scope (else the validator's default)
+    if [[ "$PHASE" == "phase-5" ]]; then _v_args+=(--scope full)
+    elif [[ -n "$TEST_SCOPE_ARG" ]]; then _v_args+=(--scope "$TEST_SCOPE_ARG")
+    fi
+  fi
+  json=$(bash "$script" "${_v_args[@]}" 2>"$_stderr_tmp")
   v_exit=$?
   set -e
   cat "$_stderr_tmp" >&2

@@ -50,6 +50,7 @@
  *     [--max-attempts 2] [--max-tickets N] [--max-processed N]
  *     [--model provider/model] [--agent coding-agent] [--rounds 3|1]
  *     [--fix-iterations 3] [--runtime-fix-iterations 1]
+ *     [--test-scope impact|auto|full]
  *     [--session-minutes 45] [--session-timeout-retries 0]
  *     [--models models.json] [--role-gate warn|block]
  *     [--no-merge] [--no-push] [--dry-run]
@@ -291,6 +292,16 @@ if (!['auto', 'on', 'off'].includes(PARALLEL_REVIEWS)) {
 const RUNTIME_MODE = String(opt('runtime-mode', 'script'));
 if (!['script', 'agent'].includes(RUNTIME_MODE)) {
   console.error(`--runtime-mode must be script|agent (got "${RUNTIME_MODE}")`);
+  process.exit(2);
+}
+// --test-scope impact|auto|full (default impact): which tests Round 3's validate-tests.sh runs
+//   (TEST_IMPACT_PLAN.md). `impact` = only the test files the ticket's change can break;
+//   the selector still escalates to a full run on its own safety rules (lockfile / manifest /
+//   runner config change, no green full run on record, ...). `auto` takes the same decision;
+//   `full` runs the whole suite per ticket. Passed as `validate-tests.sh --scope <value>`.
+const TEST_SCOPE = String(opt('test-scope', 'impact'));
+if (!['impact', 'auto', 'full'].includes(TEST_SCOPE)) {
+  console.error(`--test-scope must be impact|auto|full (got "${TEST_SCOPE}")`);
   process.exit(2);
 }
 // --runtime-diagnosis on|off (default on): under --runtime-mode script, whether
@@ -1336,7 +1347,7 @@ function fenceTail(out, n = 60) {
  *   1. m.runtime            — optional ticket-specific runtime command
  *   2. validate-build.sh    — SKIPPED when the stack defines no build
  *   3. validate-lint.sh     — SKIPPED likewise
- *   4. validate-tests.sh    — SKIPPED when no test runner manifest exists
+ *   4. validate-tests.sh --scope <--test-scope, default impact> — SKIPPED when no test runner manifest exists
  *   5. validate-smoke.sh    — SKIPPED unless .sdlc/sdlc.json configures smoke
  * A validator exit of 2 is "validator error", which the old prompt classified
  * as SKIPPED, not FAIL; it is reported as such here. Only a real non-zero exit
@@ -1375,9 +1386,11 @@ async function runRuntimeRoundScript(m, wt) {
   ]) {
     const path = resolve(VALIDATORS_DIR, script);
     if (!existsSync(path)) { steps.push({ name, cmd: script, code: null, out: '', skipped: true }); continue; }
-    const r = runRuntimeCommand(`bash ${JSON.stringify(path)} ${JSON.stringify(wt)}`, wt);
+    // Tests run at --test-scope (default impact): only what the ticket's change can break.
+    const scopeArg = script === 'validate-tests.sh' ? ` --scope ${TEST_SCOPE}` : '';
+    const r = runRuntimeCommand(`bash ${JSON.stringify(path)} ${JSON.stringify(wt)}${scopeArg}`, wt);
     // _lib.sh contract: 0 clean, 1 gaps, 2 validator error (treated as skipped).
-    steps.push({ name, ...r, cmd: `${script} <worktree>`, skipped: r.code === 2 || r.code === null });
+    steps.push({ name, ...r, cmd: `${script} <worktree>${scopeArg}`, skipped: r.code === 2 || r.code === null });
   }
 
   const failing = steps.filter((s) => !s.skipped && s.code !== 0);

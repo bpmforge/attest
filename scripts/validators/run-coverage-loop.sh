@@ -7,7 +7,11 @@
 # subjective "is this done?" judgment with deterministic coverage facts.
 #
 # Usage:
-#   run-coverage-loop.sh <phase> [project-root]
+#   run-coverage-loop.sh <phase> [project-root] [--test-scope auto|impact|full]
+#
+# Test scope (TEST_IMPACT_PLAN.md): iteration 1 runs validate-tests.sh at --test-scope (default:
+# whatever the phase gate defaults to, i.e. auto); iterations 2-3 default to impact (only the tests
+# the gap-fill changes can break) unless --test-scope says otherwise. phase-5 is always full.
 #
 # Phases: phase-0..5 | onboard-deep | security-deep | feature | improve (cap 2)
 #
@@ -34,9 +38,28 @@
 # shellcheck disable=SC1091
 source "$(dirname "${BASH_SOURCE[0]}")/_lib.sh"
 
-PHASE="${1:-}"
-ROOT_ARG="${2:-}"
-[[ -z "$PHASE" ]] && { echo "usage: $0 <phase> [project-root]" >&2; exit 2; }
+PHASE=""
+ROOT_ARG=""
+TEST_SCOPE_ARG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --test-scope)
+      [[ $# -ge 2 ]] || { echo "--test-scope needs a value (auto|impact|full)" >&2; exit 2; }
+      TEST_SCOPE_ARG="$2"; shift 2 ;;
+    --test-scope=*)
+      TEST_SCOPE_ARG="${1#--test-scope=}"; shift ;;
+    *)
+      if [[ -z "$PHASE" ]]; then PHASE="$1"
+      elif [[ -z "$ROOT_ARG" ]]; then ROOT_ARG="$1"
+      fi
+      shift ;;
+  esac
+done
+[[ -z "$PHASE" ]] && { echo "usage: $0 <phase> [project-root] [--test-scope auto|impact|full]" >&2; exit 2; }
+case "${TEST_SCOPE_ARG:-auto}" in
+  auto|impact|full) ;;
+  *) echo "invalid --test-scope '$TEST_SCOPE_ARG' (expected auto|impact|full)" >&2; exit 2 ;;
+esac
 
 ROOT="$(detect_project_root "$ROOT_ARG")"
 DATE=$(date +%Y-%m-%d)
@@ -112,8 +135,14 @@ trap 'rm -f "$JSON_LOG"' EXIT
 
 # validate-phase-gate.sh exits non-zero on gaps, but we MUST keep going to
 # update the loop file. Temporarily disable -e for this invocation.
+# Iteration 1 keeps whatever --test-scope says (default: the phase gate's own default, auto);
+# iterations 2-3 default to impact: the gap-fill only touched a few files.
+EFFECTIVE_TEST_SCOPE="$TEST_SCOPE_ARG"
+if [[ -z "$EFFECTIVE_TEST_SCOPE" && "$ITER" -ge 2 ]]; then EFFECTIVE_TEST_SCOPE="impact"; fi
+_gate_args=("$PHASE" "$ROOT")
+[[ -n "$EFFECTIVE_TEST_SCOPE" ]] && _gate_args+=(--test-scope "$EFFECTIVE_TEST_SCOPE")
 set +e
-bash "$(dirname "${BASH_SOURCE[0]}")/validate-phase-gate.sh" "$PHASE" "$ROOT" > "$JSON_LOG" 2>&1
+bash "$(dirname "${BASH_SOURCE[0]}")/validate-phase-gate.sh" "${_gate_args[@]}" > "$JSON_LOG" 2>&1
 PHASE_RC=$?
 set -e
 

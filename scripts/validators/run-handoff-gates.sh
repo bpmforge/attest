@@ -22,12 +22,15 @@
 #                 coding-agent HANDOFFs). File size is checked per-HANDOFF
 #                 rather than only at the phase-4 gate because monoliths
 #                 accrete across tickets — see the comment at the gate.
+#                 Also runs validate-tests.sh at --test-scope (default impact:
+#                 only the test files this HANDOFF's change can break).
 #
 # Usage:
 #   run-handoff-gates.sh \
 #     --scope <dir1> [--scope <dir2> ...] \
 #     --manifest <path> \
 #     [--coverage <validator-name>] \
+#     [--runtime [--test-scope impact|auto|full]] \
 #     [--root <project-root>]
 #
 # Examples:
@@ -57,6 +60,7 @@ SCOPE_DIRS=()
 MANIFEST=""
 COVERAGE=""
 RUNTIME=false
+TEST_SCOPE_ARG="impact"
 PROJECT_ROOT_ARG=""
 REVIEW_FILE=""
 
@@ -78,6 +82,11 @@ while [[ $# -gt 0 ]]; do
       RUNTIME=true
       shift
       ;;
+    --test-scope)
+      # (--scope is already the git-writes scope dir) -> validate-tests.sh --scope <value>
+      TEST_SCOPE_ARG="$2"
+      shift 2
+      ;;
     --review)
       # P-A13: the returning artifact is a REVIEW (verdict + findings). Runs
       # the citation gate mechanically — a REJECT whose citations do not
@@ -91,7 +100,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     -h|--help)
-      sed -n '3,31p' "$0" | sed 's/^# //; s/^#$//'
+      sed -n '3,50p' "$0" | sed 's/^# //; s/^#$//'
       exit 0
       ;;
     *)
@@ -99,6 +108,11 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
+
+case "$TEST_SCOPE_ARG" in
+  auto|impact|full) ;;
+  *) fatal "invalid --test-scope '$TEST_SCOPE_ARG' (expected auto|impact|full)" ;;
+esac
 
 if [[ "${#SCOPE_DIRS[@]}" -eq 0 ]]; then
   fatal "missing --scope <dir>. At least one scope directory required."
@@ -253,7 +267,7 @@ fi
 
 # ── Gate 5: runtime (only when --runtime passed — coding-agent handoffs) ───
 if [[ "$RUNTIME" == "true" ]]; then
-  printf '\n%s== GATE: RUNTIME (build + lint) ==%s\n' "$_BOLD" "$_RESET" >&2
+  printf '\n%s== GATE: RUNTIME (build + lint + tests@%s) ==%s\n' "$_BOLD" "$TEST_SCOPE_ARG" "$_RESET" >&2
   # validate-file-size.sh runs HERE, per returning HANDOFF -- not only at the
   # end-of-phase-4 gate. Monoliths accrete: task-decomposer caps each node's
   # output at ~300 lines, so no single ticket writes a 2,000-line file, but
@@ -261,7 +275,7 @@ if [[ "$RUNTIME" == "true" ]]; then
   # of them passes an end-of-phase gate that runs long after the growth is
   # cheap to undo. Checking per-HANDOFF fails the FIRST ticket that pushes a
   # file over the cap, while the split is still a one-file operation.
-  for rv in "validate-build.sh" "validate-lint.sh" "validate-file-size.sh"; do
+  for rv in "validate-build.sh" "validate-lint.sh" "validate-tests.sh" "validate-file-size.sh"; do
     rv_script="$VALIDATORS_DIR/$rv"
     if [[ ! -f "$rv_script" ]]; then
       gap "runtime" "$rv not found in $VALIDATORS_DIR"
@@ -280,6 +294,8 @@ if [[ "$RUNTIME" == "true" ]]; then
     if [[ "$rv" == "validate-lint.sh" && -n "$TRACKER_SINCE" ]]; then
       rv_args+=(--since "$TRACKER_SINCE")
     fi
+    # tests run at --test-scope (default impact): the tests this change can break, not the whole suite
+    [[ "$rv" == "validate-tests.sh" ]] && rv_args+=(--scope "$TEST_SCOPE_ARG")
     if bash "$rv_script" "${rv_args[@]}" > /dev/null 2>&1; then
       pass "runtime gate clean ($rv)"
     else
