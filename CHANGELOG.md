@@ -2,7 +2,7 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [3.16.0] — 2026-11-05
 
 ### Added
 - **Test-impact selection (T1–T5).** Per ticket, run only the tests a change can break instead of the whole suite. `scripts/test/map.mjs` keeps a git-ignored impact map (`docs/work/test/map.json`: test file to the repo files it transitively imports, TS/JS, Python, Go, Rust; `.sdlc/test-covers.json` carries declared covers); `ledger.mjs` records the last green full run; `select.mjs` picks impact selection (vitest / jest / playwright / go / cargo / pytest-testmon native selectors ∪ the map ∪ the always, failed and rolling sets) and forces full when there is no usable ledger, a global input changed, too many files changed, 20 impact runs chained, or `--full`. `validate-tests.sh --scope auto|impact|full` (env `TEST_SCOPE`) and conductor `--test-scope` use it and print a `Scope:` line; the integration review always runs full and release needs a green full run on the release commit (`no-full-test-run` / `full-test-run-stale`). A shared `test-impact` block (test-engineer, coding-agent, sdlc-feature-mode, sdlc-improve-mode) makes the changed function the unit of test work, declares covers and adds `Test: <file>::<name>` rows that `validate-fix-backlog-closed.sh` closes only against the ledger. `build:claude` copies `scripts/test/**` to attest-claude, whose `install.sh` links it and whose `doctor.sh` checks it.
