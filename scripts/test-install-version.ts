@@ -125,3 +125,61 @@ function testOpencodeMajors(
     fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
+
+/**
+ * install.sh registers bpm-memory-mcp / bpm-code-search-mcp with the ABSOLUTE
+ * Node matching the server repo's pin (.nvmrc / .node-version / engines). A
+ * bare "node" meant whichever Node was on PATH when opencode started, and a
+ * native addon built under Node 24 cannot load under Node 22 (doctor: "built
+ * and registered but does not respond", 2026-11-05).
+ */
+export function testInstallMcpNodePin(
+  root: string,
+  ok: (label: string) => void,
+  fail: (label: string, reason: string) => void,
+): void {
+  const check = (label: string, cond: boolean, why = "") => (cond ? ok(label) : fail(label, why));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "attest-mcp-node-"));
+  try {
+    // Extract just the helper functions from install.sh so they can be sourced alone.
+    const src = fs.readFileSync(path.join(root, "install.sh"), "utf8");
+    const start = src.indexOf("mcp_node_major() {");
+    const end = src.indexOf("# ─────", start);
+    check("install.sh defines the mcp_node_* helpers", start > 0 && end > start, "helpers not found");
+    if (!(start > 0 && end > start)) return;
+    const lib = path.join(tmp, "lib.sh");
+    fs.writeFileSync(lib, src.slice(start, end));
+    const major = process.versions.node.split(".")[0];
+    const other = String(Number(major) + 1);
+    // fake fnm install of the "other" major; the fake node reports that version
+    const fnm = path.join(tmp, "fnm", "node-versions", `v${other}.1.0`, "installation", "bin");
+    fs.mkdirSync(fnm, { recursive: true });
+    fs.writeFileSync(path.join(fnm, "node"), `#!/bin/sh\n[ "$1" = "-v" ] && { echo v${other}.1.0; exit 0; }\n[ "$1" = "-p" ] && { echo ${other}; exit 0; }\n`, { mode: 0o755 });
+    const pinned = path.join(tmp, "pinned"); fs.mkdirSync(pinned); fs.writeFileSync(path.join(pinned, ".nvmrc"), `${other}\n`);
+    const engines = path.join(tmp, "engines"); fs.mkdirSync(engines); fs.writeFileSync(path.join(engines, "package.json"), JSON.stringify({ engines: { node: `>=${major}` } }));
+    const unpinned = path.join(tmp, "unpinned"); fs.mkdirSync(unpinned);
+    const run = (cmd: string) => spawnSync("bash", ["-c", `. "${lib}"; ${cmd}`], { encoding: "utf8", env: { ...process.env, FNM_DIR: path.join(tmp, "fnm"), NVM_DIR: path.join(tmp, "no-nvm"), HOME: tmp } });
+    check("mcp_node_major reads .nvmrc / engines / nothing", run(`mcp_node_major "${pinned}"; echo; mcp_node_major "${engines}"; echo; mcp_node_major "${unpinned}"`).stdout === `${other}\n${major}\n`, "unexpected majors");
+    check("mcp_node_for: pinned major not on PATH -> fnm install of that major", run(`mcp_node_for "${pinned}"`).stdout === path.join(fnm, "node"), run(`mcp_node_for "${pinned}"`).stdout);
+    check("mcp_node_for: pin matching the current Node -> current node's execPath", fs.realpathSync(run(`mcp_node_for "${engines}"`).stdout.trim()) === fs.realpathSync(process.execPath), run(`mcp_node_for "${engines}"`).stdout);
+    check("mcp_node_for: unpinned -> node on PATH; unknown pin warns and falls back", run(`mcp_node_for "${unpinned}"`).stdout.length > 0 && /pins Node 99/.test(run(`mkdir -p "${tmp}/p99"; echo 99 > "${tmp}/p99/.nvmrc"; mcp_node_for "${tmp}/p99"`).stderr), "fallback");
+    // mcp_build: a server that answers initialize with a matching stamp is not rebuilt
+    const srv = path.join(tmp, "srv"); fs.mkdirSync(path.join(srv, "src"), { recursive: true }); fs.mkdirSync(path.join(srv, "dist"));
+    fs.writeFileSync(path.join(srv, "dist", "index.js"), `process.stdin.on('data',()=>{process.stdout.write(JSON.stringify({result:{serverInfo:{name:'x'}}})+'\\n');process.exit(0)})`);
+    fs.writeFileSync(path.join(srv, "package-lock.json"), "{}");
+    fs.writeFileSync(path.join(srv, "src", "index.ts"), "");
+    fs.utimesSync(path.join(srv, "dist", "index.js"), new Date(), new Date(Date.now() + 5000));
+    fs.writeFileSync(path.join(srv, ".attest-build-stamp"), run(`mcp_stamp "${srv}" "${process.execPath}"`).stdout);
+    const r1 = run(`mcp_build "${srv}" "${process.execPath}" "${srv}/dist/index.js"`);
+    check("mcp_build skips a server that answers initialize with an unchanged node+lock stamp", r1.status === 0 && !/Building/.test(r1.stdout), r1.stdout + r1.stderr);
+    fs.writeFileSync(path.join(srv, ".attest-build-stamp"), "v0.0.0:0");
+    const r2 = run(`mcp_build "${srv}" "${process.execPath}" "${srv}/dist/index.js"`);
+    check("mcp_build rebuilds when the Node/lock stamp changed", /Building srv with/.test(r2.stdout), r2.stdout);
+    const reg = src.slice(src.indexOf("# --- bpm-memory-mcp MCP Setup"));
+    check("install.sh registers memory and code-search with the pinned node path (no bare \"node\")", !/command: \["node", \$path\]/.test(reg) && /\$MEMORY_NODE/.test(reg) && /\$CODE_SEARCH_NODE/.test(reg) && !/claude mcp add (memory|code-search) node /.test(reg), "bare node still registered");
+    const doc = fs.readFileSync(path.join(root, "scripts/doctor.sh"), "utf8");
+    check("doctor.sh probes with the registered binary and names a Node-pin mismatch", /\| "\$bin" "\$arg"/.test(doc) && /pins Node \$pin/.test(doc), "doctor probe");
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}

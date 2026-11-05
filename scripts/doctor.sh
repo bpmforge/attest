@@ -225,12 +225,24 @@ if [ -f "$CFG" ] && command -v jq >/dev/null 2>&1; then
         bad "$name: registered path does not exist — $arg (re-run ./install.sh)"
         continue
       fi
-      if [ "$bin" = "node" ] && [ -n "$arg" ]; then
+      if { [ "$bin" = "node" ] || [ "$(basename "$bin")" = "node" ]; } && [ -n "$arg" ]; then
+        # Use the registered binary (install.sh pins the Node the server was built with);
+        # a bare "node" resolves on PATH, which is what opencode will do too.
+        if [ "$bin" != "node" ] && [ ! -x "$bin" ]; then
+          bad "$name: registered node binary missing — $bin (re-run ./install.sh)"
+          continue
+        fi
         if printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"doctor","version":"1"}}}' \
-           | node "$arg" 2>/dev/null | head -c 2000 | grep -q '"serverInfo"'; then
-          ok "$name: responds to initialize"
+           | "$bin" "$arg" 2>/dev/null | head -c 2000 | grep -q '"serverInfo"'; then
+          ok "$name: responds to initialize ($("$bin" -v 2>/dev/null))"
         else
-          bad "$name: built and registered but does not respond — try: node $arg"
+          pin=""; sdir=$(dirname "$arg"); while [ "$sdir" != "/" ] && [ ! -f "$sdir/package.json" ]; do sdir=$(dirname "$sdir"); done
+          for f in .nvmrc .node-version; do [ -f "$sdir/$f" ] && pin=$(tr -d 'v \n\r' < "$sdir/$f"); done
+          if [ -n "$pin" ] && [ "$("$bin" -p 'process.versions.node.split(".")[0]' 2>/dev/null)" != "${pin%%.*}" ]; then
+            bad "$name: does not respond — server pins Node $pin but is registered with $bin ($("$bin" -v 2>/dev/null)); re-run ./install.sh (it registers the matching Node)"
+          else
+            bad "$name: built and registered but does not respond — try: $bin $arg"
+          fi
         fi
       else
         ok "$name: registered ($bin)"

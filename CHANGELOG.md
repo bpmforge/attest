@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## [3.16.1] — 2026-11-05
+
+### Fixed
+- **bpm-code-search-mcp / bpm-memory-mcp registered with the wrong Node.** `install.sh` registered both servers as a bare `node`, so whichever Node was on PATH when OpenCode or Claude Code started ran them; a server built under its pinned Node (`.nvmrc` 24) then failed to load its native addons under Node 22 — `doctor.sh` reported "built and registered but does not respond". The installer now resolves the Node matching the server's pin (`.nvmrc` / `.node-version` / `engines`, found via fnm, nvm, Homebrew `node@N` or Volta), registers that absolute path with OpenCode (`opencode.json`) and Claude Code (`claude mcp add`, re-registering when the command changed), rebuilds when the lockfile or Node changed (not only when `src/index.ts` is newer), and verifies every server answers `initialize`, running `npm rebuild` once when it does not. `doctor.sh` probes with the registered binary and names a Node-pin mismatch.
+
 ## [3.16.0] — 2026-11-05
 
 ### Added

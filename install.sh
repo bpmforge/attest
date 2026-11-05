@@ -378,6 +378,86 @@ echo -n "Checking native build dependencies... "
 check_native_build_deps
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ─── Node-pinned MCP servers (bpm-memory-mcp, bpm-code-search-mcp) ───────────
+# A server repo may pin a Node major (.nvmrc / .node-version / package.json
+# engines). Its native addons are built for that Node, so the server must be
+# registered with the ABSOLUTE path of a matching Node — a bare "node" means
+# whatever is on PATH when opencode starts, and a Node 22 on PATH cannot load
+# an addon built under Node 24 (doctor: "does not respond").
+#
+# mcp_node_major <dir>          → pinned major ("" when unpinned)
+# mcp_node_for   <dir>          → absolute node path matching the pin
+# mcp_probe      <node> <entry> → 0 when the server answers initialize
+# mcp_build      <dir> <node> <entry> [subdir] → build when entry/lock/node changed
+mcp_node_major() {
+  local d="$1" v=""
+  for f in .nvmrc .node-version; do [ -f "$d/$f" ] && { v=$(tr -d 'v \n\r' < "$d/$f"); break; }; done
+  [ -z "$v" ] && [ -f "$d/package.json" ] && command -v jq &>/dev/null \
+    && v=$(jq -r '.engines.node // ""' "$d/package.json" 2>/dev/null | grep -oE '[0-9]+' | head -1)
+  printf '%s' "${v%%.*}"
+}
+mcp_node_for() {
+  local d="$1" major cand cur
+  major=$(mcp_node_major "$d")
+  cur=$(command -v node 2>/dev/null || true)
+  if [ -z "$major" ]; then printf '%s' "$cur"; return; fi
+  if [ -n "$cur" ] && [ "$("$cur" -p 'process.versions.node.split(".")[0]' 2>/dev/null)" = "$major" ]; then
+    printf '%s' "$("$cur" -p 'process.execPath' 2>/dev/null)"; return
+  fi
+  for cand in \
+    "${FNM_DIR:-$HOME/.local/share/fnm}/node-versions/v$major".*/installation/bin/node \
+    "$HOME/Library/Application Support/fnm/node-versions/v$major".*/installation/bin/node \
+    "${NVM_DIR:-$HOME/.nvm}/versions/node/v$major".*/bin/node \
+    "/opt/homebrew/opt/node@$major/bin/node" "/usr/local/opt/node@$major/bin/node" \
+    "$HOME/.volta/tools/image/node/$major".*/bin/node; do
+    [ -x "$cand" ] && { printf '%s' "$cand"; return; }
+  done
+  echo "    ⚠️  $(basename "$d") pins Node $major but no Node $major was found (fnm/nvm/brew node@$major) — using $(node -v)" >&2
+  printf '%s' "$cur"
+}
+mcp_probe() {
+  printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"install","version":"1"}}}' \
+    | "$1" "$2" 2>/dev/null | head -c 4000 | grep -q '"serverInfo"'
+}
+claude_mcp_register() {  # <name> <node> <entry> — (re)register with Claude Code when the command differs
+  local name="$1" nodebin="$2" entry="$3" cur
+  command -v claude &>/dev/null || return 1
+  cur=$(claude mcp get "$name" 2>/dev/null || true)
+  if printf '%s' "$cur" | grep -qF "$nodebin" && printf '%s' "$cur" | grep -qF "$entry"; then
+    echo "  $name MCP already registered with Claude Code ($nodebin)"; return 0
+  fi
+  [ -n "$cur" ] && claude mcp remove "$name" >/dev/null 2>&1 || true
+  claude mcp add "$name" "$nodebin" "$entry" 2>&1 | head -3
+  echo "  Registered $name MCP with Claude Code (user-level, $nodebin)"
+}
+mcp_stamp() {  # <dir> <node> [subdir] -> "<node version>:<lockfile checksum>"
+  local d="$1" nodebin="$2" sub="${3:-.}" locks=""
+  [ -f "$d/package-lock.json" ] && locks="$d/package-lock.json"
+  [ "$sub" != "." ] && [ -f "$d/$sub/package-lock.json" ] && locks="$locks $d/$sub/package-lock.json"
+  printf '%s:%s' "$("$nodebin" -v 2>/dev/null)" "$( [ -n "$locks" ] && cat $locks | cksum | cut -d' ' -f1 || echo nolock)"
+}
+mcp_build() {
+  local d="$1" nodebin="$2" entry="$3" sub="${4:-.}" stamp want have
+  stamp="$d/.attest-build-stamp"
+  want=$(mcp_stamp "$d" "$nodebin" "$sub")
+  have=$(cat "$stamp" 2>/dev/null || true)
+  if [ -f "$entry" ] && [ "$want" = "$have" ] && [ ! "$d/$sub/src/index.ts" -nt "$entry" ] && mcp_probe "$nodebin" "$entry"; then
+    return 0
+  fi
+  echo "  Building $(basename "$d") with $("$nodebin" -v)..."
+  if (cd "$d" && PATH="$(dirname "$nodebin"):$PATH" npm install --silent && PATH="$(dirname "$nodebin"):$PATH" npm run build --silent) 2>&1 | tail -3; then
+    if [ -f "$entry" ] && mcp_probe "$nodebin" "$entry"; then
+      printf '%s' "$want" > "$stamp"; echo "    build ✓ (responds to initialize)"; return 0
+    fi
+    if (cd "$d" && PATH="$(dirname "$nodebin"):$PATH" npm rebuild --silent) 2>/dev/null && mcp_probe "$nodebin" "$entry"; then
+      printf '%s' "$want" > "$stamp"; echo "    build ✓ (native addons rebuilt)"; return 0
+    fi
+  fi
+  echo "    ⚠️  build failed or server does not answer initialize — try: $nodebin $entry"
+  return 1
+}
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 MODE="global"
 METHOD="copy"
@@ -1339,17 +1419,15 @@ if [ "$INSTALL_MEMORY" = true ]; then
       echo "  bpm-memory-mcp up to date"
     fi
 
-    if [ -n "${MEMORY_SERVER:-}" ] && { [ ! -f "$MEMORY_SERVER" ] || [ "$MEMORY_DIR/mcp/memory-server/src/index.ts" -nt "$MEMORY_SERVER" ]; }; then
-      echo "  Building bpm-memory-mcp..."
-      if (cd "$MEMORY_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3; then
-        [ -f "$MEMORY_SERVER" ] && echo "    build ✓" || { echo "    ⚠️  build failed"; MEMORY_SERVER=""; }
-      fi
+    MEMORY_NODE="$(mcp_node_for "$MEMORY_DIR")"
+    if [ -n "${MEMORY_SERVER:-}" ] && [ -d "$MEMORY_DIR" ]; then
+      mcp_build "$MEMORY_DIR" "$MEMORY_NODE" "$MEMORY_SERVER" mcp/memory-server || MEMORY_SERVER=""
     fi
 
     if [ -n "${MEMORY_SERVER:-}" ] && [ -f "$MEMORY_SERVER" ] && [ -f "$CONFIG_FILE" ]; then
       if command -v jq &>/dev/null; then
-        MEM_CFG="$(jq -nc --arg path "$MEMORY_SERVER" \
-          '{type: "local", command: ["node", $path], enabled: true}')"
+        MEM_CFG="$(jq -nc --arg node "$MEMORY_NODE" --arg path "$MEMORY_SERVER" \
+          '{type: "local", command: [$node, $path], enabled: true}')"
         if jq -e '.mcp.memory' "$CONFIG_FILE" &>/dev/null; then
           jq --argjson cfg "$MEM_CFG" '.mcp.memory = $cfg' \
             "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
@@ -1361,19 +1439,14 @@ if [ "$INSTALL_MEMORY" = true ]; then
         fi
       else
         echo "  ⚠️  jq not installed — add this to $CONFIG_FILE under \"mcp\":"
-        echo '    "memory": {"type":"local","command":["node","'"$MEMORY_SERVER"'"],"enabled":true}'
+        echo '    "memory": {"type":"local","command":["'"$MEMORY_NODE"'","'"$MEMORY_SERVER"'"],"enabled":true}'
       fi
     fi
 
     # Also register with Claude Code, if installed (separate config from OpenCode's $CONFIG_FILE)
     if [ -n "${MEMORY_SERVER:-}" ] && [ -f "$MEMORY_SERVER" ]; then
       if command -v claude &>/dev/null; then
-        if claude mcp list 2>/dev/null | grep -q "^memory"; then
-          echo "  bpm-memory-mcp MCP already registered with Claude Code"
-        else
-          claude mcp add memory node "$MEMORY_SERVER" 2>&1 | head -3
-          echo "  Registered bpm-memory-mcp MCP with Claude Code (user-level)"
-        fi
+        claude_mcp_register memory "$MEMORY_NODE" "$MEMORY_SERVER"
       fi
     fi
 
@@ -1510,17 +1583,15 @@ else
     echo "  bpm-code-search-mcp up to date"
   fi
 
-  if [ -n "${CODE_SEARCH_BIN:-}" ] && { [ ! -f "$CODE_SEARCH_BIN" ] || [ "$CODE_SEARCH_DIR/src/index.ts" -nt "$CODE_SEARCH_BIN" ]; }; then
-    echo "  Building bpm-code-search-mcp..."
-    if (cd "$CODE_SEARCH_DIR" && npm install --silent && npm run build --silent) 2>&1 | tail -3; then
-      [ -f "$CODE_SEARCH_BIN" ] && echo "    build ✓" || { echo "    ⚠️  build failed"; CODE_SEARCH_BIN=""; }
-    fi
+  CODE_SEARCH_NODE="$(mcp_node_for "$CODE_SEARCH_DIR")"
+  if [ -n "${CODE_SEARCH_BIN:-}" ] && [ -d "$CODE_SEARCH_DIR" ]; then
+    mcp_build "$CODE_SEARCH_DIR" "$CODE_SEARCH_NODE" "$CODE_SEARCH_BIN" || CODE_SEARCH_BIN=""
   fi
 
   if [ -n "${CODE_SEARCH_BIN:-}" ] && [ -f "$CODE_SEARCH_BIN" ] && [ -f "$CONFIG_FILE" ]; then
     if command -v jq &>/dev/null; then
-      CS_CFG="$(jq -nc --arg path "$CODE_SEARCH_BIN" \
-        '{type: "local", command: ["node", $path], enabled: true}')"
+      CS_CFG="$(jq -nc --arg node "$CODE_SEARCH_NODE" --arg path "$CODE_SEARCH_BIN" \
+        '{type: "local", command: [$node, $path], enabled: true}')"
       if jq -e '.mcp."code-search"' "$CONFIG_FILE" &>/dev/null; then
         jq --argjson cfg "$CS_CFG" '.mcp."code-search" = $cfg' \
           "$CONFIG_FILE" > "${CONFIG_FILE}.tmp" && mv "${CONFIG_FILE}.tmp" "$CONFIG_FILE"
@@ -1536,7 +1607,7 @@ else
       echo "     It will not appear in opencode. Add this manually to $CONFIG_FILE under \"mcp\":"
       echo '    "code-search": {'
       echo '      "type": "local",'
-      echo "      \"command\": [\"node\", \"$CODE_SEARCH_BIN\"],"
+      echo "      \"command\": [\"$CODE_SEARCH_NODE\", \"$CODE_SEARCH_BIN\"],"
       echo '      "enabled": true'
       echo '    }'
     fi
@@ -1545,12 +1616,7 @@ else
   # Also register with Claude Code, if installed (separate config from OpenCode's $CONFIG_FILE)
   if [ -n "${CODE_SEARCH_BIN:-}" ] && [ -f "$CODE_SEARCH_BIN" ]; then
     if command -v claude &>/dev/null; then
-      if claude mcp list 2>/dev/null | grep -q "^code-search"; then
-        echo "  bpm-code-search-mcp already registered with Claude Code"
-      else
-        claude mcp add code-search node "$CODE_SEARCH_BIN" 2>&1 | head -3
-        echo "  Registered bpm-code-search-mcp with Claude Code (user-level)"
-      fi
+      claude_mcp_register code-search "$CODE_SEARCH_NODE" "$CODE_SEARCH_BIN"
     fi
   fi
 fi
