@@ -50,9 +50,10 @@ CLI: `node scripts/lib/opencode-hardening.mjs detect [--json|--doctor|--verdict]
   can do are unaffected. OpenCode recommends a container or VM for real isolation.
 - OpenCode v1 has no plugin load policy; detection reports `unsupported-v1`. Upgrade, or isolate.
 - The docs identify plugins "by unversioned package name or absolute path" and do not say whether a directory
-  plugin is matched by the directory or its entry file, so attest allows and checks both forms. **Verify once on
-  your install:** drop a harmless marker plugin into a scratch project's `.opencode/plugins/` and confirm it does
-  not load, and that attest's hooks still do.
+  plugin is matched by the directory or its entry file, so attest allows and checks both forms. **Verify on your
+  install** with `scripts/verify-plugin-policy.sh`: it drops a harmless marker plugin into a scratch project and
+  reports whether OpenCode loaded it (expect "loaded" before `--harden`, "not loaded" after). Then start a normal
+  session and confirm attest's own hooks still run (`scripts/doctor.sh`).
 - Ask-style permissions prompt a human; they stop nothing if the prompt is approved.
 
 ## Beyond config
