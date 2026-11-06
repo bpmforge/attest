@@ -4,12 +4,49 @@
 # is loaded by OpenCode. Harmless: the marker plugin only writes one file in a temp dir. Run it once with no
 # policy (control: it SHOULD load) and once after ./install.sh --harden (it should NOT).
 #
-#   scripts/verify-plugin-policy.sh
+#   scripts/verify-plugin-policy.sh              read-only check against your real config
+#   scripts/verify-plugin-policy.sh --isolated   full test in a throwaway config dir (applies the policy there, not to your real config)
 #
 # Exit: 0 = result matches what the detected hardening state predicts, 1 = mismatch (do not rely on the policy), 2 = could not run.
 set -u
 command -v opencode >/dev/null 2>&1 || { echo "opencode not found on PATH"; exit 2; }
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# ── --isolated: full mechanism test in a THROWAWAY config dir (never touches your real ~/.config/opencode) ──────────
+#   A) control, no policy:  a project plugin AND an attest-named global plugin both load
+#   B) after `opencode-hardening.mjs apply`:  the project plugin is blocked, the attest-named global plugin still loads
+if [ "${1:-}" = "--isolated" ]; then
+  command -v node >/dev/null 2>&1 || { echo "node not found"; exit 2; }
+  ISO="$(mktemp -d)"; trap 'rm -rf "$ISO"' EXIT
+  export XDG_CONFIG_HOME="$ISO/xdg"; G="$XDG_CONFIG_HOME/opencode"; P="$ISO/proj"
+  mkdir -p "$G/plugins/expert-hooks" "$P/.opencode/plugins/attest-marker"
+  mk() {  # mk <dir> <env var holding the marker path> <plugin id>
+    cat > "$1/index.ts" <<TS
+import { Plugin } from "@opencode/plugin";
+import { writeFileSync } from "node:fs";
+writeFileSync(process.env.$2 as string, "loaded");
+export default Plugin.define({ id: "$3", async setup() {} });
+TS
+  }
+  mk "$G/plugins/expert-hooks" MARK_GLOBAL attest.verify-global       # stands in for an attest plugin (same path shape as a real install)
+  mk "$P/.opencode/plugins/attest-marker" MARK_PROJECT attest.verify-project
+  echo '{}' > "$P/opencode.json"
+  OCVER="$(opencode --version 2>/dev/null | head -1)"
+  echo "OpenCode: $OCVER   (isolated config: $G)"
+  run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }
+  try() { rm -f "$ISO/mg" "$ISO/mp"; export MARK_GLOBAL="$ISO/mg" MARK_PROJECT="$ISO/mp"
+          ( cd "$P" && run_to 60 opencode run "reply with the single word ok" >"$ISO/oc.log" 2>&1 ) || true
+          G_LOADED=no; P_LOADED=no; [ -f "$ISO/mg" ] && G_LOADED=yes; [ -f "$ISO/mp" ] && P_LOADED=yes; }
+  try; echo "A) no policy:        project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
+  if [ "$P_LOADED" != yes ] || [ "$G_LOADED" != yes ]; then
+    echo "INCONCLUSIVE: the control did not load both plugins, so this config dir may not be honored (XDG_CONFIG_HOME) or opencode did not start."; tail -8 "$ISO/oc.log" | cut -c1-200; exit 2
+  fi
+  node "$HERE/lib/opencode-hardening.mjs" apply --global-dir "$G" --cwd "$P" --major 2 --version "$OCVER" | sed 's/^/   /'
+  try; echo "B) policy applied:   project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
+  if [ "$P_LOADED" = no ] && [ "$G_LOADED" = yes ]; then echo "PASS: the policy blocked the dropped project plugin and left the attest-named plugin loading."; exit 0
+  elif [ "$P_LOADED" = yes ]; then echo "FAIL: the policy did NOT stop the project plugin. Do not rely on it."; tail -5 "$ISO/oc.log" | cut -c1-200; exit 1
+  else echo "FAIL: the policy blocked the attest-named plugin too — the allow rules do not match how this OpenCode names plugins. Send me this output."; cat "$G/opencode.json"; exit 1; fi
+fi
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 export ATTEST_MARKER="$TMP/marker"
 OCVER="$(opencode --version 2>/dev/null | head -1)"
