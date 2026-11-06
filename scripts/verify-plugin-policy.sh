@@ -34,10 +34,13 @@ fi
 echo '{}' > "$TMP/proj/opencode.json"
 verdict="$(node "$HERE/lib/opencode-hardening.mjs" detect --verdict --cwd "$TMP/proj" 2>/dev/null || echo unknown)"
 echo "OpenCode: $OCVER   detected hardening state: $verdict"
+# Portable timeout (macOS has no `timeout`): run in the background, kill after N seconds.
+run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }
 # Start OpenCode in the scratch project; a model call may fail (no provider) — plugin loading happens first.
-( cd "$TMP/proj" && timeout 60 opencode run "reply with the single word ok" >/dev/null 2>&1 ) || true
+( cd "$TMP/proj" && run_to 60 opencode run "reply with the single word ok" >"$TMP/opencode.log" 2>&1 ) || true
 if [ -f "$ATTEST_MARKER" ]; then loaded=yes; else loaded=no; fi
 echo "project plugin loaded: $loaded"
+[ "$loaded" = no ] && { echo "--- last lines of opencode output (to tell 'did not load' from 'did not start'):"; tail -8 "$TMP/opencode.log" 2>/dev/null | cut -c1-200; echo "---"; }
 case "$verdict:$loaded" in
   open:yes)      echo "PASS (control): with no policy the dropped plugin loads — this is the risk --harden removes."; exit 0 ;;
   hardened:no)   echo "PASS: the policy blocked the dropped plugin."; exit 0 ;;
