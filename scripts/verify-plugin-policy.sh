@@ -37,14 +37,15 @@ TS
   # OpenCode v2 runs ONE shared background server (`opencode serve --service`) for all projects. A server that was already
   # running keeps ITS config dir, so it would make this test meaningless. Refuse to run against it; and stop the one this
   # script starts so no stale server (pointing at a deleted temp dir) is left behind for the next run.
-  stale="$(pgrep -f 'opencode serve' 2>/dev/null | tr '\n' ' ')"
+  SERVE_RE='^([^ ]*/)?opencode serve'   # anchored: only a process that STARTS with `opencode serve`, never a shell whose arguments mention it
+  stale="$(pgrep -f "$SERVE_RE" 2>/dev/null | tr '\n' ' ')"
   if [ -n "$stale" ]; then
     echo "STOP: an OpenCode background service is already running (pid $stale). It keeps its own config dir, so this test"
     echo "      would not be valid. Stop it, then re-run:   pkill -f 'opencode serve'"
     echo "      (any open OpenCode window just starts a new one the next time it needs it)"
     exit 2
   fi
-  trap 'for p in $(pgrep -f "opencode serve" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -rf "$ISO"' EXIT
+  trap 'for p in $(pgrep -f "$SERVE_RE" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -rf "$ISO"' EXIT
   OCVER="$(opencode --version 2>/dev/null | head -1)"
   echo "OpenCode: $OCVER   (isolated config: $G)"
   run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }
