@@ -35,7 +35,7 @@ export async function testTicketHygiene(
   // commit REACHABLE from a ref: a fresh clone only receives reachable objects,
   // so a rewritten/orphaned SHA passes locally (the old object lingers in .git)
   // while every clean clone and CI run fails. Re-point it after a history rewrite.
-  const IMPL_COMMIT = "1922115804f815926ebecdfdada121392b7a1a20";
+  const IMPL_COMMIT = "cfa4243c765d704e6d46f72eb94eee71b1d8305f";
 
   function oneModule(overrides: Record<string, unknown> = {}) {
     return {

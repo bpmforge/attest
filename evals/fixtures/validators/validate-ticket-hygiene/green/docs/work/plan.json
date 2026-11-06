@@ -25,7 +25,7 @@
       ],
       "evidence": {
         "branch": "feat/t26.2-validate-ticket-hygiene",
-        "commits": ["1922115804f815926ebecdfdada121392b7a1a20"],
+        "commits": ["cfa4243c765d704e6d46f72eb94eee71b1d8305f"],
         "verify_cmd": "true"
       }
     }
