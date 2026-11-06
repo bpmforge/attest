@@ -49,7 +49,10 @@ TS
   OCVER="$(opencode --version 2>/dev/null | head -1)"
   echo "OpenCode: $OCVER   (isolated config: $G)"
   run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }
-  try() { rm -f "$MG" "$MP"
+  stop_service() { for p in $(pgrep -f "$SERVE_RE" 2>/dev/null); do kill "$p" 2>/dev/null; done; sleep 1; }
+  # The shared service loads GLOBAL plugins once, at start. If it survives from the previous phase, a plugin that is still loaded
+  # never rewrites its marker and would be misread as "blocked". So every phase starts from a fresh service.
+  try() { stop_service; rm -f "$MG" "$MP"
           ( cd "$P" && run_to 60 opencode run "reply with the single word ok" >"$ISO/oc.log" 2>&1 ) || true
           G_LOADED=no; P_LOADED=no; [ -f "$MG" ] && G_LOADED=yes; [ -f "$MP" ] && P_LOADED=yes; }
   try; echo "A) no policy:        project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
@@ -63,8 +66,8 @@ TS
     printf '{"policies":[{"action":"plugin.use","resource":"*","effect":"deny"}]}\n' > "$G/opencode.json"
     ( cd "$P" && run_to 60 opencode run --print-logs --log-level DEBUG "reply with the single word ok" >"$ISO/diag.log" 2>&1 ) || true
     LOGDIR="${XDG_DATA_HOME_REAL:-$HOME/.local/share}/opencode/log"; NEWLOG="$(ls -t "$LOGDIR"/* 2>/dev/null | head -1)"
-    echo "--- OpenCode log lines about plugins / policy (stdout + newest log file: ${NEWLOG:-none}):"
-    { cat "$ISO/diag.log"; [ -n "$NEWLOG" ] && tail -n 400 "$NEWLOG"; } 2>/dev/null | grep -iE 'plugin|polic|denied|deny|verify-(global|project)|expert-hooks' | cut -c1-240 | sort -u | head -30
+    echo "--- OpenCode log lines about plugins / policy, most recent last (newest log file: ${NEWLOG:-none}):"
+    { cat "$ISO/diag.log"; [ -n "$NEWLOG" ] && tail -n 400 "$NEWLOG"; } 2>/dev/null | grep -iE 'plugin|polic|denied|deny|verify-(global|project)|expert-hooks' | cut -c1-260 | tail -24
     echo "---"
     # 2) Try candidate allow forms one at a time.
     echo "Probing which plugin.use resource form matches the global plugin (deny * + one allow each):"
