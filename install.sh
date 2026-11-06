@@ -1783,7 +1783,9 @@ harden_step() {
   fi
   if [ "$go" = true ]; then
     node "$H" apply --global-dir "$GLOBAL_DIR" --major "${OPENCODE_MAJOR:-2}" | sed 's/^/  /'
-    echo "  Verify with a harmless marker plugin dropped into a scratch project's .opencode/plugins/ — it should NOT load."
+    echo "  IMPORTANT: restart OpenCode so the policy takes effect — v2 keeps a shared background service that reads its config once:"
+    echo "             pkill -f 'opencode serve'   (open windows start a fresh one on demand)"
+    echo "  Then verify: scripts/verify-plugin-policy.sh --isolated"
   fi
 }
 harden_step

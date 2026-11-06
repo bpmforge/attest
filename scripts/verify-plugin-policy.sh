@@ -34,13 +34,17 @@ TS
   }
   mk "$G/plugins/expert-hooks" "$MG" attest.verify-global       # stands in for an attest plugin (same path shape as a real install)
   mk "$P/.opencode/plugins/attest-marker" "$MP" attest.verify-project
-  others="$(pgrep -fl opencode 2>/dev/null | grep -v "pgrep\|verify-plugin-policy" | head -5)"
-  if [ -n "$others" ]; then
-    echo "NOTE: other opencode processes are running. A v2 server started earlier ignores this test's config dir and"
-    echo "      would make the result meaningless. If the result is INCONCLUSIVE, quit them (pkill -f opencode) and re-run:"
-    printf '%s\n' "$others" | cut -c1-140 | sed 's/^/        /'
+  # OpenCode v2 runs ONE shared background server (`opencode serve --service`) for all projects. A server that was already
+  # running keeps ITS config dir, so it would make this test meaningless. Refuse to run against it; and stop the one this
+  # script starts so no stale server (pointing at a deleted temp dir) is left behind for the next run.
+  stale="$(pgrep -f 'opencode serve' 2>/dev/null | tr '\n' ' ')"
+  if [ -n "$stale" ]; then
+    echo "STOP: an OpenCode background service is already running (pid $stale). It keeps its own config dir, so this test"
+    echo "      would not be valid. Stop it, then re-run:   pkill -f 'opencode serve'"
+    echo "      (any open OpenCode window just starts a new one the next time it needs it)"
+    exit 2
   fi
-  echo '{}' > "$P/opencode.json"
+  trap 'for p in $(pgrep -f "opencode serve" 2>/dev/null); do kill "$p" 2>/dev/null; done; rm -rf "$ISO"' EXIT
   OCVER="$(opencode --version 2>/dev/null | head -1)"
   echo "OpenCode: $OCVER   (isolated config: $G)"
   run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }

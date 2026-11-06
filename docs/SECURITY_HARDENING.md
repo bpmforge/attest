@@ -44,6 +44,13 @@ anchor silently never load. attest handles this in both directions.
 
 CLI: `node scripts/lib/opencode-hardening.mjs detect [--json|--doctor|--verdict] | plan | apply`.
 
+## After applying: restart OpenCode
+
+OpenCode v2 runs one shared background service (`opencode serve --service`) for all projects and reads its config
+when it starts. A policy added while that service is running is not guaranteed to apply to it. After `--harden`, stop
+it (`pkill -f 'opencode serve'`); open windows start a fresh one on demand. `scripts/verify-plugin-policy.sh` refuses to
+run while a service is already up for the same reason.
+
 ## Limits, stated plainly
 
 - It is a policy, not a sandbox. Code that already loaded, approved shell commands, and anything else the agent
