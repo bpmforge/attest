@@ -2,10 +2,17 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## [3.17.0] — 2026-11-06
 
-- **OpenCode hardening (opt-in).** `./install.sh` detects your OpenCode plugin-load policy and offers `[y/N]` to apply a deny-by-default `plugin.use` policy (v2.2.3+) that still allows attest's plugins and the ones you already have; `--harden` / `--no-harden` flags; `--yes` never enables it. `doctor.sh` gains an "OpenCode hardening" section that FAILs when a policy blocks attest's own plugins. New `scripts/lib/opencode-hardening.mjs` (+ tests) and `docs/SECURITY_HARDENING.md`.
-- Removed an internal project name from comments in the conductor and JIRA driver.
+### Added
+- **Opt-in OpenCode hardening against plugin-based prompt injection.** OpenCode autoloads JavaScript/TypeScript from a project's `.opencode/plugins/`, and v2 loads it while a session is running, so anything that can write a file there (a prompt-injected download, a cloned repo) executes with your privileges. On OpenCode **v2.2.3+** a `plugin.use` policy stops that. `./install.sh` now detects your policy across every config layer and asks `[y/N]` before adding a deny-by-default policy that still allows attest's own plugins and the plugins already in your global config (`--harden` applies without asking, `--no-harden` skips, `--yes` never enables it). Your `opencode.json` is backed up; managed/system/project config and commented `.jsonc` files are never rewritten. See `docs/SECURITY_HARDENING.md`.
+- **`doctor.sh` "OpenCode hardening" section.** PASS when hardened with attest's plugins loading; WARN when open, on v1, or on a pre-2.2.3 v2; **FAIL when a policy denies attest's own plugins** (a bare `deny *` otherwise silently disables the turn cap, stall guard, gates and resume anchor).
+- **`scripts/verify-plugin-policy.sh`** proves the behaviour on your own install: the default mode checks your real config read-only; `--isolated` applies the policy in a throwaway config dir and confirms a dropped project plugin is blocked while an attest-shaped plugin still loads; `--probe` is a diagnostic. Verified on a real OpenCode 2.2.5.
+
+### Notes
+- **OpenCode v2 only.** v1 has no plugin load policy and autoloads project plugins; `doctor.sh` and `install.sh` say so and point to upgrading or isolating untrusted research (container/VM without host credentials). This is a policy, not a sandbox.
+- **Restart OpenCode after `--harden`.** v2 runs one shared background service that loads global plugins and config at start: `pkill -f 'opencode serve'` (open windows start a fresh one on demand).
+- Allow rules are by absolute path (written and resolved forms), never by plugin `id`, which a project plugin controls.
 
 ## [3.16.1] — 2026-11-05
 

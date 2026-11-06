@@ -130,6 +130,7 @@ Full index: [docs/README.md](docs/README.md).
 - [docs/UNATTENDED_EXECUTION.md](docs/UNATTENDED_EXECUTION.md) — running Phase 4 coding tickets unattended: the conductor, its startup gates, diff-triggered reviewers, Jira mirroring, and what to check before pointing it at a large board
 - [docs/LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md) — running on local models (tiers, compact variants)
 - [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) — adding agents or skills (and the single-source build for attest-claude)
+- [Security hardening](docs/SECURITY_HARDENING.md) — stop project/downloaded plugins from autoloading in OpenCode v2.2.3+ (`./install.sh --harden`), what it does and does not protect
 - [Releases](https://github.com/bpmforge/attest/releases) — release notes for each version; [CHANGELOG.md](CHANGELOG.md) has full entries for 1.x–2.12.0 and 3.4.0 onward, and a per-tag summary table for 2.13.0–3.3.1
 
 ## License
