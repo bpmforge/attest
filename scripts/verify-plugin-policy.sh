@@ -59,17 +59,28 @@ TS
   if [ "${1:-}" = "--probe" ]; then
     # Find which allow-rule FORM this OpenCode matches: for each candidate, policy = deny * + allow <candidate>.
     REAL="$(cd "$G/plugins/expert-hooks" && pwd -P)"
+    # 1) Ask OpenCode itself: deny everything, run with debug logging, show what it says about the plugins.
+    printf '{"policies":[{"action":"plugin.use","resource":"*","effect":"deny"}]}\n' > "$G/opencode.json"
+    ( cd "$P" && run_to 60 opencode run --print-logs --log-level DEBUG "reply with the single word ok" >"$ISO/diag.log" 2>&1 ) || true
+    LOGDIR="${XDG_DATA_HOME_REAL:-$HOME/.local/share}/opencode/log"; NEWLOG="$(ls -t "$LOGDIR"/* 2>/dev/null | head -1)"
+    echo "--- OpenCode log lines about plugins / policy (stdout + newest log file: ${NEWLOG:-none}):"
+    { cat "$ISO/diag.log"; [ -n "$NEWLOG" ] && tail -n 400 "$NEWLOG"; } 2>/dev/null | grep -iE 'plugin|polic|denied|deny|verify-(global|project)|expert-hooks' | cut -c1-240 | sort -u | head -30
+    echo "---"
+    # 2) Try candidate allow forms one at a time.
     echo "Probing which plugin.use resource form matches the global plugin (deny * + one allow each):"
     probe() { printf '{"policies":[{"action":"plugin.use","resource":"*","effect":"deny"},{"action":"plugin.use","resource":"%s","effect":"allow"}]}\n' "$2" > "$G/opencode.json"
               try; printf '  %-26s %-8s  %s\n' "$1" "$( [ "$G_LOADED" = yes ] && echo MATCHES || echo no )" "$2"; }
     probe "literal dir"            "$G/plugins/expert-hooks"
     probe "literal dir/index.ts"   "$G/plugins/expert-hooks/index.ts"
-    probe "literal dir/*"          "$G/plugins/expert-hooks/*"
     probe "real dir"               "$REAL"
     probe "real dir/index.ts"      "$REAL/index.ts"
-    probe "real dir/*"             "$REAL/*"
+    probe "file:// literal dir"    "file://$G/plugins/expert-hooks"
+    probe "file:// real dir"       "file://$REAL"
     probe "file:// real index.ts"  "file://$REAL/index.ts"
-    probe "wildcard */expert-hooks*" "*/expert-hooks*"
+    probe "name only"              "expert-hooks"
+    probe "relative plugins/name"  "plugins/expert-hooks"
+    probe "wildcard *expert-hooks*" "*expert-hooks*"
+    probe "wildcard */plugins/*"   "*/plugins/*"
     probe "plugin id (spoofable)"  "attest.verify-global"
     echo "(literal=$G ; real=$REAL)"; echo "Send me this table."; exit 0
   fi
