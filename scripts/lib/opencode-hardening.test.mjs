@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { wildcardMatch, parseJsonc, evaluatePluginUse, detect, planPolicies, applyHardening, loadLayers, discoverUserPlugins, doctorLines, evaluateShell } from './opencode-hardening.mjs';
+import { dirForms, wildcardMatch, parseJsonc, evaluatePluginUse, detect, planPolicies, applyHardening, loadLayers, discoverUserPlugins, doctorLines, evaluateShell } from './opencode-hardening.mjs';
 
 const G = '/home/u/.config/opencode';
 const layer = (kind, policies = [], extra = {}) => ({ file: `/x/${kind}.json`, kind, policies, permissions: [], plugins: [], hadComments: false, value: {}, ...extra });
@@ -145,4 +145,14 @@ test('discoverUserPlugins: attest\'s own plugins and lib/ are not grandfathered'
   fs.writeFileSync(path.join(gdir, 'plugins', 'expert-hooks.ts'), '');
   fs.writeFileSync(path.join(gdir, 'plugins', 'other.ts'), '');
   assert.deepEqual(discoverUserPlugins(gdir, []), [path.join(gdir, 'plugins', 'other.ts')]);
+});
+
+test('dirForms/plan: a symlinked config dir gets allow rules for BOTH the written and the resolved path; never by plugin id', () => {
+  const home = tmp(); const real = path.join(home, 'real'); const link = path.join(home, 'link');
+  fs.mkdirSync(real); fs.symlinkSync(real, link);
+  const realResolved = fs.realpathSync(real);
+  assert.deepEqual(dirForms(link), [link, realResolved]);
+  const plan = planPolicies({ existing: [], globalDir: link });
+  for (const base of [link, realResolved]) assert.ok(plan.some((s) => s.resource === path.join(base, 'plugins', 'expert-hooks', 'index.ts') && s.effect === 'allow'), base);
+  assert.ok(!plan.some((s) => /^attest\./.test(s.resource)), 'no id-based allow (a project plugin controls its own id)');
 });

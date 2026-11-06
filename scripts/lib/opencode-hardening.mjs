@@ -158,8 +158,16 @@ export function versionAtLeast(v, min) { for (let i = 0; i < 3; i++) { if (v[i] 
 /** Resources that identify an attest plugin. OpenCode names a plugin "by unversioned package name or absolute path"; the
  *  docs do not say whether a directory plugin is identified by the directory or its entry file, so both forms must load. */
 export function attestResources(globalDir, name) {
-  const base = path.join(globalDir, 'plugins', name);
-  return [base, path.join(base, 'index.ts')];
+  const out = [];
+  for (const g of dirForms(globalDir)) { const base = path.join(g, 'plugins', name); out.push(base, path.join(base, 'index.ts')); }
+  return out;
+}
+
+/** The config dir as written AND as the OS resolves it (macOS /var -> /private/var, symlinked dotfiles): OpenCode may identify a plugin by either. */
+export function dirForms(dir) {
+  const forms = [dir];
+  try { const real = fs.realpathSync(dir); if (real !== dir) forms.push(real); } catch { /* dir may not exist yet */ }
+  return forms;
 }
 
 /** Inspect everything and say what attest should do about it. */
@@ -224,8 +232,9 @@ export function planPolicies({ existing = [], globalDir, attestPlugins = DEFAULT
   const want = [];
   const hasDenyAll = existing.some((s) => s?.action === 'plugin.use' && s.resource === '*' && s.effect === 'deny');
   if (!hasDenyAll) want.push({ action: 'plugin.use', resource: '*', effect: 'deny' });
-  for (const n of attestPlugins) for (const r of [path.join(globalDir, 'plugins', n), path.join(globalDir, 'plugins', n, '*'), path.join(globalDir, 'plugins', n, 'index.ts')]) want.push({ action: 'plugin.use', resource: r, effect: 'allow' });
+  for (const g of dirForms(globalDir)) for (const n of attestPlugins) for (const r of [path.join(g, 'plugins', n), path.join(g, 'plugins', n, '*'), path.join(g, 'plugins', n, 'index.ts')]) want.push({ action: 'plugin.use', resource: r, effect: 'allow' });
   for (const g of grandfather) want.push({ action: 'plugin.use', resource: g, effect: 'allow' });
+  // never allow by plugin `id`: a project plugin controls its own id, so an id-based allow would be spoofable.
   return want.filter((w) => !existing.some((e) => same(e, w)));
 }
 

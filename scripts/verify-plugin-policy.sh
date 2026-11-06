@@ -5,6 +5,7 @@
 # policy (control: it SHOULD load) and once after ./install.sh --harden (it should NOT).
 #
 #   scripts/verify-plugin-policy.sh              read-only check against your real config
+#   scripts/verify-plugin-policy.sh --probe      find which allow-rule form your OpenCode matches (diagnostic)
 #   scripts/verify-plugin-policy.sh --isolated   full test in a throwaway config dir (applies the policy there, not to your real config)
 #
 # Exit: 0 = result matches what the detected hardening state predicts, 1 = mismatch (do not rely on the policy), 2 = could not run.
@@ -15,7 +16,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # ── --isolated: full mechanism test in a THROWAWAY config dir (never touches your real ~/.config/opencode) ──────────
 #   A) control, no policy:  a project plugin AND an attest-named global plugin both load
 #   B) after `opencode-hardening.mjs apply`:  the project plugin is blocked, the attest-named global plugin still loads
-if [ "${1:-}" = "--isolated" ]; then
+if [ "${1:-}" = "--isolated" ] || [ "${1:-}" = "--probe" ]; then
   command -v node >/dev/null 2>&1 || { echo "node not found"; exit 2; }
   ISO="$(mktemp -d)"; trap 'rm -rf "$ISO"' EXIT
   export XDG_CONFIG_HOME="$ISO/xdg"; G="$XDG_CONFIG_HOME/opencode"; P="$ISO/proj"
@@ -49,6 +50,23 @@ TS
   try; echo "A) no policy:        project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
   if [ "$P_LOADED" != yes ] || [ "$G_LOADED" != yes ]; then
     echo "INCONCLUSIVE: the control did not load both plugins, so this config dir may not be honored (XDG_CONFIG_HOME) or opencode did not start."; tail -8 "$ISO/oc.log" | cut -c1-200; exit 2
+  fi
+  if [ "${1:-}" = "--probe" ]; then
+    # Find which allow-rule FORM this OpenCode matches: for each candidate, policy = deny * + allow <candidate>.
+    REAL="$(cd "$G/plugins/expert-hooks" && pwd -P)"
+    echo "Probing which plugin.use resource form matches the global plugin (deny * + one allow each):"
+    probe() { printf '{"policies":[{"action":"plugin.use","resource":"*","effect":"deny"},{"action":"plugin.use","resource":"%s","effect":"allow"}]}\n' "$2" > "$G/opencode.json"
+              try; printf '  %-26s %-8s  %s\n' "$1" "$( [ "$G_LOADED" = yes ] && echo MATCHES || echo no )" "$2"; }
+    probe "literal dir"            "$G/plugins/expert-hooks"
+    probe "literal dir/index.ts"   "$G/plugins/expert-hooks/index.ts"
+    probe "literal dir/*"          "$G/plugins/expert-hooks/*"
+    probe "real dir"               "$REAL"
+    probe "real dir/index.ts"      "$REAL/index.ts"
+    probe "real dir/*"             "$REAL/*"
+    probe "file:// real index.ts"  "file://$REAL/index.ts"
+    probe "wildcard */expert-hooks*" "*/expert-hooks*"
+    probe "plugin id (spoofable)"  "attest.verify-global"
+    echo "(literal=$G ; real=$REAL)"; echo "Send me this table."; exit 0
   fi
   node "$HERE/lib/opencode-hardening.mjs" apply --global-dir "$G" --cwd "$P" --major 2 --version "$OCVER" | sed 's/^/   /'
   try; echo "B) policy applied:   project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
