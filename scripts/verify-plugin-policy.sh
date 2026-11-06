@@ -20,23 +20,32 @@ if [ "${1:-}" = "--isolated" ]; then
   ISO="$(mktemp -d)"; trap 'rm -rf "$ISO"' EXIT
   export XDG_CONFIG_HOME="$ISO/xdg"; G="$XDG_CONFIG_HOME/opencode"; P="$ISO/proj"
   mkdir -p "$G/plugins/expert-hooks" "$P/.opencode/plugins/attest-marker"
-  mk() {  # mk <dir> <env var holding the marker path> <plugin id>
+  # Marker paths are baked into the plugin source, NOT passed by env: a v2 server may be a shared background process
+  # that started earlier and would not have this script's environment.
+  MG="$ISO/mg"; MP="$ISO/mp"
+  mk() {  # mk <dir> <marker file path> <plugin id>
     cat > "$1/index.ts" <<TS
 import { Plugin } from "@opencode/plugin";
 import { writeFileSync } from "node:fs";
-writeFileSync(process.env.$2 as string, "loaded");
+writeFileSync("$2", "loaded");
 export default Plugin.define({ id: "$3", async setup() {} });
 TS
   }
-  mk "$G/plugins/expert-hooks" MARK_GLOBAL attest.verify-global       # stands in for an attest plugin (same path shape as a real install)
-  mk "$P/.opencode/plugins/attest-marker" MARK_PROJECT attest.verify-project
+  mk "$G/plugins/expert-hooks" "$MG" attest.verify-global       # stands in for an attest plugin (same path shape as a real install)
+  mk "$P/.opencode/plugins/attest-marker" "$MP" attest.verify-project
+  others="$(pgrep -fl opencode 2>/dev/null | grep -v "pgrep\|verify-plugin-policy" | head -5)"
+  if [ -n "$others" ]; then
+    echo "NOTE: other opencode processes are running. A v2 server started earlier ignores this test's config dir and"
+    echo "      would make the result meaningless. If the result is INCONCLUSIVE, quit them (pkill -f opencode) and re-run:"
+    printf '%s\n' "$others" | cut -c1-140 | sed 's/^/        /'
+  fi
   echo '{}' > "$P/opencode.json"
   OCVER="$(opencode --version 2>/dev/null | head -1)"
   echo "OpenCode: $OCVER   (isolated config: $G)"
   run_to() { local secs="$1"; shift; "$@" & local pid=$!; ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local w=$!; wait "$pid" 2>/dev/null; local rc=$?; kill "$w" 2>/dev/null; return $rc; }
-  try() { rm -f "$ISO/mg" "$ISO/mp"; export MARK_GLOBAL="$ISO/mg" MARK_PROJECT="$ISO/mp"
+  try() { rm -f "$MG" "$MP"
           ( cd "$P" && run_to 60 opencode run "reply with the single word ok" >"$ISO/oc.log" 2>&1 ) || true
-          G_LOADED=no; P_LOADED=no; [ -f "$ISO/mg" ] && G_LOADED=yes; [ -f "$ISO/mp" ] && P_LOADED=yes; }
+          G_LOADED=no; P_LOADED=no; [ -f "$MG" ] && G_LOADED=yes; [ -f "$MP" ] && P_LOADED=yes; }
   try; echo "A) no policy:        project plugin loaded=$P_LOADED  attest-named global plugin loaded=$G_LOADED"
   if [ "$P_LOADED" != yes ] || [ "$G_LOADED" != yes ]; then
     echo "INCONCLUSIVE: the control did not load both plugins, so this config dir may not be honored (XDG_CONFIG_HOME) or opencode did not start."; tail -8 "$ISO/oc.log" | cut -c1-200; exit 2
@@ -54,17 +63,17 @@ OCMAJOR="$(printf '%s' "$OCVER" | sed -n 's/^[^0-9]*\([0-9][0-9]*\)\..*/\1/p')"
 # Module-scope write, like a real autoloaded plugin: it runs at import time, before any model turn.
 if [ "$OCMAJOR" = "2" ]; then
   mkdir -p "$TMP/proj/.opencode/plugins/attest-marker"
-  cat > "$TMP/proj/.opencode/plugins/attest-marker/index.ts" <<'TS'
+  cat > "$TMP/proj/.opencode/plugins/attest-marker/index.ts" <<TS
 import { Plugin } from "@opencode/plugin";
 import { writeFileSync } from "node:fs";
-writeFileSync(process.env.ATTEST_MARKER as string, "loaded");
+writeFileSync("$ATTEST_MARKER", "loaded");
 export default Plugin.define({ id: "attest.verify-marker", async setup() {} });
 TS
 else   # v1: plugins are plain modules in .opencode/plugins/*.ts exporting async functions
   mkdir -p "$TMP/proj/.opencode/plugins"
-  cat > "$TMP/proj/.opencode/plugins/attest-marker.ts" <<'TS'
+  cat > "$TMP/proj/.opencode/plugins/attest-marker.ts" <<TS
 import { writeFileSync } from "node:fs";
-writeFileSync(process.env.ATTEST_MARKER as string, "loaded");
+writeFileSync("$ATTEST_MARKER", "loaded");
 export const AttestMarker = async () => ({});
 TS
 fi
