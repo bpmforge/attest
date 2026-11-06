@@ -70,6 +70,11 @@ test('detect: v1 and pre-2.2.3 are reported as unsupported, never as hardened', 
   assert.ok(!doctorLines(detect({ layers: [layer('global', [deny('*')])], globalDir: G, cwd: '/p', major: 1, version: '1.1.4' })).some((l) => l.startsWith('FAIL')), 'v1 ignores policies, so no false FAIL');
 });
 
+test('doctor: v1 prints the unsupported warning once, not twice', () => {
+  const lines = doctorLines(detect({ layers: [layer('global')], globalDir: G, cwd: '/p', major: 1, version: '1.18.30' }));
+  assert.equal(lines.filter((l) => /v1/.test(l)).length, 1);
+});
+
 test('shell: v2 permissions[] and v1 permission.bash both read; ask is surfaced as a note for unattended runs', () => {
   assert.equal(evaluateShell([layer('global', [], { permissions: [{ action: 'shell', resource: '*', effect: 'ask' }] })]), 'ask');
   assert.equal(evaluateShell([layer('global', [], { v1permission: { bash: 'allow' } })]), 'allow');

@@ -261,7 +261,9 @@ export function doctorLines(r) {
     case 'unsupported-old-v2': add('WARN', `OpenCode ${r.version ?? 'v2'} predates plugin.use (needs ${MIN_POLICY_VERSION.join('.')}+) — update OpenCode`); break;
   }
   if (r.verdict === 'blocked-attest') for (const a of r.attest) if (a.effective === 'deny') add('FAIL', `  blocked: ${a.name} — ${a.by}`);
-  for (const n of r.notes) add('WARN', n);
+  // v1 / old-v2: the verdict line above already says it; don't repeat the same note.
+  const dup = r.verdict === 'unsupported-v1' || r.verdict === 'unsupported-old-v2';
+  for (const n of r.notes) { if (dup && (/^OpenCode v1 has no plugin/.test(n) || /^plugin\.use needs/.test(n))) continue; add('WARN', n); }
   return L;
 }
 
