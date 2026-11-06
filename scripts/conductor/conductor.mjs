@@ -2118,7 +2118,7 @@ unchecked item onward. Write your Completion Manifest when every box is ticked.`
 // main would push nothing and strand the work on an unpushed local branch --
 // no PR could be opened from it. In that mode push the BRANCH instead, which
 // is what a review-before-merge (PR-per-ticket) workflow needs. Projects that
-// forbid direct-to-main merges (project AGENTS.md section 5) must run with
+// forbid direct-to-main merges (the project's AGENTS.md git-workflow section) must run with
 // --no-merge and open the PR from the pushed branch.
 // `forceRef` overrides the mode-derived choice: the merge-conflict path in
 // land() has to push the BRANCH even under --merge, because main never

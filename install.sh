@@ -469,6 +469,7 @@ INSTALL_CODE_SEARCH=true
 INSTALL_GAME=true   # game-dev expert cluster (agents/game/* + game skill) — optional; default on for upgrade compatibility
 
 DO_UPDATE=false
+HARDEN=ask   # ask | yes | no — OpenCode plugin-load policy step (see scripts/lib/opencode-hardening.mjs)
 FULL_AGENTS=true    # default until the split is verified on a real OpenCode (WP-X5 VERIFY ON MAC): unsplit sources
 CORE_AGENTS=false   # --core-agents: install the core/full split (core set + agents/shared/full/ on demand)
 
@@ -490,7 +491,9 @@ for arg in "$@"; do
     --memory)               INSTALL_MEMORY=true ;;
     --no-game)              INSTALL_GAME=false ;;
     --game-experts)         INSTALL_GAME=true ;;
-    --yes|-y)               : ;;  # non-interactive, accept all current defaults
+    --harden)               HARDEN=yes ;;   # apply the OpenCode plugin-load policy (v2.2.3+) without asking
+    --no-harden)            HARDEN=no ;;    # never offer it
+    --yes|-y)               : ;;  # non-interactive, accept all current defaults (does NOT enable --harden)
     --help|-h)
       echo "attest v$ATTEST_VERSION — Installation"
       echo ""
@@ -517,7 +520,10 @@ for arg in "$@"; do
       echo "  ./install.sh --no-code-search      Skip bpm-code-search-mcp"
       echo "  ./install.sh --uninstall           Remove installed files"
       echo "  ./install.sh --version             Print the attest version and exit"
-      echo "  ./install.sh --yes                 Accept all defaults non-interactively"
+      echo "  ./install.sh --harden              Also apply OpenCode's plugin-load policy: project/downloaded plugins stop autoloading;"
+      echo "                                     attest's plugins and the ones you already have keep loading (v2.2.3+; asked [y/N] otherwise)"
+      echo "  ./install.sh --no-harden           Do not offer the plugin-load hardening step"
+      echo "  ./install.sh --yes                 Accept all defaults non-interactively (never enables --harden)"
       exit 0
       ;;
   esac
@@ -1739,6 +1745,48 @@ if [ -f "$GLOBAL_DIR/opencode.json" ] && grep -q "context7" "$GLOBAL_DIR/opencod
 else
   echo "  ⚠️  MCP: Context7 not configured — check $GLOBAL_DIR/opencode.json"
 fi
+
+# ─── OpenCode hardening (optional) ───────────────────────────────────────────
+# OpenCode autoloads <project>/.opencode/plugins/*. A prompt-injected download (or a cloned repo) that can write
+# there gets code execution in the agent runtime, and the model noticing afterwards does not stop it. OpenCode
+# v2.2.3+ has a `plugin.use` policy that refuses to load a plugin however it got there. This step detects what the
+# user already has and, only if they say yes, adds a deny-by-default policy with allows for attest's own plugins
+# and the plugins already in their global config. Never touches a managed/system layer, never loosens anything,
+# never rewrites a .jsonc that has comments. --yes does not enable it.
+harden_step() {
+  [ "$MODE" = "global" ] || { echo "  ℹ️  OpenCode hardening: global installs only (run ./install.sh --harden without --project)"; return 0; }
+  [ "$HARDEN" = "no" ] && return 0
+  command -v node &>/dev/null || return 0
+  local H="$SCRIPT_DIR/scripts/lib/opencode-hardening.mjs" verdict
+  [ -f "$H" ] || return 0
+  verdict="$(node "$H" detect --verdict --global-dir "$GLOBAL_DIR" --major "${OPENCODE_MAJOR:-2}" 2>/dev/null)" || return 0
+  echo ""
+  echo "OpenCode hardening (plugin-load policy):"
+  node "$H" detect --global-dir "$GLOBAL_DIR" --major "${OPENCODE_MAJOR:-2}" 2>/dev/null | sed 's/^/  /'
+  case "$verdict" in
+    hardened|unsupported-v1|unsupported-old-v2) return 0 ;;
+  esac
+  local go=false
+  if [ "$HARDEN" = "yes" ]; then go=true
+  elif [ -t 0 ] && [ -r /dev/tty ]; then
+    if [ "$verdict" = "blocked-attest" ]; then
+      printf "  Add allow rules so attest's own plugins load again? [Y/n]: "; read -r yn </dev/tty
+      case "$yn" in n|N|no|NO) ;; *) go=true ;; esac
+    else
+      echo "  Plugins already in your global config keep loading; plugins that appear later (project .opencode/plugins/,"
+      echo "  downloads) will not. A backup of opencode.json is kept. This is a policy, not a sandbox."
+      printf "  Harden OpenCode against project/downloaded plugins now? [y/N]: "; read -r yn </dev/tty
+      case "$yn" in y|Y|yes|YES) go=true ;; esac
+    fi
+  else
+    echo "  (non-interactive: no change made — run ./install.sh --harden to apply)"
+  fi
+  if [ "$go" = true ]; then
+    node "$H" apply --global-dir "$GLOBAL_DIR" --major "${OPENCODE_MAJOR:-2}" | sed 's/^/  /'
+    echo "  Verify with a harmless marker plugin dropped into a scratch project's .opencode/plugins/ — it should NOT load."
+  fi
+}
+harden_step
 
 
 # Opengrep binary (preferred SAST engine)

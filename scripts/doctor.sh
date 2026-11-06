@@ -265,6 +265,20 @@ if [ "$TOOLS_PRESENT" -lt "$TOOLS_TOTAL" ]; then
 fi
 
 # ── Summary ─────────────────────────────────────────────────────────────
+# ── 5. OpenCode hardening (plugin-load policy) ──────────────────────────
+# A deny-by-default plugin.use policy is GOOD, but only if attest's own plugins are allowed; otherwise its hooks
+# (turn cap, stall guard, gates, resume anchor) silently never load. Detection: scripts/lib/opencode-hardening.mjs.
+echo ""
+echo "OpenCode hardening:"
+HARDEN_JS="$DIR/scripts/lib/opencode-hardening.mjs"
+if [ -f "$HARDEN_JS" ] && command -v node >/dev/null 2>&1; then
+  while IFS=$'\t' read -r lvl msg; do
+    case "$lvl" in PASS) ok "$msg" ;; WARN) warn "$msg" ;; FAIL) bad "$msg" ;; esac
+  done < <(node "$HARDEN_JS" detect --doctor --global-dir "$DIR" ${OC_MAJOR:+--major "$OC_MAJOR"} 2>/dev/null)
+else
+  warn "hardening check unavailable (needs node and $HARDEN_JS) — re-run ./install.sh"
+fi
+
 echo ""
 echo "RESULT: $PASS pass, $WARN warn, $FAIL fail"
 if [ "$FAIL" -gt 0 ]; then

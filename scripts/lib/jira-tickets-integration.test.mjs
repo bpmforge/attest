@@ -4,7 +4,7 @@
 // an argument of their own choosing — that supplied-arguments pattern cannot
 // catch a mismatch between what conductor.mjs actually passes and what the
 // driver expects, which is exactly the class of bug that shipped twice on the
-// 2026-07-31 project pilot (loadPlan(PLAN_PATH) receiving a FILE where the
+// 2026-07-31 field pilot (loadPlan(PLAN_PATH) receiving a FILE where the
 // driver needed the project ROOT; persistPlan() git-adding a file the board
 // never creates; main()'s existsSync(PLAN_PATH) precondition; mirrorJira()
 // racing a second JIRA writer). This suite would have failed on all four

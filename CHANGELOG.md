@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and versioning follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+- **OpenCode hardening (opt-in).** `./install.sh` detects your OpenCode plugin-load policy and offers `[y/N]` to apply a deny-by-default `plugin.use` policy (v2.2.3+) that still allows attest's plugins and the ones you already have; `--harden` / `--no-harden` flags; `--yes` never enables it. `doctor.sh` gains an "OpenCode hardening" section that FAILs when a policy blocks attest's own plugins. New `scripts/lib/opencode-hardening.mjs` (+ tests) and `docs/SECURITY_HARDENING.md`.
+- Removed an internal project name from comments in the conductor and JIRA driver.
+
 ## [3.16.1] — 2026-11-05
 
 ### Fixed

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// jira-tickets.mjs — JIRA board driver for the M28 Conductor (project
+// jira-tickets.mjs — JIRA board driver for the M28 Conductor (field
 // integration, docs/work/CONDUCTOR_JIRA_INTEGRATION_PLAN.md v4 steps 6+7).
 //
 // conductor.mjs touches the board through exactly one import (see line 64 of
@@ -23,7 +23,7 @@
 // guessed scope silently disables the scope gate, which is the only thing
 // bounding an unattended agent's merge.
 //
-// Repo-agnosticism: this driver hardcodes no project paths. The JIRA CLI
+// Repo-agnosticism: this driver hardcodes no project-specific paths. The JIRA CLI
 // location comes from JIRA_CLI; the scope-map location comes from
 // TICKET_SCOPE_MAP (resolved relative to the conductor's --root). The driver
 // never reads credentials itself — jira.sh owns auth; no token ever enters
